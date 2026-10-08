@@ -66,38 +66,29 @@ const withTail = (head: string | undefined, tail: string, headMax = 28) =>
 /**
  * Values in the fixed order the templates expect (see docs/WHATSAPP-TEMPLATES.md). Every message has exactly THREE
  * variables: WhatsApp tends to reject templates that have many variables for the amount of text, so the details are
- * folded into the third value: {{1}} student, {{2}} institute, {{3}} what happened.
+ * folded into one value. The order is {{1}} student, {{2}} details, {{3}} institute, and in EVERY template text (English
+ * and Hindi) the variables appear left to right as 1, 2, 3, because template editors number them by position.
  */
 export function varsFor(type: MessageType, c: MessageContext): string[] {
-  const common = [cleanVar(c.student), cleanVar(c.institute)];
+  const student = cleanVar(c.student);
+  const institute = cleanVar(c.institute);
+  const m = (details: string) => [student, cleanVar(details, 90), institute];
   switch (type) {
     case 'absent':
     case 'late':
-      return [...common, cleanVar(withTail(c.batch, ` class on ${cleanVar(c.date, 20)}`), 80)];
+      return m(withTail(c.batch, ` class on ${cleanVar(c.date, 20)}`));
     case 'fee_due':
-      return [
-        ...common,
-        cleanVar(
-          `${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 20)}, due on ${cleanVar(c.dueDate, 20)}`,
-          90,
-        ),
-      ];
+      return m(
+        `${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 20)}, due on ${cleanVar(c.dueDate, 20)}`,
+      );
     case 'fee_overdue':
-      return [
-        ...common,
-        cleanVar(
-          `${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 20)}, pending since ${cleanVar(c.since, 20)}`,
-          90,
-        ),
-      ];
+      return m(
+        `${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 20)}, pending since ${cleanVar(c.since, 20)}`,
+      );
     case 'payment_received':
-      return [
-        ...common,
-        cleanVar(
-          `${cleanVar(c.amount, 20)} (receipt ${cleanVar(c.receiptNo, 20)}, balance due ${cleanVar(c.balance, 20)})`,
-          90,
-        ),
-      ];
+      return m(
+        `${cleanVar(c.amount, 20)} (receipt ${cleanVar(c.receiptNo, 20)}, balance due ${cleanVar(c.balance, 20)})`,
+      );
   }
 }
 
