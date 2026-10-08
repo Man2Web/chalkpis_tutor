@@ -12,6 +12,8 @@ const schema = z.object({
   HOST: z.string().default('0.0.0.0'),
   /** True when a reverse proxy (Coolify/Traefik) sits in front, so the real client address is read from X-Forwarded-For. */
   TRUST_PROXY: flag('false'),
+  /** Requests allowed per minute from one address (the login routes have their own, stricter limits). */
+  RATE_LIMIT_PER_MIN: z.coerce.number().int().min(10).max(1_000_000).default(300),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 
   DB_HOST: z.string().min(1).default('127.0.0.1'),

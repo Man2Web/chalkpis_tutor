@@ -23,6 +23,7 @@ export const testConfig = (over: Partial<Config> = {}): Config => ({
   PORT: 0,
   HOST: '127.0.0.1',
   LOG_LEVEL: 'silent',
+  RATE_LIMIT_PER_MIN: 300,
   TRUST_PROXY: false,
   DB_HOST: ADMIN.host,
   DB_PORT: ADMIN.port,

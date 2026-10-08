@@ -30,7 +30,7 @@ export interface Tenant {
   instituteId: string;
   token: string;
   call: (
-    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     url: string,
     payload?: unknown,
   ) => Promise<{ status: number; body: any }>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -54,7 +54,12 @@ export async function startHarness(extra: Parameters<typeof testConfig>[0] = {})
   await runMigrations(db.pool, MIGRATIONS);
   const provider = new MockProvider();
   const clock = { now: new Date(NOW) };
-  const config = testConfig({ ...db.config, WA_TEMPLATE_OTP: '1809804', ...extra });
+  const config = testConfig({
+    ...db.config,
+    WA_TEMPLATE_OTP: '1809804',
+    RATE_LIMIT_PER_MIN: 100_000,
+    ...extra,
+  });
   const app = await buildApp({ config, pool: db.pool, provider, clock: () => clock.now });
 
   const reset = async () => {

@@ -9,6 +9,8 @@ import type { MessageProvider } from './messaging/provider.js';
 import { authRoutes } from './routes/auth.js';
 import { batchRoutes } from './routes/batches.js';
 import { studentRoutes } from './routes/students.js';
+import { attendanceRoutes } from './routes/attendance.js';
+import { feeRoutes } from './routes/fees.js';
 import { instituteRoutes } from './routes/institutes.js';
 
 export interface AppDeps {
@@ -48,7 +50,11 @@ export async function buildApp({
   await app.register(helmet, {
     contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
   });
-  await app.register(rateLimit, { global: true, max: 300, timeWindow: '1 minute' });
+  await app.register(rateLimit, {
+    global: true,
+    max: config.RATE_LIMIT_PER_MIN,
+    timeWindow: '1 minute',
+  });
 
   // Liveness: the process is up. Readiness: it can also reach the database.
   app.get('/health/live', async () => ({ status: 'ok' }));
@@ -62,6 +68,8 @@ export async function buildApp({
   instituteRoutes(app, { config, pool, clock });
   batchRoutes(app, { config, pool, clock });
   studentRoutes(app, { config, pool, clock });
+  attendanceRoutes(app, { config, pool, clock });
+  feeRoutes(app, { config, pool, clock });
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));
   app.setErrorHandler((err: FastifyError | AppError, req, reply) => {
