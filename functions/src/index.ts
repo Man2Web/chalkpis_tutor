@@ -28,6 +28,12 @@ import {
   parseTemplates,
   type TemplateMap,
 } from './lib/messaging';
+import {
+  buildParentView,
+  createParentLinkFor,
+  parentLinkStatusFor,
+  revokeParentLinksFor,
+} from './lib/parentLinks';
 import { notifyAttendance, notifyPayment, sendFeeReminders, type Deps } from './lib/notify';
 
 initializeApp();
@@ -319,3 +325,62 @@ export const dailyFeeReminders = onSchedule(
     }
   },
 );
+
+// ---------- Parent view (read-only page for parents) ----------
+const parentBaseUrl = () =>
+  env(
+    'PARENT_VIEW_BASE_URL',
+    inEmulator() ? 'http://127.0.0.1:5002' : `https://${process.env.GCLOUD_PROJECT}.web.app`,
+  ).replace(/\/$/, '');
+
+/** Owner makes a private link for one student's parents. The token appears only in the returned URL. */
+export const createParentLink = onCall(async (request) => {
+  const { instituteId } = await requireOwner(request.auth?.uid);
+  const studentId = request.data?.studentId;
+  if (typeof studentId !== 'string' || !studentId)
+    throw new HttpsError('invalid-argument', 'student-required');
+  const link = await createParentLinkFor(db(), {
+    instituteId,
+    studentId,
+    createdBy: request.auth!.uid,
+    days: request.data?.days,
+  });
+  if (!link) throw new HttpsError('not-found', 'student-not-found');
+  return { url: `${parentBaseUrl()}/p/${link.token}`, expiresAt: link.expiresAt.toISOString() };
+});
+
+/** Switches off every link of a student (for example if a link was shared by mistake). */
+export const revokeParentLinks = onCall(async (request) => {
+  const { instituteId } = await requireOwner(request.auth?.uid);
+  const studentId = request.data?.studentId;
+  if (typeof studentId !== 'string' || !studentId)
+    throw new HttpsError('invalid-argument', 'student-required');
+  return { revoked: await revokeParentLinksFor(db(), instituteId, studentId) };
+});
+
+export const parentLinkStatus = onCall(async (request) => {
+  const { instituteId } = await requireOwner(request.auth?.uid);
+  const studentId = request.data?.studentId;
+  if (typeof studentId !== 'string' || !studentId)
+    throw new HttpsError('invalid-argument', 'student-required');
+  const s = await parentLinkStatusFor(db(), instituteId, studentId);
+  return { active: s.active, latestExpiresAt: s.latestExpiresAt?.toISOString() ?? null };
+});
+
+/**
+ * The parent page calls this with the link's token. No login: the 256-bit token is the key. Unknown, expired
+ * and revoked links all answer the same 404, so nobody can probe which tokens exist.
+ */
+export const parentView = onRequest(async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'method-not-allowed' });
+    return;
+  }
+  const view = await buildParentView(db(), req.body?.token);
+  if (!view) {
+    res.status(404).json({ error: 'not-found' });
+    return;
+  }
+  res.status(200).json(view);
+});

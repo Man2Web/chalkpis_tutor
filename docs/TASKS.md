@@ -12,7 +12,7 @@
 - [x] 2 design: premium UI applied app-wide
 - [x] 2a plans and billing: catalogue, Razorpay payment links + webhook (signed, idempotent), emulator test mode, expiry job, Plans & billing screen, usage meters, expiry banner, read-only after expiry
 - [x] 2b parent notifications: WhatsApp gateway provider + mock, absent/late, fee due/overdue schedule, payment thanks, per-student opt-out, message log, settings screen (SMS fallback wired in code, no SMS provider yet; delivery reports not tracked yet)
-- [ ] 2c parent view (token link, callable, hosted read-only page)
+- [x] 2c parent view: private expiring/revocable link, hosted read-only page (EN/HI), owner creates/sends/revokes from the student profile
 - [ ] 2d staff role (invite by phone, assign batches, attendance only)
 - [ ] 2e offline (offline payments with provisional receipts, sync indicator)
 - [ ] 2f Hindi/number-format audit

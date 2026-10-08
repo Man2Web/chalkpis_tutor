@@ -44,3 +44,7 @@
 | 41 | The message log keeps only the last 4 digits of the number and never the text or values | Privacy rule: no phone numbers or payment details in logs |
 | 42 | WhatsApp credentials live only in Firebase secrets; plain settings (URL, number, template ids) come from `functions/.env`, not `defineString` | The emulator stops to prompt for any `defineString` without a `.env` value, which silently stopped all triggers from registering |
 | 43 | The gateway's `templateinfo` format (`<id>~<v1>~<v2>`) and POST vs GET are assumptions taken from the provider's sample; the real-send path is NOT tested against the live gateway | Needs one test message to the owner's own number |
+| 44 | Parent links hold a random 256-bit token; only its SHA-256 is stored (`parentLinks/{hash}`); unknown, expired and revoked links all answer the same 404 | A database leak cannot reveal working links, and nobody can probe which tokens exist |
+| 45 | The parent page is plain HTML/CSS/JS on Firebase Hosting, drawn with textContent only, strict CSP (no inline script), `no-referrer`, `noindex`, `no-store`; it calls `/api/parent` (a function) instead of reading Firestore | No Firebase keys or rules exposure in the page; user data cannot inject markup |
+| 46 | The page shows only: institute name/logo/phone, student name and class, 30 days of attendance, fees, last 8 non-reversed receipts | Minimum a parent needs; no phone numbers, notes, other students |
+| 47 | Hosting emulator runs on port 5002 | macOS reserves 5000 for AirPlay |

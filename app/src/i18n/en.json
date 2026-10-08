@@ -534,5 +534,26 @@
       "no-template": "No template for this message",
       "bad-phone": "Parent's number is not valid"
     }
+  },
+  "parentLink": {
+    "title": "Parent view",
+    "help": "A private, read-only page where the parents see attendance and fees. No login needed. Anyone with the link can see it, so send it only to the parents.",
+    "none": "No active link",
+    "active_one": "{{count}} active link · until {{date}}",
+    "active_other": "{{count}} active links · latest until {{date}}",
+    "validFor": "Link works for",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "create": "Create a new link",
+    "linkLabel": "Parent link",
+    "sendWhatsapp": "Send on WhatsApp",
+    "share": "Share…",
+    "revokeAll": "Switch off all links",
+    "revokeTitle": "Switch off all links?",
+    "revokeHelp": "Every link for {{name}} stops working at once. You can create a new one anytime.",
+    "revokeConfirm": "Yes, switch off",
+    "revoked": "Links switched off",
+    "failed": "Something went wrong. Please try again.",
+    "cannotShare": "Could not open the share menu"
   }
 }

@@ -83,5 +83,12 @@ In the emulators it works with no setup (a mock sender; the Message log shows "S
 Things to confirm with the gateway provider: that `templateinfo` is `<templateId>~<value1>~<value2>…`, whether it expects POST or GET, and the delivery-report format (delivery status is not tracked yet, so "Sent" means the gateway accepted the message).
 SMS fallback: the code supports an SMS provider as a second channel but none is connected yet; if WhatsApp fails the message is simply logged as Failed.
 
+## 7. Parent view page (Firebase Hosting)
+Parents open `https://<your-project-id>.web.app/p/<token>`; the page is `firebase/hosting/` and talks to the `parentView` function through the `/api/parent` rewrite.
+- **Locally:** `npm run emulators` also serves it at http://127.0.0.1:5002 (port 5002; macOS keeps 5000 for AirPlay). In the app open a student's profile, create a link, and open the link it shows.
+- **Deploy:** `npx firebase deploy --config firebase/firebase.json --only functions,hosting`.
+- **Own address (optional):** connect a domain in Firebase console -> Hosting, then add `PARENT_VIEW_BASE_URL=https://yourdomain.in` to `functions/.env` so new links use it.
+- **Safety:** each link holds a random 256-bit token (only its hash is stored); links expire after 7/30/90 days and the owner can switch all of a student's links off. Everything the page shows is one student's attendance, fees and receipts: no phone numbers, notes or other students. The page has no inline scripts and a strict content-security policy.
+
 ## Secrets
 Nothing secret is committed. Razorpay and WhatsApp keys (Phase 2) go in Firebase Functions secrets: `npx firebase functions:secrets:set RAZORPAY_KEY_SECRET`.
