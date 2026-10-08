@@ -1,9 +1,7 @@
-import { Platform } from 'react-native';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import type { Institute } from '../../data/hooks';
 import { prettyDate, toYmd } from '../../lib/dates';
 import { formatINR } from '../../lib/money';
+import { sharePdfHtml } from '../../lib/pdf';
 import type { FeeDue, Payment, Student } from '../../lib/types';
 import { receiptHtml, type DocLang } from './documents';
 import { netDue } from './logic';
@@ -38,19 +36,7 @@ export function receiptVars({ payment, student, institute, due, lang, modeLabel 
   };
 }
 
-/** Shares the receipt as a PDF (Android share sheet). In the browser preview it opens the print dialog. */
-export async function shareReceiptPdf(vars: ReturnType<typeof receiptVars>) {
-  const html = receiptHtml(vars);
-  if (Platform.OS === 'web') {
-    await Print.printAsync({ html });
-    return;
-  }
-  const { uri } = await Print.printToFileAsync({ html });
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(uri, {
-      mimeType: 'application/pdf',
-      dialogTitle: vars.receiptNo,
-      UTI: 'com.adobe.pdf',
-    });
-  }
+/** Shares the receipt as a PDF (Android share sheet; print dialog in the browser preview). */
+export function shareReceiptPdf(vars: ReturnType<typeof receiptVars>) {
+  return sharePdfHtml(receiptHtml(vars), vars.receiptNo);
 }

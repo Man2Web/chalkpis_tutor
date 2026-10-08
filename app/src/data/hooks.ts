@@ -10,7 +10,7 @@ import {
 } from '@react-native-firebase/firestore';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../features/auth/session';
-import { attendanceId, firstOfMonth, todayYmd } from '../lib/dates';
+import { attendanceId, todayYmd } from '../lib/dates';
 import { db } from '../lib/firebase';
 import type { AttendanceDoc, Batch, FeeDue, Payment, Student } from '../lib/types';
 
@@ -247,18 +247,42 @@ export function usePayment(paymentId: string) {
   });
 }
 
-/** Payments (and reversals) recorded since the start of this month, Indian time. */
-export function usePaymentsThisMonth() {
+const nextMonthStart = (month: string) => {
+  const [y, m] = month.split('-').map(Number);
+  return `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, '0')}-01`;
+};
+
+/** Payments (and reversals) recorded in a month (yyyy-mm), Indian time. */
+export function usePaymentsInMonth(month: string) {
   const id = useInstituteId();
-  const from = firstOfMonth(todayYmd());
   return useQuery({
-    queryKey: ['payments', id, 'month', from],
+    queryKey: ['payments', id, 'month', month],
     queryFn: async (): Promise<Payment[]> => {
-      const start = Timestamp.fromDate(new Date(`${from}T00:00:00+05:30`));
+      const start = Timestamp.fromDate(new Date(`${month}-01T00:00:00+05:30`));
+      const end = Timestamp.fromDate(new Date(`${nextMonthStart(month)}T00:00:00+05:30`));
       const snap = await getDocs(
-        query(col(id, 'payments'), where('paidAt', '>=', start), orderBy('paidAt', 'desc')),
+        query(
+          col(id, 'payments'),
+          where('paidAt', '>=', start),
+          where('paidAt', '<', end),
+          orderBy('paidAt', 'desc'),
+        ),
       );
       return snap.docs.map(toPayment);
+    },
+  });
+}
+
+export const usePaymentsThisMonth = () => usePaymentsInMonth(todayYmd().slice(0, 7));
+
+/** Dues whose period is the given month (generated monthly dues and one-off charges). */
+export function useDuesForPeriod(month: string) {
+  const id = useInstituteId();
+  return useQuery({
+    queryKey: ['dues', id, 'period', month],
+    queryFn: async (): Promise<FeeDue[]> => {
+      const snap = await getDocs(query(col(id, 'feeDues'), where('period', '==', month)));
+      return snap.docs.map(toDue);
     },
   });
 }

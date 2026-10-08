@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Button, ListItem, Screen } from '../../components';
@@ -21,6 +21,11 @@ export function MoreScreen() {
           onPress={() => nav.navigate('Batches')}
         />
         <ListItem
+          title={t('reports.title')}
+          right={chevron}
+          onPress={() => nav.navigate('Reports')}
+        />
+        <ListItem
           title={t('import.fromCsv')}
           right={chevron}
           onPress={() => nav.navigate('StudentImport', { mode: 'csv' })}
@@ -29,6 +34,11 @@ export function MoreScreen() {
           title={t('import.fromContacts')}
           right={chevron}
           onPress={() => nav.navigate('StudentImport', { mode: 'contacts' })}
+        />
+        <ListItem
+          title={t('settings.title')}
+          right={chevron}
+          onPress={() => nav.navigate('Settings')}
         />
       </View>
       <View style={{ padding: spacing.lg }}>

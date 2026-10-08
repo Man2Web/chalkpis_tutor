@@ -58,6 +58,7 @@ export function recordPayment(p: RecordPayment): Promise<{ paymentId: string; re
     if (!dueSnap.exists()) return fail('notFound');
     const due = dueSnap.data() as {
       studentId: string;
+      batchId?: string | null;
       amount: number;
       discount: number;
       paid: number;
@@ -83,6 +84,7 @@ export function recordPayment(p: RecordPayment): Promise<{ paymentId: string; re
       note: p.note ?? '',
       recordedBy: p.uid,
       balanceAfter: Math.max(0, netDue(due) - result.paid),
+      batchId: due.batchId ?? null,
       createdAt: now,
       updatedAt: now,
     });
@@ -114,6 +116,7 @@ export function reversePayment(a: { instituteId: string; uid: string; paymentId:
       dueId: string;
       amount: number;
       mode: PayMode;
+      batchId?: string | null;
     };
     if (pay.amount <= 0) return fail('notReversible');
 
@@ -139,6 +142,7 @@ export function reversePayment(a: { instituteId: string; uid: string; paymentId:
       receiptUrl: null,
       note: '',
       recordedBy: a.uid,
+      batchId: pay.batchId ?? null,
       reversalOf: a.paymentId,
       createdAt: now,
       updatedAt: now,

@@ -29,6 +29,8 @@ npm run web            # terminal 2: opens the app at http://localhost:8081
 Sign in with any 10-digit number. No SMS is sent: the OTP screen shows a yellow "Test mode" box with the code and a "Use this code" button. (Or get it with
 `curl -s http://127.0.0.1:9099/emulator/v1/projects/demo-tutordesk/verificationCodes`.) Only the newest code for a number works.
 Data is wiped each time you stop the emulators.
+
+Want demo data? With the emulators running, run `npm run seed` in a third terminal, then sign in with `9999900001` (30 students, a month of attendance, fees and payments).
 Limits of the browser preview: it is not the real Android app. Calling, WhatsApp, contacts import and native share do not work; layout is shown at phone width. Android and production builds are unaffected (Firebase web SDK is used only for the browser).
 
 ## 2. Run locally with emulators

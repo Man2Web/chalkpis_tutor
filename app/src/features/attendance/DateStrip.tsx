@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import { addDays, prettyDate, todayYmd } from '../../lib/dates';
 import { colors, radius, spacing, TAP, type } from '../../theme';

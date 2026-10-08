@@ -1,10 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Screen } from '../components';
 import { LanguageScreen } from '../features/auth/LanguageScreen';
 import { OtpScreen } from '../features/auth/OtpScreen';
 import { PhoneLoginScreen } from '../features/auth/PhoneLoginScreen';
@@ -13,13 +12,16 @@ import { MoreScreen } from '../features/more/MoreScreen';
 import { BatchScreen } from '../features/onboarding/BatchScreen';
 import { ProfileScreen } from '../features/onboarding/ProfileScreen';
 import { StudentsScreen } from '../features/onboarding/StudentsScreen';
-import { colors, type } from '../theme';
+import { colors } from '../theme';
 import { CollectFeeScreen } from '../features/fees/CollectFeeScreen';
 import { FeeLedgerScreen } from '../features/fees/FeeLedgerScreen';
 import { FeePlanScreen } from '../features/fees/FeePlanScreen';
 import { FeesOverviewScreen } from '../features/fees/FeesOverviewScreen';
 import { ReceiptScreen } from '../features/fees/ReceiptScreen';
 import { ReminderScreen } from '../features/fees/ReminderScreen';
+import { HomeScreen } from '../features/dashboard/HomeScreen';
+import { ReportsScreen } from '../features/reports/ReportsScreen';
+import { SettingsScreen } from '../features/settings/SettingsScreen';
 import { AttendanceHomeScreen } from '../features/attendance/AttendanceHomeScreen';
 import { AttendanceReportScreen } from '../features/attendance/AttendanceReportScreen';
 import { MarkAttendanceScreen } from '../features/attendance/MarkAttendanceScreen';
@@ -60,15 +62,6 @@ function OnboardingStack({ resume }: { resume: boolean }) {
   );
 }
 
-// Tab content for these arrives with their features (students, attendance, fees, dashboard).
-function Soon({ title }: { title: string }) {
-  return (
-    <Screen>
-      <Text style={type.title}>{title}</Text>
-    </Screen>
-  );
-}
-
 const ICONS = {
   Home: 'home-outline',
   Students: 'people-outline',
@@ -91,9 +84,7 @@ function MainTabs() {
         ),
       })}
     >
-      <Tabs.Screen name="Home" options={{ title: t('tabs.home') }}>
-        {() => <Soon title={t('tabs.home')} />}
-      </Tabs.Screen>
+      <Tabs.Screen name="Home" component={HomeScreen} options={{ title: t('tabs.home') }} />
       <Tabs.Screen
         name="Students"
         component={StudentsListScreen}
@@ -169,6 +160,16 @@ function MainStack() {
         name="Reminder"
         component={ReminderScreen}
         options={{ title: t('fees.remind') }}
+      />
+      <Main.Screen
+        name="Reports"
+        component={ReportsScreen}
+        options={{ title: t('reports.title') }}
+      />
+      <Main.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ title: t('settings.title') }}
       />
       <Main.Screen
         name="AttendanceReport"

@@ -25,4 +25,6 @@ export type MainStackParams = {
   Receipt: { paymentId: string };
   FeePlan: { studentId: string };
   Reminder: { studentId: string };
+  Reports: undefined;
+  Settings: undefined;
 };

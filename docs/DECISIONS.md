@@ -28,3 +28,8 @@
 | 25 | One-off charges are normal dues with id `<studentId>_x<time>` and `kind: 'charge'` | Cannot collide with generated `<studentId>_yyyy-mm` ids, so the daily job stays idempotent |
 | 26 | Editing a student's fee plan changes FUTURE dues only | Past dues are a record; edit a due's discount/waive to change one |
 | 27 | Receipt PDF: `expo-print` + share sheet on Android; the browser preview opens the print dialog instead | Native-only APIs; not exercised in the browser test |
+| 28 | Payments now store `batchId` (from the due) | Lets the monthly report split collection by batch; older payments show under "No batch" |
+| 29 | Seed script is split into `seed.ts` (data, tested) and `seedCli.ts` (Auth + CLI), and refuses to run without `FIRESTORE_EMULATOR_HOST` | Jest cannot load the Auth admin library; the guard makes seeding a real project impossible by accident |
+| 30 | Icons are imported per family (`@expo/vector-icons/Ionicons`) | Only one icon font ships (390 KB) instead of ten |
+| 31 | Delete account requires typing DELETE; it removes institute data, files, profile and the sign-in | Play Store requirement; hard to trigger by accident |
+| 32 | Cold start, 100-student attendance time and APK size are NOT measured yet; targets are in MANUAL-TEST.md | Needs a real device and a release build |
