@@ -7,7 +7,7 @@
 - [x] Phase 1d: attendance (mark, holiday, past dates, reports, student + batch summaries)
 - [x] Phase 1e: fees (overview, ledger, collect, receipts PDF, reversal, discounts, waive, one-off charges, fee plan, reminders)
 - [x] Phase 1f: dashboard, reports (CSV + PDF), settings (profile, institute, language, delete account), seed script, README, manual test checklist
-- [ ] Phase 2: billing, notifications, parent view, staff, offline, Hindi
+- [ ] Phase 2: staff, offline, Hindi (billing, notifications and parent view are done)
 
 ## Phase 2 progress
 
@@ -26,5 +26,6 @@
 - [x] M2 students and batches API: SQL tables with composite foreign keys (a cross-institute link is impossible even in raw SQL), plan limits under a per-institute lock, bulk import all-or-nothing, owner-only writes, 30 new tests (133 server tests). The app screens are switched over at M5
 - [x] M3 attendance and fees API: attendance days/marks (replace-the-day, holidays, range, per-student history, report with low-attendance list), fee dues generation (idempotent, monthly/quarterly/one-time), payments with gap-free receipt numbers, one-time reversals, discount/waive/charges, overview, dashboard, fee report; 35 new tests (168 server tests). Message triggers on absent/late/payment come with M4's queue
 - [x] M4 billing (Razorpay payment links + signed, idempotent webhook matched against our own orders, expiry job), parent WhatsApp messages (settings, queue written in the same transaction as the event, daily reminders, retrying worker, log with last-4 only), private parent links + hosted read-only page, logo and student-photo uploads on server disk; 58 new tests (251 server tests)
-- [ ] M5 jobs, hardening, backups, cut-over, remove Firebase
-- [ ] then: staff role, offline sync, Hindi audit
+- [x] M5 scheduled jobs (nightly dues, hourly plan expiry, 9 am fee reminders, cleanup; each run is claimed in the database so servers and restarts cannot double-run), account deletion (owner: whole institute and pictures; staff: own login), CORS allow-list, no-store API responses, backup and restore scripts (restore tested with Hindi/Tamil text, checksums and refusals tested), load test (144 requests/second on a laptop with 40 clients, no errors, receipt numbers 1 to 304 without gaps), the app switched to the new server (WhatsApp-code sign-in, REST data layer, uploads), Firebase removed everywhere, clean-clone check; 270 server tests, 236 app tests
+- [ ] Deploy to the Hostinger VPS (needs: private GitHub repository, domain for the API, WhatsApp gateway address, remaining template ids, Razorpay keys; see SETUP.md section 2)
+- [ ] then: staff role (2d), offline use with saved-for-later changes (2e), Hindi/number-format audit (2f)

@@ -1,110 +1,77 @@
-# Setup guide (do these once)
+# Setup guide
 
-## 0. On your Mac
+Chalkpis for Tutors has two parts: the **app** (`app/`, React Native) and the **server** (`server/`, Node.js + MariaDB). The server holds all the data, sends the WhatsApp messages and serves the parent page.
 
-1. **Java (needed for the Firebase emulators):** `brew install openjdk@17`, then `sudo ln -sfn /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-17.jdk`. Check with `java -version`.
-2. **Android Studio** (https://developer.android.com/studio) for the emulator, or plug in an Android phone with USB debugging on.
-3. Node is already installed (v24). Functions deploy on Node 20 automatically.
-4. In this folder run `npm install` then `npm run install:all`.
+## 1. Try everything on your Mac (no Android phone needed)
 
-## 1. Create the Firebase project
-
-1. https://console.firebase.google.com -> **Add project** -> name it (e.g. `tutordesk-prod`). Analytics: on.
-2. **Build -> Firestore Database** -> Create -> **Production mode** -> location **asia-south1 (Mumbai)**. (Cannot be changed later.)
-3. **Build -> Storage** -> Get started -> same location.
-4. **Build -> Authentication** -> Get started -> **Sign-in method** -> enable **Phone**. Add test phone numbers if you want to skip real SMS while developing.
-5. Upgrade to the **Blaze** plan (required for Cloud Functions; free quota is generous).
-6. **Project settings -> General -> Add app -> Android**:
-   - Package name: `in.tutordesk.app` (change in `app/app.json` if you want another; must match).
-   - SHA-1: get it with `cd app && npx expo prebuild --platform android` then `cd android && ./gradlew signingReport` (debug key), or from EAS: `eas credentials`. Add both debug and release SHA-1.
-   - Download **google-services.json** and put it at `app/google-services.json` (git-ignored).
-7. **App Check**: Build -> App Check -> register the Android app with **Play Integrity**. Turn on enforcement for Firestore, Storage and Auth only after testing a release build.
-8. Crashlytics and Analytics: enable Crashlytics in the console (Release & Monitor -> Crashlytics).
-9. Link the project: `npx firebase login` then `npx firebase use --add` (inside `firebase/` use the project id).
-
-## 1b. Quickest way to try the app on a laptop (browser preview, no Android Studio)
-
-Needs only Node and Java (see step 0). Uses a fake local Firebase project (`demo-tutordesk`); no account needed.
+You need Node 22+ and MariaDB (`brew install mariadb`; it is only used by the project's own private copy, nothing is installed as a service).
 
 ```
-npm run emulators      # terminal 1: Auth, Firestore, Functions, Storage (UI at http://localhost:4000)
-npm run web            # terminal 2: opens the app at http://localhost:8081
+npm install && npm run install:all
+cp server/.env.example server/.env      # local settings; edit if you like
+npm --prefix server run db:start        # a private MariaDB on port 3307 (stop with db:stop)
+npm run server                          # terminal 1: the server at http://127.0.0.1:8787
+npm run web                             # terminal 2: the app in the browser at http://localhost:8081
 ```
 
-Sign in with any 10-digit number. No SMS is sent: the OTP screen shows a yellow "Test mode" box with the code and a "Use this code" button. (Or get it with
-`curl -s http://127.0.0.1:9099/emulator/v1/projects/demo-tutordesk/verificationCodes`.) Only the newest code for a number works.
-Data is wiped each time you stop the emulators.
+In the browser the app asks for a mobile number; with `OTP_DEV_ECHO=true` (the example setting) no WhatsApp message is sent and the code is shown on the screen in a yellow box. In `server/.env` also set `CORS_ORIGINS=http://localhost:8081` so the browser is allowed to talk to the server.
 
-Want demo data? With the emulators running, run `npm run seed` in a third terminal, then sign in with `9999900001` (30 students, a month of attendance, fees and payments).
-Limits of the browser preview: it is not the real Android app. Calling, WhatsApp, contacts import and native share do not work; layout is shown at phone width. Android and production builds are unaffected (Firebase web SDK is used only for the browser).
+Tests: `npm test` (app and server). `npm run loadtest` runs the load test.
 
-## 2. Run locally with emulators
+## 2. Put the server on your Hostinger VPS (Coolify)
 
-```
-npm run emulators        # starts Auth, Firestore, Functions, Storage + UI at http://localhost:4000
-cd app && cp .env.example .env   # set EXPO_PUBLIC_FIREBASE_EMULATOR=true
-npm run android          # builds the dev client and runs it
-```
+The server is a Docker app (`server/Dockerfile`); Coolify builds and runs it. Do these once.
 
-The Android emulator reaches your Mac at `10.0.2.2` (default in `.env.example`). On a real phone use your Mac's LAN IP.
+1. **Git repository.** Create a private GitHub repository and push this project to it. (Not done yet: nothing has been pushed anywhere.)
+2. **Database.** In Coolify: **New resource -> Database -> MariaDB 11**. Note its internal host name, user, password and database name. Turn on its **Backups** (see [BACKUPS.md](BACKUPS.md)).
+3. **Application.** **New resource -> Application -> your repository**, build pack **Dockerfile**, base directory `server`, port `8080`. Add a **persistent storage** volume mounted at `/data/uploads` (logos and student photos live there) and another at `/data/backups`.
+4. **Domain.** Point a name such as `api.your-domain.in` at the VPS address and set it as the application's domain in Coolify (Coolify issues the HTTPS certificate).
+5. **Settings (Environment variables).** Set these in Coolify, never in the code. Generate each secret with `openssl rand -base64 48`.
 
-## 3. Deploy backend
+   | Setting                                                                          | Value                                                                                         |
+   | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+   | `NODE_ENV`                                                                       | `production`                                                                                  |
+   | `TRUST_PROXY`                                                                    | `true`                                                                                        |
+   | `PUBLIC_BASE_URL`                                                                | `https://api.your-domain.in`                                                                  |
+   | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`                        | from the Coolify database                                                                     |
+   | `JWT_SECRET`, `OTP_PEPPER`                                                       | two different long random values                                                              |
+   | `WA_API_URL`, `WA_FROM`, `WA_CLIENT_ID`, `WA_CLIENT_PASSWORD`, `WA_TEMPLATE_OTP` | your WhatsApp gateway (see section 3)                                                         |
+   | `WA_TEMPLATES`                                                                   | the approved parent-message template ids (see [WHATSAPP-TEMPLATES.md](WHATSAPP-TEMPLATES.md)) |
+   | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`              | see section 4                                                                                 |
 
-```
-npm --prefix functions run build
-npx firebase deploy --config firebase/firebase.json --only firestore,storage,functions
-```
+   Leave `OTP_DEV_ECHO` unset in production (it is ignored there anyway).
 
-## 4. Release build with EAS
+6. **Deploy.** The server creates and updates its database tables by itself on start. Open `https://api.your-domain.in/health`: it should say `{"status":"ok","db":"up"}`.
+7. **Backups.** Add the scheduled task from [BACKUPS.md](BACKUPS.md) and practise one restore.
 
-1. `npm i -g eas-cli` then `eas login` (free account at https://expo.dev).
-2. `cd app && eas init` (writes the real project id into `app.json`).
-3. Upload `google-services.json` as a file secret: `eas secret:create --scope project --type file --name GOOGLE_SERVICES_JSON --value ./google-services.json` and set `"googleServicesFile": "./google-services.json"` stays as is for local; for EAS point it at the env var if needed.
-4. `eas build --platform android --profile production` — EAS creates and stores a signing keystore for you (back it up: `eas credentials`).
-5. Upload the `.aab` to Play Console. Required: privacy policy URL (set `EXPO_PUBLIC_PRIVACY_POLICY_URL`) and the in-app delete-account flow (Settings).
+The container build has not been tried yet (Docker is not installed on the development Mac), so expect Coolify's first build to be the first real test.
 
-## 5. Online payments (Razorpay) for plans
+## 3. WhatsApp (login codes and parent messages)
 
-Plans work end to end in the emulators with a test mode ("Pay ₹399 (test)"), no account needed. For real money:
+- **Login code:** an approved _authentication_ template (id `1809804`) with one value, the code. Set `WA_API_URL` (the gateway's send address, ideally a host name), `WA_FROM` (your business number, digits only), `WA_CLIENT_ID`, `WA_CLIENT_PASSWORD` and `WA_TEMPLATE_OTP`.
+- **Parent messages:** five _utility_ templates; the exact texts are in [WHATSAPP-TEMPLATES.md](WHATSAPP-TEMPLATES.md). Put the ids in `WA_TEMPLATES`. A message with no id is skipped and shown in the Message log as "No template for this message".
+- To confirm with your gateway provider: that `templateinfo` is `<templateId>~<value1>~<value2>~<value3>`, and whether it expects POST or GET (`WA_API_METHOD`). Delivery reports are not tracked yet, so "Sent" means the gateway accepted the message.
+- Test with a student whose parent number is **your own** number before switching messages on for everyone.
 
-1. Create a Razorpay account (https://razorpay.com), finish KYC, and in **Settings -> API keys** generate a **Test mode** key pair first.
-2. Store three secrets (Firebase will ask for the value of each). Until you have real keys type `unset` for each: the app then says "Online payments are not set up yet" instead of failing.
-   ```
-   npx firebase functions:secrets:set RAZORPAY_KEY_ID
-   npx firebase functions:secrets:set RAZORPAY_KEY_SECRET
-   npx firebase functions:secrets:set RAZORPAY_WEBHOOK_SECRET
-   ```
-3. Deploy, then in Razorpay **Settings -> Webhooks -> Add new webhook**: URL `https://asia-south1-<your-project-id>.cloudfunctions.net/razorpayWebhook`, a secret of your choice (the same value as `RAZORPAY_WEBHOOK_SECRET`), event **payment_link.paid**.
-4. Pay a test plan with Razorpay's test card/UPI. The owner's plan should switch to active within seconds; a retried webhook never extends the plan twice.
-5. When ready, replace the secrets with Live keys and redeploy.
-   The prices and limits live in `functions/src/lib/plans.ts` (the server decides; the app only displays them).
+## 4. Online payments (Razorpay)
 
-## 6. WhatsApp messages to parents
+1. Create a Razorpay account and finish KYC; in **Settings -> API keys** make a **Test mode** key pair first.
+2. Set `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and a `RAZORPAY_WEBHOOK_SECRET` (16+ characters of your choice).
+3. In Razorpay **Settings -> Webhooks -> Add new webhook**: URL `https://api.your-domain.in/billing/webhooks/razorpay`, the same secret, event **payment_link.paid**.
+4. Buy a plan with Razorpay's test card or UPI. The plan switches on within seconds, and a re-delivered webhook never extends it twice.
+5. When ready, swap in the Live keys.
 
-The app sends absent/late alerts, fee reminders and payment thanks through your WhatsApp gateway, using templates you create (exact texts and the order of `{{1}}…` values are in `docs/WHATSAPP-TEMPLATES.md`).
-In the emulators it works with no setup (a mock sender; the Message log shows "Sent"). For real messages:
+Without keys, local runs use a mock ("Pay (test)" in the app); in production buying says "not set up yet".
 
-1. **Credentials go in Firebase secrets, never in the code or in chat.** Run each command and paste the value when asked:
-   ```
-   npx firebase functions:secrets:set WA_CLIENT_ID
-   npx firebase functions:secrets:set WA_CLIENT_PASSWORD
-   ```
-2. Copy `functions/.env.example` to `functions/.env` and fill in: `WA_API_URL` (the gateway's send URL, ideally a hostname rather than a bare IP), `WA_FROM` (your business number, digits only, e.g. 916384009225) and `WA_TEMPLATES` (the approved template ids, one line of JSON).
-3. Deploy the functions. Until all of the above are set, messages are logged as "WhatsApp is not set up yet" and nothing is sent.
-4. In the app: **More -> Parent messages**, turn on "Send messages to parents" and choose what to send. Only parents whose student has "Send updates to parent" on are messaged.
-5. Test with a student whose parent number is YOUR number before turning it on for everyone.
-   Things to confirm with the gateway provider: that `templateinfo` is `<templateId>~<value1>~<value2>…`, whether it expects POST or GET, and the delivery-report format (delivery status is not tracked yet, so "Sent" means the gateway accepted the message).
-   SMS fallback: the code supports an SMS provider as a second channel but none is connected yet; if WhatsApp fails the message is simply logged as Failed.
+## 5. Build the Android app (EAS)
 
-## 7. Parent view page (Firebase Hosting)
+1. `npm i -g eas-cli`, then `eas login` (free account at https://expo.dev).
+2. `cd app && eas init`, which writes the real project id into `app.json`.
+3. Choose the **final Android package id** before the first release (it cannot change afterwards). It is `in.tutordesk.app` today; change `android.package` in `app/app.json`.
+4. Set the server address for the build: `EXPO_PUBLIC_API_URL=https://api.your-domain.in` (an EAS environment variable).
+5. `eas build --platform android --profile production`. EAS creates and stores the signing key (back it up with `eas credentials`).
+6. Upload the `.aab` to Play Console. Required: a privacy policy address (`EXPO_PUBLIC_PRIVACY_POLICY_URL`) and the in-app delete-account flow (Settings), which is built.
 
-Parents open `https://<your-project-id>.web.app/p/<token>`; the page is `firebase/hosting/` and talks to the `parentView` function through the `/api/parent` rewrite.
+## 6. Parent page
 
-- **Locally:** `npm run emulators` also serves it at http://127.0.0.1:5002 (port 5002; macOS keeps 5000 for AirPlay). In the app open a student's profile, create a link, and open the link it shows.
-- **Deploy:** `npx firebase deploy --config firebase/firebase.json --only functions,hosting`.
-- **Own address (optional):** connect a domain in Firebase console -> Hosting, then add `PARENT_VIEW_BASE_URL=https://yourdomain.in` to `functions/.env` so new links use it.
-- **Safety:** each link holds a random 256-bit token (only its hash is stored); links expire after 7/30/90 days and the owner can switch all of a student's links off. Everything the page shows is one student's attendance, fees and receipts: no phone numbers, notes or other students. The page has no inline scripts and a strict content-security policy.
-
-## Secrets
-
-Nothing secret is committed. Razorpay and WhatsApp keys (Phase 2) go in Firebase Functions secrets: `npx firebase functions:secrets:set RAZORPAY_KEY_SECRET`.
+Parents open `https://api.your-domain.in/p/<token>`. The tutor makes the link on the student's profile. The page is served by the same server (`server/public/`), is read-only, and shows one student's attendance, fees and receipts only.

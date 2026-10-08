@@ -1,7 +1,7 @@
 # TutorDesk — Product Requirements (condensed)
 
 Android-first app for private tutors and small coaching centres in India: students, batches, attendance, fees, parent updates.
-Stack: Expo (managed + dev client, EAS), TypeScript strict, React Navigation, React Native Firebase (Auth, Firestore offline, Storage, FCM, App Check, Crashlytics, Analytics), Cloud Functions gen2 (Node 20, asia-south1), React Query + Zustand, react-hook-form + zod, i18next (en, hi).
+Stack: Expo (managed + dev client, EAS), TypeScript strict, React Navigation, its own server (Node 22, Fastify, MariaDB on a Hostinger VPS; WhatsApp-code login; see HOSTINGER-MIGRATION.md), React Query + Zustand, react-hook-form + zod, i18next (en, hi).
 
 ## Roles
 

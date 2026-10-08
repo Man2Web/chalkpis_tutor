@@ -1,7 +1,7 @@
 # Moving the whole backend to Hostinger
 
 Decision (owner): host the complete database and files on Hostinger instead of Firebase.
-Status: PLAN. Nothing has been created or changed on the Hostinger account yet.
+Status: BUILT AND TESTED LOCALLY (M0 to M5). The app now talks only to the new server and Firebase has been removed. Nothing has been created on the Hostinger account yet: the next step is the deploy in [SETUP.md](SETUP.md) section 2, which needs a private GitHub repository, a domain and (for real messages and payments) the WhatsApp and Razorpay settings.
 
 ## Decisions so far
 

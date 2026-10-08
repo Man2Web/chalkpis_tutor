@@ -1,11 +1,13 @@
 # Manual test checklist (real Android phone)
 
+The server must be running and reachable from the phone (see SETUP.md); set `EXPO_PUBLIC_API_URL` for the build.
+
 Automated tests and the browser preview cover logic and flows, but not the phone itself. Run this on an Android 8+ phone after a build (see SETUP.md). Tick what you checked; write down anything odd with the screen name.
 
 ## Sign-in and setup
 
 - [ ] Language screen: switch English / Hindi; text changes everywhere afterwards
-- [ ] Enter your real mobile number; the SMS code arrives; wrong code shows a friendly message; "Resend" works after 30 s
+- [ ] Enter your real mobile number; the WhatsApp code arrives; wrong code shows a friendly message; "Resend" works after 60 s
 - [ ] Onboarding: name, institute, optional logo (pick a photo), first batch, add a student; close the app halfway and reopen: it resumes
 - [ ] Log out and log back in on the same phone
 

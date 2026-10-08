@@ -1,60 +1,60 @@
-# TutorDesk
+# Chalkpis for Tutors
 
-Tuition management for Indian private tutors and small coaching centres: students, batches, attendance, fees and parent reminders. Android-first (React Native), with English and Hindi.
+Tuition management for Indian private tutors and small coaching centres: students, batches, attendance, fees and WhatsApp updates to parents. Android-first (React Native), English and Hindi.
 
 ## Architecture
 
 ```
-app/        Expo (managed + dev client) · React Native · TypeScript strict
-            src/features/*  one folder per feature: screens, pure logic (tested), Firestore writes
-            src/data        React Query hooks that read Firestore; plan-limit guard
-            src/components  design system (Button, Input, Card, Chip, ListItem, BottomSheet, Toast, ...)
-            src/i18n        en.json / hi.json (a test keeps them identical in shape)
-            src/web         browser-preview shims (Firebase web SDK); never used on Android
-functions/  Cloud Functions gen2, Node 20, asia-south1
-            generateFeeDues (daily 02:00 IST) · onStudentWrite / onBatchWrite (counters + plan limits)
-            createInstitute · deleteAccount · seed script
-firebase/   firestore.rules · storage.rules · indexes · emulator config · rules tests
-docs/       PRD · DECISIONS (why) · TASKS · SETUP (Firebase + EAS) · MANUAL-TEST (phone checklist)
+app/      Expo (managed + dev client) · React Native · TypeScript strict
+          src/features/*  one folder per feature: screens, pure logic (tested), the calls to the server (api.ts)
+          src/api         the server client: sign-in tokens, automatic refresh, uploads
+          src/data        React Query hooks that read from the server
+          src/components  design system (Button, Input, Card, Chip, ListItem, BottomSheet, Toast, AnimatedSplash, ...)
+          src/i18n        en.json / hi.json (a test keeps them identical in shape)
+server/   Node 22 · TypeScript · Fastify · MariaDB (plain SQL, no ORM)
+          migrations/     numbered SQL files, applied by the server on start
+          src/            routes · services · auth (WhatsApp code login, rotating sessions) · jobs · messaging queue
+          public/         the read-only parent page
+          scripts/        backup.sh · restore.sh · loadtest.ts
+docs/     PRD · DECISIONS (why) · TASKS · SETUP (run, deploy, build) · BACKUPS · WHATSAPP-TEMPLATES · MANUAL-TEST
 ```
 
 How the pieces fit:
 
-- **Everything lives under `institutes/{id}`** so each customer is isolated. Security rules check the signed-in user's `instituteId`; roles and plan state can only be written by the server.
-- **Money is integer paise.** Fee logic is pure and tested (`app/src/features/fees/logic.ts`).
-- **A payment is a transaction**: receipt number + payment + due update commit together. Payments are append-only; a correction is a reversing entry.
-- **Attendance is one document per batch per day**, a single write.
-- **Screens stay thin**: business rules (percentages, dues, imports, reports) are plain functions with unit tests; screens call them.
+- **Every row belongs to an institute.** The server reads the caller's institute and role from the database on every request (never from the request), and the database refuses links across institutes with composite foreign keys.
+- **Money is integer paise.** A payment locks its due, takes the next receipt number and writes the payment in one transaction. Payments are append-only; a correction is a reversing entry.
+- **Parent messages are queued in the same transaction as the event** (attendance saved, payment recorded) and sent by a worker with retries, so none is lost or sent twice.
+- **Screens stay thin**: business rules (percentages, dues, imports, reports) are plain functions with unit tests.
 
-## Run it on a laptop (no Android Studio)
+## Run it on a laptop
 
-Needs Node 20+ and Java 17+. Details and the Firebase/EAS release steps are in [docs/SETUP.md](docs/SETUP.md).
+See [docs/SETUP.md](docs/SETUP.md). In short:
 
 ```bash
 npm install && npm run install:all
-npm run emulators        # terminal 1: local Firebase
-npm run seed             # optional: demo institute (login with 9999900001)
-npm run web              # terminal 2: app in the browser at http://localhost:8081
+cp server/.env.example server/.env
+npm --prefix server run db:start
+npm run server     # terminal 1
+npm run web        # terminal 2: http://localhost:8081
 ```
 
-The OTP screen shows the test code in a yellow box (no SMS is sent against the emulators). The browser preview is not the real Android app: calling, WhatsApp, contacts import and native share only work on a phone. Use [docs/MANUAL-TEST.md](docs/MANUAL-TEST.md) on a real device.
+The browser preview is not the real Android app: calling, WhatsApp links, contacts import and native share only work on a phone. Use [docs/MANUAL-TEST.md](docs/MANUAL-TEST.md) on a real device.
 
 ## Scripts (repo root)
 
-| Script | What it does |
-|---|---|
-| `npm run install:all` | install app, functions and firebase packages |
-| `npm run emulators` | local Firebase emulators (builds functions first) |
-| `npm run seed` | demo data: 1 institute, 3 batches, 30 students, a month of attendance, 2 months of dues, payments. Refuses to run without an emulator |
-| `npm run web` | browser preview against the emulators |
-| `npm run lint` / `typecheck` | across all packages |
-| `npm test` | app tests + function unit tests (emulator-backed ones are skipped) |
-| `npm run test:emulator` | rules tests + function/seed tests against emulators (needs Java) |
+| Script                       | What it does                                                  |
+| ---------------------------- | ------------------------------------------------------------- |
+| `npm run install:all`        | install the app and server packages                           |
+| `npm run server`             | the server with auto-restart (reads `server/.env`)            |
+| `npm run web`                | the app in the browser                                        |
+| `npm run lint` / `typecheck` | across both packages                                          |
+| `npm test`                   | app tests and server tests (starts the private test database) |
+| `npm run loadtest`           | 40 clients hammering a real server on a throwaway database    |
 
 ## Quality gates
 
-`lint`, `typecheck`, `npm test` and `test:emulator` all pass; a pre-commit hook runs lint and typecheck; CI (`.github/workflows/ci.yml`) runs all of them.
+`lint`, `typecheck` and `npm test` pass; a pre-commit hook runs lint and typecheck; CI (`.github/workflows/ci.yml`) runs the checks for the app and the server (with a real MariaDB).
 
-## Not done yet (Phase 2)
+## Not done yet
 
-Plans and Razorpay billing, automatic parent notifications (WhatsApp/SMS provider), parent web view, staff role, offline payments with provisional receipts, offline/sync indicator. The plan-limit prompt and read-only-after-expiry already work; there is just no way to buy a plan yet.
+Staff role, offline use with saved-for-later changes, a Hindi/number-format audit, push notifications, delivery reports for WhatsApp messages. The container build and the real WhatsApp and Razorpay connections are untried until the server is deployed. See [docs/TASKS.md](docs/TASKS.md).
