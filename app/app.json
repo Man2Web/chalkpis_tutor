@@ -10,14 +10,12 @@
     "android": {
       "package": "in.chalkpis.tutors",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "permissions": [
-        "READ_CONTACTS"
-      ]
+      "permissions": ["READ_CONTACTS"]
     },
     "plugins": [
       "expo-dev-client",

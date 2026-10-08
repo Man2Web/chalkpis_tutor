@@ -67,12 +67,17 @@ Without keys, local runs use a mock ("Pay (test)" in the app); in production buy
 
 ## 5. Build the Android app (EAS)
 
-1. `npm i -g eas-cli`, then `eas login` (free account at https://expo.dev).
-2. `cd app && eas init`, which writes the real project id into `app.json`.
-3. The **Android package id** is final once released (it cannot change afterwards). It is `in.chalkpis.tutors` (set in `app/app.json`).
-4. Set the server address for the build: `EXPO_PUBLIC_API_URL=https://api.chalkpis.com` (an EAS environment variable).
-5. `eas build --platform android --profile production`. EAS creates and stores the signing key (back it up with `eas credentials`).
-6. Upload the `.aab` to Play Console. Required: a privacy policy address (`EXPO_PUBLIC_PRIVACY_POLICY_URL`) and the in-app delete-account flow (Settings), which is built.
+Already prepared in the repository: `app/eas.json` (three build profiles, each pointing the app at `https://api.chalkpis.com`), the app name and package id (`in.chalkpis.tutors`), and the Chalkpis icons (made from the animation's mark: launcher icon, Android adaptive and themed icons). The app was checked to bundle for Android.
+
+Steps that need your Expo account (free, https://expo.dev):
+
+1. In a terminal: `cd app && npx eas-cli@latest login` (type your Expo email and password there; nobody else sees them).
+2. `npx eas-cli@latest init` creates the project on your account and writes its id into `app.json` (replacing `REPLACE_WITH_EAS_PROJECT_ID`). Commit that change.
+3. **A test build you can install on any Android phone:** `npx eas-cli@latest build --platform android --profile preview` (about 15 to 25 minutes; you get a download link to an `.apk`).
+4. **The Play Store build:** `npx eas-cli@latest build --platform android --profile production` makes an `.aab`. EAS creates and stores the signing key for you; back it up with `npx eas-cli@latest credentials`.
+5. Play Console (https://play.google.com/console, one-time US$25 fee): create the app, fill in the store listing, add a **privacy policy address** (set `EXPO_PUBLIC_PRIVACY_POLICY_URL` in the profile's `env` in `eas.json` once you have one) and the data-safety form, then upload the `.aab` to an **internal testing** track first. The in-app delete-account flow (Settings) that Google requires is built.
+
+Changing the server address later: edit `EXPO_PUBLIC_API_URL` in `app/eas.json` and build again.
 
 ## 6. Parent page
 
