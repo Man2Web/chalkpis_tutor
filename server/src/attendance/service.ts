@@ -3,6 +3,7 @@ import { inTransaction, type Pool, type PoolConnection } from '../db.js';
 import { requireActivePlan } from '../institutes/limits.js';
 import { daysBetween, todayYmd } from '../lib/ist.js';
 import { newId } from '../lib/ids.js';
+import { enqueueAttendance } from '../messaging/notify.js';
 import { withNamedLock } from '../lib/lock.js';
 import { LOW_ATTENDANCE_PERCENT, toStat } from './stats.js';
 
@@ -77,12 +78,17 @@ export async function saveDay(
           'INSERT INTO attendance_marks (institute_id, day_id, student_id, mark) VALUES ?',
           [studentIds.map((s) => [instituteId, day.id, s, marks[s]])],
         );
-      const changed = studentIds.filter((s) => before.get(s) !== marks[s]);
-      return {
-        id: day.id,
-        absentNow: changed.filter((s) => marks[s] === 'A'),
-        lateNow: changed.filter((s) => marks[s] === 'L'),
-      };
+      // Only students who were not already Absent/Late are told: a correction (Absent -> Late) sends nothing.
+      const fresh = studentIds.filter((s) => before.get(s) !== 'A' && before.get(s) !== 'L');
+      const absentNow = fresh.filter((s) => marks[s] === 'A');
+      const lateNow = fresh.filter((s) => marks[s] === 'L');
+      await enqueueAttendance(
+        c,
+        instituteId,
+        { dayId: day.id, batchId: d.batchId, date: d.date, absentNow, lateNow },
+        now,
+      );
+      return { id: day.id, absentNow, lateNow };
     }),
   );
 }

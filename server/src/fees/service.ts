@@ -2,6 +2,7 @@ import { AppError, notFound } from '../errors.js';
 import { withTransaction, type Pool, type PoolConnection } from '../db.js';
 import { requireActivePlan } from '../institutes/limits.js';
 import { newId } from '../lib/ids.js';
+import { enqueuePayment } from '../messaging/notify.js';
 import { isRealDate, paidAtFor, todayYmd, ymdOf } from '../lib/ist.js';
 import {
   applyPayment,
@@ -269,6 +270,12 @@ export async function recordPayment(
       dueId,
     ]);
     await c.query('UPDATE institutes SET next_receipt_no = ? WHERE id = ?', [seq + 1, instituteId]);
+    await enqueuePayment(
+      c,
+      instituteId,
+      { paymentId: id, studentId: due.student_id, amount: p.amount, receiptNo, balanceAfter },
+      now,
+    );
     return { paymentId: id, receiptNo, balanceAfter, status: result.status };
   });
 }

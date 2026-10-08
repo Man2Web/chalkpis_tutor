@@ -5,6 +5,8 @@ import { loadConfig } from './config.js';
 import { createPool } from './db.js';
 import { MockBillingProvider, RazorpayProvider, type BillingProvider } from './billing/provider.js';
 import { MockProvider, WhatsAppProvider, type MessageProvider } from './messaging/provider.js';
+import { parseTemplates } from './messaging/templates.js';
+import { startWorker } from './messaging/worker.js';
 import { runMigrations } from './migrate.js';
 
 const MIGRATIONS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
@@ -48,8 +50,18 @@ async function main() {
     );
   const app = await buildApp({ config, pool, provider, billing });
 
+  const stopWorker = startWorker(
+    { pool, provider, templates: parseTemplates(config.WA_TEMPLATES) },
+    (e) =>
+      app.log.error(
+        { err: { name: (e as Error).name, code: (e as { code?: string }).code } },
+        'message worker failed',
+      ),
+  );
+
   const stop = async (signal: string) => {
     app.log.info({ signal }, 'shutting down');
+    stopWorker();
     await app.close();
     await pool.end();
     process.exit(0);

@@ -45,6 +45,8 @@ const schema = z.object({
   /** Approved authentication template id for the login code (one value: the code). */
   WA_TEMPLATE_OTP: z.string().min(1).optional(),
 
+  /** JSON: { "absent": { "en": "id", "hi": "id" }, ... } for the 5 parent messages (see docs/WHATSAPP-TEMPLATES.md). */
+  WA_TEMPLATES: z.string().optional(),
   /** Razorpay (plan purchases). Without keys the server uses the local mock in development and answers 503 in production. */
   RAZORPAY_KEY_ID: z.string().min(1).optional(),
   RAZORPAY_KEY_SECRET: z.string().min(1).optional(),

@@ -40,6 +40,8 @@ export interface Tenant {
 }
 
 const TABLES = [
+  'messages',
+  'notify_settings',
   'billing_events',
   'billing_orders',
   'payments',

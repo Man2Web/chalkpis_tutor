@@ -13,6 +13,7 @@ import { studentRoutes } from './routes/students.js';
 import { attendanceRoutes } from './routes/attendance.js';
 import { feeRoutes } from './routes/fees.js';
 import { billingRoutes } from './routes/billing.js';
+import { messageRoutes } from './routes/messages.js';
 import { instituteRoutes } from './routes/institutes.js';
 
 export interface AppDeps {
@@ -75,6 +76,7 @@ export async function buildApp({
   studentRoutes(app, { config, pool, clock });
   attendanceRoutes(app, { config, pool, clock });
   feeRoutes(app, { config, pool, clock });
+  messageRoutes(app, { config, pool, clock });
   billingRoutes(app, { config, pool, billing, clock });
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));
