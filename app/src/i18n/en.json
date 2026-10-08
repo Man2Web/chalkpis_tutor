@@ -111,7 +111,6 @@
     "inactive": "Inactive",
     "feesPending": "Fees pending",
     "classN": "Class {{n}}",
-    "count": "{{count}} students",
     "emptyTitle": "No students yet",
     "emptyMessage": "Add your first student, or import a list.",
     "noMatch": "No students match",
@@ -147,7 +146,9 @@
     "callParent": "Call parent",
     "callStudent": "Call student",
     "whatsappStudent": "WhatsApp student",
-    "cannotOpen": "Could not open that app"
+    "cannotOpen": "Could not open that app",
+    "count_one": "{{count}} student",
+    "count_other": "{{count}} students"
   },
   "batches": {
     "title": "Batches",
@@ -157,7 +158,6 @@
     "emptyTitle": "No batches yet",
     "emptyMessage": "Create a batch to group students and take attendance.",
     "noArchived": "No archived batches",
-    "studentsN": "{{count}} students",
     "formTitle": "Batch",
     "detail": "Batch details",
     "notFound": "Batch not found",
@@ -173,7 +173,9 @@
     "noStudents": "No students in this batch yet",
     "noCandidates": "No other active students",
     "addN": "Add {{count}}",
-    "remove": "Remove"
+    "remove": "Remove",
+    "studentsN_one": "{{count}} student",
+    "studentsN_other": "{{count}} students"
   },
   "import": {
     "title": "Import students",
@@ -196,8 +198,6 @@
     "summary": "{{ok}} ready, {{bad}} with problems (not imported)",
     "noName": "(no name)",
     "shareErrors": "Share error report",
-    "importN": "Import {{count}} students",
-    "done": "{{count}} students imported",
     "overLimit": "Your plan has room for only {{room}} more students.",
     "errors": {
       "name": "Name is missing or too short",
@@ -208,6 +208,11 @@
       "dueDay": "Due day must be 1 to 31",
       "batchUnknown": "Batch name does not match any batch",
       "duplicate": "Already exists (same name and parent phone)"
-    }
+    },
+    "contactsWeb": "Contacts are only available in the Android app, not in the browser preview.",
+    "done_one": "{{count}} student imported",
+    "done_other": "{{count}} students imported",
+    "importN_one": "Import {{count}} student",
+    "importN_other": "Import {{count}} students"
   }
 }

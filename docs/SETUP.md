@@ -20,6 +20,17 @@
 8. Crashlytics and Analytics: enable Crashlytics in the console (Release & Monitor -> Crashlytics).
 9. Link the project: `npx firebase login` then `npx firebase use --add` (inside `firebase/` use the project id).
 
+## 1b. Quickest way to try the app on a laptop (browser preview, no Android Studio)
+Needs only Node and Java (see step 0). Uses a fake local Firebase project (`demo-tutordesk`); no account needed.
+```
+npm run emulators      # terminal 1: Auth, Firestore, Functions, Storage (UI at http://localhost:4000)
+npm run web            # terminal 2: opens the app at http://localhost:8081
+```
+Sign in with any 10-digit number. No SMS is sent: get the 6-digit code with
+`curl -s http://127.0.0.1:9099/emulator/v1/projects/demo-tutordesk/verificationCodes` (or in the Emulator UI -> Authentication).
+Data is wiped each time you stop the emulators.
+Limits of the browser preview: it is not the real Android app. Calling, WhatsApp, contacts import and native share do not work; layout is shown at phone width. Android and production builds are unaffected (Firebase web SDK is used only for the browser).
+
 ## 2. Run locally with emulators
 ```
 npm run emulators        # starts Auth, Firestore, Functions, Storage + UI at http://localhost:4000

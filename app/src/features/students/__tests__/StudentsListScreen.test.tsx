@@ -72,6 +72,12 @@ it('lists students with the batch name and a pending-fee chip', async () => {
   expect(screen.getByText('2 students')).toBeTruthy();
 });
 
+it('uses the singular for one student', async () => {
+  setup([student('1', 'Asha Rao')]);
+  await render(<StudentsListScreen />);
+  expect(screen.getByText('1 student')).toBeTruthy();
+});
+
 it('search narrows the list', async () => {
   setup([student('1', 'Asha Rao'), student('2', 'Bala K')]);
   await render(<StudentsListScreen />);

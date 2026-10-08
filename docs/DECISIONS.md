@@ -16,3 +16,6 @@
 | 13 | `batch.studentCount` counts ACTIVE students and is updated in the same write as the student change (increment) | Keeps batch lists cheap (no per-batch student queries) |
 | 14 | Contact import saves the contact's number as the PARENT phone | Tutors usually save parents' numbers; students can be edited afterwards |
 | 15 | CSV import skips problem rows (never partially imports a row), flags duplicates (same name + parent phone), and offers a shareable error report | Predictable, re-runnable imports |
+| 16 | Local dev uses a fake `app/google-services.json` for project `demo-tutordesk` and emulators started with `--project demo-tutordesk` | Lets the app run against emulators with no Firebase account; the file is git-ignored and replaced by the real one for production (SETUP.md) |
+| 17 | Browser preview: Metro swaps `@react-native-firebase/*` for the Firebase web SDK only when platform is web (`app/metro.config.js`, `app/src/web/*`); analytics/crashlytics are no-ops there | Lets the owner test on a laptop without Android Studio; the native Android build is untouched. Not a shipping target |
+| 18 | Plural strings use i18next `_one`/`_other` keys | Avoids "1 students" |

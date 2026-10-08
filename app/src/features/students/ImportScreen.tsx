@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
-import { FlatList, Share, Text, View } from 'react-native';
+import { FlatList, Platform, Share, Text, View } from 'react-native';
 import * as Contacts from 'expo-contacts/legacy';
 import * as DocumentPicker from 'expo-document-picker';
-import { File } from 'expo-file-system';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import {
@@ -23,6 +22,7 @@ import {
   useStudents,
 } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
+import { readText } from '../../lib/files';
 import { parseCsv, toCsv } from '../../lib/csv';
 import { normalizeIndianPhone } from '../../lib/phone';
 import type { MainStackParams } from '../../navigation/types';
@@ -75,7 +75,7 @@ export function ImportScreen({
         copyToCacheDirectory: true,
       });
       if (res.canceled) return;
-      const text = await new File(res.assets[0].uri).text();
+      const text = await readText(res.assets[0].uri);
       const parsed = mapImportRows(parseCsv(text), ctx());
       if (!parsed.length) toast(t('import.emptyFile'), 'error');
       else setRows(parsed);
@@ -86,6 +86,10 @@ export function ImportScreen({
   };
 
   const loadContacts = async () => {
+    if (Platform.OS === 'web') {
+      toast(t('import.contactsWeb'), 'error');
+      return;
+    }
     try {
       const perm = await Contacts.requestPermissionsAsync();
       if (perm.status !== 'granted') {
