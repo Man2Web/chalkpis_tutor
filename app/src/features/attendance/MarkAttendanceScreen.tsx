@@ -24,7 +24,7 @@ import { reportError, track } from '../../lib/analytics';
 import { prettyDate, todayYmd } from '../../lib/dates';
 import type { Mark } from '../../lib/types';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, radius, spacing, TAP, type } from '../../theme';
+import { TAP, colors, radius, spacing, type } from '../../theme';
 import { useSession } from '../auth/session';
 import { saveAttendance } from './api';
 import { DateStrip } from './DateStrip';
@@ -187,6 +187,12 @@ export function MarkAttendanceScreen({
         <View style={{ flex: 1 }} />
       ) : (
         <FlatList
+          style={{
+            marginHorizontal: spacing.lg,
+            marginBottom: spacing.md,
+            borderRadius: radius.lg,
+            overflow: 'hidden',
+          }}
           data={rows}
           extraData={marks}
           keyExtractor={(r) => r.student.id}

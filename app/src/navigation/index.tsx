@@ -78,10 +78,20 @@ function MainTabs() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: { minHeight: 64, paddingBottom: 8, paddingTop: 6 },
-        tabBarIcon: ({ color, size }) => (
-          <Ionicons name={ICONS[route.name as keyof typeof ICONS]} size={size} color={color} />
-        ),
+        tabBarStyle: {
+          minHeight: 66,
+          paddingBottom: 8,
+          paddingTop: 6,
+          backgroundColor: 'rgba(249,249,251,0.97)',
+          borderTopWidth: 0.5,
+          borderTopColor: 'rgba(60,60,67,0.18)',
+        },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarIcon: ({ color, size, focused }) => {
+          const outline = ICONS[route.name as keyof typeof ICONS];
+          const name = (focused ? outline.replace('-outline', '') : outline) as typeof outline;
+          return <Ionicons name={name} size={size + 2} color={color} />;
+        },
       })}
     >
       <Tabs.Screen name="Home" component={HomeScreen} options={{ title: t('tabs.home') }} />

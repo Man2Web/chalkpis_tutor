@@ -14,7 +14,7 @@ import {
 import { useAddGuard } from '../../data/guards';
 import { useBatches } from '../../data/hooks';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, spacing, type } from '../../theme';
+import { colors, radius, spacing, type } from '../../theme';
 import { scheduleLabel } from './format';
 
 export function BatchesScreen({ navigation }: NativeStackScreenProps<MainStackParams, 'Batches'>) {
@@ -50,7 +50,7 @@ export function BatchesScreen({ navigation }: NativeStackScreenProps<MainStackPa
         <View
           style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
         >
-          <Text style={type.title}>{t('batches.title')}</Text>
+          <Text style={type.largeTitle}>{t('batches.title')}</Text>
           <Button title={t('batches.add')} onPress={add} />
         </View>
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
@@ -74,6 +74,12 @@ export function BatchesScreen({ navigation }: NativeStackScreenProps<MainStackPa
         </View>
       ) : (
         <FlatList
+          style={{
+            marginHorizontal: spacing.lg,
+            marginBottom: spacing.md,
+            borderRadius: radius.lg,
+            overflow: 'hidden',
+          }}
           data={list}
           keyExtractor={(b) => b.id}
           refreshControl={

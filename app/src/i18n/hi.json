@@ -376,7 +376,15 @@
     "collectedToday": "आज की वसूली",
     "collectedMonth": "इस महीने की वसूली",
     "todaysBatches": "आज के बैच",
-    "noClassesToday": "आज कोई कक्षा निर्धारित नहीं"
+    "noClassesToday": "आज कोई कक्षा निर्धारित नहीं",
+    "heroTitle": "आज की उपस्थिति",
+    "allMarked": "सभी बैच दर्ज हो गए",
+    "toMark_one": "{{count}} बैच दर्ज करना बाकी",
+    "toMark_other": "{{count}} बैच दर्ज करना बाकी",
+    "overdue": "देय तिथि निकली",
+    "acrossBatches_one": "{{count}} बैच में",
+    "acrossBatches_other": "{{count}} बैचों में",
+    "todayAmount": "आज {{amount}}"
   },
   "reports": {
     "title": "रिपोर्ट",

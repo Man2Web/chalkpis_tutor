@@ -40,17 +40,17 @@ export function Button({ title, onPress, variant = 'primary', loading, disabled,
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: TAP,
+    minHeight: TAP + 2,
     paddingHorizontal: spacing.lg,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primary: { backgroundColor: colors.primary },
+  primary: { backgroundColor: colors.primary, boxShadow: '0 6px 16px rgba(47,91,234,0.28)' },
   secondary: { backgroundColor: colors.primarySoft },
   danger: { backgroundColor: colors.danger },
   ghost: { backgroundColor: 'transparent' },
-  text: { fontSize: 16, fontWeight: '600' },
+  text: { fontSize: 16, fontWeight: '600', letterSpacing: -0.2 },
 });
 const textColor = StyleSheet.create({
   primary: { color: colors.onPrimary },

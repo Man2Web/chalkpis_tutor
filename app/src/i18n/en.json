@@ -376,7 +376,15 @@
     "collectedToday": "Collected today",
     "collectedMonth": "Collected this month",
     "todaysBatches": "Today's batches",
-    "noClassesToday": "No classes scheduled today"
+    "noClassesToday": "No classes scheduled today",
+    "heroTitle": "Attendance today",
+    "allMarked": "All batches are marked",
+    "toMark_one": "{{count}} batch to mark",
+    "toMark_other": "{{count}} batches to mark",
+    "overdue": "Overdue",
+    "acrossBatches_one": "in {{count}} batch",
+    "acrossBatches_other": "across {{count}} batches",
+    "todayAmount": "{{amount}} today"
   },
   "reports": {
     "title": "Reports",

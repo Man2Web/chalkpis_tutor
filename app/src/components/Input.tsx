@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
     minHeight: TAP,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.md - 2,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.surface,
     fontSize: 16,

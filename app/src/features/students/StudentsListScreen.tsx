@@ -18,7 +18,7 @@ import {
 import { useAddGuard } from '../../data/guards';
 import { useBatches, usePendingStudentIds, useStudents } from '../../data/hooks';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, spacing, type } from '../../theme';
+import { colors, radius, spacing, type } from '../../theme';
 import { distinctClasses, filterStudents } from './logic';
 
 export function StudentsListScreen() {
@@ -70,7 +70,7 @@ export function StudentsListScreen() {
         <View
           style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
         >
-          <Text style={type.title}>{t('tabs.students')}</Text>
+          <Text style={type.largeTitle}>{t('tabs.students')}</Text>
           <Button title={t('students.add')} onPress={() => setMenu(true)} />
         </View>
         <Input
@@ -131,6 +131,12 @@ export function StudentsListScreen() {
         </View>
       ) : (
         <FlatList
+          style={{
+            marginHorizontal: spacing.lg,
+            marginBottom: spacing.md,
+            borderRadius: radius.lg,
+            overflow: 'hidden',
+          }}
           data={list}
           keyExtractor={(s) => s.id}
           initialNumToRender={15}

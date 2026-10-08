@@ -74,7 +74,7 @@ export function FeesOverviewScreen() {
         )}
         ListHeaderComponent={
           <View style={{ padding: spacing.lg, gap: spacing.md }}>
-            <Text style={type.title}>{t('tabs.fees')}</Text>
+            <Text style={type.largeTitle}>{t('tabs.fees')}</Text>
             {dues.isLoading ? (
               <Skeleton height={96} />
             ) : (

@@ -62,6 +62,7 @@ export function dashboardStats(i: DashboardInput) {
     pendingAmount: dues.outstanding,
     pendingStudents: dues.students,
     overdueAmount: dues.overdueAmount,
+    overdueStudents: dues.overdueStudents,
     collectedToday: netCollected(paidToday),
     collectedMonth: netCollected(i.paymentsMonth),
     todaysBatches,

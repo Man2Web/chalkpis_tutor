@@ -1,5 +1,5 @@
 import { Image, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme';
+import { tintFor } from '../theme';
 
 type Props = { name: string; uri?: string | null; size?: number };
 
@@ -12,9 +12,10 @@ export function Avatar({ name, uri, size = 44 }: Props) {
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? '')
     .join('');
+  const tint = tintFor(name);
   return (
-    <View style={[styles.fallback, box]} accessibilityLabel={name}>
-      <Text style={{ color: colors.primaryDark, fontWeight: '700', fontSize: size * 0.38 }}>
+    <View style={[styles.fallback, box, { backgroundColor: tint.bg }]} accessibilityLabel={name}>
+      <Text style={{ color: tint.ink, fontWeight: '600', fontSize: size * 0.38 }}>
         {initials || '?'}
       </Text>
     </View>
@@ -22,5 +23,5 @@ export function Avatar({ name, uri, size = 44 }: Props) {
 }
 
 const styles = StyleSheet.create({
-  fallback: { backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  fallback: { alignItems: 'center', justifyContent: 'center' },
 });

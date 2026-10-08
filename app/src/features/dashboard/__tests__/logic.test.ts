@@ -110,6 +110,7 @@ describe('dashboardStats', () => {
     expect(s.pendingAmount).toBe(100000 + 100000 + 60000);
     expect(s.pendingStudents).toBe(2);
     expect(s.overdueAmount).toBe(100000 + 60000);
+    expect(s.overdueStudents).toBe(2);
   });
 
   it('collected today vs this month, net of reversals', () => {

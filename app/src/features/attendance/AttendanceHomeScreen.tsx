@@ -7,7 +7,7 @@ import { Button, Chip, EmptyState, ListItem, Screen, Skeleton } from '../../comp
 import { useAttendanceOn, useBatches } from '../../data/hooks';
 import { todayYmd, weekdayOf } from '../../lib/dates';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, spacing, type } from '../../theme';
+import { colors, radius, spacing, type } from '../../theme';
 import { scheduleLabel } from '../batches/format';
 import { DateStrip } from './DateStrip';
 import { counts } from './logic';
@@ -65,7 +65,7 @@ export function AttendanceHomeScreen() {
         <View
           style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
         >
-          <Text style={type.title}>{t('tabs.attendance')}</Text>
+          <Text style={type.largeTitle}>{t('tabs.attendance')}</Text>
           <Button
             variant="secondary"
             title={t('attendance.reports')}
@@ -83,6 +83,12 @@ export function AttendanceHomeScreen() {
         </View>
       ) : (
         <FlatList
+          style={{
+            marginHorizontal: spacing.lg,
+            marginBottom: spacing.md,
+            borderRadius: radius.lg,
+            overflow: 'hidden',
+          }}
           data={sorted}
           keyExtractor={(b) => b.id}
           refreshControl={

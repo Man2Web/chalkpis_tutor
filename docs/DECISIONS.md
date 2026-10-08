@@ -33,3 +33,4 @@
 | 30 | Icons are imported per family (`@expo/vector-icons/Ionicons`) | Only one icon font ships (390 KB) instead of ten |
 | 31 | Delete account requires typing DELETE; it removes institute data, files, profile and the sign-in | Play Store requirement; hard to trigger by accident |
 | 32 | Cold start, 100-student attendance time and APK size are NOT measured yet; targets are in MANUAL-TEST.md | Needs a real device and a release build |
+| 33 | Premium UI applied app-wide through theme tokens (`app/src/theme`): iOS-style grouped ground #F2F2F7, 20-24 px cards with two-layer shadows, tinted avatars (same name = same colour), large titles, filled/outline tab icons, attendance ring on Home | Design approved on the "TutorDesk Premium UI" canvas; one set of tokens keeps every screen consistent |
