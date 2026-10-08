@@ -16,7 +16,8 @@
     "test": "vitest run",
     "db:start": "bash scripts/db-local.sh start",
     "db:stop": "bash scripts/db-local.sh stop",
-    "db:status": "bash scripts/db-local.sh status"
+    "db:status": "bash scripts/db-local.sh status",
+    "loadtest": "tsx scripts/loadtest.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.1",
