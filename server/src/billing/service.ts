@@ -18,7 +18,7 @@ export async function createOrder(
   try {
     link = await provider.createPaymentLink({
       amountPaise: plan.pricePaise,
-      description: `TutorDesk ${plan.name} plan (${plan.months} months)`,
+      description: `Chalkpis ${plan.name} plan (${plan.months} months)`,
       referenceId: orderId,
       customerPhone: a.ownerPhone,
     });

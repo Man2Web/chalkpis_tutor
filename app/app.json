@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "TutorDesk",
-    "slug": "tutordesk",
-    "scheme": "tutordesk",
+    "name": "Chalkpis for Tutors",
+    "slug": "chalkpis",
+    "scheme": "chalkpis",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,9 +16,7 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "permissions": [
-        "READ_CONTACTS"
-      ]
+      "permissions": ["READ_CONTACTS"]
     },
     "plugins": [
       "expo-dev-client",
@@ -41,7 +39,15 @@
       "@react-native-firebase/crashlytics",
       "@react-native-firebase/app-check",
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FFFFFF",
+          "image": "./assets/splash-blank.png",
+          "imageWidth": 104
+        }
+      ]
     ],
     "extra": {
       "eas": {

@@ -168,7 +168,7 @@
       img.referrerPolicy = "no-referrer";
       h.appendChild(img);
     }
-    h.appendChild(el("div", "name", inst ? inst.name : "TutorDesk"));
+    h.appendChild(el("div", "name", inst ? inst.name : "Chalkpis"));
     h.appendChild(langSwitch());
     return h;
   }
