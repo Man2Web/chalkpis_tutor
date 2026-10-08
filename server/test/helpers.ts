@@ -5,9 +5,11 @@ import { createInstitute } from '../src/institutes/service.js';
 import { newId } from '../src/lib/ids.js';
 import { signToken } from '../src/lib/jwt.js';
 import { runMigrations } from '../src/migrate.js';
+import { MockBillingProvider } from '../src/billing/provider.js';
 import { MockProvider } from '../src/messaging/provider.js';
 import { createTestDb, testConfig, type TestDb } from './db.js';
 
+export const WEBHOOK_SECRET = 'whsec_test_secret_0123456789';
 export const NOW = new Date('2026-10-08T06:00:00Z');
 export const MIGRATIONS = path.join(
   path.dirname(new URL(import.meta.url).pathname),
@@ -19,6 +21,7 @@ export interface Harness {
   db: TestDb;
   app: FastifyInstance;
   provider: MockProvider;
+  billing: MockBillingProvider;
   clock: { now: Date };
   reset: () => Promise<void>;
   tenant: (phone: string, names?: { tutor?: string; institute?: string }) => Promise<Tenant>;
@@ -37,6 +40,12 @@ export interface Tenant {
 }
 
 const TABLES = [
+  'billing_events',
+  'billing_orders',
+  'payments',
+  'fee_dues',
+  'attendance_marks',
+  'attendance_days',
   'student_batches',
   'students',
   'batches',
@@ -53,14 +62,16 @@ export async function startHarness(extra: Parameters<typeof testConfig>[0] = {})
   const db = await createTestDb();
   await runMigrations(db.pool, MIGRATIONS);
   const provider = new MockProvider();
+  const billing = new MockBillingProvider();
   const clock = { now: new Date(NOW) };
   const config = testConfig({
     ...db.config,
     WA_TEMPLATE_OTP: '1809804',
     RATE_LIMIT_PER_MIN: 100_000,
+    RAZORPAY_WEBHOOK_SECRET: WEBHOOK_SECRET,
     ...extra,
   });
-  const app = await buildApp({ config, pool: db.pool, provider, clock: () => clock.now });
+  const app = await buildApp({ config, pool: db.pool, provider, billing, clock: () => clock.now });
 
   const reset = async () => {
     await db.pool.query('SET FOREIGN_KEY_CHECKS=0');
@@ -105,6 +116,7 @@ export async function startHarness(extra: Parameters<typeof testConfig>[0] = {})
     db,
     app,
     provider,
+    billing,
     clock,
     reset,
     tenant,

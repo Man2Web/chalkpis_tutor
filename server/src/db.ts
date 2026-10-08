@@ -10,7 +10,7 @@ export function createPool(
     'DB_HOST' | 'DB_PORT' | 'DB_USER' | 'DB_PASSWORD' | 'DB_NAME' | 'DB_POOL_SIZE' | 'DB_SSL'
   >,
 ): Pool {
-  return mysql.createPool({
+  const pool = mysql.createPool({
     host: cfg.DB_HOST,
     port: cfg.DB_PORT,
     user: cfg.DB_USER,
@@ -28,6 +28,13 @@ export function createPool(
     queueLimit: 100,
     connectTimeout: 10_000,
   });
+  // READ COMMITTED on every connection. MariaDB 11 otherwise fails a transaction that read a row, then locks it after
+  // another request changed it ("record has changed since last read"). All money paths take explicit row locks
+  // (SELECT ... FOR UPDATE), which is what keeps them correct.
+  pool.pool.on('connection', (conn) => {
+    conn.query('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
+  });
+  return pool;
 }
 
 /** True when the database answers a trivial query. Never throws. */

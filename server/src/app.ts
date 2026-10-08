@@ -5,12 +5,14 @@ import type { Config } from './config.js';
 import { AppError } from './errors.js';
 import { ping, type Pool } from './db.js';
 import { safeUrl } from './logging.js';
+import type { BillingProvider } from './billing/provider.js';
 import type { MessageProvider } from './messaging/provider.js';
 import { authRoutes } from './routes/auth.js';
 import { batchRoutes } from './routes/batches.js';
 import { studentRoutes } from './routes/students.js';
 import { attendanceRoutes } from './routes/attendance.js';
 import { feeRoutes } from './routes/fees.js';
+import { billingRoutes } from './routes/billing.js';
 import { instituteRoutes } from './routes/institutes.js';
 
 export interface AppDeps {
@@ -20,6 +22,8 @@ export interface AppDeps {
   logStream?: NodeJS.WritableStream;
   /** Sends login codes. Null means not configured: the login-code route answers 503. */
   provider?: MessageProvider | null;
+  /** Creates plan payment links. Null means not configured: buying answers 503. */
+  billing?: BillingProvider | null;
   /** Test hook: the current time. */
   clock?: () => Date;
 }
@@ -30,6 +34,7 @@ export async function buildApp({
   pool,
   logStream,
   provider = null,
+  billing = null,
   clock,
 }: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
@@ -70,6 +75,7 @@ export async function buildApp({
   studentRoutes(app, { config, pool, clock });
   attendanceRoutes(app, { config, pool, clock });
   feeRoutes(app, { config, pool, clock });
+  billingRoutes(app, { config, pool, billing, clock });
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));
   app.setErrorHandler((err: FastifyError | AppError, req, reply) => {

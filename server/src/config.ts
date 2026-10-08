@@ -45,6 +45,11 @@ const schema = z.object({
   /** Approved authentication template id for the login code (one value: the code). */
   WA_TEMPLATE_OTP: z.string().min(1).optional(),
 
+  /** Razorpay (plan purchases). Without keys the server uses the local mock in development and answers 503 in production. */
+  RAZORPAY_KEY_ID: z.string().min(1).optional(),
+  RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().min(16).optional(),
+
   /** Run pending migrations when the server starts. Safe: guarded by a database lock. */
   AUTO_MIGRATE: flag('true'),
 });

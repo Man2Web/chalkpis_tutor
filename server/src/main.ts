@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createPool } from './db.js';
+import { MockBillingProvider, RazorpayProvider, type BillingProvider } from './billing/provider.js';
 import { MockProvider, WhatsAppProvider, type MessageProvider } from './messaging/provider.js';
 import { runMigrations } from './migrate.js';
 
@@ -37,7 +38,15 @@ async function main() {
       'WhatsApp is not configured: login codes cannot be sent until WA_* settings are set.',
     );
   }
-  const app = await buildApp({ config, pool, provider });
+  let billing: BillingProvider | null = null;
+  if (config.RAZORPAY_KEY_ID && config.RAZORPAY_KEY_SECRET)
+    billing = new RazorpayProvider(config.RAZORPAY_KEY_ID, config.RAZORPAY_KEY_SECRET);
+  else if (config.NODE_ENV !== 'production') billing = new MockBillingProvider();
+  else
+    console.warn(
+      'Razorpay is not configured: plan purchases are unavailable until RAZORPAY_* settings are set.',
+    );
+  const app = await buildApp({ config, pool, provider, billing });
 
   const stop = async (signal: string) => {
     app.log.info({ signal }, 'shutting down');
