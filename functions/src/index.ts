@@ -5,7 +5,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { defineSecret } from 'firebase-functions/params';
 import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
-import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as functionsV1 from 'firebase-functions/v1';
 import { deleteAccountForUser } from './lib/account';
@@ -21,6 +21,14 @@ import {
 import { currentPeriod, generateDuesForInstitute } from './lib/dues';
 import { createInstituteForUser, validateCreateInput } from './lib/institute';
 import { enforceBatchLimit, enforceStudentLimit } from './lib/stats';
+import {
+  MESSAGE_TYPES,
+  MockMessageProvider,
+  WhatsAppUnifiedProvider,
+  parseTemplates,
+  type TemplateMap,
+} from './lib/messaging';
+import { notifyAttendance, notifyPayment, sendFeeReminders, type Deps } from './lib/notify';
 
 initializeApp();
 // All functions run in Mumbai (data residency + latency for Indian users).
@@ -220,5 +228,94 @@ export const expireSubscriptions = onSchedule(
   async () => {
     const n = await expireDueSubscriptions(db());
     if (n) console.log(`expireSubscriptions: expired ${n}`);
+  },
+);
+
+// ---------- Parent messages (WhatsApp) ----------
+const WA_CLIENT_ID = defineSecret('WA_CLIENT_ID');
+const WA_CLIENT_PASSWORD = defineSecret('WA_CLIENT_PASSWORD');
+// Plain (non-secret) settings come from environment variables, loaded from functions/.env (see .env.example).
+// Not defineString: the emulator stops and prompts for any such parameter that has no value in a .env file.
+const env = (name: string, fallback: string) => process.env[name]?.trim() || fallback;
+const waSecrets = [WA_CLIENT_ID, WA_CLIENT_PASSWORD];
+
+/** In the emulator with nothing configured, every message type has a stand-in template so the flow can be tried. */
+const MOCK_TEMPLATES: TemplateMap = Object.fromEntries(
+  MESSAGE_TYPES.map((t) => [t, { en: `mock-${t}` }]),
+);
+
+/** Real WhatsApp when fully configured; a mock in the emulator; otherwise nothing is sent and messages are logged as skipped. */
+function notifyDeps(): Deps {
+  const real = (v: string) => !!v && v !== 'unset';
+  const templates = parseTemplates(env('WA_TEMPLATES', '{}'));
+  const baseUrl = env('WA_API_URL', 'unset');
+  if (
+    real(WA_CLIENT_ID.value()) &&
+    real(WA_CLIENT_PASSWORD.value()) &&
+    real(baseUrl) &&
+    real(env('WA_FROM', 'unset'))
+  ) {
+    return {
+      templates,
+      provider: new WhatsAppUnifiedProvider({
+        baseUrl,
+        clientId: WA_CLIENT_ID.value(),
+        clientPassword: WA_CLIENT_PASSWORD.value(),
+        from: env('WA_FROM', 'unset'),
+        method: env('WA_API_METHOD', 'POST') === 'GET' ? 'GET' : 'POST',
+      }),
+    };
+  }
+  if (inEmulator())
+    return {
+      provider: new MockMessageProvider(),
+      templates: Object.keys(templates).length ? templates : MOCK_TEMPLATES,
+    };
+  return { provider: null, templates };
+}
+
+/** A student marked Absent or Late: tell the parent (once). */
+export const onAttendanceWrite = onDocumentWritten(
+  { document: 'institutes/{instituteId}/attendance/{attendanceId}', secrets: waSecrets },
+  async (event) => {
+    const { instituteId, attendanceId } = event.params;
+    await notifyAttendance(
+      db(),
+      notifyDeps(),
+      instituteId,
+      attendanceId,
+      event.data?.before.data(),
+      event.data?.after.data(),
+    );
+  },
+);
+
+/** A payment recorded: thank the parent (once). */
+export const onPaymentCreated = onDocumentCreated(
+  { document: 'institutes/{instituteId}/payments/{paymentId}', secrets: waSecrets },
+  async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+    await notifyPayment(
+      db(),
+      notifyDeps(),
+      event.params.instituteId,
+      event.params.paymentId,
+      data as Parameters<typeof notifyPayment>[4],
+    );
+  },
+);
+
+/** Daily at 09:00 IST: "fee due soon" and "overdue" reminders for every institute that switched them on. */
+export const dailyFeeReminders = onSchedule(
+  { schedule: '0 9 * * *', timeZone: 'Asia/Kolkata', secrets: waSecrets },
+  async () => {
+    const deps = notifyDeps();
+    const institutes = await db().collection('institutes').select().get();
+    for (const inst of institutes.docs) {
+      const t = await sendFeeReminders(db(), deps, inst.id);
+      if (t.sent || t.failed)
+        console.log(`dailyFeeReminders: ${inst.id} sent ${t.sent}, failed ${t.failed}`);
+    }
   },
 );

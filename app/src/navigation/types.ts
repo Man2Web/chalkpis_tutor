@@ -28,4 +28,6 @@ export type MainStackParams = {
   Reports: undefined;
   Settings: undefined;
   Billing: undefined;
+  NotificationSettings: undefined;
+  MessageLog: undefined;
 };

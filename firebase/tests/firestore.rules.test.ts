@@ -339,3 +339,45 @@ describe("billing records", () => {
     );
   });
 });
+
+describe("parent message settings and log", () => {
+  it("owner reads and writes settings while the plan is active", async () => {
+    const db = as("ownerA");
+    await assertSucceeds(
+      getDoc(doc(db, "institutes/A/settings/notifications")),
+    );
+    await assertSucceeds(
+      setDoc(doc(db, "institutes/A/settings/notifications"), { enabled: true }),
+    );
+  });
+  it("an expired plan keeps settings read-only", async () => {
+    const db = as("ownerX");
+    await assertSucceeds(
+      getDoc(doc(db, "institutes/X/settings/notifications")),
+    );
+    await assertFails(
+      setDoc(doc(db, "institutes/X/settings/notifications"), { enabled: true }),
+    );
+  });
+  it("staff and other institutes cannot see or change settings", async () => {
+    await assertFails(
+      getDoc(doc(as("staffA"), "institutes/A/settings/notifications")),
+    );
+    await assertFails(
+      setDoc(doc(as("ownerB"), "institutes/A/settings/notifications"), {
+        enabled: true,
+      }),
+    );
+  });
+  it("the message log is readable by the owner but never writable", async () => {
+    const db = as("ownerA");
+    await assertSucceeds(getDoc(doc(db, "institutes/A/messages/m1")));
+    await assertFails(
+      setDoc(doc(db, "institutes/A/messages/m2"), { status: "sent" }),
+    );
+    await assertFails(
+      updateDoc(doc(db, "institutes/A/messages/m1"), { status: "delivered" }),
+    );
+    await assertFails(getDoc(doc(as("ownerB"), "institutes/A/messages/m1")));
+  });
+});

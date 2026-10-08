@@ -39,3 +39,8 @@
 | 36 | Each payment id is processed once (`billingEvents/{paymentId}`); renewing while active adds months on top of the remaining time | Razorpay retries webhooks; owners never lose paid days |
 | 37 | The mock payment path exists only when running in the emulator; production without Razorpay keys says "not configured" | A missing key must never hand out free plans |
 | 38 | `expireSubscriptions` runs daily at 03:00 IST and only flips status; rules already block writes the moment `expiresAt` passes | Read-only is enforced by the rules even if the job is late; data is never deleted |
+| 39 | Parent messages are OFF until the owner turns on the master switch; they also need the student's "send updates" flag and an approved template | Never message a parent by surprise |
+| 40 | Each message has a fixed log id (`att_<day>_<student>_<mark>`, `due_<due>`, `overdue_<due>_<n>`, `pay_<payment>`), so retries and re-saves never send twice; a correction (Absent to Late, or back to Present) sends nothing; days older than 2 days never message | Parents get one clear message per event |
+| 41 | The message log keeps only the last 4 digits of the number and never the text or values | Privacy rule: no phone numbers or payment details in logs |
+| 42 | WhatsApp credentials live only in Firebase secrets; plain settings (URL, number, template ids) come from `functions/.env`, not `defineString` | The emulator stops to prompt for any `defineString` without a `.env` value, which silently stopped all triggers from registering |
+| 43 | The gateway's `templateinfo` format (`<id>~<v1>~<v2>`) and POST vs GET are assumptions taken from the provider's sample; the real-send path is NOT tested against the live gateway | Needs one test message to the owner's own number |

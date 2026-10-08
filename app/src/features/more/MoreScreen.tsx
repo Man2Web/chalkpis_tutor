@@ -21,6 +21,16 @@ export function MoreScreen() {
           onPress={() => nav.navigate('Billing')}
         />
         <ListItem
+          title={t('messages.settingsTitle')}
+          right={chevron}
+          onPress={() => nav.navigate('NotificationSettings')}
+        />
+        <ListItem
+          title={t('messages.logTitle')}
+          right={chevron}
+          onPress={() => nav.navigate('MessageLog')}
+        />
+        <ListItem
           title={t('batches.title')}
           right={chevron}
           onPress={() => nav.navigate('Batches')}

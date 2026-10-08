@@ -68,5 +68,20 @@ Plans work end to end in the emulators with a test mode ("Pay ₹399 (test)"), n
 5. When ready, replace the secrets with Live keys and redeploy.
 The prices and limits live in `functions/src/lib/plans.ts` (the server decides; the app only displays them).
 
+## 6. WhatsApp messages to parents
+The app sends absent/late alerts, fee reminders and payment thanks through your WhatsApp gateway, using templates you create (exact texts and the order of `{{1}}…` values are in `docs/WHATSAPP-TEMPLATES.md`).
+In the emulators it works with no setup (a mock sender; the Message log shows "Sent"). For real messages:
+1. **Credentials go in Firebase secrets, never in the code or in chat.** Run each command and paste the value when asked:
+   ```
+   npx firebase functions:secrets:set WA_CLIENT_ID
+   npx firebase functions:secrets:set WA_CLIENT_PASSWORD
+   ```
+2. Copy `functions/.env.example` to `functions/.env` and fill in: `WA_API_URL` (the gateway's send URL, ideally a hostname rather than a bare IP), `WA_FROM` (your business number, digits only, e.g. 916384009225) and `WA_TEMPLATES` (the approved template ids, one line of JSON).
+3. Deploy the functions. Until all of the above are set, messages are logged as "WhatsApp is not set up yet" and nothing is sent.
+4. In the app: **More -> Parent messages**, turn on "Send messages to parents" and choose what to send. Only parents whose student has "Send updates to parent" on are messaged.
+5. Test with a student whose parent number is YOUR number before turning it on for everyone.
+Things to confirm with the gateway provider: that `templateinfo` is `<templateId>~<value1>~<value2>…`, whether it expects POST or GET, and the delivery-report format (delivery status is not tracked yet, so "Sent" means the gateway accepted the message).
+SMS fallback: the code supports an SMS provider as a second channel but none is connected yet; if WhatsApp fails the message is simply logged as Failed.
+
 ## Secrets
 Nothing secret is committed. Razorpay and WhatsApp keys (Phase 2) go in Firebase Functions secrets: `npx firebase functions:secrets:set RAZORPAY_KEY_SECRET`.

@@ -11,7 +11,7 @@
 ## Phase 2 progress
 - [x] 2 design: premium UI applied app-wide
 - [x] 2a plans and billing: catalogue, Razorpay payment links + webhook (signed, idempotent), emulator test mode, expiry job, Plans & billing screen, usage meters, expiry banner, read-only after expiry
-- [ ] 2b parent notifications (provider interface + mock, absent/late + fee messages, opt-out, delivery log, settings)
+- [x] 2b parent notifications: WhatsApp gateway provider + mock, absent/late, fee due/overdue schedule, payment thanks, per-student opt-out, message log, settings screen (SMS fallback wired in code, no SMS provider yet; delivery reports not tracked yet)
 - [ ] 2c parent view (token link, callable, hosted read-only page)
 - [ ] 2d staff role (invite by phone, assign batches, attendance only)
 - [ ] 2e offline (offline payments with provisional receipts, sync indicator)

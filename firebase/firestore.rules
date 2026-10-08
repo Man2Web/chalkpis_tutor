@@ -57,6 +57,11 @@ service cloud.firestore {
       match /billingEvents/{eid} {
         allow read, write: if false;
       }
+      // Owner's choices for parent messages (what to send, when, in which language).
+      match /settings/{doc} {
+        allow read: if isOwner(id);
+        allow write: if ownerCanWrite(id);
+      }
       match /counters/{doc} {
         allow read: if isMember(id);
         allow write: if false;

@@ -490,5 +490,49 @@
       "trial_one": "Free trial: {{count}} day left",
       "trial_other": "Free trial: {{count}} days left"
     }
+  },
+  "messages": {
+    "settingsTitle": "Parent messages",
+    "settingsHint": "Automatic WhatsApp messages to parents. You choose what is sent and when.",
+    "master": "Send messages to parents",
+    "masterHint": "Off until you turn it on. Only parents whose \"Send updates to parent\" switch is on get messages.",
+    "sendWhen": "Send a message when",
+    "absent": "A student is marked absent",
+    "late": "A student is marked late",
+    "paymentReceived": "A payment is recorded",
+    "feeReminders": "Fee reminders",
+    "feeDue": "Fee is due soon",
+    "daysBefore": "Days before the due date",
+    "feeOverdue": "Fee is overdue",
+    "repeatEvery": "Repeat every (days)",
+    "overdueHint": "Overdue reminders go out the day after the due date, then repeat up to 3 more times.",
+    "language": "Message language",
+    "footer": "Messages use your approved WhatsApp templates, so the wording is fixed. If a template is missing in Hindi, English is used.",
+    "logTitle": "Message log",
+    "filter": {
+      "all": "All",
+      "failed": "Failed",
+      "skipped": "Skipped"
+    },
+    "empty": "No messages yet",
+    "emptyHint": "Messages to parents appear here once they are sent.",
+    "type": {
+      "absent": "Absent",
+      "late": "Late",
+      "fee_due": "Fee due soon",
+      "fee_overdue": "Fee overdue",
+      "payment_received": "Payment received"
+    },
+    "status": {
+      "sent": "Sent",
+      "failed": "Failed",
+      "skipped": "Skipped",
+      "queued": "Sending"
+    },
+    "reason": {
+      "not-configured": "WhatsApp is not set up yet",
+      "no-template": "No template for this message",
+      "bad-phone": "Parent's number is not valid"
+    }
   }
 }

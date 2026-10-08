@@ -20,6 +20,8 @@ import { FeesOverviewScreen } from '../features/fees/FeesOverviewScreen';
 import { ReceiptScreen } from '../features/fees/ReceiptScreen';
 import { ReminderScreen } from '../features/fees/ReminderScreen';
 import { BillingScreen } from '../features/billing/BillingScreen';
+import { MessageLogScreen } from '../features/messages/MessageLogScreen';
+import { NotificationSettingsScreen } from '../features/messages/NotificationSettingsScreen';
 import { HomeScreen } from '../features/dashboard/HomeScreen';
 import { ReportsScreen } from '../features/reports/ReportsScreen';
 import { SettingsScreen } from '../features/settings/SettingsScreen';
@@ -186,6 +188,16 @@ function MainStack() {
         name="Billing"
         component={BillingScreen}
         options={{ title: t('billing.title') }}
+      />
+      <Main.Screen
+        name="NotificationSettings"
+        component={NotificationSettingsScreen}
+        options={{ title: t('messages.settingsTitle') }}
+      />
+      <Main.Screen
+        name="MessageLog"
+        component={MessageLogScreen}
+        options={{ title: t('messages.logTitle') }}
       />
       <Main.Screen
         name="AttendanceReport"

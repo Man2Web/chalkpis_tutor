@@ -4,12 +4,14 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   orderBy,
   query,
   where,
 } from '@react-native-firebase/firestore';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../features/auth/session';
+import { normalizeSettings, type NotifySettings } from '../features/messages/settings';
 import { attendanceId, todayYmd } from '../lib/dates';
 import { db } from '../lib/firebase';
 import type { AttendanceDoc, Batch, FeeDue, Payment, Student } from '../lib/types';
@@ -308,6 +310,44 @@ export function useBillingHistory() {
     queryFn: async (): Promise<BillingRecord[]> => {
       const snap = await getDocs(query(col(id, 'billing'), orderBy('createdAt', 'desc')));
       return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<BillingRecord, 'id'>) }));
+    },
+  });
+}
+
+/** The owner's parent-message choices (defaults while nothing is saved yet). */
+export function useNotifySettings() {
+  const id = useInstituteId();
+  return useQuery({
+    queryKey: ['settings', id, 'notifications'],
+    queryFn: async (): Promise<NotifySettings> =>
+      normalizeSettings(
+        (await getDoc(doc(db, 'institutes', id, 'settings', 'notifications'))).data(),
+      ),
+  });
+}
+
+export interface MessageRow {
+  id: string;
+  studentId: string;
+  type: string;
+  channel: string;
+  status: 'queued' | 'sent' | 'failed' | 'skipped';
+  reason?: string | null;
+  error?: string | null;
+  toLast4?: string;
+  createdAt: Timestamp;
+}
+
+/** The latest 100 parent messages, newest first. */
+export function useMessages() {
+  const id = useInstituteId();
+  return useQuery({
+    queryKey: ['messages', id],
+    queryFn: async (): Promise<MessageRow[]> => {
+      const snap = await getDocs(
+        query(col(id, 'messages'), orderBy('createdAt', 'desc'), limit(100)),
+      );
+      return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<MessageRow, 'id'>) }));
     },
   });
 }
