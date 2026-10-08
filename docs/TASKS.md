@@ -16,3 +16,12 @@
 - [ ] 2d staff role (invite by phone, assign batches, attendance only)
 - [ ] 2e offline (offline payments with provisional receipts, sync indicator)
 - [ ] 2f Hindi/number-format audit
+
+## Backend move to Hostinger (replaces the Firebase backend; see docs/HOSTINGER-MIGRATION.md)
+- [ ] M0 foundations (server skeleton, schema, config, tests, Docker)
+- [ ] M1 phone-OTP login + institutes + tenant-isolation tests
+- [ ] M2 students and batches
+- [ ] M3 attendance and fees
+- [ ] M4 billing, messages, parent view, files
+- [ ] M5 jobs, hardening, backups, cut-over, remove Firebase
+- [ ] then: staff role, offline sync, Hindi audit

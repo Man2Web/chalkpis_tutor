@@ -48,3 +48,5 @@
 | 45 | The parent page is plain HTML/CSS/JS on Firebase Hosting, drawn with textContent only, strict CSP (no inline script), `no-referrer`, `noindex`, `no-store`; it calls `/api/parent` (a function) instead of reading Firestore | No Firebase keys or rules exposure in the page; user data cannot inject markup |
 | 46 | The page shows only: institute name/logo/phone, student name and class, 30 days of attendance, fees, last 8 non-reversed receipts | Minimum a parent needs; no phone numbers, notes, other students |
 | 47 | Hosting emulator runs on port 5002 | macOS reserves 5000 for AirPlay |
+| 48 | The backend moves from Firebase to the owner's Hostinger VPS (KVM 2, Coolify): Node.js API + MySQL + server-side files + own phone-OTP login; the other VPS and all Business-plan sites stay untouched | Owner's decision to host the complete database and files on Hostinger |
+| 49 | Remaining Phase 2 work (staff role, offline sync) waits until the new backend exists, because both depend on it | Avoids building them twice |
