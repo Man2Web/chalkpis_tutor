@@ -26,8 +26,8 @@ Needs only Node and Java (see step 0). Uses a fake local Firebase project (`demo
 npm run emulators      # terminal 1: Auth, Firestore, Functions, Storage (UI at http://localhost:4000)
 npm run web            # terminal 2: opens the app at http://localhost:8081
 ```
-Sign in with any 10-digit number. No SMS is sent: get the 6-digit code with
-`curl -s http://127.0.0.1:9099/emulator/v1/projects/demo-tutordesk/verificationCodes` (or in the Emulator UI -> Authentication).
+Sign in with any 10-digit number. No SMS is sent: the OTP screen shows a yellow "Test mode" box with the code and a "Use this code" button. (Or get it with
+`curl -s http://127.0.0.1:9099/emulator/v1/projects/demo-tutordesk/verificationCodes`.) Only the newest code for a number works.
 Data is wiped each time you stop the emulators.
 Limits of the browser preview: it is not the real Android app. Calling, WhatsApp, contacts import and native share do not work; layout is shown at phone width. Android and production builds are unaffected (Firebase web SDK is used only for the browser).
 
