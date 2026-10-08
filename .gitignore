@@ -19,3 +19,6 @@ ui-debug.log
 .DS_Store
 .firebase/
 emulator-data/
+server/.localdb/
+server/dist/
+server/.env

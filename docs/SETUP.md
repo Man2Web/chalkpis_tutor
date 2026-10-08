@@ -1,12 +1,14 @@
 # Setup guide (do these once)
 
 ## 0. On your Mac
+
 1. **Java (needed for the Firebase emulators):** `brew install openjdk@17`, then `sudo ln -sfn /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-17.jdk`. Check with `java -version`.
 2. **Android Studio** (https://developer.android.com/studio) for the emulator, or plug in an Android phone with USB debugging on.
 3. Node is already installed (v24). Functions deploy on Node 20 automatically.
 4. In this folder run `npm install` then `npm run install:all`.
 
 ## 1. Create the Firebase project
+
 1. https://console.firebase.google.com -> **Add project** -> name it (e.g. `tutordesk-prod`). Analytics: on.
 2. **Build -> Firestore Database** -> Create -> **Production mode** -> location **asia-south1 (Mumbai)**. (Cannot be changed later.)
 3. **Build -> Storage** -> Get started -> same location.
@@ -21,11 +23,14 @@
 9. Link the project: `npx firebase login` then `npx firebase use --add` (inside `firebase/` use the project id).
 
 ## 1b. Quickest way to try the app on a laptop (browser preview, no Android Studio)
+
 Needs only Node and Java (see step 0). Uses a fake local Firebase project (`demo-tutordesk`); no account needed.
+
 ```
 npm run emulators      # terminal 1: Auth, Firestore, Functions, Storage (UI at http://localhost:4000)
 npm run web            # terminal 2: opens the app at http://localhost:8081
 ```
+
 Sign in with any 10-digit number. No SMS is sent: the OTP screen shows a yellow "Test mode" box with the code and a "Use this code" button. (Or get it with
 `curl -s http://127.0.0.1:9099/emulator/v1/projects/demo-tutordesk/verificationCodes`.) Only the newest code for a number works.
 Data is wiped each time you stop the emulators.
@@ -34,20 +39,24 @@ Want demo data? With the emulators running, run `npm run seed` in a third termin
 Limits of the browser preview: it is not the real Android app. Calling, WhatsApp, contacts import and native share do not work; layout is shown at phone width. Android and production builds are unaffected (Firebase web SDK is used only for the browser).
 
 ## 2. Run locally with emulators
+
 ```
 npm run emulators        # starts Auth, Firestore, Functions, Storage + UI at http://localhost:4000
 cd app && cp .env.example .env   # set EXPO_PUBLIC_FIREBASE_EMULATOR=true
 npm run android          # builds the dev client and runs it
 ```
+
 The Android emulator reaches your Mac at `10.0.2.2` (default in `.env.example`). On a real phone use your Mac's LAN IP.
 
 ## 3. Deploy backend
+
 ```
 npm --prefix functions run build
 npx firebase deploy --config firebase/firebase.json --only firestore,storage,functions
 ```
 
 ## 4. Release build with EAS
+
 1. `npm i -g eas-cli` then `eas login` (free account at https://expo.dev).
 2. `cd app && eas init` (writes the real project id into `app.json`).
 3. Upload `google-services.json` as a file secret: `eas secret:create --scope project --type file --name GOOGLE_SERVICES_JSON --value ./google-services.json` and set `"googleServicesFile": "./google-services.json"` stays as is for local; for EAS point it at the env var if needed.
@@ -55,7 +64,9 @@ npx firebase deploy --config firebase/firebase.json --only firestore,storage,fun
 5. Upload the `.aab` to Play Console. Required: privacy policy URL (set `EXPO_PUBLIC_PRIVACY_POLICY_URL`) and the in-app delete-account flow (Settings).
 
 ## 5. Online payments (Razorpay) for plans
+
 Plans work end to end in the emulators with a test mode ("Pay ₹399 (test)"), no account needed. For real money:
+
 1. Create a Razorpay account (https://razorpay.com), finish KYC, and in **Settings -> API keys** generate a **Test mode** key pair first.
 2. Store three secrets (Firebase will ask for the value of each). Until you have real keys type `unset` for each: the app then says "Online payments are not set up yet" instead of failing.
    ```
@@ -66,11 +77,13 @@ Plans work end to end in the emulators with a test mode ("Pay ₹399 (test)"), n
 3. Deploy, then in Razorpay **Settings -> Webhooks -> Add new webhook**: URL `https://asia-south1-<your-project-id>.cloudfunctions.net/razorpayWebhook`, a secret of your choice (the same value as `RAZORPAY_WEBHOOK_SECRET`), event **payment_link.paid**.
 4. Pay a test plan with Razorpay's test card/UPI. The owner's plan should switch to active within seconds; a retried webhook never extends the plan twice.
 5. When ready, replace the secrets with Live keys and redeploy.
-The prices and limits live in `functions/src/lib/plans.ts` (the server decides; the app only displays them).
+   The prices and limits live in `functions/src/lib/plans.ts` (the server decides; the app only displays them).
 
 ## 6. WhatsApp messages to parents
+
 The app sends absent/late alerts, fee reminders and payment thanks through your WhatsApp gateway, using templates you create (exact texts and the order of `{{1}}…` values are in `docs/WHATSAPP-TEMPLATES.md`).
 In the emulators it works with no setup (a mock sender; the Message log shows "Sent"). For real messages:
+
 1. **Credentials go in Firebase secrets, never in the code or in chat.** Run each command and paste the value when asked:
    ```
    npx firebase functions:secrets:set WA_CLIENT_ID
@@ -80,15 +93,18 @@ In the emulators it works with no setup (a mock sender; the Message log shows "S
 3. Deploy the functions. Until all of the above are set, messages are logged as "WhatsApp is not set up yet" and nothing is sent.
 4. In the app: **More -> Parent messages**, turn on "Send messages to parents" and choose what to send. Only parents whose student has "Send updates to parent" on are messaged.
 5. Test with a student whose parent number is YOUR number before turning it on for everyone.
-Things to confirm with the gateway provider: that `templateinfo` is `<templateId>~<value1>~<value2>…`, whether it expects POST or GET, and the delivery-report format (delivery status is not tracked yet, so "Sent" means the gateway accepted the message).
-SMS fallback: the code supports an SMS provider as a second channel but none is connected yet; if WhatsApp fails the message is simply logged as Failed.
+   Things to confirm with the gateway provider: that `templateinfo` is `<templateId>~<value1>~<value2>…`, whether it expects POST or GET, and the delivery-report format (delivery status is not tracked yet, so "Sent" means the gateway accepted the message).
+   SMS fallback: the code supports an SMS provider as a second channel but none is connected yet; if WhatsApp fails the message is simply logged as Failed.
 
 ## 7. Parent view page (Firebase Hosting)
+
 Parents open `https://<your-project-id>.web.app/p/<token>`; the page is `firebase/hosting/` and talks to the `parentView` function through the `/api/parent` rewrite.
+
 - **Locally:** `npm run emulators` also serves it at http://127.0.0.1:5002 (port 5002; macOS keeps 5000 for AirPlay). In the app open a student's profile, create a link, and open the link it shows.
 - **Deploy:** `npx firebase deploy --config firebase/firebase.json --only functions,hosting`.
 - **Own address (optional):** connect a domain in Firebase console -> Hosting, then add `PARENT_VIEW_BASE_URL=https://yourdomain.in` to `functions/.env` so new links use it.
 - **Safety:** each link holds a random 256-bit token (only its hash is stored); links expire after 7/30/90 days and the owner can switch all of a student's links off. Everything the page shows is one student's attendance, fees and receipts: no phone numbers, notes or other students. The page has no inline scripts and a strict content-security policy.
 
 ## Secrets
+
 Nothing secret is committed. Razorpay and WhatsApp keys (Phase 2) go in Firebase Functions secrets: `npx firebase functions:secrets:set RAZORPAY_KEY_SECRET`.

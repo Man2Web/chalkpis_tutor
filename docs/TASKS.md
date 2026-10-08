@@ -1,4 +1,5 @@
 # Task list
+
 - [x] Phase 0: monorepo, Expo app, functions, firebase config, lint/prettier/husky/CI, design system, SETUP.md, .env.example
 - [x] Phase 1a: data layer, security rules + tests, functions (dues, counters, deleteAccount) + tests
 - [x] Phase 1b: auth + onboarding
@@ -9,6 +10,7 @@
 - [ ] Phase 2: billing, notifications, parent view, staff, offline, Hindi
 
 ## Phase 2 progress
+
 - [x] 2 design: premium UI applied app-wide
 - [x] 2a plans and billing: catalogue, Razorpay payment links + webhook (signed, idempotent), emulator test mode, expiry job, Plans & billing screen, usage meters, expiry banner, read-only after expiry
 - [x] 2b parent notifications: WhatsApp gateway provider + mock, absent/late, fee due/overdue schedule, payment thanks, per-student opt-out, message log, settings screen (SMS fallback wired in code, no SMS provider yet; delivery reports not tracked yet)
@@ -18,7 +20,8 @@
 - [ ] 2f Hindi/number-format audit
 
 ## Backend move to Hostinger (replaces the Firebase backend; see docs/HOSTINGER-MIGRATION.md)
-- [ ] M0 foundations (server skeleton, schema, config, tests, Docker)
+
+- [x] M0 foundations: `server/` (Fastify + zod + mysql2), config, migration runner, foundation schema, health, headers, rate limit, log redaction, Dockerfile, CI job, 45 tests (Docker build itself not yet tried)
 - [ ] M1 phone-OTP login + institutes + tenant-isolation tests
 - [ ] M2 students and batches
 - [ ] M3 attendance and fees

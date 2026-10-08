@@ -4,6 +4,7 @@ Decision (owner): host the complete database and files on Hostinger instead of F
 Status: PLAN. Nothing has been created or changed on the Hostinger account yet.
 
 ## Decisions so far
+
 - **Target:** VPS `srv1944454` (Hostinger KVM 2: 2 CPU, 8 GB RAM, 100 GB disk, Ubuntu 24.04 with **Coolify**, IP 200.234.43.196). Chosen by the owner. The other VPS (`srv1598583`, KVM 4) and the 27 sites on the Business plan are NOT to be touched.
 - **How it deploys:** Coolify (a self-hosted deploy panel) pulls the code from a Git repository and runs it in Docker, with MySQL/MariaDB as a Coolify database. Hostinger's own Docker tool does not work on Coolify servers, so deployment goes through Coolify, not through the Hostinger connection.
 - **What I build in this repo:** a `server/` app (Node.js + TypeScript + MySQL) with a `Dockerfile`, migrations, tests, and a `docker-compose.yml` for local runs. Coolify then deploys it as-is.
@@ -12,15 +13,15 @@ Status: PLAN. Nothing has been created or changed on the Hostinger account yet.
 
 Today the app talks directly to Firebase. Hostinger cannot run Firestore, Firebase Auth, Cloud Functions or Storage, so each part needs a replacement:
 
-| Today (Firebase) | On Hostinger |
-|---|---|
-| Firestore database + security rules | **MySQL** database + a **Node.js API** that checks who may see what (the rules become server code) |
-| Phone login (Firebase Auth) | Our own **phone OTP login**: the code is sent by your WhatsApp gateway (needs an *authentication* template), verified on the server, then a signed session token (JWT + refresh token) |
-| Cloud Functions (limits, dues, billing, messages, parent view) | Routes and **cron jobs** in the same Node app |
-| Firestore triggers (message on absent, counters) | Done inside the request that saves the data, plus a small message queue table and a worker |
-| Storage (logos, photos) | Files on the server disk, random names, served by the API |
-| Hosting (parent page) | Same Node app serves the parent page |
-| Offline writes (Firestore cache) | Rebuilt in the app: saved-offline queue that syncs when online |
+| Today (Firebase)                                               | On Hostinger                                                                                                                                                                           |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Firestore database + security rules                            | **MySQL** database + a **Node.js API** that checks who may see what (the rules become server code)                                                                                     |
+| Phone login (Firebase Auth)                                    | Our own **phone OTP login**: the code is sent by your WhatsApp gateway (needs an _authentication_ template), verified on the server, then a signed session token (JWT + refresh token) |
+| Cloud Functions (limits, dues, billing, messages, parent view) | Routes and **cron jobs** in the same Node app                                                                                                                                          |
+| Firestore triggers (message on absent, counters)               | Done inside the request that saves the data, plus a small message queue table and a worker                                                                                             |
+| Storage (logos, photos)                                        | Files on the server disk, random names, served by the API                                                                                                                              |
+| Hosting (parent page)                                          | Same Node app serves the parent page                                                                                                                                                   |
+| Offline writes (Firestore cache)                               | Rebuilt in the app: saved-offline queue that syncs when online                                                                                                                         |
 
 Nothing needs migrating as data: the only data so far is emulator test data.
 
@@ -49,6 +50,7 @@ The mobile app screens, the design system, translations, the pure business rules
 - Then the remaining Phase 2: staff role, offline sync, Hindi audit.
 
 ## Inputs I need from you (needed at deploy time, not to start building)
+
 - A **private GitHub repository** for TutorDesk (Coolify pulls from it). I will not push anything until you say so.
 - Either your **Coolify address and an API token** (so I can create the app and database for you), or you do the clicks in Coolify and I give you the exact steps.
 - The **domain** for the API, e.g. `api.yourdomain.in`, with its DNS pointing at 200.234.43.196.

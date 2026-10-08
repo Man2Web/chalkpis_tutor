@@ -1,0 +1,32 @@
+# Local try-out of the same container Coolify will run: API + MariaDB. Not used for tests (they use `npm run db:start`).
+services:
+  db:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: local-root-only
+      MARIADB_DATABASE: tutordesk
+      MARIADB_USER: tutordesk
+      MARIADB_PASSWORD: tutordesk-local
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes: ["dbdata:/var/lib/mysql"]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  api:
+    build: .
+    depends_on:
+      db: { condition: service_healthy }
+    ports: ["8787:8080"]
+    environment:
+      NODE_ENV: development
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_USER: tutordesk
+      DB_PASSWORD: tutordesk-local
+      DB_NAME: tutordesk
+    volumes: ["uploads:/data/uploads"]
+volumes:
+  dbdata: {}
+  uploads: {}

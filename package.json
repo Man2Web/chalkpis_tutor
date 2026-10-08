@@ -2,16 +2,18 @@
   "name": "tutordesk",
   "private": true,
   "scripts": {
-    "install:all": "npm --prefix app install && npm --prefix functions install && npm --prefix firebase install",
+    "install:all": "npm --prefix app install && npm --prefix functions install && npm --prefix firebase install && npm --prefix server install",
     "emulators": "npm --prefix functions run build && firebase emulators:start --project demo-tutordesk --config firebase/firebase.json",
     "seed": "npm --prefix functions run seed",
-    "typecheck": "npm --prefix app run typecheck && npm --prefix functions run typecheck && npm --prefix firebase run typecheck",
-    "lint": "npm --prefix app run lint && npm --prefix functions run lint && npm --prefix firebase run lint",
+    "typecheck": "npm --prefix app run typecheck && npm --prefix functions run typecheck && npm --prefix firebase run typecheck && npm --prefix server run typecheck",
+    "lint": "npm --prefix app run lint && npm --prefix functions run lint && npm --prefix firebase run lint && npm --prefix server run lint",
     "test": "npm --prefix app test -- --ci && npm --prefix functions test",
     "prepare": "husky",
     "test:emulator": "firebase emulators:exec --config firebase/firebase.json --only firestore,storage \"npm --prefix firebase test && npm --prefix functions test\"",
     "test:rules": "firebase emulators:exec --config firebase/firebase.json --only firestore,storage \"npm --prefix firebase test && npm --prefix functions test\"",
-    "web": "npm --prefix app run web"
+    "web": "npm --prefix app run web",
+    "test:server": "npm --prefix server run db:start && npm --prefix server test",
+    "server": "npm --prefix server run dev"
   },
   "devDependencies": {
     "firebase-tools": "^14.0.0",
