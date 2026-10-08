@@ -1,4 +1,5 @@
 import {
+  Timestamp,
   collection,
   doc,
   getDoc,
@@ -9,9 +10,9 @@ import {
 } from '@react-native-firebase/firestore';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../features/auth/session';
-import { attendanceId } from '../lib/dates';
+import { attendanceId, firstOfMonth, todayYmd } from '../lib/dates';
 import { db } from '../lib/firebase';
-import type { AttendanceDoc, Batch, Student } from '../lib/types';
+import type { AttendanceDoc, Batch, FeeDue, Payment, Student } from '../lib/types';
 
 /** The signed-in owner's institute. Only call inside the main app (status === 'ready'). */
 export function useInstituteId(): string {
@@ -89,16 +90,11 @@ export function usePendingStudentIds() {
   });
 }
 
-/** Call after writes so lists and counters refresh. */
+/** Call after writes so every list and total for this institute refreshes. */
 export function useRefreshData() {
   const qc = useQueryClient();
   const id = useInstituteId();
-  return () =>
-    Promise.all(
-      ['students', 'batches', 'limits', 'pendingDues', 'attendance'].map((k) =>
-        qc.invalidateQueries({ queryKey: [k, id] }),
-      ),
-    );
+  return () => qc.invalidateQueries({ predicate: (q) => q.queryKey[1] === id });
 }
 
 const toAttendance = (d: { id: string; data: () => unknown }) => ({
@@ -151,6 +147,118 @@ export function useAttendanceRange(from: string, to: string, batchId?: string) {
           )
         : query(col(id, 'attendance'), ...filters, orderBy('date', 'desc'));
       return (await getDocs(q)).docs.map(toAttendance);
+    },
+  });
+}
+
+export interface Institute {
+  name: string;
+  logoUrl?: string | null;
+  address?: string;
+  phone?: string;
+  receiptPrefix: string;
+}
+
+export function useInstitute() {
+  const id = useInstituteId();
+  return useQuery({
+    queryKey: ['institute', id],
+    queryFn: async (): Promise<Institute> => {
+      const d = (await getDoc(doc(db, 'institutes', id))).data() ?? {};
+      return {
+        name: d.name ?? '',
+        logoUrl: d.logoUrl,
+        address: d.address,
+        phone: d.phone,
+        receiptPrefix: d.receiptPrefix ?? 'TD',
+      };
+    },
+  });
+}
+
+const toDue = (d: { id: string; data: () => unknown }) => ({
+  id: d.id,
+  ...(d.data() as Omit<FeeDue, 'id'>),
+});
+const toPayment = (d: { id: string; data: () => unknown }) => ({
+  id: d.id,
+  ...(d.data() as Omit<Payment, 'id'>),
+});
+
+/** All dues that still have something to pay (pending or part-paid). */
+export function useUnpaidDues() {
+  const id = useInstituteId();
+  return useQuery({
+    queryKey: ['dues', id, 'unpaid'],
+    queryFn: async (): Promise<FeeDue[]> => {
+      const snap = await getDocs(
+        query(col(id, 'feeDues'), where('status', 'in', ['pending', 'partial'])),
+      );
+      return snap.docs.map(toDue);
+    },
+  });
+}
+
+export function useStudentDues(studentId: string) {
+  const id = useInstituteId();
+  return useQuery({
+    queryKey: ['dues', id, 'student', studentId],
+    queryFn: async (): Promise<FeeDue[]> => {
+      const snap = await getDocs(
+        query(col(id, 'feeDues'), where('studentId', '==', studentId), orderBy('period', 'desc')),
+      );
+      return snap.docs.map(toDue);
+    },
+  });
+}
+
+export function useStudentPayments(studentId: string) {
+  const id = useInstituteId();
+  return useQuery({
+    queryKey: ['payments', id, 'student', studentId],
+    queryFn: async (): Promise<Payment[]> => {
+      const snap = await getDocs(
+        query(col(id, 'payments'), where('studentId', '==', studentId), orderBy('paidAt', 'desc')),
+      );
+      return snap.docs.map(toPayment);
+    },
+  });
+}
+
+export function useDue(dueId: string) {
+  const id = useInstituteId();
+  return useQuery({
+    queryKey: ['dues', id, 'one', dueId],
+    queryFn: async (): Promise<FeeDue | null> => {
+      const snap = await getDoc(doc(db, 'institutes', id, 'feeDues', dueId));
+      return snap.exists() ? toDue(snap) : null;
+    },
+  });
+}
+
+export function usePayment(paymentId: string) {
+  const id = useInstituteId();
+  return useQuery({
+    queryKey: ['payments', id, 'one', paymentId],
+    queryFn: async (): Promise<Payment | null> => {
+      const snap = await getDoc(doc(db, 'institutes', id, 'payments', paymentId));
+      return snap.exists() ? toPayment(snap) : null;
+    },
+  });
+}
+
+/** Payments (and reversals) recorded since the start of this month, Indian time. */
+export function usePaymentsThisMonth() {
+  const id = useInstituteId();
+  const from = firstOfMonth(todayYmd());
+  return useQuery({
+    queryKey: ['payments', id, 'month', from],
+    queryFn: async (): Promise<Payment[]> => {
+      const start = Timestamp.fromDate(new Date(`${from}T00:00:00+05:30`));
+      const snap = await getDocs(
+        query(col(id, 'payments'), where('paidAt', '>=', start), orderBy('paidAt', 'desc')),
+      );
+      return snap.docs.map(toPayment);
     },
   });
 }

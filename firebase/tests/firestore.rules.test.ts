@@ -5,6 +5,9 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 setLogLevel('error');
+// emulators:exec sets FIRESTORE_EMULATOR_HOST; fall back to the default port for a manually started emulator.
+const [host, portText] = (process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080').split(':');
+const port = Number(portText);
 let env: RulesTestEnvironment;
 const future = () => Timestamp.fromMillis(Date.now() + 86_400_000);
 const past = () => Timestamp.fromMillis(Date.now() - 86_400_000);
@@ -23,6 +26,7 @@ async function seed() {
       await setDoc(doc(db, `institutes/${id}/students/s1`), { name: 'Asha', status: 'active' });
       await setDoc(doc(db, `institutes/${id}/payments/p1`), { amount: 1000 });
       await setDoc(doc(db, `institutes/${id}/feeDues/d1`), { paid: 0 });
+      await setDoc(doc(db, `institutes/${id}/feeDues/d2`), { paid: 1000 });
     }
   });
 }
@@ -30,7 +34,7 @@ async function seed() {
 beforeAll(async () => {
   env = await initializeTestEnvironment({
     projectId: 'tutordesk-rules-test',
-    firestore: { rules: readFileSync(join(__dirname, '../firestore.rules'), 'utf8'), host: '127.0.0.1', port: 8080 },
+    firestore: { rules: readFileSync(join(__dirname, '../firestore.rules'), 'utf8'), host, port },
   });
 });
 afterAll(() => env.cleanup());
@@ -133,5 +137,37 @@ describe('payments are append-only', () => {
 describe('no hard deletes', () => {
   it('students and batches cannot be deleted', async () => {
     await assertFails(deleteDoc(doc(as('ownerA'), 'institutes/A/students/s1')));
+  });
+});
+
+describe('fee flows used by the app transactions', () => {
+  it('owner can create a reversing entry with a fixed id, and a payment, but not touch the original', async () => {
+    const db = as('ownerA');
+    await assertSucceeds(setDoc(doc(db, 'institutes/A/payments/rev_p1'), { amount: -1000, reversalOf: 'p1' }));
+    await assertFails(updateDoc(doc(db, 'institutes/A/payments/p1'), { reversed: true }));
+  });
+  it('a second write to the same reversal id is an update, which is denied (reversal happens once)', async () => {
+    const db = as('ownerA');
+    await assertSucceeds(setDoc(doc(db, 'institutes/A/payments/rev_p1'), { amount: -1000, reversalOf: 'p1' }));
+    await assertFails(setDoc(doc(db, 'institutes/A/payments/rev_p1'), { amount: -1000, reversalOf: 'p1' }));
+  });
+  it('owner can update a due and allocate the next receipt number', async () => {
+    const db = as('ownerA');
+    await assertSucceeds(updateDoc(doc(db, 'institutes/A/feeDues/d1'), { paid: 500, status: 'partial' }));
+    await assertSucceeds(updateDoc(doc(db, 'institutes/A'), { nextReceiptNo: 2 }));
+  });
+  it('a due with money paid cannot be deleted; an untouched one can', async () => {
+    const db = as('ownerA');
+    await assertFails(deleteDoc(doc(db, 'institutes/A/feeDues/d2')));
+    await assertSucceeds(deleteDoc(doc(db, 'institutes/A/feeDues/d1')));
+  });
+  it('fee data is invisible to staff and other institutes', async () => {
+    await assertFails(getDoc(doc(as('staffA'), 'institutes/A/feeDues/d1')));
+    await assertFails(getDoc(doc(as('ownerB'), 'institutes/A/feeDues/d1')));
+  });
+  it('an expired plan cannot take payments or change dues', async () => {
+    const db = as('ownerX');
+    await assertFails(updateDoc(doc(db, 'institutes/X/feeDues/d1'), { paid: 1 }));
+    await assertFails(setDoc(doc(db, 'institutes/X/payments/new'), { amount: 100 }));
   });
 });

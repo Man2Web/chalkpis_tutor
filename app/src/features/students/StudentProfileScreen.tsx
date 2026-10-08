@@ -117,6 +117,13 @@ export function StudentProfileScreen({
         <Row label={t('students.notes')} value={s.notes} />
       </Card>
 
+      <Button
+        style={{ marginTop: spacing.md }}
+        variant="secondary"
+        title={t('students.fees')}
+        onPress={() => navigation.navigate('FeeLedger', { studentId: s.id })}
+      />
+
       <View style={{ marginTop: spacing.md }}>
         <AttendanceSummary studentId={s.id} />
       </View>

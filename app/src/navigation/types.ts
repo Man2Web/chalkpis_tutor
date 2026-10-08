@@ -20,4 +20,9 @@ export type MainStackParams = {
   BatchDetail: { id: string };
   MarkAttendance: { batchId: string; date: string };
   AttendanceReport: undefined;
+  FeeLedger: { studentId: string };
+  CollectFee: { dueId: string };
+  Receipt: { paymentId: string };
+  FeePlan: { studentId: string };
+  Reminder: { studentId: string };
 };

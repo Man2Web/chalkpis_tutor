@@ -22,3 +22,9 @@
 | 19 | Attendance % = (Present + Late) / (Present + Late + Absent); holiday/cancelled days are excluded; a student only counts on days they were marked | Late students attended; joiners and leavers are not penalised for days outside their time in the batch |
 | 20 | Attendance doc stores `date` as yyyy-mm-dd (Indian time) plus `holiday`/`reason`; saving replaces the whole day | Sorts as text; removed marks cannot linger |
 | 21 | Roster for a date = saved marks + active batch members who had joined by then; future dates cannot be marked | Past days stay editable even after a student leaves; backfilling earlier than a joining date needs the joining date changed |
+| 22 | Recording a payment and reversing one are Firestore TRANSACTIONS (receipt number + payment + due update together) | Two devices can never share a receipt number or overpay. Transactions need internet, so offline payments are a Phase 2 item (provisional receipt numbers) |
+| 23 | A reversal is a negative payment with fixed id `rev_<paymentId>`; the original is untouched. Payments store `balanceAfter` | A payment can be reversed once even under a race; old receipts keep their original balance |
+| 24 | Waive forgives the remaining balance (status `waived`, owes nothing); a discount may not push the fee below what is already paid | Keeps `paid` honest and totals consistent |
+| 25 | One-off charges are normal dues with id `<studentId>_x<time>` and `kind: 'charge'` | Cannot collide with generated `<studentId>_yyyy-mm` ids, so the daily job stays idempotent |
+| 26 | Editing a student's fee plan changes FUTURE dues only | Past dues are a record; edit a due's discount/waive to change one |
+| 27 | Receipt PDF: `expo-print` + share sheet on Android; the browser preview opens the print dialog instead | Native-only APIs; not exercised in the browser test |
