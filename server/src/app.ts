@@ -2,10 +2,13 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import type { Config } from './config.js';
+import { AppError } from './errors.js';
 import { ping, type Pool } from './db.js';
 import { safeUrl } from './logging.js';
 import type { MessageProvider } from './messaging/provider.js';
 import { authRoutes } from './routes/auth.js';
+import { batchRoutes } from './routes/batches.js';
+import { studentRoutes } from './routes/students.js';
 import { instituteRoutes } from './routes/institutes.js';
 
 export interface AppDeps {
@@ -57,9 +60,13 @@ export async function buildApp({
   app.decorateRequest('auth', null);
   authRoutes(app, { config, pool, provider, clock });
   instituteRoutes(app, { config, pool, clock });
+  batchRoutes(app, { config, pool, clock });
+  studentRoutes(app, { config, pool, clock });
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));
-  app.setErrorHandler((err: FastifyError, req, reply) => {
+  app.setErrorHandler((err: FastifyError | AppError, req, reply) => {
+    if (err instanceof AppError)
+      return reply.code(err.status).send({ error: err.code, ...err.extra });
     const status =
       typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 500
         ? err.statusCode

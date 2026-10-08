@@ -23,7 +23,7 @@
 
 - [x] M0 foundations: `server/` (Fastify + zod + mysql2), config, migration runner, foundation schema, health, headers, rate limit, log redaction, Dockerfile, CI job, 45 tests (Docker build itself not yet tried)
 - [x] M1 phone-OTP login (WhatsApp code), rotating sessions with theft detection, institute setup + 7-day trial, owner/staff guards, tenant-isolation tests (103 server tests)
-- [ ] M2 students and batches
+- [x] M2 students and batches API: SQL tables with composite foreign keys (a cross-institute link is impossible even in raw SQL), plan limits under a per-institute lock, bulk import all-or-nothing, owner-only writes, 30 new tests (133 server tests). The app screens are switched over at M5
 - [ ] M3 attendance and fees
 - [ ] M4 billing, messages, parent view, files
 - [ ] M5 jobs, hardening, backups, cut-over, remove Firebase
