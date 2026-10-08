@@ -10,3 +10,4 @@ export { Skeleton } from './Skeleton';
 export { toast, ToastHost, useToast } from './Toast';
 export { FormInput } from './FormInput';
 export { Screen } from './Screen';
+export { UpgradePrompt } from './UpgradePrompt';

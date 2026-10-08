@@ -12,3 +12,7 @@
 | 9 | Onboarding ends only when `users/{uid}.onboardingDone` is set; app resumes at the batch step if closed mid-wizard | The institute exists after step 1, so "has institute" alone cannot mean "finished" |
 | 10 | Tab screens other than More are temporary stubs until their features land (1c–1f) | Built feature by feature, each with tests |
 | 11 | Android bundle ships all Expo vector-icon fonts for now (4 MB JS+assets) | Revisit icon fonts when checking the 50 MB APK limit in 1f |
+| 12 | Student and batch lists load once (React Query + Firestore offline cache) and search/filter on the phone; the list itself is windowed (FlatList) | A tutor has tens to a few hundred students; server-side prefix search would be case-sensitive and cost more reads. Revisit if a centre exceeds ~1,000 students |
+| 13 | `batch.studentCount` counts ACTIVE students and is updated in the same write as the student change (increment) | Keeps batch lists cheap (no per-batch student queries) |
+| 14 | Contact import saves the contact's number as the PARENT phone | Tutors usually save parents' numbers; students can be edited afterwards |
+| 15 | CSV import skips problem rows (never partially imports a row), flags duplicates (same name + parent phone), and offers a shareable error report | Predictable, re-runnable imports |

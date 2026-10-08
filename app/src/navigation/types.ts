@@ -9,3 +9,13 @@ export type OnboardingStackParams = {
   Batch: undefined;
   Students: { batchId: string; defaultFee: string };
 };
+
+export type MainStackParams = {
+  Tabs: undefined;
+  StudentForm: { id?: string; batchId?: string } | undefined;
+  StudentProfile: { id: string };
+  StudentImport: { mode: 'csv' | 'contacts' };
+  Batches: undefined;
+  BatchForm: { id?: string } | undefined;
+  BatchDetail: { id: string };
+};

@@ -14,11 +14,19 @@ import { BatchScreen } from '../features/onboarding/BatchScreen';
 import { ProfileScreen } from '../features/onboarding/ProfileScreen';
 import { StudentsScreen } from '../features/onboarding/StudentsScreen';
 import { colors, type } from '../theme';
-import type { AuthStackParams, OnboardingStackParams } from './types';
+import { BatchDetailScreen } from '../features/batches/BatchDetailScreen';
+import { BatchFormScreen } from '../features/batches/BatchFormScreen';
+import { BatchesScreen } from '../features/batches/BatchesScreen';
+import { ImportScreen } from '../features/students/ImportScreen';
+import { StudentFormScreen } from '../features/students/StudentFormScreen';
+import { StudentProfileScreen } from '../features/students/StudentProfileScreen';
+import { StudentsListScreen } from '../features/students/StudentsListScreen';
+import type { AuthStackParams, MainStackParams, OnboardingStackParams } from './types';
 
 const Auth = createNativeStackNavigator<AuthStackParams>();
 const Onboarding = createNativeStackNavigator<OnboardingStackParams>();
 const Tabs = createBottomTabNavigator();
+const Main = createNativeStackNavigator<MainStackParams>();
 
 function AuthStack() {
   return (
@@ -77,9 +85,11 @@ function MainTabs() {
       <Tabs.Screen name="Home" options={{ title: t('tabs.home') }}>
         {() => <Soon title={t('tabs.home')} />}
       </Tabs.Screen>
-      <Tabs.Screen name="Students" options={{ title: t('tabs.students') }}>
-        {() => <Soon title={t('tabs.students')} />}
-      </Tabs.Screen>
+      <Tabs.Screen
+        name="Students"
+        component={StudentsListScreen}
+        options={{ title: t('tabs.students') }}
+      />
       <Tabs.Screen name="Attendance" options={{ title: t('tabs.attendance') }}>
         {() => <Soon title={t('tabs.attendance')} />}
       </Tabs.Screen>
@@ -88,6 +98,45 @@ function MainTabs() {
       </Tabs.Screen>
       <Tabs.Screen name="More" component={MoreScreen} options={{ title: t('tabs.more') }} />
     </Tabs.Navigator>
+  );
+}
+
+function MainStack() {
+  const { t } = useTranslation();
+  return (
+    <Main.Navigator>
+      <Main.Screen name="Tabs" component={MainTabs} options={{ headerShown: false }} />
+      <Main.Screen
+        name="StudentForm"
+        component={StudentFormScreen}
+        options={{ title: t('students.formTitle') }}
+      />
+      <Main.Screen
+        name="StudentProfile"
+        component={StudentProfileScreen}
+        options={{ title: t('students.profile') }}
+      />
+      <Main.Screen
+        name="StudentImport"
+        component={ImportScreen}
+        options={{ title: t('import.title') }}
+      />
+      <Main.Screen
+        name="Batches"
+        component={BatchesScreen}
+        options={{ title: t('batches.title') }}
+      />
+      <Main.Screen
+        name="BatchForm"
+        component={BatchFormScreen}
+        options={{ title: t('batches.formTitle') }}
+      />
+      <Main.Screen
+        name="BatchDetail"
+        component={BatchDetailScreen}
+        options={{ title: t('batches.detail') }}
+      />
+    </Main.Navigator>
   );
 }
 
@@ -116,7 +165,7 @@ export function RootNavigator() {
       ) : status === 'needsOnboarding' ? (
         <OnboardingStack resume={hasInstitute} />
       ) : (
-        <MainTabs />
+        <MainStack />
       )}
     </NavigationContainer>
   );

@@ -12,9 +12,17 @@ export const studentSchema = z.object({
   class: z.string().trim().max(30),
   monthlyFee: z.string().refine((v) => parseRupeesToPaise(v) !== null, 'amount'),
   feeCycle: z.enum(['monthly', 'quarterly', 'one-time']),
-  dueDay: z.number().int().min(1).max(31),
+  dueDay: z.number().int('dueDay').min(1, 'dueDay').max(31, 'dueDay'),
   notifyParent: z.boolean(),
   notes: z.string().max(500).optional(),
+  /** yyyy-mm-dd; blank = today (new student) / unchanged (edit). */
+  joinedOn: z
+    .string()
+    .refine(
+      (v) => v === '' || (/^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v))),
+      'date',
+    )
+    .optional(),
 });
 
 export type StudentForm = z.infer<typeof studentSchema>;

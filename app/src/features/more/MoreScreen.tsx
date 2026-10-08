@@ -1,12 +1,39 @@
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
+import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Button, Screen } from '../../components';
+import { Button, ListItem, Screen } from '../../components';
+import type { MainStackParams } from '../../navigation/types';
+import { colors, spacing } from '../../theme';
 import { logout } from '../auth/session';
 
 export function MoreScreen() {
   const { t } = useTranslation();
+  const nav = useNavigation<NativeStackNavigationProp<MainStackParams>>();
+  const chevron = <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />;
   return (
-    <Screen>
-      <Button variant="secondary" title={t('more.logout')} onPress={() => void logout()} />
+    <Screen padded={false}>
+      <View style={{ paddingTop: spacing.lg }}>
+        <ListItem
+          title={t('batches.title')}
+          right={chevron}
+          onPress={() => nav.navigate('Batches')}
+        />
+        <ListItem
+          title={t('import.fromCsv')}
+          right={chevron}
+          onPress={() => nav.navigate('StudentImport', { mode: 'csv' })}
+        />
+        <ListItem
+          title={t('import.fromContacts')}
+          right={chevron}
+          onPress={() => nav.navigate('StudentImport', { mode: 'contacts' })}
+        />
+      </View>
+      <View style={{ padding: spacing.lg }}>
+        <Button variant="secondary" title={t('more.logout')} onPress={() => void logout()} />
+      </View>
     </Screen>
   );
 }

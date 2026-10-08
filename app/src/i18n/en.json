@@ -1,5 +1,8 @@
 {
-  "app": { "name": "TutorDesk", "tagline": "Students, attendance and fees in one place" },
+  "app": {
+    "name": "TutorDesk",
+    "tagline": "Students, attendance and fees in one place"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",
@@ -18,7 +21,9 @@
     "amount": "Enter a valid amount",
     "time": "Use 24-hour time like 17:30",
     "endAfterStart": "End time must be after start time",
-    "days": "Pick at least one day"
+    "days": "Pick at least one day",
+    "dueDay": "Enter a day from 1 to 31",
+    "date": "Use the format YYYY-MM-DD"
   },
   "language": {
     "title": "Choose your language",
@@ -88,5 +93,121 @@
     "fees": "Fees",
     "more": "More"
   },
-  "more": { "logout": "Log out" }
+  "more": {
+    "logout": "Log out"
+  },
+  "limits": {
+    "title": "Plan limit reached",
+    "student": "Your plan allows up to {{limit}} active students. Upgrade to add more.",
+    "batch": "Your plan allows up to {{limit}} batches. Upgrade to add more.",
+    "expired": "Your plan has expired, so the app is read-only. Renew to make changes."
+  },
+  "students": {
+    "add": "Add",
+    "addManually": "Add one student",
+    "search": "Search",
+    "searchHint": "Name or phone number",
+    "active": "Active",
+    "inactive": "Inactive",
+    "feesPending": "Fees pending",
+    "classN": "Class {{n}}",
+    "count": "{{count}} students",
+    "emptyTitle": "No students yet",
+    "emptyMessage": "Add your first student, or import a list.",
+    "noMatch": "No students match",
+    "notFound": "Student not found",
+    "formTitle": "Student",
+    "profile": "Student profile",
+    "name": "Student name",
+    "phone": "Student's mobile (optional)",
+    "parentName": "Parent's name",
+    "parentPhone": "Parent's mobile number",
+    "batches": "Batches",
+    "noBatchesYet": "Create a batch first (More → Batches).",
+    "feeCycle": "Fee cycle",
+    "cycle": {
+      "monthly": "Monthly",
+      "quarterly": "Quarterly",
+      "oneTime": "One-time"
+    },
+    "dueDay": "Fee due day of month",
+    "joinedOn": "Joining date",
+    "notifyParent": "Send updates to parent",
+    "notes": "Notes",
+    "addPhoto": "Add photo",
+    "changePhoto": "Change photo",
+    "feeNow": "Current monthly fee: {{fee}}",
+    "saved": "Saved",
+    "added": "Student added",
+    "deactivate": "Deactivate student",
+    "reactivate": "Reactivate student",
+    "deactivated": "Student deactivated",
+    "reactivated": "Student reactivated",
+    "edit": "Edit student",
+    "callParent": "Call parent",
+    "callStudent": "Call student",
+    "whatsappStudent": "WhatsApp student",
+    "cannotOpen": "Could not open that app"
+  },
+  "batches": {
+    "title": "Batches",
+    "add": "Add batch",
+    "active": "Active",
+    "archived": "Archived",
+    "emptyTitle": "No batches yet",
+    "emptyMessage": "Create a batch to group students and take attendance.",
+    "noArchived": "No archived batches",
+    "studentsN": "{{count}} students",
+    "formTitle": "Batch",
+    "detail": "Batch details",
+    "notFound": "Batch not found",
+    "saved": "Batch saved",
+    "edit": "Edit",
+    "archive": "Archive",
+    "restore": "Restore",
+    "archivedToast": "Batch archived. History is kept.",
+    "restoredToast": "Batch restored",
+    "defaultFeeIs": "Default fee: {{fee}}",
+    "roster": "Students ({{count}})",
+    "addStudents": "Add students",
+    "noStudents": "No students in this batch yet",
+    "noCandidates": "No other active students",
+    "addN": "Add {{count}}",
+    "remove": "Remove"
+  },
+  "import": {
+    "title": "Import students",
+    "fromCsv": "Import from CSV file",
+    "fromContacts": "Import from phone contacts",
+    "csvTitle": "Import from a CSV file",
+    "csvHelp": "First row must be column names. Useful columns: name, parent phone, phone, parent name, class, batch, monthly fee, fee cycle, due day. Only name and parent phone are required.",
+    "defaultBatch": "Put students without a batch in:",
+    "chooseFile": "Choose CSV file",
+    "emptyFile": "No student rows found in that file.",
+    "readFailed": "Could not read that file.",
+    "contactsTitle": "Import from contacts",
+    "contactsHelp": "Pick contacts to add as students. The contact's number is saved as the parent's number.",
+    "allowContacts": "Allow access to contacts",
+    "noPermission": "Contacts permission was not given.",
+    "noContacts": "No contacts with a valid mobile number",
+    "selected": "{{count}} selected",
+    "preview": "Preview",
+    "previewTitle": "Check before importing",
+    "summary": "{{ok}} ready, {{bad}} with problems (not imported)",
+    "noName": "(no name)",
+    "shareErrors": "Share error report",
+    "importN": "Import {{count}} students",
+    "done": "{{count}} students imported",
+    "overLimit": "Your plan has room for only {{room}} more students.",
+    "errors": {
+      "name": "Name is missing or too short",
+      "phone": "Student phone is not valid",
+      "parentPhone": "Parent phone is missing or not valid",
+      "fee": "Fee is not a valid amount",
+      "cycle": "Fee cycle must be monthly, quarterly or one-time",
+      "dueDay": "Due day must be 1 to 31",
+      "batchUnknown": "Batch name does not match any batch",
+      "duplicate": "Already exists (same name and parent phone)"
+    }
+  }
 }
