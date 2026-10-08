@@ -11,7 +11,12 @@ import {
   Skeleton,
   toast,
 } from '../../components';
-import { useBillingHistory, useLimits, useRefreshData } from '../../data/hooks';
+import {
+  useBillingHistory,
+  useLimits,
+  usePaymentsAvailable,
+  useRefreshData,
+} from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
 import { open } from '../../lib/contact';
 import { toYmd, prettyDate } from '../../lib/dates';
@@ -54,6 +59,9 @@ export function BillingScreen() {
   const locale = i18n.language === 'hi' ? 'hi-IN' : 'en-IN';
   const limits = useLimits();
   const history = useBillingHistory();
+  const payments = usePaymentsAvailable();
+  // Unknown while loading counts as available; only a clear "no" from the server hides the buy buttons.
+  const canPay = payments.data !== false;
   const refresh = useRefreshData();
   const [busyPlan, setBusyPlan] = useState<PlanId | null>(null);
   const [link, setLink] = useState<{ plan: PlanId; data: PlanLink } | null>(null);
@@ -169,10 +177,17 @@ export function BillingScreen() {
           <Meter label={t('home.batches')} used={l.batchCount} limit={l.batchLimit} />
         </Card>
 
-        <Text style={[type.heading, { fontSize: 20, paddingHorizontal: 4 }]}>
-          {t('billing.choosePlan')}
-        </Text>
-        {PLANS.map((p) => {
+        {!canPay ? (
+          <Card style={{ gap: spacing.xs }}>
+            <Text style={type.heading}>{t('billing.paymentsOffTitle')}</Text>
+            <Text style={type.body}>{t('billing.paymentsOffMessage')}</Text>
+          </Card>
+        ) : (
+          <Text style={[type.heading, { fontSize: 20, paddingHorizontal: 4 }]}>
+            {t('billing.choosePlan')}
+          </Text>
+        )}
+        {(canPay ? PLANS : []).map((p) => {
           const action = planAction({ plan: l.plan, expired: state.expired }, p.id);
           return (
             <Card key={p.id} style={{ gap: spacing.sm }}>

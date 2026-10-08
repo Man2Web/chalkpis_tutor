@@ -366,6 +366,16 @@ export function useStaff() {
 
 // ---------- plan, messages ----------
 
+/** False while the server has no payment provider: the plans screen then hides the buy buttons. */
+export function usePaymentsAvailable() {
+  const id = useInstituteId();
+  return useQuery({
+    queryKey: ['paymentsAvailable', id],
+    queryFn: async (): Promise<boolean> =>
+      (await api<{ paymentsAvailable: boolean }>('GET', '/billing/plans')).paymentsAvailable,
+  });
+}
+
 export interface BillingRecord {
   id: string;
   planId: string;

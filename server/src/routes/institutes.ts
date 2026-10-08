@@ -34,7 +34,13 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
   app.post('/institutes', { preHandler: auth }, async (req, reply) => {
     const body = createBody.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'bad_request' });
-    const r = await createInstitute(deps.pool, req.auth!.userId, body.data, now());
+    const r = await createInstitute(
+      deps.pool,
+      req.auth!.userId,
+      body.data,
+      now(),
+      deps.config.TRIAL_DAYS,
+    );
     return reply.code(r.created ? 201 : 200).send(r);
   });
 

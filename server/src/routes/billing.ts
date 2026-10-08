@@ -25,7 +25,11 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
   const owner = { preHandler: [authenticate(deps), requireInstitute, requireOwner] };
   const now = () => (deps.clock ?? (() => new Date()))();
 
-  app.get('/billing/plans', read, async () => ({ plans: Object.values(PLANS) }));
+  // `paymentsAvailable` is false while no payment provider is set up: the app then hides the buy buttons.
+  app.get('/billing/plans', read, async () => ({
+    plans: Object.values(PLANS),
+    paymentsAvailable: !!deps.billing,
+  }));
   app.get('/billing', owner, async (req) => ({
     history: await billingHistory(deps.pool, req.auth!.instituteId!),
   }));

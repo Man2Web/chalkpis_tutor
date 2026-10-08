@@ -491,7 +491,9 @@
       "trialEnding_other": "Your free trial ends in {{count}} days",
       "trial_one": "Free trial: {{count}} day left",
       "trial_other": "Free trial: {{count}} days left"
-    }
+    },
+    "paymentsOffTitle": "Online payment is not switched on yet",
+    "paymentsOffMessage": "Plans cannot be bought in the app for now. Your trial and plan details are shown above. If your plan ends, your data stays safe and you can still read everything."
   },
   "messages": {
     "settingsTitle": "Parent messages",

@@ -53,7 +53,9 @@ The container build has not been tried yet (Docker is not installed on the devel
 - To confirm with your gateway provider: that `templateinfo` is `<templateId>~<value1>~<value2>~<value3>`, and whether it expects POST or GET (`WA_API_METHOD`). Delivery reports are not tracked yet, so "Sent" means the gateway accepted the message.
 - Test with a student whose parent number is **your own** number before switching messages on for everyone.
 
-## 4. Online payments (Razorpay)
+## 4. Online payments (Razorpay): switched off for now
+
+The owner has chosen not to connect a payment gateway yet. With no `RAZORPAY_*` settings the server reports payments as unavailable, the app hides the plan buy buttons and shows a note, and nobody can renew a plan. So set `TRIAL_DAYS` to something long (for example 90 or 365) in the server settings; when a trial ends the app becomes read-only, nothing is deleted. Turn payments on later by following the steps below; nothing else changes.
 
 1. Create a Razorpay account and finish KYC; in **Settings -> API keys** make a **Test mode** key pair first.
 2. Set `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and a `RAZORPAY_WEBHOOK_SECRET` (16+ characters of your choice).

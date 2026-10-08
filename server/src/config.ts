@@ -61,6 +61,8 @@ const schema = z.object({
   PUBLIC_BASE_URL: z.string().url().optional(),
   /** JSON: { "absent": { "en": "id", "hi": "id" }, ... } for the 5 parent messages (see docs/WHATSAPP-TEMPLATES.md). */
   WA_TEMPLATES: z.string().optional(),
+  /** How long a new institute's free trial lasts. With online payment switched off, this is how long they can write before the app turns read-only. */
+  TRIAL_DAYS: z.coerce.number().int().min(1).max(3650).default(7),
   /** Razorpay (plan purchases). Without keys the server uses the local mock in development and answers 503 in production. */
   RAZORPAY_KEY_ID: z.string().min(1).optional(),
   RAZORPAY_KEY_SECRET: z.string().min(1).optional(),

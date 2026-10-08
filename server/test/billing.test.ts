@@ -109,6 +109,7 @@ describe('plan catalogue and pure rules', () => {
     const r = await A.call('GET', '/billing/plans');
     expect(r.body.plans.map((p: { id: string }) => p.id)).toEqual(['starter', 'standard', 'pro']);
     expect(r.body.plans[0]).toMatchObject({ pricePaise: 39900, months: 3 });
+    expect(r.body.paymentsAvailable).toBe(true); // the test harness has a (mock) payment provider
   });
 });
 
@@ -478,5 +479,57 @@ describe('expiry job and the provider client', () => {
       }),
     ).toBeNull();
     expect(parsePaymentLinkPaid(null)).toBeNull();
+  });
+});
+
+describe('online payment switched off', () => {
+  const bare = async (cfg = {}) =>
+    buildApp({
+      config: (await import('./db.js')).testConfig({ ...h.db.config, ...cfg }),
+      pool: h.db.pool,
+      billing: null,
+      clock: () => h.clock.now,
+    });
+
+  it('the plan list says payments are not available, so the app can hide the buy buttons', async () => {
+    const app = await bare();
+    const r = await app.inject({
+      method: 'GET',
+      url: '/billing/plans',
+      headers: { authorization: `Bearer ${A.token}` },
+    });
+    await app.close();
+    expect([r.statusCode, r.json().paymentsAvailable, r.json().plans.length]).toEqual([
+      200,
+      false,
+      3,
+    ]);
+  });
+
+  it('the length of the free trial is a setting, so nobody is locked out while payment is off', async () => {
+    const app = await bare({ TRIAL_DAYS: 90 });
+    const { signToken } = await import('../src/lib/jwt.js');
+    const userId = '00000000-0000-4000-8000-0000000000aa';
+    await h.db.pool.query("INSERT INTO users (id, phone) VALUES (?, '+919000099999')", [userId]);
+    const token = signToken(
+      userId,
+      'test-jwt-secret-test-jwt-secret-1234',
+      900,
+      h.clock.now.getTime(),
+    );
+    const created = await app.inject({
+      method: 'POST',
+      url: '/institutes',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { tutorName: 'Long Trial', instituteName: 'Long Trial Academy', language: 'en' },
+    });
+    const sub = await app.inject({
+      method: 'GET',
+      url: '/subscription',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    await app.close();
+    expect(created.statusCode).toBe(201);
+    expect(sub.json().expiresAt.slice(0, 10)).toBe('2027-01-06'); // 90 days after 8 Oct 2026
   });
 });

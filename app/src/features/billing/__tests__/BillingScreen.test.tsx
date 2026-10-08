@@ -2,7 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import '../../../i18n';
 import { BillingScreen } from '../BillingScreen';
 import { createPlanLink, mockCompletePayment } from '../api';
-import { useBillingHistory, useLimits } from '../../../data/hooks';
+import { useBillingHistory, useLimits, usePaymentsAvailable } from '../../../data/hooks';
+import { ApiError } from '../../../api/client';
 import { open } from '../../../lib/contact';
 import { toast } from '../../../components';
 
@@ -13,6 +14,7 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('../../../data/hooks', () => ({
   useLimits: jest.fn(),
   useBillingHistory: jest.fn(),
+  usePaymentsAvailable: jest.fn(),
   useRefreshData: () => mockRefresh,
 }));
 jest.mock('../api', () => ({
@@ -51,6 +53,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   (useLimits as jest.Mock).mockReturnValue(limits());
   (useBillingHistory as jest.Mock).mockReturnValue(q([]));
+  (usePaymentsAvailable as jest.Mock).mockReturnValue(q(true));
 });
 
 it('shows the trial, unlimited usage, and the three plans with real prices', async () => {
@@ -126,10 +129,7 @@ it('real Razorpay: opens the payment page in the browser', async () => {
 });
 
 it('tells the owner plainly when online payments are not set up', async () => {
-  (createPlanLink as jest.Mock).mockRejectedValue({
-    code: 'functions/failed-precondition',
-    message: 'billing-not-configured',
-  });
+  (createPlanLink as jest.Mock).mockRejectedValue(new ApiError(503, 'billing_unavailable'));
   await render(<BillingScreen />);
   await fireEvent.press(screen.getByRole('button', { name: 'Choose Starter' }));
   await waitFor(() =>
@@ -138,6 +138,15 @@ it('tells the owner plainly when online payments are not set up', async () => {
       'error',
     ),
   );
+});
+
+it('when online payment is off, no plan can be bought and the owner is told why', async () => {
+  (usePaymentsAvailable as jest.Mock).mockReturnValue(q(false));
+  await render(<BillingScreen />);
+  expect(screen.getByText('Online payment is not switched on yet')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Choose Starter' })).toBeNull();
+  expect(screen.queryByText('₹399')).toBeNull();
+  expect(screen.getByText('Free trial')).toBeTruthy(); // the current plan is still shown
 });
 
 it('lists past payments', async () => {

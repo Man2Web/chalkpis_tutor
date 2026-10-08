@@ -18,6 +18,7 @@ export async function createInstitute(
   userId: string,
   input: CreateInstituteInput,
   now: Date = new Date(),
+  trialDays: number = TRIAL_DAYS,
 ) {
   return withTransaction(pool, async (c) => {
     const [existing] = (await c.query(
@@ -42,7 +43,7 @@ export async function createInstitute(
     ]);
     await c.query(
       "INSERT INTO subscriptions (institute_id, plan, status, starts_at, expires_at) VALUES (?, 'trial', 'active', ?, ?)",
-      [instituteId, now, new Date(now.getTime() + TRIAL_DAYS * 86_400_000)],
+      [instituteId, now, new Date(now.getTime() + trialDays * 86_400_000)],
     );
     return { instituteId, created: true };
   });

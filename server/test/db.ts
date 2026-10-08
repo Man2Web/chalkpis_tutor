@@ -26,6 +26,7 @@ export const testConfig = (over: Partial<Config> = {}): Config => ({
   HOST: '127.0.0.1',
   LOG_LEVEL: 'silent',
   RATE_LIMIT_PER_MIN: 300,
+  TRIAL_DAYS: 7,
   CORS_ORIGINS: [],
   FILES_DIR: path.join(os.tmpdir(), 'tutordesk-test-files'),
   TRUST_PROXY: false,
