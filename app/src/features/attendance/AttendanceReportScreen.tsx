@@ -8,6 +8,7 @@ import { rangeFor, todayYmd, type RangePreset } from '../../lib/dates';
 import { LOW_ATTENDANCE_PERCENT } from '../../lib/types';
 import type { MainStackParams } from '../../navigation/types';
 import { colors, spacing, type } from '../../theme';
+import { useIsStaff } from '../auth/session';
 import { batchStats, lowAttendance, overallStat, studentStats } from './logic';
 
 const PRESETS: RangePreset[] = ['thisMonth', 'lastMonth', 'last30'];
@@ -16,6 +17,7 @@ export function AttendanceReportScreen({
   navigation,
 }: NativeStackScreenProps<MainStackParams, 'AttendanceReport'>) {
   const { t } = useTranslation();
+  const staff = useIsStaff();
   const [preset, setPreset] = useState<RangePreset>('thisMonth');
   const [batchId, setBatchId] = useState<string>();
   const { from, to } = rangeFor(preset, todayYmd());
@@ -143,7 +145,11 @@ export function AttendanceReportScreen({
                       />
                     }
                     right={<Chip label={`${stat.pct}%`} tone="danger" />}
-                    onPress={() => navigation.navigate('StudentProfile', { id: studentId })}
+                    onPress={
+                      staff
+                        ? undefined
+                        : () => navigation.navigate('StudentProfile', { id: studentId })
+                    }
                   />
                 ))
               )}
@@ -162,7 +168,7 @@ export function AttendanceReportScreen({
                       tone={s.pct !== null && s.pct < LOW_ATTENDANCE_PERCENT ? 'danger' : 'success'}
                     />
                   }
-                  onPress={() => navigation.navigate('StudentProfile', { id })}
+                  onPress={staff ? undefined : () => navigation.navigate('StudentProfile', { id })}
                 />
               ))}
             </View>

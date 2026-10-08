@@ -8,6 +8,7 @@ import { useAttendanceOn, useBatches } from '../../data/hooks';
 import { todayYmd, weekdayOf } from '../../lib/dates';
 import type { MainStackParams } from '../../navigation/types';
 import { colors, radius, spacing, type } from '../../theme';
+import { useIsStaff } from '../auth/session';
 import { scheduleLabel } from '../batches/format';
 import { DateStrip } from './DateStrip';
 import { counts } from './logic';
@@ -18,6 +19,7 @@ export function AttendanceHomeScreen() {
   const [date, setDate] = useState(todayYmd());
   const batches = useBatches();
   const day = useAttendanceOn(date);
+  const staff = useIsStaff();
 
   const active = (batches.data ?? []).filter((b) => b.status === 'active');
   // Batches that meet on this weekday first.
@@ -104,13 +106,21 @@ export function AttendanceHomeScreen() {
             <View style={{ height: 1, backgroundColor: colors.border }} />
           )}
           ListEmptyComponent={
-            <EmptyState
-              icon="albums-outline"
-              title={t('batches.emptyTitle')}
-              message={t('batches.emptyMessage')}
-              actionLabel={t('batches.add')}
-              onAction={() => nav.navigate('BatchForm')}
-            />
+            staff ? (
+              <EmptyState
+                icon="albums-outline"
+                title={t('batches.emptyTitle')}
+                message={t('attendance.noBatchesAssigned')}
+              />
+            ) : (
+              <EmptyState
+                icon="albums-outline"
+                title={t('batches.emptyTitle')}
+                message={t('batches.emptyMessage')}
+                actionLabel={t('batches.add')}
+                onAction={() => nav.navigate('BatchForm')}
+              />
+            )
           }
           renderItem={({ item }) => (
             <ListItem

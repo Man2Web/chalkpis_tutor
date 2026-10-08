@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { stamp, stampYmd, type Stamp } from '../api/stamp';
+import type { StaffMember } from '../features/staff/api';
 import { useSession } from '../features/auth/session';
 import { normalizeSettings, type NotifySettings } from '../features/messages/settings';
 import { attendanceId, todayYmd } from '../lib/dates';
@@ -348,6 +349,18 @@ export function useDuesForPeriod(month: string) {
     queryKey: ['dues', id, 'period', month],
     queryFn: async (): Promise<FeeDue[]> =>
       (await all<ServerDue>(`/fees/dues?status=all&period=${month}`, 'dues')).map(toDue),
+  });
+}
+
+// ---------- staff ----------
+
+/** The owner's helpers (the server refuses this to anyone else). */
+export function useStaff() {
+  const id = useInstituteId();
+  return useQuery({
+    queryKey: ['staff', id],
+    queryFn: async (): Promise<StaffMember[]> =>
+      (await api<{ staff: StaffMember[] }>('GET', '/staff')).staff,
   });
 }
 

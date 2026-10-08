@@ -20,6 +20,9 @@ export const useSession = create<SessionState>((set) => ({
   set,
 }));
 
+/** True for a helper (staff) account: attendance only. */
+export const useIsStaff = () => useSession((s) => s.profile?.role === 'staff');
+
 /** What GET /me answers. */
 export interface MeResponse {
   user: { id: string; phone: string; name: string; language: 'en' | 'hi' };

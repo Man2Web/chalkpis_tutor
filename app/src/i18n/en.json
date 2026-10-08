@@ -94,7 +94,8 @@
     "more": "More"
   },
   "more": {
-    "logout": "Log out"
+    "logout": "Log out",
+    "staffNote": "You can take attendance for the batches the owner has given you."
   },
   "limits": {
     "title": "Plan limit reached",
@@ -262,7 +263,8 @@
     "breakdown": "Present {{p}} • Late {{l}} • Absent {{a}}",
     "allStudents": "All students",
     "last30": "Attendance, last 30 days",
-    "low": "Low"
+    "low": "Low",
+    "noBatchesAssigned": "No batches are assigned to you yet. Ask the owner."
   },
   "fees": {
     "pending": "Pending",
@@ -559,5 +561,29 @@
     "revoked": "Links switched off",
     "failed": "Something went wrong. Please try again.",
     "cannotShare": "Could not open the share menu"
+  },
+  "staff": {
+    "title": "Staff",
+    "help": "Helpers you add can take attendance for the batches you choose. They cannot see fees, messages or settings, and cannot change anything else.",
+    "emptyTitle": "No helpers yet",
+    "emptyMessage": "Add an assistant so they can take attendance on their own phone.",
+    "add": "Add a helper",
+    "invite": "Add helper",
+    "name": "Helper's name",
+    "phone": "Mobile number (WhatsApp)",
+    "batches": "Batches they can mark",
+    "noBatchesYet": "No batches yet. Add a batch first.",
+    "noneAssigned": "No batches assigned",
+    "remove": "Remove helper",
+    "removeNote": "Removing a helper ends their access straight away.",
+    "added": "Helper added. They can sign in with their number.",
+    "saved": "Saved",
+    "removed": "Helper removed",
+    "errors": {
+      "alreadyMember": "This number is already used in an institute.",
+      "staffLimit": "You can add up to 10 helpers.",
+      "planExpired": "Your plan has ended. Renew it to add helpers.",
+      "invalid": "Check the name and the 10-digit mobile number."
+    }
   }
 }

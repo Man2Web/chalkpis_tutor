@@ -1,17 +1,33 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Button, ListItem, Screen } from '../../components';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, spacing } from '../../theme';
-import { logout } from '../auth/session';
+import { colors, spacing, type } from '../../theme';
+import { logout, useIsStaff, useSession } from '../auth/session';
 
 export function MoreScreen() {
   const { t } = useTranslation();
   const nav = useNavigation<NativeStackNavigationProp<MainStackParams>>();
   const chevron = <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />;
+  const staff = useIsStaff();
+  const profile = useSession((s) => s.profile);
+  // A helper only sees who they are and can sign out; everything else is the owner's.
+  if (staff)
+    return (
+      <Screen>
+        <View style={{ paddingTop: spacing.lg, gap: spacing.xs }}>
+          <Text style={type.heading}>{profile?.name}</Text>
+          <Text style={type.caption}>{profile?.phone}</Text>
+          <Text style={[type.caption, { marginTop: spacing.sm }]}>{t('more.staffNote')}</Text>
+        </View>
+        <View style={{ paddingTop: spacing.lg }}>
+          <Button variant="secondary" title={t('more.logout')} onPress={() => void logout()} />
+        </View>
+      </Screen>
+    );
   return (
     <Screen padded={false}>
       <View style={{ paddingTop: spacing.lg }}>
@@ -35,6 +51,7 @@ export function MoreScreen() {
           right={chevron}
           onPress={() => nav.navigate('Batches')}
         />
+        <ListItem title={t('staff.title')} right={chevron} onPress={() => nav.navigate('Staff')} />
         <ListItem
           title={t('reports.title')}
           right={chevron}

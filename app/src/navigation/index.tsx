@@ -7,7 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { LanguageScreen } from '../features/auth/LanguageScreen';
 import { OtpScreen } from '../features/auth/OtpScreen';
 import { PhoneLoginScreen } from '../features/auth/PhoneLoginScreen';
-import { useSession } from '../features/auth/session';
+import { useIsStaff, useSession } from '../features/auth/session';
+import { StaffScreen } from '../features/staff/StaffScreen';
 import { MoreScreen } from '../features/more/MoreScreen';
 import { BatchScreen } from '../features/onboarding/BatchScreen';
 import { ProfileScreen } from '../features/onboarding/ProfileScreen';
@@ -75,6 +76,7 @@ const ICONS = {
 
 function MainTabs() {
   const { t } = useTranslation();
+  const staff = useIsStaff();
   return (
     <Tabs.Navigator
       screenOptions={({ route }) => ({
@@ -97,18 +99,29 @@ function MainTabs() {
         },
       })}
     >
-      <Tabs.Screen name="Home" component={HomeScreen} options={{ title: t('tabs.home') }} />
-      <Tabs.Screen
-        name="Students"
-        component={StudentsListScreen}
-        options={{ title: t('tabs.students') }}
-      />
+      {/* A helper (staff) only takes attendance: no home numbers, student list or fees. */}
+      {!staff && (
+        <Tabs.Screen name="Home" component={HomeScreen} options={{ title: t('tabs.home') }} />
+      )}
+      {!staff && (
+        <Tabs.Screen
+          name="Students"
+          component={StudentsListScreen}
+          options={{ title: t('tabs.students') }}
+        />
+      )}
       <Tabs.Screen
         name="Attendance"
         component={AttendanceHomeScreen}
         options={{ title: t('tabs.attendance') }}
       />
-      <Tabs.Screen name="Fees" component={FeesOverviewScreen} options={{ title: t('tabs.fees') }} />
+      {!staff && (
+        <Tabs.Screen
+          name="Fees"
+          component={FeesOverviewScreen}
+          options={{ title: t('tabs.fees') }}
+        />
+      )}
       <Tabs.Screen name="More" component={MoreScreen} options={{ title: t('tabs.more') }} />
     </Tabs.Navigator>
   );
@@ -194,6 +207,7 @@ function MainStack() {
         component={NotificationSettingsScreen}
         options={{ title: t('messages.settingsTitle') }}
       />
+      <Main.Screen name="Staff" component={StaffScreen} options={{ title: t('staff.title') }} />
       <Main.Screen
         name="MessageLog"
         component={MessageLogScreen}
