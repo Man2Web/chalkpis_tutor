@@ -73,7 +73,9 @@ export async function listStudents(
   pool: Pool,
   instituteId: string,
   q: { status: 'active' | 'inactive' | 'all'; batchId?: string; limit: number; offset: number },
+  scope: string[] | null = null,
 ) {
+  if (scope && !scope.length) return [];
   const where = ['s.institute_id = ?'];
   const args: unknown[] = [instituteId];
   if (q.status !== 'all') {
@@ -85,6 +87,12 @@ export async function listStudents(
       'EXISTS (SELECT 1 FROM student_batches sb WHERE sb.student_id = s.id AND sb.institute_id = s.institute_id AND sb.batch_id = ?)',
     );
     args.push(q.batchId);
+  }
+  if (scope) {
+    where.push(
+      'EXISTS (SELECT 1 FROM student_batches sbs WHERE sbs.student_id = s.id AND sbs.institute_id = s.institute_id AND sbs.batch_id IN (?))',
+    );
+    args.push(scope);
   }
   const [rows] = (await pool.query(
     `SELECT s.* FROM students s WHERE ${where.join(' AND ')} ORDER BY s.name, s.id LIMIT ? OFFSET ?`,

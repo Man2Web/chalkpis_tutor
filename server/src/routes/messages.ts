@@ -28,7 +28,7 @@ const logQuery = z.object({
 });
 
 export function messageRoutes(app: FastifyInstance, deps: Deps) {
-  const read = { preHandler: [authenticate(deps), requireInstitute] };
+  const read = { preHandler: [authenticate(deps), requireInstitute, requireOwner] };
   const write = { preHandler: [authenticate(deps), requireInstitute, requireOwner] };
   const now = () => (deps.clock ?? (() => new Date()))();
   const inst = (req: { auth: { instituteId: string | null } | null }) => req.auth!.instituteId!;

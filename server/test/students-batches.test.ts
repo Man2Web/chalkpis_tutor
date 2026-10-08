@@ -478,17 +478,31 @@ describe('tenant isolation: B can never touch A', () => {
 });
 
 describe('roles', () => {
-  it('staff can read students and batches but never change them', async () => {
+  it('staff see only the batches and students assigned to them, and never change anything', async () => {
     const b = await mk(A, '/batches', batch());
+    const other = await mk(A, '/batches', batch({ name: 'Other Batch' }));
     const s = await mk(A, '/students', student({ batchIds: [b] }));
+    await mk(A, '/students', student({ name: 'Hidden Kid', batchIds: [other] }));
     const staff = await h.tenant('+919000011111'); // makes its own institute; move this user into A as staff instead
     await h.db.pool.query('DELETE FROM memberships WHERE user_id = ?', [staff.userId]);
     await h.db.pool.query(
       "INSERT INTO memberships (user_id, institute_id, role) VALUES (?, ?, 'staff')",
       [staff.userId, A.instituteId],
     );
-    expect((await staff.call('GET', '/students')).body.students).toHaveLength(1);
-    expect((await staff.call('GET', '/batches')).body.batches).toHaveLength(1);
+    expect((await staff.call('GET', '/students')).body.students).toEqual([]); // nothing assigned yet
+    expect((await staff.call('GET', '/batches')).body.batches).toEqual([]);
+    await h.db.pool.query(
+      'INSERT INTO staff_batches (institute_id, user_id, batch_id) VALUES (?, ?, ?)',
+      [A.instituteId, staff.userId, b],
+    );
+    expect(
+      (await staff.call('GET', '/students')).body.students.map((x: { id: string }) => x.id),
+    ).toEqual([s]);
+    expect(
+      (await staff.call('GET', '/batches')).body.batches.map((x: { id: string }) => x.id),
+    ).toEqual([b]);
+    expect((await staff.call('GET', `/batches/${other}`)).status).toBe(404);
+    expect((await staff.call('GET', `/students?batchId=${other}`)).body.students).toEqual([]);
     for (const [m, u, p] of [
       ['POST', '/students', student({ name: 'Staff Add' })],
       ['PATCH', `/students/${s}`, { name: 'X' }],

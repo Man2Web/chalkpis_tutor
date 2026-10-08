@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
+import { notFound } from '../errors.js';
+import { batchScope } from '../staff/service.js';
 import { batchInput, batchPatch, studentIds } from '../batches/schema.js';
 import {
   addStudentsToBatch,
@@ -23,12 +25,18 @@ export function batchRoutes(app: FastifyInstance, deps: Deps) {
   const now = () => (deps.clock ?? (() => new Date()))();
   const inst = (req: { auth: { instituteId: string | null } | null }) => req.auth!.instituteId!;
 
-  app.get('/batches', read, async (req) => ({
-    batches: await listBatches(deps.pool, inst(req), parse(listQuery, req.query).status),
-  }));
-  app.get('/batches/:id', read, async (req) =>
-    getBatch(deps.pool, inst(req), idParam((req.params as { id: string }).id)),
-  );
+  // Staff see only the batches they are assigned to; another batch answers exactly like a missing one.
+  app.get('/batches', read, async (req) => {
+    const scope = await batchScope(deps.pool, req.auth!);
+    const all = await listBatches(deps.pool, inst(req), parse(listQuery, req.query).status);
+    return { batches: scope ? all.filter((b) => scope.includes(b.id)) : all };
+  });
+  app.get('/batches/:id', read, async (req) => {
+    const id = idParam((req.params as { id: string }).id);
+    const scope = await batchScope(deps.pool, req.auth!);
+    if (scope && !scope.includes(id)) throw notFound();
+    return getBatch(deps.pool, inst(req), id);
+  });
 
   app.post('/batches', write, async (req, reply) => {
     const id = await createBatch(deps.pool, inst(req), parse(batchInput, req.body), now());

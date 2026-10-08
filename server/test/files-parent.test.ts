@@ -239,14 +239,20 @@ describe('student photos are private', () => {
     expect((await A.call('GET', `/students/${s}`)).body.photoUrl).toBeNull();
   });
 
-  it('staff can see photos but not change them; a bad id is a 400', async () => {
-    const s = await mk(A, '/students', student());
+  it('staff see photos only of their own batches and cannot change them; a bad id is a 400', async () => {
+    const b = await mk(A, '/batches', batch());
+    const s = await mk(A, '/students', student({ batchIds: [b] }));
     await put(A, `/students/${s}/photo`, PNG);
     const staff = await h.tenant('+919000011111');
     await h.db.pool.query('DELETE FROM memberships WHERE user_id = ?', [staff.userId]);
     await h.db.pool.query(
       "INSERT INTO memberships (user_id, institute_id, role) VALUES (?, ?, 'staff')",
       [staff.userId, A.instituteId],
+    );
+    expect((await get(`/students/${s}/photo`, staff)).statusCode).toBe(404); // not assigned to the batch
+    await h.db.pool.query(
+      'INSERT INTO staff_batches (institute_id, user_id, batch_id) VALUES (?, ?, ?)',
+      [A.instituteId, staff.userId, b],
     );
     expect((await get(`/students/${s}/photo`, staff)).statusCode).toBe(200);
     expect((await put(staff, `/students/${s}/photo`, PNG)).statusCode).toBe(403);
@@ -437,14 +443,14 @@ describe('parent links and the parent view', () => {
     expect((await view(t)).statusCode).toBe(200); // A's link is untouched
   });
 
-  it('staff can check link status but not create or revoke; an expired plan cannot create', async () => {
+  it('staff cannot see, create or revoke parent links; an expired plan cannot create', async () => {
     const staff = await h.tenant('+919000011111');
     await h.db.pool.query('DELETE FROM memberships WHERE user_id = ?', [staff.userId]);
     await h.db.pool.query(
       "INSERT INTO memberships (user_id, institute_id, role) VALUES (?, ?, 'staff')",
       [staff.userId, A.instituteId],
     );
-    expect((await staff.call('GET', `/students/${s}/parent-link`)).status).toBe(200);
+    expect((await staff.call('GET', `/students/${s}/parent-link`)).status).toBe(403);
     expect((await staff.call('POST', `/students/${s}/parent-link`, {})).status).toBe(403);
     expect((await staff.call('DELETE', `/students/${s}/parent-link`)).status).toBe(403);
     const t = (await newLink()).body.token as string;

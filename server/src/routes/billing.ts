@@ -21,7 +21,7 @@ const linkBody = z.object({ planId: z.string().refine(isPlanId, { message: 'plan
 const mockBody = z.object({ orderId: z.string().uuid() });
 
 export function billingRoutes(app: FastifyInstance, deps: Deps) {
-  const read = { preHandler: [authenticate(deps), requireInstitute] };
+  const read = { preHandler: [authenticate(deps), requireInstitute, requireOwner] };
   const owner = { preHandler: [authenticate(deps), requireInstitute, requireOwner] };
   const now = () => (deps.clock ?? (() => new Date()))();
 

@@ -14,6 +14,7 @@ import {
   saveImage,
 } from '../files/store.js';
 import { idParam } from '../lib/params.js';
+import { batchScope } from '../staff/service.js';
 
 type Deps = Pick<AppDeps, 'config' | 'pool'> & { clock?: () => Date };
 
@@ -109,6 +110,14 @@ export function fileRoutes(app: FastifyInstance, deps: Deps) {
   // A student's photo is private: only a member of that student's institute can fetch it.
   app.get('/students/:id/photo', read, async (req, reply) => {
     const id = idParam((req.params as { id: string }).id);
+    const scope = await batchScope(pool, req.auth!);
+    if (scope) {
+      const [m] = (await pool.query(
+        'SELECT 1 FROM student_batches WHERE institute_id = ? AND student_id = ? AND batch_id IN (?) LIMIT 1',
+        [inst(req), id, scope.length ? scope : ['']],
+      )) as unknown as [unknown[]];
+      if (!m.length) throw notFound();
+    }
     const [rows] = (await pool.query(
       'SELECT photo_path FROM students WHERE institute_id = ? AND id = ?',
       [inst(req), id],

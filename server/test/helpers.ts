@@ -28,6 +28,8 @@ export interface Harness {
   clock: { now: Date };
   reset: () => Promise<void>;
   tenant: (phone: string, names?: { tutor?: string; institute?: string }) => Promise<Tenant>;
+  /** Acts as an existing user (for example a helper the owner invited). */
+  login: (userId: string, instituteId: string) => Tenant;
   close: () => Promise<void>;
 }
 
@@ -44,6 +46,7 @@ export interface Tenant {
 
 const TABLES = [
   'job_runs',
+  'staff_batches',
   'parent_links',
   'messages',
   'notify_settings',
@@ -123,6 +126,26 @@ export async function startHarness(extra: Parameters<typeof testConfig>[0] = {})
     return { userId, instituteId, token, call };
   };
 
+  const login: Harness['login'] = (userId, instituteId) => {
+    const token = signToken(userId, config.JWT_SECRET, 900, clock.now.getTime());
+    const call: Tenant['call'] = async (method, url, payload) => {
+      const r = await app.inject({
+        method,
+        url,
+        headers: { authorization: `Bearer ${token}` },
+        ...(payload === undefined ? {} : { payload: payload as object }),
+      });
+      let body: unknown = null;
+      try {
+        body = r.body ? r.json() : null;
+      } catch {
+        body = r.body;
+      }
+      return { status: r.statusCode, body };
+    };
+    return { userId, instituteId, token, call };
+  };
+
   return {
     db,
     app,
@@ -132,6 +155,7 @@ export async function startHarness(extra: Parameters<typeof testConfig>[0] = {})
     clock,
     reset,
     tenant,
+    login,
     close: async () => {
       await app.close();
       await db.drop();

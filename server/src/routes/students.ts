@@ -1,7 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppDeps } from '../app.js';
 import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
+import { notFound } from '../errors.js';
 import { idParam, parse } from '../lib/params.js';
+import { batchScope } from '../staff/service.js';
 import { bulkInput, listQuery, studentInput, studentPatch } from '../students/schema.js';
 import {
   createStudents,
@@ -19,12 +21,19 @@ export function studentRoutes(app: FastifyInstance, deps: Deps) {
   const now = () => (deps.clock ?? (() => new Date()))();
   const inst = (req: { auth: { instituteId: string | null } | null }) => req.auth!.instituteId!;
 
-  app.get('/students', read, async (req) => ({
-    students: await listStudents(deps.pool, inst(req), parse(listQuery, req.query)),
-  }));
-  app.get('/students/:id', read, async (req) =>
-    getStudent(deps.pool, inst(req), idParam((req.params as { id: string }).id)),
-  );
+  // Staff see only the students of their assigned batches.
+  app.get('/students', read, async (req) => {
+    const q = parse(listQuery, req.query);
+    const scope = await batchScope(deps.pool, req.auth!);
+    if (scope && q.batchId && !scope.includes(q.batchId)) return { students: [] };
+    return { students: await listStudents(deps.pool, inst(req), q, scope) };
+  });
+  app.get('/students/:id', read, async (req) => {
+    const s = await getStudent(deps.pool, inst(req), idParam((req.params as { id: string }).id));
+    const scope = await batchScope(deps.pool, req.auth!);
+    if (scope && !s.batchIds.some((b) => scope.includes(b))) throw notFound();
+    return s;
+  });
 
   app.post('/students', write, async (req, reply) => {
     const [id] = await createStudents(deps.pool, inst(req), [parse(studentInput, req.body)], now());

@@ -32,7 +32,8 @@ import { dashboard, feesReport } from '../reports/service.js';
 type Deps = Pick<AppDeps, 'config' | 'pool'> & { clock?: () => Date };
 
 export function feeRoutes(app: FastifyInstance, deps: Deps) {
-  const read = { preHandler: [authenticate(deps), requireInstitute] };
+  // Money, dashboard and reports are the owner's only: staff only take attendance.
+  const read = { preHandler: [authenticate(deps), requireInstitute, requireOwner] };
   const write = { preHandler: [authenticate(deps), requireInstitute, requireOwner] };
   const now = () => (deps.clock ?? (() => new Date()))();
   const inst = (req: { auth: { instituteId: string | null } | null }) => req.auth!.instituteId!;

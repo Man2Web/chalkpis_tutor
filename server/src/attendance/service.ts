@@ -127,13 +127,19 @@ export async function listDays(
   db: Db,
   instituteId: string,
   q: { from: string; to: string; batchId?: string },
+  scope: string[] | null = null,
 ) {
   checkRange(q.from, q.to);
+  if (scope && !scope.length) return [];
   const args: unknown[] = [instituteId, q.from, q.to];
   let extra = '';
   if (q.batchId) {
     extra = ' AND a.batch_id = ?';
     args.push(q.batchId);
+  }
+  if (scope) {
+    extra += ' AND a.batch_id IN (?)';
+    args.push(scope);
   }
   const [rows] = (await db.query(
     `SELECT a.id, a.batch_id, DATE_FORMAT(a.day, '%Y-%m-%d') AS day, a.holiday, m.student_id, m.mark
@@ -168,6 +174,7 @@ export async function studentHistory(
   instituteId: string,
   studentId: string,
   q: { from: string; to: string },
+  scope: string[] | null = null,
 ) {
   checkRange(q.from, q.to);
   const [s] = (await db.query('SELECT 1 FROM students WHERE institute_id = ? AND id = ?', [
@@ -178,9 +185,9 @@ export async function studentHistory(
   const [rows] = (await db.query(
     `SELECT DATE_FORMAT(a.day, '%Y-%m-%d') AS day, a.batch_id, m.mark
        FROM attendance_marks m JOIN attendance_days a ON a.institute_id = m.institute_id AND a.id = m.day_id
-      WHERE m.institute_id = ? AND m.student_id = ? AND a.day BETWEEN ? AND ? AND a.holiday IS NULL
+      WHERE m.institute_id = ? AND m.student_id = ? AND a.day BETWEEN ? AND ? AND a.holiday IS NULL${scope ? ' AND a.batch_id IN (?)' : ''}
       ORDER BY a.day DESC, a.batch_id`,
-    [instituteId, studentId, q.from, q.to],
+    scope ? [instituteId, studentId, q.from, q.to, scope] : [instituteId, studentId, q.from, q.to],
   )) as unknown as [{ day: string; batch_id: string; mark: Mark }[]];
   const days = rows.map((r) => ({ date: r.day, batchId: r.batch_id, mark: r.mark }));
   const stat = toStat(
@@ -196,13 +203,24 @@ export async function attendanceReport(
   db: Db,
   instituteId: string,
   q: { from: string; to: string; batchId?: string },
+  scope: string[] | null = null,
 ) {
   if (daysBetween(q.from, q.to) > 366) throw new AppError(400, 'range_too_long', { maxDays: 366 });
+  const empty = {
+    overall: { ...toStat(0, 0, 0), sessions: 0, holidays: 0 },
+    students: [] as never[],
+    low: [] as never[],
+  };
+  if (scope && !scope.length) return empty;
   const args: unknown[] = [instituteId, q.from, q.to];
   let extra = '';
   if (q.batchId) {
     extra = ' AND a.batch_id = ?';
     args.push(q.batchId);
+  }
+  if (scope) {
+    extra += ' AND a.batch_id IN (?)';
+    args.push(scope);
   }
   const [rows] = (await db.query(
     `SELECT m.student_id, s.name, SUM(m.mark = 'P') AS p, SUM(m.mark = 'L') AS l, SUM(m.mark = 'A') AS a

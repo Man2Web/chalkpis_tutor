@@ -753,7 +753,7 @@ describe('roles and plan', () => {
     return staff;
   };
 
-  it('staff can read everything here but change nothing', async () => {
+  it('staff never see money, and cannot change fees; without assigned batches they can take no attendance', async () => {
     const b = await mk(A, '/batches', batch());
     const s = await mk(A, '/students', student({ batchIds: [b] }));
     await gen(A);
@@ -766,13 +766,20 @@ describe('roles and plan', () => {
       '/fees/dues',
       '/fees/payments',
       `/fees/payments/${p}`,
+      `/fees/dues/${due}`,
       '/reports/fees?from=2026-10-01&to=2026-10-31',
-      '/attendance/report?from=2026-10-01&to=2026-10-31',
-      `/attendance?batchId=${b}&date=${TODAY}`,
     ])
-      expect([u, (await staff.call('GET', u)).status]).toEqual([u, 200]);
+      expect([u, (await staff.call('GET', u)).status]).toEqual([u, 403]);
+    // attendance: nothing is assigned yet, so nothing is visible and nothing can be saved
+    expect(
+      (await staff.call('GET', '/attendance/report?from=2026-10-01&to=2026-10-31')).body.overall
+        .total,
+    ).toBe(0);
+    expect((await staff.call('GET', `/attendance?batchId=${b}&date=${TODAY}`)).status).toBe(404);
+    expect(
+      (await staff.call('PUT', '/attendance', { batchId: b, date: TODAY, marks: {} })).status,
+    ).toBe(404);
     for (const [m, u, body] of [
-      ['PUT', '/attendance', { batchId: b, date: TODAY, marks: {} }],
       ['POST', '/fees/generate', {}],
       ['POST', `/fees/dues/${due}/payments`, { amount: 1, mode: 'cash' }],
       ['POST', `/fees/payments/${p}/reverse`],

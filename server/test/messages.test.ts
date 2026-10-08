@@ -118,15 +118,15 @@ describe('settings', () => {
     expect((await A.call('PUT', '/settings/notifications', { enabled: true })).status).toBe(400);
   });
 
-  it('staff can read but not change; an expired plan cannot change either', async () => {
+  it('staff can neither read nor change messages; an expired plan cannot change either', async () => {
     const staff = await h.tenant('+919000011111');
     await h.db.pool.query('DELETE FROM memberships WHERE user_id = ?', [staff.userId]);
     await h.db.pool.query(
       "INSERT INTO memberships (user_id, institute_id, role) VALUES (?, ?, 'staff')",
       [staff.userId, A.instituteId],
     );
-    expect((await staff.call('GET', '/settings/notifications')).status).toBe(200);
-    expect((await staff.call('GET', '/messages')).status).toBe(200);
+    expect((await staff.call('GET', '/settings/notifications')).status).toBe(403);
+    expect((await staff.call('GET', '/messages')).status).toBe(403);
     expect((await on(staff)).status).toBe(403);
     expect((await staff.call('POST', '/messages/reminders/run')).status).toBe(403);
     h.clock.now = new Date(h.clock.now.getTime() + 8 * 86_400_000);
