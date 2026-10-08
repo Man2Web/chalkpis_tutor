@@ -14,6 +14,8 @@ import { attendanceRoutes } from './routes/attendance.js';
 import { feeRoutes } from './routes/fees.js';
 import { billingRoutes } from './routes/billing.js';
 import { messageRoutes } from './routes/messages.js';
+import { fileRoutes } from './routes/files.js';
+import { parentRoutes } from './routes/parent.js';
 import { instituteRoutes } from './routes/institutes.js';
 
 export interface AppDeps {
@@ -77,6 +79,8 @@ export async function buildApp({
   attendanceRoutes(app, { config, pool, clock });
   feeRoutes(app, { config, pool, clock });
   messageRoutes(app, { config, pool, clock });
+  fileRoutes(app, { config, pool, clock });
+  parentRoutes(app, { config, pool, clock });
   billingRoutes(app, { config, pool, billing, clock });
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));

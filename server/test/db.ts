@@ -1,3 +1,5 @@
+import os from 'node:os';
+import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import mysql from 'mysql2/promise';
 import type { Config } from '../src/config.js';
@@ -24,6 +26,7 @@ export const testConfig = (over: Partial<Config> = {}): Config => ({
   HOST: '127.0.0.1',
   LOG_LEVEL: 'silent',
   RATE_LIMIT_PER_MIN: 300,
+  FILES_DIR: path.join(os.tmpdir(), 'tutordesk-test-files'),
   TRUST_PROXY: false,
   DB_HOST: ADMIN.host,
   DB_PORT: ADMIN.port,

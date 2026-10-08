@@ -30,7 +30,7 @@ export const toStudent = (r: StudentRow, batchIds: string[]) => ({
   parentName: r.parent_name,
   parentPhone: r.parent_phone,
   class: r.class,
-  photoUrl: null as string | null,
+  photoUrl: r.photo_path ? `/students/${r.id}/photo` : null,
   joinedAt: r.joined_at.toISOString(),
   status: r.status,
   monthlyFee: Number(r.monthly_fee),

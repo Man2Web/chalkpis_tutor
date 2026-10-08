@@ -10,11 +10,13 @@ RUN npm run build
 # Run stage: production dependencies only, non-root user.
 FROM node:22-alpine
 ENV NODE_ENV=production
+ENV FILES_DIR=/data/uploads
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
+COPY public ./public
 RUN mkdir -p /data/uploads && chown -R node:node /data /app
 USER node
 EXPOSE 8080

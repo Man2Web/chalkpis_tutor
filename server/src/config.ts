@@ -45,6 +45,10 @@ const schema = z.object({
   /** Approved authentication template id for the login code (one value: the code). */
   WA_TEMPLATE_OTP: z.string().min(1).optional(),
 
+  /** Folder for uploaded logos and student photos. In the container this is a mounted volume (/data/uploads) so files survive deploys. */
+  FILES_DIR: z.string().min(1).default('data/files'),
+  /** The public address of this server, e.g. https://api.example.in. Used to build parent links and logo addresses. */
+  PUBLIC_BASE_URL: z.string().url().optional(),
   /** JSON: { "absent": { "en": "id", "hi": "id" }, ... } for the 5 parent messages (see docs/WHATSAPP-TEMPLATES.md). */
   WA_TEMPLATES: z.string().optional(),
   /** Razorpay (plan purchases). Without keys the server uses the local mock in development and answers 503 in production. */

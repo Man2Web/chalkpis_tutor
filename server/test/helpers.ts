@@ -1,3 +1,5 @@
+import { promises as fs } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
@@ -22,6 +24,7 @@ export interface Harness {
   app: FastifyInstance;
   provider: MockProvider;
   billing: MockBillingProvider;
+  filesDir: string;
   clock: { now: Date };
   reset: () => Promise<void>;
   tenant: (phone: string, names?: { tutor?: string; institute?: string }) => Promise<Tenant>;
@@ -40,6 +43,7 @@ export interface Tenant {
 }
 
 const TABLES = [
+  'parent_links',
   'messages',
   'notify_settings',
   'billing_events',
@@ -62,6 +66,7 @@ const TABLES = [
 /** A migrated throwaway database plus an app wired to it, with a fixed clock and a mock WhatsApp sender. */
 export async function startHarness(extra: Parameters<typeof testConfig>[0] = {}): Promise<Harness> {
   const db = await createTestDb();
+  const filesDir = await fs.mkdtemp(path.join(os.tmpdir(), 'td-files-'));
   await runMigrations(db.pool, MIGRATIONS);
   const provider = new MockProvider();
   const billing = new MockBillingProvider();
@@ -70,6 +75,7 @@ export async function startHarness(extra: Parameters<typeof testConfig>[0] = {})
     ...db.config,
     WA_TEMPLATE_OTP: '1809804',
     RATE_LIMIT_PER_MIN: 100_000,
+    FILES_DIR: filesDir,
     RAZORPAY_WEBHOOK_SECRET: WEBHOOK_SECRET,
     ...extra,
   });
@@ -80,6 +86,8 @@ export async function startHarness(extra: Parameters<typeof testConfig>[0] = {})
     for (const t of TABLES) await db.pool.query(`TRUNCATE ${t}`);
     await db.pool.query('SET FOREIGN_KEY_CHECKS=1');
     clock.now = new Date(NOW);
+    await fs.rm(filesDir, { recursive: true, force: true });
+    await fs.mkdir(filesDir, { recursive: true });
   };
 
   const tenant: Harness['tenant'] = async (phone, names = {}) => {
@@ -119,12 +127,14 @@ export async function startHarness(extra: Parameters<typeof testConfig>[0] = {})
     app,
     provider,
     billing,
+    filesDir,
     clock,
     reset,
     tenant,
     close: async () => {
       await app.close();
       await db.drop();
+      await fs.rm(filesDir, { recursive: true, force: true });
     },
   };
 }

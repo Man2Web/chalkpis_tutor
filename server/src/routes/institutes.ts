@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
+import { logoUrl } from './files.js';
 import { createInstitute, isPlanActive } from '../institutes/service.js';
 
 const createBody = z.object({
@@ -39,7 +40,7 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
   // The institute is always the caller's own, taken from their membership; there is no id in the URL to tamper with.
   app.get('/institute', { preHandler: [auth, requireInstitute] }, async (req) => {
     const [rows] = (await deps.pool.query(
-      'SELECT name, address, phone, receipt_prefix, timezone, currency FROM institutes WHERE id = ?',
+      'SELECT name, address, phone, receipt_prefix, timezone, currency, logo_path FROM institutes WHERE id = ?',
       [req.auth!.instituteId],
     )) as unknown as [
       {
@@ -49,6 +50,7 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
         receipt_prefix: string;
         timezone: string;
         currency: string;
+        logo_path: string | null;
       }[],
     ];
     const r = rows[0]!;
@@ -59,6 +61,7 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
       receiptPrefix: r.receipt_prefix,
       timezone: r.timezone,
       currency: r.currency,
+      logoUrl: logoUrl(deps.config.PUBLIC_BASE_URL, r.logo_path),
     };
   });
 
