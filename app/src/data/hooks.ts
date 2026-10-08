@@ -1,36 +1,107 @@
-import {
-  Timestamp,
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  where,
-} from '@react-native-firebase/firestore';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '../api/client';
+import { stamp, stampYmd, type Stamp } from '../api/stamp';
 import { useSession } from '../features/auth/session';
 import { normalizeSettings, type NotifySettings } from '../features/messages/settings';
 import { attendanceId, todayYmd } from '../lib/dates';
-import { db } from '../lib/firebase';
-import type { AttendanceDoc, Batch, FeeDue, Payment, Student } from '../lib/types';
+import type { AttendanceDoc, Batch, FeeDue, Mark, Payment, PayMode, Student } from '../lib/types';
 
 /** The signed-in owner's institute. Only call inside the main app (status === 'ready'). */
 export function useInstituteId(): string {
   return useSession((s) => s.profile?.instituteId) as string;
 }
 
-const col = (instituteId: string, name: string) => collection(db, 'institutes', instituteId, name);
+/** Reads every page of a list (the server returns at most 500 rows at a time). */
+async function all<T>(path: string, key: string, size = 500): Promise<T[]> {
+  const out: T[] = [];
+  for (let offset = 0; ; offset += size) {
+    const sep = path.includes('?') ? '&' : '?';
+    const page =
+      (await api<Record<string, T[]>>('GET', `${path}${sep}limit=${size}&offset=${offset}`))[key] ??
+      [];
+    out.push(...page);
+    if (page.length < size) return out;
+  }
+}
+
+// ---------- how the server's answers look to the screens ----------
+
+type ServerBatch = Omit<Batch, 'staffUids'>;
+const toBatch = (b: ServerBatch): Batch => ({ ...b, staffUids: [] });
+
+interface ServerStudent extends Omit<Student, 'joinedAt'> {
+  joinedAt: string;
+}
+const toStudent = (s: ServerStudent): Student => ({ ...s, joinedAt: stamp(s.joinedAt) });
+
+interface ServerDue extends Omit<FeeDue, 'dueDate' | 'kind'> {
+  dueDate: string;
+  kind: 'regular' | 'charge';
+}
+const toDue = (d: ServerDue): FeeDue => ({
+  id: d.id,
+  studentId: d.studentId,
+  batchId: d.batchId,
+  period: d.period,
+  amount: d.amount,
+  discount: d.discount,
+  paid: d.paid,
+  status: d.status,
+  dueDate: stampYmd(d.dueDate),
+  description: d.description,
+  ...(d.kind === 'charge' ? { kind: 'charge' as const } : {}),
+  ...(d.waivedNote ? { waivedNote: d.waivedNote } : {}),
+});
+
+interface ServerPayment {
+  id: string;
+  studentId: string;
+  dueId: string;
+  amount: number;
+  mode: PayMode;
+  paidAt: string;
+  receiptNo: string | null;
+  note: string;
+  balanceAfter: number | null;
+  reversalOf: string | null;
+  batchId: string | null;
+}
+const toPayment = (p: ServerPayment): Payment => ({
+  id: p.id,
+  studentId: p.studentId,
+  dueId: p.dueId,
+  amount: p.amount,
+  mode: p.mode,
+  paidAt: stamp(p.paidAt),
+  receiptNo: p.receiptNo,
+  note: p.note,
+  ...(p.balanceAfter !== null ? { balanceAfter: p.balanceAfter } : {}),
+  ...(p.reversalOf ? { reversalOf: p.reversalOf } : {}),
+  batchId: p.batchId,
+});
+
+interface ServerDay {
+  batchId: string;
+  date: string;
+  holiday: 'holiday' | 'cancelled' | null;
+  marks: Record<string, Mark>;
+}
+const toAttendance = (d: ServerDay): AttendanceDoc => ({
+  id: attendanceId(d.batchId, d.date),
+  batchId: d.batchId,
+  date: d.date,
+  marks: d.marks,
+  ...(d.holiday ? { holiday: true, reason: d.holiday } : {}),
+});
+
+// ---------- people and classes ----------
 
 export function useBatches() {
   const id = useInstituteId();
   return useQuery({
     queryKey: ['batches', id],
-    queryFn: async (): Promise<Batch[]> => {
-      const snap = await getDocs(query(col(id, 'batches'), orderBy('name')));
-      return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Batch, 'id'>) }));
-    },
+    queryFn: async (): Promise<Batch[]> =>
+      (await api<{ batches: ServerBatch[] }>('GET', '/batches?status=all')).batches.map(toBatch),
   });
 }
 
@@ -38,10 +109,8 @@ export function useStudents() {
   const id = useInstituteId();
   return useQuery({
     queryKey: ['students', id],
-    queryFn: async (): Promise<Student[]> => {
-      const snap = await getDocs(query(col(id, 'students'), orderBy('name')));
-      return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Student, 'id'>) }));
-    },
+    queryFn: async (): Promise<Student[]> =>
+      (await all<ServerStudent>('/students?status=all', 'students')).map(toStudent),
   });
 }
 
@@ -61,22 +130,24 @@ export function useLimits() {
   return useQuery({
     queryKey: ['limits', id],
     queryFn: async (): Promise<Limits> => {
-      const [sub, stats] = await Promise.all([
-        getDoc(doc(db, 'institutes', id, 'subscription', 'current')),
-        getDoc(doc(db, 'institutes', id, 'counters', 'stats')),
-      ]);
-      const s = sub.data();
-      const c = stats.data();
-      const expires: number = s?.expiresAt?.toMillis?.() ?? 0;
+      const s = await api<{
+        plan: string;
+        status: string;
+        expiresAt: string;
+        studentLimit: number | null;
+        batchLimit: number | null;
+        active: boolean;
+        usage: { students: number; batches: number };
+      }>('GET', '/subscription');
       return {
-        studentLimit: s?.studentLimit ?? null,
-        batchLimit: s?.batchLimit ?? null,
-        activeStudentCount: c?.activeStudentCount ?? 0,
-        batchCount: c?.batchCount ?? 0,
-        plan: s?.plan ?? 'trial',
-        status: s?.status ?? 'expired',
-        expiresAtMs: expires,
-        active: s?.status === 'active' && expires > Date.now(),
+        studentLimit: s.studentLimit,
+        batchLimit: s.batchLimit,
+        activeStudentCount: s.usage.students,
+        batchCount: s.usage.batches,
+        plan: s.plan,
+        status: s.status,
+        expiresAtMs: Date.parse(s.expiresAt),
+        active: s.active,
       };
     },
   });
@@ -88,10 +159,8 @@ export function usePendingStudentIds() {
   return useQuery({
     queryKey: ['pendingDues', id],
     queryFn: async (): Promise<Set<string>> => {
-      const snap = await getDocs(
-        query(col(id, 'feeDues'), where('status', 'in', ['pending', 'partial'])),
-      );
-      return new Set(snap.docs.map((d) => d.data().studentId as string));
+      const o = await api<{ students: { studentId: string }[] }>('GET', '/fees/overview');
+      return new Set(o.students.map((s) => s.studentId));
     },
   });
 }
@@ -103,57 +172,61 @@ export function useRefreshData() {
   return () => qc.invalidateQueries({ predicate: (q) => q.queryKey[1] === id });
 }
 
-const toAttendance = (d: { id: string; data: () => unknown }) => ({
-  id: d.id,
-  ...(d.data() as Omit<AttendanceDoc, 'id'>),
-});
+// ---------- attendance ----------
 
-/** Every batch's attendance document for one day (used for the "marked / not marked" status). */
+/** The server reads at most 93 days at once; longer ranges are fetched in pieces. */
+async function attendanceDays(
+  from: string,
+  to: string,
+  batchId?: string,
+): Promise<AttendanceDoc[]> {
+  const out: AttendanceDoc[] = [];
+  const day = 86_400_000;
+  for (
+    let start = Date.parse(`${from}T00:00:00Z`);
+    start <= Date.parse(`${to}T00:00:00Z`);
+    start += 90 * day
+  ) {
+    const a = new Date(start).toISOString().slice(0, 10);
+    const end = Math.min(start + 89 * day, Date.parse(`${to}T00:00:00Z`));
+    const b = new Date(end).toISOString().slice(0, 10);
+    const q = `/attendance/range?from=${a}&to=${b}${batchId ? `&batchId=${batchId}` : ''}`;
+    out.push(...(await api<{ days: ServerDay[] }>('GET', q)).days.map(toAttendance));
+  }
+  return out;
+}
+
+/** Every batch's attendance for one day (used for the "marked / not marked" status). */
 export function useAttendanceOn(date: string) {
   const id = useInstituteId();
   return useQuery({
     queryKey: ['attendance', id, 'on', date],
-    queryFn: async (): Promise<AttendanceDoc[]> => {
-      const snap = await getDocs(query(col(id, 'attendance'), where('date', '==', date)));
-      return snap.docs.map(toAttendance);
-    },
+    queryFn: () => attendanceDays(date, date),
   });
 }
 
-/** One batch's saved attendance for one day, or null. Also returns createdAt so a re-save keeps it. */
+/** One batch's saved attendance for one day, or null. */
 export function useAttendanceDoc(batchId: string, date: string) {
   const id = useInstituteId();
   return useQuery({
     queryKey: ['attendance', id, 'doc', batchId, date],
-    queryFn: async () => {
-      const snap = await getDoc(
-        doc(db, 'institutes', id, 'attendance', attendanceId(batchId, date)),
+    queryFn: async (): Promise<AttendanceDoc | null> => {
+      const d = await api<ServerDay & { saved: boolean }>(
+        'GET',
+        `/attendance?batchId=${batchId}&date=${date}`,
       );
-      if (!snap.exists()) return null;
-      const data = snap.data() as Omit<AttendanceDoc, 'id'> & { createdAt?: unknown };
-      return { id: snap.id, ...data };
+      return d.saved ? toAttendance(d) : null;
     },
   });
 }
 
-/** Attendance documents in a date range (inclusive), optionally for one batch. */
+/** Attendance documents in a date range (inclusive), optionally for one batch, newest day first. */
 export function useAttendanceRange(from: string, to: string, batchId?: string) {
   const id = useInstituteId();
   return useQuery({
     queryKey: ['attendance', id, 'range', from, to, batchId ?? 'all'],
-    queryFn: async (): Promise<AttendanceDoc[]> => {
-      // orderBy date DESC matches the (batchId, date desc) composite index.
-      const filters = [where('date', '>=', from), where('date', '<=', to)];
-      const q = batchId
-        ? query(
-            col(id, 'attendance'),
-            where('batchId', '==', batchId),
-            ...filters,
-            orderBy('date', 'desc'),
-          )
-        : query(col(id, 'attendance'), ...filters, orderBy('date', 'desc'));
-      return (await getDocs(q)).docs.map(toAttendance);
-    },
+    queryFn: async (): Promise<AttendanceDoc[]> =>
+      (await attendanceDays(from, to, batchId)).sort((a, b) => b.date.localeCompare(a.date)),
   });
 }
 
@@ -170,38 +243,27 @@ export function useInstitute() {
   return useQuery({
     queryKey: ['institute', id],
     queryFn: async (): Promise<Institute> => {
-      const d = (await getDoc(doc(db, 'institutes', id))).data() ?? {};
+      const d = await api<Institute>('GET', '/institute');
       return {
-        name: d.name ?? '',
+        name: d.name,
         logoUrl: d.logoUrl,
         address: d.address,
         phone: d.phone,
-        receiptPrefix: d.receiptPrefix ?? 'TD',
+        receiptPrefix: d.receiptPrefix,
       };
     },
   });
 }
 
-const toDue = (d: { id: string; data: () => unknown }) => ({
-  id: d.id,
-  ...(d.data() as Omit<FeeDue, 'id'>),
-});
-const toPayment = (d: { id: string; data: () => unknown }) => ({
-  id: d.id,
-  ...(d.data() as Omit<Payment, 'id'>),
-});
+// ---------- fees ----------
 
 /** All dues that still have something to pay (pending or part-paid). */
 export function useUnpaidDues() {
   const id = useInstituteId();
   return useQuery({
     queryKey: ['dues', id, 'unpaid'],
-    queryFn: async (): Promise<FeeDue[]> => {
-      const snap = await getDocs(
-        query(col(id, 'feeDues'), where('status', 'in', ['pending', 'partial'])),
-      );
-      return snap.docs.map(toDue);
-    },
+    queryFn: async (): Promise<FeeDue[]> =>
+      (await all<ServerDue>('/fees/dues?status=open', 'dues')).map(toDue),
   });
 }
 
@@ -209,12 +271,10 @@ export function useStudentDues(studentId: string) {
   const id = useInstituteId();
   return useQuery({
     queryKey: ['dues', id, 'student', studentId],
-    queryFn: async (): Promise<FeeDue[]> => {
-      const snap = await getDocs(
-        query(col(id, 'feeDues'), where('studentId', '==', studentId), orderBy('period', 'desc')),
-      );
-      return snap.docs.map(toDue);
-    },
+    queryFn: async (): Promise<FeeDue[]> =>
+      (await all<ServerDue>(`/fees/dues?status=all&studentId=${studentId}`, 'dues'))
+        .map(toDue)
+        .sort((a, b) => b.period.localeCompare(a.period)),
   });
 }
 
@@ -222,12 +282,10 @@ export function useStudentPayments(studentId: string) {
   const id = useInstituteId();
   return useQuery({
     queryKey: ['payments', id, 'student', studentId],
-    queryFn: async (): Promise<Payment[]> => {
-      const snap = await getDocs(
-        query(col(id, 'payments'), where('studentId', '==', studentId), orderBy('paidAt', 'desc')),
-      );
-      return snap.docs.map(toPayment);
-    },
+    queryFn: async (): Promise<Payment[]> =>
+      (await all<ServerPayment>(`/fees/payments?studentId=${studentId}`, 'payments')).map(
+        toPayment,
+      ),
   });
 }
 
@@ -236,8 +294,12 @@ export function useDue(dueId: string) {
   return useQuery({
     queryKey: ['dues', id, 'one', dueId],
     queryFn: async (): Promise<FeeDue | null> => {
-      const snap = await getDoc(doc(db, 'institutes', id, 'feeDues', dueId));
-      return snap.exists() ? toDue(snap) : null;
+      try {
+        return toDue(await api<ServerDue>('GET', `/fees/dues/${dueId}`));
+      } catch (e) {
+        if ((e as { status?: number }).status === 404) return null;
+        throw e;
+      }
     },
   });
 }
@@ -247,15 +309,19 @@ export function usePayment(paymentId: string) {
   return useQuery({
     queryKey: ['payments', id, 'one', paymentId],
     queryFn: async (): Promise<Payment | null> => {
-      const snap = await getDoc(doc(db, 'institutes', id, 'payments', paymentId));
-      return snap.exists() ? toPayment(snap) : null;
+      try {
+        return toPayment(await api<ServerPayment>('GET', `/fees/payments/${paymentId}`));
+      } catch (e) {
+        if ((e as { status?: number }).status === 404) return null;
+        throw e;
+      }
     },
   });
 }
 
-const nextMonthStart = (month: string) => {
-  const [y, m] = month.split('-').map(Number);
-  return `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, '0')}-01`;
+const lastDayOf = (month: string) => {
+  const [y, m] = month.split('-').map(Number) as [number, number];
+  return `${month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`;
 };
 
 /** Payments (and reversals) recorded in a month (yyyy-mm), Indian time. */
@@ -263,19 +329,13 @@ export function usePaymentsInMonth(month: string) {
   const id = useInstituteId();
   return useQuery({
     queryKey: ['payments', id, 'month', month],
-    queryFn: async (): Promise<Payment[]> => {
-      const start = Timestamp.fromDate(new Date(`${month}-01T00:00:00+05:30`));
-      const end = Timestamp.fromDate(new Date(`${nextMonthStart(month)}T00:00:00+05:30`));
-      const snap = await getDocs(
-        query(
-          col(id, 'payments'),
-          where('paidAt', '>=', start),
-          where('paidAt', '<', end),
-          orderBy('paidAt', 'desc'),
-        ),
-      );
-      return snap.docs.map(toPayment);
-    },
+    queryFn: async (): Promise<Payment[]> =>
+      (
+        await all<ServerPayment>(
+          `/fees/payments?from=${month}-01&to=${lastDayOf(month)}`,
+          'payments',
+        )
+      ).map(toPayment),
   });
 }
 
@@ -286,20 +346,20 @@ export function useDuesForPeriod(month: string) {
   const id = useInstituteId();
   return useQuery({
     queryKey: ['dues', id, 'period', month],
-    queryFn: async (): Promise<FeeDue[]> => {
-      const snap = await getDocs(query(col(id, 'feeDues'), where('period', '==', month)));
-      return snap.docs.map(toDue);
-    },
+    queryFn: async (): Promise<FeeDue[]> =>
+      (await all<ServerDue>(`/fees/dues?status=all&period=${month}`, 'dues')).map(toDue),
   });
 }
+
+// ---------- plan, messages ----------
 
 export interface BillingRecord {
   id: string;
   planId: string;
   amountPaise: number;
   provider: string;
-  expiresAt: Timestamp;
-  createdAt: Timestamp;
+  expiresAt: Stamp;
+  createdAt: Stamp;
 }
 
 /** Past plan purchases, newest first. */
@@ -307,10 +367,26 @@ export function useBillingHistory() {
   const id = useInstituteId();
   return useQuery({
     queryKey: ['billing', id],
-    queryFn: async (): Promise<BillingRecord[]> => {
-      const snap = await getDocs(query(col(id, 'billing'), orderBy('createdAt', 'desc')));
-      return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<BillingRecord, 'id'>) }));
-    },
+    queryFn: async (): Promise<BillingRecord[]> =>
+      (
+        await api<{
+          history: {
+            paymentId: string;
+            planId: string;
+            amountPaise: number;
+            provider: string;
+            expiresAt: string;
+            paidAt: string;
+          }[];
+        }>('GET', '/billing')
+      ).history.map((h) => ({
+        id: h.paymentId,
+        planId: h.planId,
+        amountPaise: h.amountPaise,
+        provider: h.provider,
+        expiresAt: stamp(h.expiresAt),
+        createdAt: stamp(h.paidAt),
+      })),
   });
 }
 
@@ -320,9 +396,7 @@ export function useNotifySettings() {
   return useQuery({
     queryKey: ['settings', id, 'notifications'],
     queryFn: async (): Promise<NotifySettings> =>
-      normalizeSettings(
-        (await getDoc(doc(db, 'institutes', id, 'settings', 'notifications'))).data(),
-      ),
+      normalizeSettings(await api<Record<string, unknown>>('GET', '/settings/notifications')),
   });
 }
 
@@ -331,11 +405,11 @@ export interface MessageRow {
   studentId: string;
   type: string;
   channel: string;
-  status: 'queued' | 'sent' | 'failed' | 'skipped';
+  status: 'queued' | 'sending' | 'sent' | 'failed' | 'skipped';
   reason?: string | null;
   error?: string | null;
   toLast4?: string;
-  createdAt: Timestamp;
+  createdAt: Stamp;
 }
 
 /** The latest 100 parent messages, newest first. */
@@ -343,11 +417,21 @@ export function useMessages() {
   const id = useInstituteId();
   return useQuery({
     queryKey: ['messages', id],
-    queryFn: async (): Promise<MessageRow[]> => {
-      const snap = await getDocs(
-        query(col(id, 'messages'), orderBy('createdAt', 'desc'), limit(100)),
-      );
-      return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<MessageRow, 'id'>) }));
-    },
+    queryFn: async (): Promise<MessageRow[]> =>
+      (
+        await api<{
+          messages: {
+            id: string;
+            studentId: string;
+            type: string;
+            channel: string | null;
+            status: MessageRow['status'];
+            reason: string | null;
+            error: string | null;
+            toLast4: string;
+            createdAt: string;
+          }[];
+        }>('GET', '/messages?limit=100')
+      ).messages.map((m) => ({ ...m, channel: m.channel ?? '', createdAt: stamp(m.createdAt) })),
   });
 }

@@ -1,1 +1,1 @@
-// Firebase native modules are mocked per-test; nothing global yet.
+// Nothing global yet: each test mocks what it needs.

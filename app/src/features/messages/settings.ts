@@ -47,12 +47,19 @@ export function normalizeSettings(raw: Record<string, unknown> | undefined): Not
   };
 }
 
-export type MessageStatus = 'queued' | 'sent' | 'failed' | 'skipped';
+export type MessageStatus = 'queued' | 'sending' | 'sent' | 'failed' | 'skipped';
 
 /** Translation key for why a message was skipped or failed; unknown provider codes are shown as they are. */
 export function reasonKey(reason: string | null | undefined): string | null {
   if (!reason) return null;
-  return ['not-configured', 'no-template', 'bad-phone'].includes(reason)
+  return [
+    'not-configured',
+    'no-template',
+    'bad-phone',
+    'switched-off',
+    'plan-expired',
+    'opted-out',
+  ].includes(reason)
     ? `messages.reason.${reason}`
     : null;
 }

@@ -1,5 +1,4 @@
-import { httpsCallable } from '@react-native-firebase/functions';
-import { functions } from '../../lib/firebase';
+import { api } from '../../api/client';
 import type { PlanId } from './plans';
 export { billingError, type BillingError } from './errors';
 
@@ -11,14 +10,15 @@ export interface PlanLink {
 
 /** Asks the server for a payment link; the price is decided there, not here. */
 export async function createPlanLink(planId: PlanId): Promise<PlanLink> {
-  const { data } = await httpsCallable<{ planId: PlanId }, PlanLink>(
-    functions,
-    'createPlanLink',
-  )({ planId });
-  return data;
+  const r = await api<{ orderId: string; url: string }>('POST', '/billing/links', { planId });
+  return {
+    url: r.url,
+    referenceId: r.orderId,
+    provider: r.url.startsWith('mock://') ? 'mock' : 'razorpay',
+  };
 }
 
-/** Test mode only (emulator): marks the payment as paid. The server refuses this in production. */
+/** Test mode only: marks the payment as paid. The server has no such route in production. */
 export async function mockCompletePayment(referenceId: string): Promise<void> {
-  await httpsCallable(functions, 'mockCompletePayment')({ referenceId });
+  await api('POST', '/billing/mock/complete', { orderId: referenceId });
 }

@@ -11,7 +11,7 @@ import { PAY_MODES, type PayMode } from '../../lib/types';
 import type { MainStackParams } from '../../navigation/types';
 import { spacing, type } from '../../theme';
 import { useSession } from '../auth/session';
-import { paidAtFor, recordPayment, type FeeApiError } from './api';
+import { recordPayment, type FeeApiError } from './api';
 import { applyPayment, outstanding, periodLabel } from './logic';
 
 const ERRORS: FeeApiError[] = ['amount', 'exceeds', 'waived', 'notFound'];
@@ -70,7 +70,7 @@ export function CollectFeeScreen({
         dueId,
         amount: paise,
         mode,
-        paidAt: paidAtFor(date, todayYmd()),
+        paidOn: date,
         note,
       });
       track('payment_recorded');

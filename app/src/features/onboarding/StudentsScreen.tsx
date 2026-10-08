@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { doc, updateDoc, serverTimestamp } from '@react-native-firebase/firestore';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Button, Card, FormInput, Screen, toast } from '../../components';
 import { reportError, track } from '../../lib/analytics';
-import { db } from '../../lib/firebase';
+import { api } from '../../api/client';
+import { refreshProfile } from '../auth/session';
 import type { OnboardingStackParams } from '../../navigation/types';
 import { spacing, type } from '../../theme';
 import { useSession } from '../auth/session';
@@ -57,10 +57,8 @@ export function StudentsScreen({
     if (!uid) return;
     setFinishing(true);
     try {
-      await updateDoc(doc(db, 'users', uid), {
-        onboardingDone: true,
-        updatedAt: serverTimestamp(),
-      });
+      await api('POST', '/me/onboarding-complete');
+      await refreshProfile();
       track('onboarding_completed');
     } catch (e) {
       reportError(e);

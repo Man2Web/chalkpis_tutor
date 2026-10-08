@@ -1,3 +1,4 @@
+import { ApiError } from '../../../api/client';
 import { authErrorKey } from '../authErrors';
 import { statusFor } from '../status';
 import type { UserProfile } from '../../../lib/types';
@@ -12,14 +13,17 @@ const profile = (p: Partial<UserProfile>): UserProfile => ({
 
 describe('authErrorKey', () => {
   it.each([
-    ['auth/invalid-phone-number', 'invalidPhone'],
-    ['auth/invalid-verification-code', 'invalidCode'],
-    ['auth/code-expired', 'codeExpired'],
-    ['auth/session-expired', 'codeExpired'],
-    ['auth/too-many-requests', 'tooMany'],
-    ['auth/network-request-failed', 'network'],
-    ['auth/something-else', 'generic'],
-  ])('%s -> %s', (code, key) => expect(authErrorKey({ code })).toBe(key));
+    [400, 'invalid_phone', 'invalidPhone'],
+    [401, 'invalid_code', 'invalidCode'],
+    [429, 'too_soon', 'tooMany'],
+    [429, 'too_many', 'tooMany'],
+    [429, 'rate_limited', 'tooMany'],
+    [0, 'network', 'network'],
+    [503, 'otp_unavailable', 'generic'],
+    [500, 'internal', 'generic'],
+  ])('%s %s -> %s', (status, code, key) =>
+    expect(authErrorKey(new ApiError(status, code))).toBe(key),
+  );
   it('handles non-errors', () => {
     expect(authErrorKey(undefined)).toBe('generic');
     expect(authErrorKey('boom')).toBe('generic');

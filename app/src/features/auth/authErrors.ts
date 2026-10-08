@@ -1,21 +1,21 @@
-/** Maps Firebase auth errors to translation keys under `auth.errors.*`. */
+import { ApiError } from '../../api/client';
+
+/** Maps a failed call to a translation key under `auth.errors.*`. */
 export type AuthErrorKey =
   'invalidPhone' | 'invalidCode' | 'codeExpired' | 'tooMany' | 'network' | 'generic';
 
 export function authErrorKey(e: unknown): AuthErrorKey {
-  switch ((e as { code?: string })?.code) {
-    case 'auth/invalid-phone-number':
+  if (!(e instanceof ApiError)) return 'generic';
+  if (e.status === 0) return 'network';
+  switch (e.code) {
+    case 'invalid_phone':
       return 'invalidPhone';
-    case 'auth/invalid-verification-code':
-      return 'invalidCode';
-    case 'auth/code-expired':
-    case 'auth/session-expired':
-      return 'codeExpired';
-    case 'auth/too-many-requests':
-    case 'auth/quota-exceeded':
+    case 'invalid_code':
+      return 'invalidCode'; // wrong, expired, used and never-sent codes all look the same on purpose
+    case 'too_soon':
+    case 'too_many':
+    case 'rate_limited':
       return 'tooMany';
-    case 'auth/network-request-failed':
-      return 'network';
     default:
       return 'generic';
   }

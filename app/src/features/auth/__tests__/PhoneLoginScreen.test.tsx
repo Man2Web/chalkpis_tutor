@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import '../../../i18n';
 import { PhoneLoginScreen } from '../PhoneLoginScreen';
+import { ApiError } from '../../../api/client';
 import { sendCode } from '../phoneAuth';
 
 jest.mock('../phoneAuth', () => ({
@@ -17,7 +18,7 @@ const mockSend = sendCode as jest.Mock;
 
 beforeEach(() => jest.clearAllMocks());
 
-it('blocks an invalid number without calling Firebase', async () => {
+it('blocks an invalid number without calling the server', async () => {
   await render(<PhoneLoginScreen navigation={navigation} route={route} />);
   await fireEvent.changeText(screen.getByLabelText('Mobile number'), '12345');
   await fireEvent.press(screen.getByRole('button', { name: 'Send code' }));
@@ -37,8 +38,8 @@ it('sends the code and moves to the OTP screen', async () => {
   );
 });
 
-it('shows a friendly message when Firebase rejects', async () => {
-  mockSend.mockRejectedValue({ code: 'auth/too-many-requests' });
+it('shows a friendly message when the server says too many tries', async () => {
+  mockSend.mockRejectedValue(new ApiError(429, 'too_many'));
   await render(<PhoneLoginScreen navigation={navigation} route={route} />);
   await fireEvent.changeText(screen.getByLabelText('Mobile number'), '9876543210');
   await fireEvent.press(screen.getByRole('button', { name: 'Send code' }));

@@ -4,14 +4,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import * as ImagePicker from 'expo-image-picker';
-import { doc, updateDoc } from '@react-native-firebase/firestore';
-import { httpsCallable } from '@react-native-firebase/functions';
-import { getDownloadURL, putFile, ref } from '@react-native-firebase/storage';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Button, FormInput, Screen, toast } from '../../components';
 import { reportError } from '../../lib/analytics';
-import { db, functions, storage } from '../../lib/firebase';
+import { api, uploadImage } from '../../api/client';
+import { refreshProfile } from '../auth/session';
 import type { OnboardingStackParams } from '../../navigation/types';
 import { spacing, type } from '../../theme';
 
@@ -43,19 +41,18 @@ export function ProfileScreen({
 
   const submit = handleSubmit(async (values) => {
     try {
-      const call = httpsCallable<unknown, { instituteId: string }>(functions, 'createInstitute');
-      const { data } = await call({ ...values, language: i18n.language === 'hi' ? 'hi' : 'en' });
+      await api('POST', '/institutes', {
+        ...values,
+        language: i18n.language === 'hi' ? 'hi' : 'en',
+      });
       if (logoUri) {
         try {
-          const logoRef = ref(storage, `institutes/${data.instituteId}/logo.jpg`);
-          await putFile(logoRef, logoUri);
-          await updateDoc(doc(db, 'institutes', data.instituteId), {
-            logoUrl: await getDownloadURL(logoRef),
-          });
+          await uploadImage('/institute/logo', logoUri);
         } catch (e) {
           reportError(e); // the logo is optional; carry on without it
         }
       }
+      await refreshProfile();
       navigation.navigate('Batch');
     } catch (e) {
       reportError(e);

@@ -1,37 +1,28 @@
-import {
-  Timestamp,
-  collection,
-  doc,
-  runTransaction,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-} from '@react-native-firebase/firestore';
-import { db } from '../../lib/firebase';
-import { currentPeriodIst } from './period';
+import { api, ApiError } from '../../api/client';
 import type { FeeCycle, PayMode } from '../../lib/types';
-import {
-  applyPayment,
-  applyReversal,
-  discountError,
-  formatReceiptNo,
-  netDue,
-  statusFor,
-} from './logic';
 
 export type FeeApiError =
   'amount' | 'exceeds' | 'waived' | 'notFound' | 'alreadyReversed' | 'notReversible' | 'tooBig';
 
-const fail = (e: FeeApiError): never => {
-  throw new Error(e);
+/** The server's short reasons, in the words the screens already translate. Anything else stays an ApiError. */
+const MAP: Record<string, FeeApiError> = {
+  bad_amount: 'amount',
+  bad_request: 'amount',
+  exceeds_balance: 'exceeds',
+  due_waived: 'waived',
+  not_found: 'notFound',
+  already_reversed: 'alreadyReversed',
+  not_reversible: 'notReversible',
+  discount_too_big: 'tooBig',
 };
 
-const dueRef = (i: string, id: string) => doc(db, 'institutes', i, 'feeDues', id);
-const payRef = (i: string, id: string) => doc(db, 'institutes', i, 'payments', id);
-
-/** yyyy-mm-dd -> Timestamp. Today keeps the real time; other days are noon Indian time. */
-export function paidAtFor(ymd: string, today: string): Timestamp {
-  return ymd === today ? Timestamp.now() : Timestamp.fromDate(new Date(`${ymd}T12:00:00+05:30`));
+async function run<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (e instanceof ApiError && MAP[e.code]) throw new Error(MAP[e.code]);
+    throw e;
+  }
 }
 
 export interface RecordPayment {
@@ -40,115 +31,26 @@ export interface RecordPayment {
   dueId: string;
   amount: number; // paise
   mode: PayMode;
-  paidAt: Timestamp;
+  /** The day the money was received (yyyy-mm-dd, Indian time); today when omitted. */
+  paidOn?: string;
   note?: string;
 }
 
-/**
- * Records a payment: allocates the next receipt number, writes the (append-only) payment and updates
- * the due, all in one transaction so two devices can never share a receipt number or overpay.
- */
+/** Records a payment. The server takes the next receipt number and checks the balance in one step, so two phones can never clash. */
 export function recordPayment(p: RecordPayment): Promise<{ paymentId: string; receiptNo: string }> {
-  const instRef = doc(db, 'institutes', p.instituteId);
-  return runTransaction(db, async (tx) => {
-    const [dueSnap, instSnap] = await Promise.all([
-      tx.get(dueRef(p.instituteId, p.dueId)),
-      tx.get(instRef),
-    ]);
-    if (!dueSnap.exists()) return fail('notFound');
-    const due = dueSnap.data() as {
-      studentId: string;
-      batchId?: string | null;
-      amount: number;
-      discount: number;
-      paid: number;
-      status: 'pending' | 'partial' | 'paid' | 'waived';
-    };
-    const result = applyPayment(due, p.amount);
-    if ('error' in result) return fail(result.error);
-
-    const inst = instSnap.data() ?? {};
-    const seq: number = inst.nextReceiptNo ?? 1;
-    const receiptNo = formatReceiptNo(inst.receiptPrefix ?? 'TD', seq);
-    const ref = doc(collection(db, 'institutes', p.instituteId, 'payments'));
-    const now = serverTimestamp();
-
-    tx.set(ref, {
-      studentId: due.studentId,
-      dueId: p.dueId,
+  return run(() =>
+    api<{ paymentId: string; receiptNo: string }>('POST', `/fees/dues/${p.dueId}/payments`, {
       amount: p.amount,
       mode: p.mode,
-      paidAt: p.paidAt,
-      receiptNo,
-      receiptUrl: null,
+      ...(p.paidOn ? { paidOn: p.paidOn } : {}),
       note: p.note ?? '',
-      recordedBy: p.uid,
-      balanceAfter: Math.max(0, netDue(due) - result.paid),
-      batchId: due.batchId ?? null,
-      createdAt: now,
-      updatedAt: now,
-    });
-    tx.update(dueRef(p.instituteId, p.dueId), {
-      paid: result.paid,
-      status: result.status,
-      updatedAt: now,
-    });
-    tx.update(instRef, { nextReceiptNo: seq + 1, updatedAt: now });
-    return { paymentId: ref.id, receiptNo };
-  });
+    }),
+  );
 }
 
-/**
- * Corrects a payment with a reversing (negative) entry. The id is fixed per payment, so a payment can be
- * reversed at most once even if two devices try at the same time.
- */
-export function reversePayment(a: { instituteId: string; uid: string; paymentId: string }) {
-  return runTransaction(db, async (tx) => {
-    const revRef = payRef(a.instituteId, `rev_${a.paymentId}`);
-    const [paySnap, revSnap] = await Promise.all([
-      tx.get(payRef(a.instituteId, a.paymentId)),
-      tx.get(revRef),
-    ]);
-    if (!paySnap.exists()) return fail('notFound');
-    if (revSnap.exists()) return fail('alreadyReversed');
-    const pay = paySnap.data() as {
-      studentId: string;
-      dueId: string;
-      amount: number;
-      mode: PayMode;
-      batchId?: string | null;
-    };
-    if (pay.amount <= 0) return fail('notReversible');
-
-    const dRef = dueRef(a.instituteId, pay.dueId);
-    const dueSnap = await tx.get(dRef);
-    if (!dueSnap.exists()) return fail('notFound');
-    const due = dueSnap.data() as {
-      amount: number;
-      discount: number;
-      paid: number;
-      status: 'pending' | 'partial' | 'paid' | 'waived';
-    };
-    const r = applyReversal(due, pay.amount);
-    const now = serverTimestamp();
-
-    tx.set(revRef, {
-      studentId: pay.studentId,
-      dueId: pay.dueId,
-      amount: -pay.amount,
-      mode: pay.mode,
-      paidAt: Timestamp.now(),
-      receiptNo: null,
-      receiptUrl: null,
-      note: '',
-      recordedBy: a.uid,
-      batchId: pay.batchId ?? null,
-      reversalOf: a.paymentId,
-      createdAt: now,
-      updatedAt: now,
-    });
-    tx.update(dRef, { paid: r.paid, status: r.status, updatedAt: now });
-  });
+/** Corrects a payment with a reversing (negative) entry; a payment can be reversed once. */
+export async function reversePayment(a: { instituteId: string; uid: string; paymentId: string }) {
+  await run(() => api('POST', `/fees/payments/${a.paymentId}/reverse`));
 }
 
 /** One-off charge (admission, books...) as its own due. */
@@ -159,55 +61,40 @@ export async function addCharge(a: {
   amount: number;
   dueYmd: string;
 }) {
-  if (!Number.isInteger(a.amount) || a.amount <= 0) fail('amount');
-  const id = `${a.studentId}_x${Date.now().toString(36)}`;
-  await setDoc(dueRef(a.instituteId, id), {
-    studentId: a.studentId,
-    batchId: null,
-    period: currentPeriodIst(),
-    amount: a.amount,
-    discount: 0,
-    paid: 0,
-    status: 'pending',
-    dueDate: Timestamp.fromDate(new Date(`${a.dueYmd}T00:00:00+05:30`)),
-    description: a.description.trim(),
-    kind: 'charge',
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-  return id;
+  if (!Number.isInteger(a.amount) || a.amount <= 0) throw new Error('amount');
+  const r = await run(() =>
+    api<{ id: string }>('POST', '/fees/charges', {
+      studentId: a.studentId,
+      description: a.description.trim(),
+      amount: a.amount,
+      dueDate: a.dueYmd,
+    }),
+  );
+  return r.id;
 }
 
 export async function setDiscount(a: {
   instituteId: string;
-  due: { id: string; amount: number; paid: number; status: string };
+  due: { id: string };
   discount: number;
 }) {
-  const err = discountError(a.due, a.discount);
-  if (err) fail(err === 'amount' ? 'amount' : 'tooBig');
-  await updateDoc(dueRef(a.instituteId, a.due.id), {
-    discount: a.discount,
-    status: statusFor(a.due.amount, a.discount, a.due.paid, a.due.status === 'waived'),
-    updatedAt: serverTimestamp(),
-  });
+  await run(() => api('PATCH', `/fees/dues/${a.due.id}/discount`, { discount: a.discount }));
 }
 
 /** Waive forgives the remaining balance; restoring recomputes from the money. */
 export async function setWaived(a: {
   instituteId: string;
-  due: { id: string; amount: number; discount: number; paid: number };
+  due: { id: string };
   waived: boolean;
   note?: string;
 }) {
-  await updateDoc(dueRef(a.instituteId, a.due.id), {
-    status: statusFor(a.due.amount, a.due.discount, a.due.paid, a.waived),
-    waivedNote: a.waived ? (a.note ?? '') : '',
-    updatedAt: serverTimestamp(),
-  });
+  await run(() =>
+    api('POST', `/fees/dues/${a.due.id}/waive`, { waived: a.waived, note: a.note ?? '' }),
+  );
 }
 
 /** Applies from the next generated due; existing dues are not changed. */
-export function updateFeePlan(a: {
+export async function updateFeePlan(a: {
   instituteId: string;
   studentId: string;
   monthlyFee: number;
@@ -215,11 +102,10 @@ export function updateFeePlan(a: {
   dueDay: number;
   discount: number;
 }) {
-  return updateDoc(doc(db, 'institutes', a.instituteId, 'students', a.studentId), {
+  await api('PATCH', `/students/${a.studentId}`, {
     monthlyFee: a.monthlyFee,
     feeCycle: a.feeCycle,
     dueDay: a.dueDay,
     discount: a.discount,
-    updatedAt: serverTimestamp(),
   });
 }

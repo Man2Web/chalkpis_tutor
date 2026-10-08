@@ -5,7 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Button, Input, Screen } from '../../components';
 import type { AuthStackParams } from '../../navigation/types';
 import { spacing, type } from '../../theme';
-import { EmulatorCodeHint } from './EmulatorCodeHint';
+import { DevCodeHint } from './DevCodeHint';
 import { authErrorKey, confirmCode, RESEND_SECONDS, sendCode } from './phoneAuth';
 
 export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStackParams, 'Otp'>) {
@@ -30,7 +30,7 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
     setError(undefined);
     setBusy(true);
     try {
-      await confirmCode(code); // signing in switches the navigator automatically
+      await confirmCode(phone, code); // signing in switches the navigator automatically
     } catch (e) {
       setError(t(`auth.errors.${authErrorKey(e)}`));
       setBusy(false);
@@ -53,7 +53,7 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
       <Text style={[type.caption, { marginBottom: spacing.lg }]}>
         {t('auth.otpSentTo', { phone })}
       </Text>
-      <EmulatorCodeHint phone={phone} onUse={setCode} />
+      <DevCodeHint phone={phone} onUse={setCode} />
       <Input
         label={t('auth.otpLabel')}
         value={code}

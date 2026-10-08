@@ -1,25 +1,21 @@
 import { useState } from 'react';
 import { Image, Text, View } from 'react-native';
-import { doc, serverTimestamp, updateDoc } from '@react-native-firebase/firestore';
-import { httpsCallable } from '@react-native-firebase/functions';
-import { getDownloadURL, putFile, ref } from '@react-native-firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import { BottomSheet, Button, Card, Chip, Input, Screen, Skeleton, toast } from '../../components';
-import { useInstitute, useInstituteId, useRefreshData } from '../../data/hooks';
+import { useInstitute, useRefreshData } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
 import { open } from '../../lib/contact';
-import { db, functions, storage } from '../../lib/firebase';
+import { api, uploadImage } from '../../api/client';
 import { setLanguage, type Lang } from '../../lib/language';
 import { colors, spacing, type } from '../../theme';
-import { logout, useSession } from '../auth/session';
+import { logout, refreshProfile, useSession } from '../auth/session';
 import { canDelete, cleanPrefix, DELETE_WORD } from './logic';
 
 const PRIVACY_URL = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL ?? '';
 
 export function SettingsScreen() {
   const { t, i18n } = useTranslation();
-  const instituteId = useInstituteId();
   const { uid, profile } = useSession();
   const refresh = useRefreshData();
   const institute = useInstitute();
@@ -57,14 +53,14 @@ export function SettingsScreen() {
     if (!clean) return setError(t('settings.prefixInvalid'));
     setBusy(true);
     try {
-      await updateDoc(doc(db, 'users', uid), { name: nameV.trim(), updatedAt: serverTimestamp() });
-      await updateDoc(doc(db, 'institutes', instituteId), {
+      await api('PATCH', '/me', { name: nameV.trim() });
+      await api('PATCH', '/institute', {
         name: instV.trim(),
         address: addrV.trim(),
         phone: phoneV.trim(),
         receiptPrefix: clean,
-        updatedAt: serverTimestamp(),
       });
+      await refreshProfile();
       await refresh();
       setPrefix(clean);
       toast(t('students.saved'), 'success');
@@ -85,12 +81,7 @@ export function SettingsScreen() {
     });
     if (res.canceled) return;
     try {
-      const r = ref(storage, `institutes/${instituteId}/logo.jpg`);
-      await putFile(r, res.assets[0].uri);
-      await updateDoc(doc(db, 'institutes', instituteId), {
-        logoUrl: await getDownloadURL(r),
-        updatedAt: serverTimestamp(),
-      });
+      await uploadImage('/institute/logo', res.assets[0].uri);
       await refresh();
     } catch (e) {
       reportError(e);
@@ -101,7 +92,7 @@ export function SettingsScreen() {
   const pickLanguage = async (l: Lang) => {
     await setLanguage(l);
     try {
-      await updateDoc(doc(db, 'users', uid), { language: l, updatedAt: serverTimestamp() });
+      await api('PATCH', '/me', { language: l });
     } catch (e) {
       reportError(e); // the screen language already changed; syncing the profile can fail quietly
     }
@@ -110,7 +101,7 @@ export function SettingsScreen() {
   const deleteAccount = async () => {
     setBusy(true);
     try {
-      await httpsCallable(functions, 'deleteAccount')({});
+      await api('DELETE', '/account', { confirm: true });
       try {
         await logout();
       } catch {

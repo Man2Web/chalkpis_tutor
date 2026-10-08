@@ -33,7 +33,7 @@
   },
   "auth": {
     "phoneTitle": "Enter your mobile number",
-    "phoneHint": "We will send you a 6-digit code by SMS.",
+    "phoneHint": "We will send you a 6-digit code on WhatsApp.",
     "phoneLabel": "Mobile number",
     "sendCode": "Send code",
     "otpTitle": "Enter the code",
@@ -45,7 +45,7 @@
     "changeNumber": "Change number",
     "errors": {
       "invalidPhone": "That mobile number does not look right.",
-      "invalidCode": "That code is wrong. Check the SMS and try again.",
+      "invalidCode": "That code is wrong. Check WhatsApp and try again.",
       "codeExpired": "The code has expired. Please request a new one.",
       "tooMany": "Too many attempts. Please wait a while and try again.",
       "network": "No internet. Please check your connection.",
@@ -527,12 +527,16 @@
       "sent": "Sent",
       "failed": "Failed",
       "skipped": "Skipped",
-      "queued": "Sending"
+      "queued": "Sending",
+      "sending": "Sending"
     },
     "reason": {
       "not-configured": "WhatsApp is not set up yet",
       "no-template": "No template for this message",
-      "bad-phone": "Parent's number is not valid"
+      "bad-phone": "Parent's number is not valid",
+      "switched-off": "Messages were switched off",
+      "plan-expired": "Your plan has ended",
+      "opted-out": "Updates are off for this parent"
     }
   },
   "parentLink": {

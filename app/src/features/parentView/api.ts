@@ -1,5 +1,4 @@
-import { httpsCallable } from '@react-native-firebase/functions';
-import { functions } from '../../lib/firebase';
+import { api } from '../../api/client';
 
 export interface CreatedLink {
   url: string;
@@ -12,25 +11,18 @@ export interface LinkStatus {
 }
 
 export async function createParentLink(studentId: string, days: number): Promise<CreatedLink> {
-  const { data } = await httpsCallable<{ studentId: string; days: number }, CreatedLink>(
-    functions,
-    'createParentLink',
-  )({ studentId, days });
-  return data;
+  const r = await api<{ url: string; expiresAt: string }>(
+    'POST',
+    `/students/${studentId}/parent-link`,
+    { days },
+  );
+  return { url: r.url, expiresAt: r.expiresAt };
 }
 
 export async function revokeParentLinks(studentId: string): Promise<number> {
-  const { data } = await httpsCallable<{ studentId: string }, { revoked: number }>(
-    functions,
-    'revokeParentLinks',
-  )({ studentId });
-  return data.revoked;
+  return (await api<{ revoked: number }>('DELETE', `/students/${studentId}/parent-link`)).revoked;
 }
 
 export async function getParentLinkStatus(studentId: string): Promise<LinkStatus> {
-  const { data } = await httpsCallable<{ studentId: string }, LinkStatus>(
-    functions,
-    'parentLinkStatus',
-  )({ studentId });
-  return data;
+  return api<LinkStatus>('GET', `/students/${studentId}/parent-link`);
 }

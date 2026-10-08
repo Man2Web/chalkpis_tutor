@@ -2,12 +2,11 @@ import { useEffect } from 'react';
 import { Text } from 'react-native';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { collection, getDocs, limit, query } from '@react-native-firebase/firestore';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Button, Screen, toast } from '../../components';
 import { reportError } from '../../lib/analytics';
-import { db } from '../../lib/firebase';
+import { api } from '../../api/client';
 import type { OnboardingStackParams } from '../../navigation/types';
 import { spacing, type } from '../../theme';
 import { createBatch } from '../batches/api';
@@ -28,13 +27,13 @@ export function BatchScreen({
   // Resume: if the first batch already exists (app was closed mid-wizard), go straight to students.
   useEffect(() => {
     if (!instituteId) return;
-    getDocs(query(collection(db, 'institutes', instituteId, 'batches'), limit(1)))
-      .then((snap) => {
-        const first = snap.docs[0];
+    api<{ batches: { id: string; defaultFee: number }[] }>('GET', '/batches?status=all')
+      .then(({ batches }) => {
+        const first = batches[0];
         if (first)
           navigation.replace('Students', {
             batchId: first.id,
-            defaultFee: String((first.data().defaultFee ?? 0) / 100),
+            defaultFee: String(first.defaultFee / 100),
           });
       })
       .catch(reportError);

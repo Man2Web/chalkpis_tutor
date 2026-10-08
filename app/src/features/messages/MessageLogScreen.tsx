@@ -12,6 +12,7 @@ const TONE: Record<MessageStatus, 'success' | 'danger' | 'neutral' | 'warning'> 
   failed: 'danger',
   skipped: 'neutral',
   queued: 'warning',
+  sending: 'warning',
 };
 
 export function MessageLogScreen() {

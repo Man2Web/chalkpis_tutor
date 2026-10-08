@@ -9,14 +9,15 @@
     "userInterfaceStyle": "light",
     "android": {
       "package": "in.tutordesk.app",
-      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "permissions": ["READ_CONTACTS"]
+      "permissions": [
+        "READ_CONTACTS"
+      ]
     },
     "plugins": [
       "expo-dev-client",
@@ -34,10 +35,6 @@
       "expo-sharing",
       "expo-secure-store",
       "expo-contacts",
-      "@react-native-firebase/app",
-      "@react-native-firebase/auth",
-      "@react-native-firebase/crashlytics",
-      "@react-native-firebase/app-check",
       "expo-asset",
       "expo-font",
       [
