@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createPool } from './db.js';
+import { MockProvider, WhatsAppProvider, type MessageProvider } from './messaging/provider.js';
 import { runMigrations } from './migrate.js';
 
 const MIGRATIONS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
@@ -14,7 +15,29 @@ async function main() {
     const r = await runMigrations(pool, MIGRATIONS);
     if (r.applied.length) console.log(`migrations applied: ${r.applied.join(', ')}`);
   }
-  const app = await buildApp({ config, pool });
+  let provider: MessageProvider | null = null;
+  if (
+    config.WA_API_URL &&
+    config.WA_FROM &&
+    config.WA_CLIENT_ID &&
+    config.WA_CLIENT_PASSWORD &&
+    config.WA_TEMPLATE_OTP
+  ) {
+    provider = new WhatsAppProvider({
+      baseUrl: config.WA_API_URL,
+      clientId: config.WA_CLIENT_ID,
+      clientPassword: config.WA_CLIENT_PASSWORD,
+      from: config.WA_FROM,
+      method: config.WA_API_METHOD,
+    });
+  } else if (config.NODE_ENV !== 'production') {
+    provider = new MockProvider(); // local work: codes are not sent anywhere (use OTP_DEV_ECHO to see them)
+  } else {
+    console.warn(
+      'WhatsApp is not configured: login codes cannot be sent until WA_* settings are set.',
+    );
+  }
+  const app = await buildApp({ config, pool, provider });
 
   const stop = async (signal: string) => {
     app.log.info({ signal }, 'shutting down');

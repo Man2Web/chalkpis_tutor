@@ -50,7 +50,19 @@ export async function withTransaction<T>(
 ): Promise<T> {
   const conn = await pool.getConnection();
   try {
-    await conn.beginTransaction();
+    return await inTransaction(conn, fn);
+  } finally {
+    conn.release();
+  }
+}
+
+/** The same all-or-nothing rule on a connection you already hold (for example while holding a named lock). */
+export async function inTransaction<T>(
+  conn: PoolConnection,
+  fn: (conn: PoolConnection) => Promise<T>,
+): Promise<T> {
+  await conn.beginTransaction();
+  try {
     const result = await fn(conn);
     await conn.commit();
     return result;
@@ -61,7 +73,5 @@ export async function withTransaction<T>(
       // the original error is the useful one
     }
     throw e;
-  } finally {
-    conn.release();
   }
 }

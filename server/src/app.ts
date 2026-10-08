@@ -4,16 +4,29 @@ import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import type { Config } from './config.js';
 import { ping, type Pool } from './db.js';
 import { safeUrl } from './logging.js';
+import type { MessageProvider } from './messaging/provider.js';
+import { authRoutes } from './routes/auth.js';
+import { instituteRoutes } from './routes/institutes.js';
 
 export interface AppDeps {
   config: Config;
   pool: Pool;
   /** Where log lines go (tests capture them to check nothing sensitive is written). */
   logStream?: NodeJS.WritableStream;
+  /** Sends login codes. Null means not configured: the login-code route answers 503. */
+  provider?: MessageProvider | null;
+  /** Test hook: the current time. */
+  clock?: () => Date;
 }
 
 /** Builds the HTTP app. No port is opened here, so tests can call it directly. */
-export async function buildApp({ config, pool, logStream }: AppDeps): Promise<FastifyInstance> {
+export async function buildApp({
+  config,
+  pool,
+  logStream,
+  provider = null,
+  clock,
+}: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
     trustProxy: config.TRUST_PROXY,
     bodyLimit: 1024 * 1024,
@@ -40,6 +53,10 @@ export async function buildApp({ config, pool, logStream }: AppDeps): Promise<Fa
     if (await ping(pool)) return { status: 'ok', db: 'up' };
     return reply.code(503).send({ status: 'unavailable' });
   });
+
+  app.decorateRequest('auth', null);
+  authRoutes(app, { config, pool, provider, clock });
+  instituteRoutes(app, { config, pool, clock });
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));
   app.setErrorHandler((err: FastifyError, req, reply) => {

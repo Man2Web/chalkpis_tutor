@@ -22,7 +22,7 @@
 ## Backend move to Hostinger (replaces the Firebase backend; see docs/HOSTINGER-MIGRATION.md)
 
 - [x] M0 foundations: `server/` (Fastify + zod + mysql2), config, migration runner, foundation schema, health, headers, rate limit, log redaction, Dockerfile, CI job, 45 tests (Docker build itself not yet tried)
-- [ ] M1 phone-OTP login + institutes + tenant-isolation tests
+- [x] M1 phone-OTP login (WhatsApp code), rotating sessions with theft detection, institute setup + 7-day trial, owner/staff guards, tenant-isolation tests (103 server tests)
 - [ ] M2 students and batches
 - [ ] M3 attendance and fees
 - [ ] M4 billing, messages, parent view, files

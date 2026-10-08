@@ -22,6 +22,27 @@ const schema = z.object({
   DB_POOL_SIZE: z.coerce.number().int().min(1).max(50).default(10),
   DB_SSL: flag('false'),
 
+  /** Secret that signs access tokens. 32+ random characters; changing it signs everyone out. */
+  JWT_SECRET: z.string().min(32, 'at least 32 characters'),
+  /** Secret mixed into stored login-code hashes. 32+ random characters. */
+  OTP_PEPPER: z.string().min(32, 'at least 32 characters'),
+  ACCESS_TTL_MINUTES: z.coerce.number().int().min(1).max(60).default(15),
+  REFRESH_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(60),
+  /** Development only: also return the login code in the response so it can be tried without WhatsApp. Ignored in production. */
+  OTP_DEV_ECHO: flag('false'),
+
+  /** WhatsApp gateway for login codes. Optional at start; without it the login-code route answers 503. */
+  WA_API_URL: z.string().url().optional(),
+  WA_FROM: z
+    .string()
+    .regex(/^\d{10,15}$/, 'digits only, with country code')
+    .optional(),
+  WA_CLIENT_ID: z.string().min(1).optional(),
+  WA_CLIENT_PASSWORD: z.string().min(1).optional(),
+  WA_API_METHOD: z.enum(['POST', 'GET']).default('POST'),
+  /** Approved authentication template id for the login code (one value: the code). */
+  WA_TEMPLATE_OTP: z.string().min(1).optional(),
+
   /** Run pending migrations when the server starts. Safe: guarded by a database lock. */
   AUTO_MIGRATE: flag('true'),
 });
@@ -45,6 +66,14 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     throw new Error(
       'Invalid configuration:\n  DB_PASSWORD: refusing a placeholder password in production',
     );
+  }
+  if (cfg.NODE_ENV === 'production') {
+    for (const k of ['JWT_SECRET', 'OTP_PEPPER'] as const) {
+      if (/^(.)\1+$/.test(cfg[k]) || /change|secret|example|password/i.test(cfg[k]))
+        throw new Error(
+          `Invalid configuration:\n  ${k}: looks like a placeholder; use long random text`,
+        );
+    }
   }
   return cfg;
 }

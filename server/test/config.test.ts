@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config.js';
 
-const base = { DB_USER: 'app', DB_PASSWORD: 'a-long-random-secret', DB_NAME: 'tutordesk' };
+const base = {
+  DB_USER: 'app',
+  DB_PASSWORD: 'a-long-random-secret',
+  DB_NAME: 'tutordesk',
+  JWT_SECRET: 'q8Zr4mVt1xLp9nWc3JhB7yKd5sGfA2eU',
+  OTP_PEPPER: 'Hk6vP0tQz8RmXb3NcY1wJ4LdS7gF9aEu',
+};
 
 describe('loadConfig', () => {
   it('fills safe defaults', () => {
@@ -60,6 +66,34 @@ describe('loadConfig', () => {
       loadConfig({ ...base, NODE_ENV: 'development', DB_PASSWORD: 'changeme' }),
     ).not.toThrow();
     expect(() => loadConfig({ ...base, NODE_ENV: 'production' })).not.toThrow();
+  });
+  it('needs long signing secrets, and refuses obvious placeholders in production', () => {
+    expect(() => loadConfig({ ...base, JWT_SECRET: 'short' })).toThrow(/JWT_SECRET/);
+    expect(() => loadConfig({ ...base, OTP_PEPPER: undefined })).toThrow(/OTP_PEPPER/);
+    expect(() =>
+      loadConfig({ ...base, NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(40) }),
+    ).toThrow(/placeholder/);
+    expect(() =>
+      loadConfig({
+        ...base,
+        NODE_ENV: 'production',
+        OTP_PEPPER: 'please-change-this-secret-value-now!',
+      }),
+    ).toThrow(/placeholder/);
+    expect(() => loadConfig({ ...base, NODE_ENV: 'production' })).not.toThrow();
+  });
+  it('WhatsApp settings are optional, but validated when given', () => {
+    expect(loadConfig(base)).toMatchObject({ WA_API_METHOD: 'POST', OTP_DEV_ECHO: false });
+    expect(() => loadConfig({ ...base, WA_API_URL: 'not a url' })).toThrow(/WA_API_URL/);
+    expect(() => loadConfig({ ...base, WA_FROM: '+91 63840' })).toThrow(/WA_FROM/);
+    expect(
+      loadConfig({
+        ...base,
+        WA_API_URL: 'https://gw.example/send',
+        WA_FROM: '916384009225',
+        WA_TEMPLATE_OTP: '28941160978828267',
+      }).WA_TEMPLATE_OTP,
+    ).toBe('28941160978828267');
   });
   it('never echoes the password in an error message', () => {
     try {
