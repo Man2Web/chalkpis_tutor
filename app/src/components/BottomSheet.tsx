@@ -26,6 +26,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.lg,
     padding: spacing.lg,
     maxHeight: '85%',
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
   },
   handle: {
     alignSelf: 'center',

@@ -19,3 +19,6 @@
 | 16 | Local dev uses a fake `app/google-services.json` for project `demo-tutordesk` and emulators started with `--project demo-tutordesk` | Lets the app run against emulators with no Firebase account; the file is git-ignored and replaced by the real one for production (SETUP.md) |
 | 17 | Browser preview: Metro swaps `@react-native-firebase/*` for the Firebase web SDK only when platform is web (`app/metro.config.js`, `app/src/web/*`); analytics/crashlytics are no-ops there | Lets the owner test on a laptop without Android Studio; the native Android build is untouched. Not a shipping target |
 | 18 | Plural strings use i18next `_one`/`_other` keys | Avoids "1 students" |
+| 19 | Attendance % = (Present + Late) / (Present + Late + Absent); holiday/cancelled days are excluded; a student only counts on days they were marked | Late students attended; joiners and leavers are not penalised for days outside their time in the batch |
+| 20 | Attendance doc stores `date` as yyyy-mm-dd (Indian time) plus `holiday`/`reason`; saving replaces the whole day | Sorts as text; removed marks cannot linger |
+| 21 | Roster for a date = saved marks + active batch members who had joined by then; future dates cannot be marked | Past days stay editable even after a student leaves; backfilling earlier than a joining date needs the joining date changed |

@@ -9,8 +9,9 @@ import {
 } from '@react-native-firebase/firestore';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../features/auth/session';
+import { attendanceId } from '../lib/dates';
 import { db } from '../lib/firebase';
-import type { Batch, Student } from '../lib/types';
+import type { AttendanceDoc, Batch, Student } from '../lib/types';
 
 /** The signed-in owner's institute. Only call inside the main app (status === 'ready'). */
 export function useInstituteId(): string {
@@ -94,8 +95,62 @@ export function useRefreshData() {
   const id = useInstituteId();
   return () =>
     Promise.all(
-      ['students', 'batches', 'limits', 'pendingDues'].map((k) =>
+      ['students', 'batches', 'limits', 'pendingDues', 'attendance'].map((k) =>
         qc.invalidateQueries({ queryKey: [k, id] }),
       ),
     );
+}
+
+const toAttendance = (d: { id: string; data: () => unknown }) => ({
+  id: d.id,
+  ...(d.data() as Omit<AttendanceDoc, 'id'>),
+});
+
+/** Every batch's attendance document for one day (used for the "marked / not marked" status). */
+export function useAttendanceOn(date: string) {
+  const id = useInstituteId();
+  return useQuery({
+    queryKey: ['attendance', id, 'on', date],
+    queryFn: async (): Promise<AttendanceDoc[]> => {
+      const snap = await getDocs(query(col(id, 'attendance'), where('date', '==', date)));
+      return snap.docs.map(toAttendance);
+    },
+  });
+}
+
+/** One batch's saved attendance for one day, or null. Also returns createdAt so a re-save keeps it. */
+export function useAttendanceDoc(batchId: string, date: string) {
+  const id = useInstituteId();
+  return useQuery({
+    queryKey: ['attendance', id, 'doc', batchId, date],
+    queryFn: async () => {
+      const snap = await getDoc(
+        doc(db, 'institutes', id, 'attendance', attendanceId(batchId, date)),
+      );
+      if (!snap.exists()) return null;
+      const data = snap.data() as Omit<AttendanceDoc, 'id'> & { createdAt?: unknown };
+      return { id: snap.id, ...data };
+    },
+  });
+}
+
+/** Attendance documents in a date range (inclusive), optionally for one batch. */
+export function useAttendanceRange(from: string, to: string, batchId?: string) {
+  const id = useInstituteId();
+  return useQuery({
+    queryKey: ['attendance', id, 'range', from, to, batchId ?? 'all'],
+    queryFn: async (): Promise<AttendanceDoc[]> => {
+      // orderBy date DESC matches the (batchId, date desc) composite index.
+      const filters = [where('date', '>=', from), where('date', '<=', to)];
+      const q = batchId
+        ? query(
+            col(id, 'attendance'),
+            where('batchId', '==', batchId),
+            ...filters,
+            orderBy('date', 'desc'),
+          )
+        : query(col(id, 'attendance'), ...filters, orderBy('date', 'desc'));
+      return (await getDocs(q)).docs.map(toAttendance);
+    },
+  });
 }

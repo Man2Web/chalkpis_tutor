@@ -19,6 +19,7 @@ import {
 import { useAddGuard } from '../../data/guards';
 import { useBatches, useInstituteId, useRefreshData, useStudents } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
+import { todayYmd, toYmd } from '../../lib/dates';
 import { formatINR } from '../../lib/money';
 import { nationalNumber } from '../../lib/phone';
 import type { FeeCycle } from '../../lib/types';
@@ -29,7 +30,6 @@ import { studentSchema, type StudentForm } from './schema';
 
 const CYCLES: FeeCycle[] = ['monthly', 'quarterly', 'one-time'];
 const cycleKey = (c: FeeCycle) => (c === 'one-time' ? 'oneTime' : c);
-const ymd = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
 export function StudentFormScreen({
   navigation,
@@ -62,7 +62,7 @@ export function StudentFormScreen({
             dueDay: existing.dueDay,
             notifyParent: existing.notifyParent,
             notes: existing.notes ?? '',
-            joinedOn: ymd(existing.joinedAt.toDate()),
+            joinedOn: toYmd(existing.joinedAt.toDate()),
           }
         : {
             name: '',
@@ -75,7 +75,7 @@ export function StudentFormScreen({
             dueDay: 1,
             notifyParent: true,
             notes: '',
-            joinedOn: ymd(new Date()),
+            joinedOn: todayYmd(),
           },
     [existing],
   );

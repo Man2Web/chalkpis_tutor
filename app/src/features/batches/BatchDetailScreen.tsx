@@ -22,6 +22,7 @@ import type { MainStackParams } from '../../navigation/types';
 import { spacing, type } from '../../theme';
 import { addStudentsToBatch, removeStudentFromBatch } from '../students/api';
 import { filterStudents } from '../students/logic';
+import { AttendanceSummary } from '../attendance/AttendanceSummary';
 import { setBatchStatus } from './api';
 import { scheduleLabel } from './format';
 
@@ -126,6 +127,7 @@ export function BatchDetailScreen({
               </Text>
               {batch.status === 'archived' ? <Chip label={t('batches.archived')} /> : null}
             </Card>
+            <AttendanceSummary batchId={batch.id} />
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
               <Button
                 style={{ flex: 1 }}

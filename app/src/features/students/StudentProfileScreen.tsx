@@ -3,6 +3,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { Avatar, Button, Card, Chip, EmptyState, Screen, Skeleton, toast } from '../../components';
 import { useBatches, useStudents } from '../../data/hooks';
+import { AttendanceSummary } from '../attendance/AttendanceSummary';
 import { callUrl, open, whatsappUrl } from '../../lib/contact';
 import { formatINR } from '../../lib/money';
 import { nationalNumber } from '../../lib/phone';
@@ -115,6 +116,10 @@ export function StudentProfileScreen({
         />
         <Row label={t('students.notes')} value={s.notes} />
       </Card>
+
+      <View style={{ marginTop: spacing.md }}>
+        <AttendanceSummary studentId={s.id} />
+      </View>
 
       <Button
         style={{ marginTop: spacing.lg }}

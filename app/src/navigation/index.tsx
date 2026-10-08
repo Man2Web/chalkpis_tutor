@@ -14,6 +14,9 @@ import { BatchScreen } from '../features/onboarding/BatchScreen';
 import { ProfileScreen } from '../features/onboarding/ProfileScreen';
 import { StudentsScreen } from '../features/onboarding/StudentsScreen';
 import { colors, type } from '../theme';
+import { AttendanceHomeScreen } from '../features/attendance/AttendanceHomeScreen';
+import { AttendanceReportScreen } from '../features/attendance/AttendanceReportScreen';
+import { MarkAttendanceScreen } from '../features/attendance/MarkAttendanceScreen';
 import { BatchDetailScreen } from '../features/batches/BatchDetailScreen';
 import { BatchFormScreen } from '../features/batches/BatchFormScreen';
 import { BatchesScreen } from '../features/batches/BatchesScreen';
@@ -90,9 +93,11 @@ function MainTabs() {
         component={StudentsListScreen}
         options={{ title: t('tabs.students') }}
       />
-      <Tabs.Screen name="Attendance" options={{ title: t('tabs.attendance') }}>
-        {() => <Soon title={t('tabs.attendance')} />}
-      </Tabs.Screen>
+      <Tabs.Screen
+        name="Attendance"
+        component={AttendanceHomeScreen}
+        options={{ title: t('tabs.attendance') }}
+      />
       <Tabs.Screen name="Fees" options={{ title: t('tabs.fees') }}>
         {() => <Soon title={t('tabs.fees')} />}
       </Tabs.Screen>
@@ -130,6 +135,16 @@ function MainStack() {
         name="BatchForm"
         component={BatchFormScreen}
         options={{ title: t('batches.formTitle') }}
+      />
+      <Main.Screen
+        name="MarkAttendance"
+        component={MarkAttendanceScreen}
+        options={{ title: t('attendance.markTitle') }}
+      />
+      <Main.Screen
+        name="AttendanceReport"
+        component={AttendanceReportScreen}
+        options={{ title: t('attendance.reports') }}
       />
       <Main.Screen
         name="BatchDetail"

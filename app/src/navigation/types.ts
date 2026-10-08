@@ -18,4 +18,6 @@ export type MainStackParams = {
   Batches: undefined;
   BatchForm: { id?: string } | undefined;
   BatchDetail: { id: string };
+  MarkAttendance: { batchId: string; date: string };
+  AttendanceReport: undefined;
 };
