@@ -22,17 +22,17 @@ Tests: `npm test` (app and server). `npm run loadtest` runs the load test.
 
 The server is a Docker app (`server/Dockerfile`); Coolify builds and runs it. Do these once.
 
-1. **Git repository.** Create a private GitHub repository and push this project to it. (Not done yet: nothing has been pushed anywhere.)
+1. **Git repository.** `https://github.com/Man2Web/chalkpis_tutor.git`. Push this project to it from a terminal that is signed in to GitHub with write access: `git push -u origin main`. For a private repository, Coolify pulls with a **deploy key**: in Coolify choose **Private Repository (with Deploy Key)**, copy the public key it shows, and add it in GitHub under the repository's **Settings -> Deploy keys** (read-only is enough).
 2. **Database.** In Coolify: **New resource -> Database -> MariaDB 11**. Note its internal host name, user, password and database name. Turn on its **Backups** (see [BACKUPS.md](BACKUPS.md)).
 3. **Application.** **New resource -> Application -> your repository**, build pack **Dockerfile**, base directory `server`, port `8080`. Add a **persistent storage** volume mounted at `/data/uploads` (logos and student photos live there) and another at `/data/backups`.
-4. **Domain.** Point a name such as `api.your-domain.in` at the VPS address and set it as the application's domain in Coolify (Coolify issues the HTTPS certificate).
+4. **Domain.** Done: `api.chalkpis.com` already points to the VPS (200.234.43.196). In Coolify set the application's domain to `https://api.chalkpis.com`; Coolify issues the HTTPS certificate by itself.
 5. **Settings (Environment variables).** Set these in Coolify, never in the code. Generate each secret with `openssl rand -base64 48`.
 
    | Setting                                                                          | Value                                                                                         |
    | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
    | `NODE_ENV`                                                                       | `production`                                                                                  |
    | `TRUST_PROXY`                                                                    | `true`                                                                                        |
-   | `PUBLIC_BASE_URL`                                                                | `https://api.your-domain.in`                                                                  |
+   | `PUBLIC_BASE_URL`                                                                | `https://api.chalkpis.com`                                                                    |
    | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`                        | from the Coolify database                                                                     |
    | `JWT_SECRET`, `OTP_PEPPER`                                                       | two different long random values                                                              |
    | `WA_API_URL`, `WA_FROM`, `WA_CLIENT_ID`, `WA_CLIENT_PASSWORD`, `WA_TEMPLATE_OTP` | your WhatsApp gateway (see section 3)                                                         |
@@ -41,7 +41,7 @@ The server is a Docker app (`server/Dockerfile`); Coolify builds and runs it. Do
 
    Leave `OTP_DEV_ECHO` unset in production (it is ignored there anyway).
 
-6. **Deploy.** The server creates and updates its database tables by itself on start. Open `https://api.your-domain.in/health`: it should say `{"status":"ok","db":"up"}`.
+6. **Deploy.** The server creates and updates its database tables by itself on start. Open `https://api.chalkpis.com/health`: it should say `{"status":"ok","db":"up"}`.
 7. **Backups.** Add the scheduled task from [BACKUPS.md](BACKUPS.md) and practise one restore.
 
 The container build has not been tried yet (Docker is not installed on the development Mac), so expect Coolify's first build to be the first real test.
@@ -57,7 +57,7 @@ The container build has not been tried yet (Docker is not installed on the devel
 
 1. Create a Razorpay account and finish KYC; in **Settings -> API keys** make a **Test mode** key pair first.
 2. Set `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and a `RAZORPAY_WEBHOOK_SECRET` (16+ characters of your choice).
-3. In Razorpay **Settings -> Webhooks -> Add new webhook**: URL `https://api.your-domain.in/billing/webhooks/razorpay`, the same secret, event **payment_link.paid**.
+3. In Razorpay **Settings -> Webhooks -> Add new webhook**: URL `https://api.chalkpis.com/billing/webhooks/razorpay`, the same secret, event **payment_link.paid**.
 4. Buy a plan with Razorpay's test card or UPI. The plan switches on within seconds, and a re-delivered webhook never extends it twice.
 5. When ready, swap in the Live keys.
 
@@ -67,11 +67,11 @@ Without keys, local runs use a mock ("Pay (test)" in the app); in production buy
 
 1. `npm i -g eas-cli`, then `eas login` (free account at https://expo.dev).
 2. `cd app && eas init`, which writes the real project id into `app.json`.
-3. Choose the **final Android package id** before the first release (it cannot change afterwards). It is `in.tutordesk.app` today; change `android.package` in `app/app.json`.
-4. Set the server address for the build: `EXPO_PUBLIC_API_URL=https://api.your-domain.in` (an EAS environment variable).
+3. The **Android package id** is final once released (it cannot change afterwards). It is `in.chalkpis.tutors` (set in `app/app.json`).
+4. Set the server address for the build: `EXPO_PUBLIC_API_URL=https://api.chalkpis.com` (an EAS environment variable).
 5. `eas build --platform android --profile production`. EAS creates and stores the signing key (back it up with `eas credentials`).
 6. Upload the `.aab` to Play Console. Required: a privacy policy address (`EXPO_PUBLIC_PRIVACY_POLICY_URL`) and the in-app delete-account flow (Settings), which is built.
 
 ## 6. Parent page
 
-Parents open `https://api.your-domain.in/p/<token>`. The tutor makes the link on the student's profile. The page is served by the same server (`server/public/`), is read-only, and shows one student's attendance, fees and receipts only.
+Parents open `https://api.chalkpis.com/p/<token>`. The tutor makes the link on the student's profile. The page is served by the same server (`server/public/`), is read-only, and shows one student's attendance, fees and receipts only.

@@ -53,7 +53,7 @@ The mobile app screens, the design system, translations, the pure business rules
 
 - A **private GitHub repository** for TutorDesk (Coolify pulls from it). I will not push anything until you say so.
 - Either your **Coolify address and an API token** (so I can create the app and database for you), or you do the clicks in Coolify and I give you the exact steps.
-- The **domain** for the API, e.g. `api.yourdomain.in`, with its DNS pointing at 200.234.43.196.
+- The **domain** for the API, e.g. `api.chalkpis.com`, with its DNS pointing at 200.234.43.196.
 
 ## Older inputs (still needed)
 
