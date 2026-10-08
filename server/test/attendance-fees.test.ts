@@ -20,6 +20,7 @@ beforeEach(async () => {
 
 // The fixed test clock is 2026-10-08 11:30 Indian time.
 const TODAY = '2026-10-08';
+const OLD = '2026-09-15T00:00:00.000Z'; // joined before this month, so a due day earlier than today really is overdue
 const batch = (over = {}) => ({
   name: 'Maths 10',
   subject: 'Maths',
@@ -488,14 +489,22 @@ describe('discount, waive, charges', () => {
 
 describe('overview, dashboard and fee report', () => {
   it('overview groups per student: overdue first, then oldest, then biggest', async () => {
-    const early = await mk(A, '/students', student({ name: 'Early Kid', dueDay: 1 }));
+    const early = await mk(
+      A,
+      '/students',
+      student({ name: 'Early Kid', dueDay: 1, joinedAt: OLD }),
+    );
     const bigLate = await mk(
       A,
       '/students',
-      student({ name: 'Big Late', dueDay: 5, monthlyFee: 300000 }),
+      student({ name: 'Big Late', dueDay: 5, monthlyFee: 300000, joinedAt: OLD }),
     );
-    const notYet = await mk(A, '/students', student({ name: 'Not Yet', dueDay: 25 }));
-    const paidUp = await mk(A, '/students', student({ name: 'Paid Up' }));
+    const notYet = await mk(
+      A,
+      '/students',
+      student({ name: 'Not Yet', dueDay: 25, joinedAt: OLD }),
+    );
+    const paidUp = await mk(A, '/students', student({ name: 'Paid Up', joinedAt: OLD }));
     await gen(A);
     await pay(A, (await dueOf(A, paidUp)).id, 100000);
     await pay(A, (await dueOf(A, early)).id, 30000);
@@ -525,7 +534,7 @@ describe('overview, dashboard and fee report', () => {
   it("dashboard shows today's classes, attendance marked, and money", async () => {
     const thu = await mk(A, '/batches', batch({ name: 'Thursday' }));
     await mk(A, '/batches', batch({ name: 'Friday', days: ['fri'] }));
-    const s = await mk(A, '/students', student({ batchIds: [thu] }));
+    const s = await mk(A, '/students', student({ batchIds: [thu], joinedAt: OLD }));
     await gen(A);
     await pay(A, (await dueOf(A, s)).id, 40000);
     await A.call('PUT', '/attendance', { batchId: thu, date: TODAY, marks: { [s]: 'P' } });
@@ -857,5 +866,22 @@ describe('single due, profile and plan usage (used by the app)', () => {
     await mk(A, '/students', student({ name: 'Bala K' }));
     await A.call('POST', `/students/${s}/deactivate`);
     expect((await A.call('GET', '/subscription')).body.usage).toEqual({ students: 1, batches: 1 });
+  });
+});
+
+describe('the first due date', () => {
+  it('is never before the student joined: a mid-month joiner is not overdue on day one', async () => {
+    const s = await mk(A, '/students', student({ dueDay: 1 })); // joins today (8 Oct), due day 1
+    await gen(A);
+    expect(await dueOf(A, s)).toMatchObject({ dueDate: TODAY, overdue: false });
+    expect((await A.call('GET', '/fees/overview')).body.totals).toMatchObject({
+      students: 1,
+      overdueStudents: 0,
+    });
+  });
+  it('a student who joined earlier still gets the normal due day', async () => {
+    const s = await mk(A, '/students', student({ dueDay: 5, joinedAt: OLD }));
+    await gen(A);
+    expect(await dueOf(A, s)).toMatchObject({ dueDate: '2026-10-05', overdue: true });
   });
 });

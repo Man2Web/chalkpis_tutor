@@ -74,7 +74,11 @@ export type Config = z.infer<typeof schema>;
 
 /** Reads settings from the environment. A missing or bad value stops the server at start-up with a clear message, never later. */
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
-  const parsed = schema.safeParse(env);
+  // A setting that is present but blank (for example a variable declared in the host panel and left empty) means "not set".
+  const present = Object.fromEntries(
+    Object.entries(env).filter(([, v]) => v !== undefined && v.trim() !== ''),
+  );
+  const parsed = schema.safeParse(present);
   if (!parsed.success) {
     const problems = parsed.error.issues
       .map((i) => `  ${i.path.join('.') || '(config)'}: ${i.message}`)

@@ -297,7 +297,7 @@ describe('payment messages', () => {
 
 describe('fee reminders', () => {
   const setup = async (dueDay: number) => {
-    const s = await mk(A, '/students', student({ dueDay }));
+    const s = await mk(A, '/students', student({ dueDay, joinedAt: '2026-09-15T00:00:00.000Z' }));
     await A.call('POST', '/fees/generate', {});
     return s;
   };

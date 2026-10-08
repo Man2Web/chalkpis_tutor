@@ -78,6 +78,8 @@ async function lockDue(c: PoolConnection, instituteId: string, id: string): Prom
  * again: the unique due_key means existing dues are never touched and never duplicated, and a student who joined
  * after the last run still gets theirs. Returns how many were created.
  */
+const maxYmd = (a: string, b: string) => (a >= b ? a : b);
+
 export async function generateDues(db: Db, instituteId: string, period: string): Promise<number> {
   const [students] = (await db.query(
     `SELECT s.id, s.monthly_fee, s.fee_cycle, s.due_day, s.discount, s.joined_at,
@@ -107,7 +109,8 @@ export async function generateDues(db: Db, instituteId: string, period: string):
       period,
       amount,
       Math.min(Number(s.discount), amount),
-      dueDateFor(period, s.due_day),
+      // never due before the student joined (a mid-month joiner is not overdue on day one)
+      maxYmd(dueDateFor(period, s.due_day), ymdOf(s.joined_at)),
       descriptionFor(s.fee_cycle),
       `${s.id}_${period}`,
     ]);

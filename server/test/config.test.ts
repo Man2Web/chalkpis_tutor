@@ -41,6 +41,21 @@ describe('loadConfig', () => {
       TRUST_PROXY: true,
     });
   });
+  it('treats blank optional settings as not set instead of refusing to start', () => {
+    const c = loadConfig({
+      ...base,
+      WA_CLIENT_ID: '',
+      WA_CLIENT_PASSWORD: '  ',
+      RAZORPAY_KEY_ID: '',
+      PUBLIC_BASE_URL: '',
+    });
+    expect([c.WA_CLIENT_ID, c.WA_CLIENT_PASSWORD, c.RAZORPAY_KEY_ID, c.PUBLIC_BASE_URL]).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+  });
   it('stops with a clear message listing every problem', () => {
     expect(() => loadConfig({ DB_NAME: 'x' })).toThrow(/DB_USER[\s\S]*DB_PASSWORD/);
   });
