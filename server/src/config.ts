@@ -45,6 +45,16 @@ const schema = z.object({
   /** Approved authentication template id for the login code (one value: the code). */
   WA_TEMPLATE_OTP: z.string().min(1).optional(),
 
+  /** Websites allowed to call this API from a browser, comma separated (e.g. the preview at http://localhost:8081). The phone app needs none. */
+  CORS_ORIGINS: z
+    .string()
+    .default('')
+    .transform((v) =>
+      v
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean),
+    ),
   /** Folder for uploaded logos and student photos. In the container this is a mounted volume (/data/uploads) so files survive deploys. */
   FILES_DIR: z.string().min(1).default('data/files'),
   /** The public address of this server, e.g. https://api.example.in. Used to build parent links and logo addresses. */

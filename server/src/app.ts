@@ -1,3 +1,4 @@
+import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
@@ -16,6 +17,7 @@ import { billingRoutes } from './routes/billing.js';
 import { messageRoutes } from './routes/messages.js';
 import { fileRoutes } from './routes/files.js';
 import { parentRoutes } from './routes/parent.js';
+import { accountRoutes } from './routes/account.js';
 import { instituteRoutes } from './routes/institutes.js';
 
 export interface AppDeps {
@@ -58,6 +60,17 @@ export async function buildApp({
   await app.register(helmet, {
     contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
   });
+  if (config.CORS_ORIGINS.length)
+    await app.register(cors, {
+      origin: config.CORS_ORIGINS,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+      allowedHeaders: ['authorization', 'content-type'],
+      maxAge: 600,
+    });
+  // Nothing from this API may be stored by a browser or a proxy unless the route says so (logos, the parent page files).
+  app.addHook('onSend', async (_req, reply) => {
+    if (!reply.hasHeader('cache-control')) reply.header('Cache-Control', 'no-store');
+  });
   await app.register(rateLimit, {
     global: true,
     max: config.RATE_LIMIT_PER_MIN,
@@ -81,6 +94,7 @@ export async function buildApp({
   messageRoutes(app, { config, pool, clock });
   fileRoutes(app, { config, pool, clock });
   parentRoutes(app, { config, pool, clock });
+  accountRoutes(app, { config, pool, clock });
   billingRoutes(app, { config, pool, billing, clock });
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));

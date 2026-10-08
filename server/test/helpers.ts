@@ -43,6 +43,7 @@ export interface Tenant {
 }
 
 const TABLES = [
+  'job_runs',
   'parent_links',
   'messages',
   'notify_settings',

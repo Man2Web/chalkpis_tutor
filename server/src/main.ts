@@ -5,6 +5,7 @@ import { loadConfig } from './config.js';
 import { createPool } from './db.js';
 import { MockBillingProvider, RazorpayProvider, type BillingProvider } from './billing/provider.js';
 import { MockProvider, WhatsAppProvider, type MessageProvider } from './messaging/provider.js';
+import { startScheduler } from './jobs/runner.js';
 import { parseTemplates } from './messaging/templates.js';
 import { startWorker } from './messaging/worker.js';
 import { runMigrations } from './migrate.js';
@@ -59,9 +60,12 @@ async function main() {
       ),
   );
 
+  const stopScheduler = startScheduler(pool, app.log);
+
   const stop = async (signal: string) => {
     app.log.info({ signal }, 'shutting down');
     stopWorker();
+    stopScheduler();
     await app.close();
     await pool.end();
     process.exit(0);
