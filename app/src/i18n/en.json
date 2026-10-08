@@ -3,8 +3,90 @@
   "common": {
     "save": "Save",
     "cancel": "Cancel",
+    "next": "Next",
+    "skip": "Skip for now",
+    "back": "Back",
+    "done": "Done",
     "retry": "Try again",
     "loading": "Loading…",
-    "error": "Something went wrong"
-  }
+    "error": "Something went wrong. Please try again.",
+    "offline": "No internet. Please check your connection."
+  },
+  "validation": {
+    "required": "This is required",
+    "phone": "Enter a valid 10-digit mobile number",
+    "amount": "Enter a valid amount",
+    "time": "Use 24-hour time like 17:30",
+    "endAfterStart": "End time must be after start time",
+    "days": "Pick at least one day"
+  },
+  "language": {
+    "title": "Choose your language",
+    "english": "English",
+    "hindi": "हिन्दी",
+    "continue": "Continue"
+  },
+  "auth": {
+    "phoneTitle": "Enter your mobile number",
+    "phoneHint": "We will send you a 6-digit code by SMS.",
+    "phoneLabel": "Mobile number",
+    "sendCode": "Send code",
+    "otpTitle": "Enter the code",
+    "otpSentTo": "Sent to {{phone}}",
+    "otpLabel": "6-digit code",
+    "verify": "Verify",
+    "resendIn": "Resend code in {{seconds}}s",
+    "resend": "Resend code",
+    "changeNumber": "Change number",
+    "errors": {
+      "invalidPhone": "That mobile number does not look right.",
+      "invalidCode": "That code is wrong. Check the SMS and try again.",
+      "codeExpired": "The code has expired. Please request a new one.",
+      "tooMany": "Too many attempts. Please wait a while and try again.",
+      "network": "No internet. Please check your connection.",
+      "generic": "Could not sign in. Please try again."
+    }
+  },
+  "onboarding": {
+    "profileTitle": "About you",
+    "tutorName": "Your name",
+    "instituteName": "Institute or class name",
+    "logo": "Logo (optional)",
+    "addLogo": "Add logo",
+    "changeLogo": "Change logo",
+    "batchTitle": "Create your first batch",
+    "batchName": "Batch name",
+    "subject": "Subject",
+    "class": "Class",
+    "days": "Days",
+    "startTime": "Start time",
+    "endTime": "End time",
+    "defaultFee": "Monthly fee (₹)",
+    "studentsTitle": "Add your first students",
+    "studentsHint": "Add a few now, or skip and add them later.",
+    "studentName": "Student name",
+    "parentPhone": "Parent's mobile number",
+    "monthlyFee": "Monthly fee (₹)",
+    "addStudent": "Add student",
+    "added": "{{count}} added",
+    "finish": "Finish",
+    "setupError": "Could not set up your institute."
+  },
+  "days": {
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat",
+    "sun": "Sun"
+  },
+  "tabs": {
+    "home": "Home",
+    "students": "Students",
+    "attendance": "Attendance",
+    "fees": "Fees",
+    "more": "More"
+  },
+  "more": { "logout": "Log out" }
 }
