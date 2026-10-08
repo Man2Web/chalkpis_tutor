@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
 import { logoUrl } from './files.js';
+import { activeCount } from '../institutes/limits.js';
 import { createInstitute, isPlanActive } from '../institutes/service.js';
 
 const createBody = z.object({
@@ -114,6 +115,10 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
       studentLimit: s.student_limit,
       batchLimit: s.batch_limit,
       active: s.status === 'active' && s.expires_at.getTime() > now().getTime(),
+      usage: {
+        students: await activeCount(deps.pool, 'students', req.auth!.instituteId!),
+        batches: await activeCount(deps.pool, 'batches', req.auth!.instituteId!),
+      },
     };
   });
 }

@@ -128,6 +128,15 @@ export async function generateDues(db: Db, instituteId: string, period: string):
   return created;
 }
 
+export async function getDue(db: Db, instituteId: string, id: string, now: Date) {
+  const [rows] = (await db.query(
+    `SELECT ${DUE_COLS} FROM fee_dues d WHERE d.institute_id = ? AND d.id = ?`,
+    [instituteId, id],
+  )) as unknown as [DueRow[]];
+  if (!rows[0]) throw notFound();
+  return toDue(rows[0], todayYmd(now));
+}
+
 export async function listDues(
   db: Db,
   instituteId: string,

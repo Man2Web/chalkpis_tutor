@@ -825,3 +825,37 @@ describe('roles and plan', () => {
     }
   });
 });
+
+describe('single due, profile and plan usage (used by the app)', () => {
+  it('GET /fees/dues/:id returns one due, and only to its own institute', async () => {
+    const s = await mk(A, '/students', student());
+    await gen(A);
+    const due = await dueOf(A, s);
+    expect((await A.call('GET', `/fees/dues/${due.id}`)).body).toMatchObject({
+      id: due.id,
+      studentId: s,
+      amount: 100000,
+      status: 'pending',
+    });
+    expect((await B.call('GET', `/fees/dues/${due.id}`)).status).toBe(404);
+    expect((await A.call('GET', '/fees/dues/not-a-uuid')).status).toBe(400);
+  });
+
+  it("PATCH /me changes only the caller's own name and language", async () => {
+    expect((await A.call('PATCH', '/me', { name: 'New Name', language: 'hi' })).body).toMatchObject(
+      { user: { name: 'New Name', language: 'hi' } },
+    );
+    expect((await B.call('GET', '/me')).body.user.name).toBe('Tutor'); // B untouched
+    for (const bad of [{}, { name: 'x' }, { language: 'ta' }, { phone: '+911111111111' }])
+      expect((await A.call('PATCH', '/me', bad)).status).toBe(400);
+    expect((await A.call('GET', '/me')).body.user.phone).toBe('+919876543210');
+  });
+
+  it('/subscription reports how much of the plan is used', async () => {
+    await mk(A, '/batches', batch());
+    const s = await mk(A, '/students', student());
+    await mk(A, '/students', student({ name: 'Bala K' }));
+    await A.call('POST', `/students/${s}/deactivate`);
+    expect((await A.call('GET', '/subscription')).body.usage).toEqual({ students: 1, batches: 1 });
+  });
+});

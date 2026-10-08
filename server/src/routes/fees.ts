@@ -16,6 +16,7 @@ import {
   addCharge,
   feesOverview,
   generateDues,
+  getDue,
   getPayment,
   listDues,
   listPayments,
@@ -46,6 +47,7 @@ export function feeRoutes(app: FastifyInstance, deps: Deps) {
   app.get('/fees/dues', read, async (req) => ({
     dues: await listDues(deps.pool, inst(req), parse(duesQuery, req.query), now()),
   }));
+  app.get('/fees/dues/:id', read, async (req) => getDue(deps.pool, inst(req), id(req), now()));
   app.get('/fees/payments', read, async (req) => ({
     payments: await listPayments(deps.pool, inst(req), parse(paymentsQuery, req.query)),
   }));

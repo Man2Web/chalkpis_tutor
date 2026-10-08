@@ -8,6 +8,10 @@ import type { MessageProvider } from '../messaging/provider.js';
 
 const phoneBody = z.object({ phone: z.string().max(32) });
 const verifyBody = z.object({ phone: z.string().max(32), code: z.string().max(10) });
+const meBody = z
+  .object({ name: z.string().trim().min(2).max(80), language: z.enum(['en', 'hi']) })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0);
 const tokenBody = z.object({ refreshToken: z.string().max(200) });
 
 type Deps = Pick<AppDeps, 'config' | 'pool'> & {
@@ -114,4 +118,15 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
   app.get('/me', { preHandler: authenticate(deps) }, async (req) =>
     profile(deps, req.auth!.userId),
   );
+
+  // The person's own name and language. Always allowed (even when the plan has ended): it is their profile.
+  app.patch('/me', { preHandler: authenticate(deps) }, async (req, reply) => {
+    const body = meBody.safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'bad_request' });
+    await deps.pool.query(
+      'UPDATE users SET name = COALESCE(?, name), language = COALESCE(?, language) WHERE id = ?',
+      [body.data.name ?? null, body.data.language ?? null, req.auth!.userId],
+    );
+    return profile(deps, req.auth!.userId);
+  });
 }
