@@ -57,4 +57,4 @@ The browser preview is not the real Android app: calling, WhatsApp links, contac
 
 ## Not done yet
 
-Staff role, offline use with saved-for-later changes, a Hindi/number-format audit, push notifications, delivery reports for WhatsApp messages. The container build and the real WhatsApp and Razorpay connections are untried until the server is deployed. See [docs/TASKS.md](docs/TASKS.md).
+Offline use with saved-for-later changes, push notifications, delivery reports for WhatsApp messages. (The staff role is done: helpers take attendance for assigned batches only. The Hindi audit is dropped: the owner uses English only, and Hindi texts stay as they are.) The container build and the real WhatsApp and Razorpay connections are untried until the server is deployed. See [docs/TASKS.md](docs/TASKS.md).
