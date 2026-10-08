@@ -50,28 +50,54 @@ export interface MessageContext {
   balance?: string;
 }
 
-/** WhatsApp template values must be short and single-line; `~` separates values for this gateway. */
-export function cleanVar(v: string | undefined): string {
+/** WhatsApp template values must be single-line; `~` separates values for this gateway. */
+export function cleanVar(v: string | undefined, max = 60): string {
   const s = (v ?? '')
     .replace(/[~\r\n\t]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  return (s || '-').slice(0, 60);
+  return (s || '-').slice(0, max);
 }
 
-/** Values in the fixed order the templates expect (see docs/WHATSAPP-TEMPLATES.md). */
+/** Joins a (possibly long) leading part and a fixed tail, cutting only the leading part so the tail (the date, the amount) survives. */
+const withTail = (head: string | undefined, tail: string, headMax = 28) =>
+  `${cleanVar(head, headMax)}${tail}`;
+
+/**
+ * Values in the fixed order the templates expect (see docs/WHATSAPP-TEMPLATES.md). Every message has exactly THREE
+ * variables: WhatsApp tends to reject templates that have many variables for the amount of text, so the details are
+ * folded into the third value: {{1}} student, {{2}} institute, {{3}} what happened.
+ */
 export function varsFor(type: MessageType, c: MessageContext): string[] {
-  const base = [c.parent || 'Parent', c.institute];
+  const common = [cleanVar(c.student), cleanVar(c.institute)];
   switch (type) {
     case 'absent':
     case 'late':
-      return [...base, c.student, c.batch, c.date].map(cleanVar);
+      return [...common, cleanVar(withTail(c.batch, ` class on ${cleanVar(c.date, 20)}`), 80)];
     case 'fee_due':
-      return [...base, c.student, c.amount, c.period, c.dueDate].map(cleanVar);
+      return [
+        ...common,
+        cleanVar(
+          `${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 20)}, due on ${cleanVar(c.dueDate, 20)}`,
+          90,
+        ),
+      ];
     case 'fee_overdue':
-      return [...base, c.student, c.amount, c.period, c.since].map(cleanVar);
+      return [
+        ...common,
+        cleanVar(
+          `${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 20)}, pending since ${cleanVar(c.since, 20)}`,
+          90,
+        ),
+      ];
     case 'payment_received':
-      return [...base, c.student, c.amount, c.receiptNo, c.balance].map(cleanVar);
+      return [
+        ...common,
+        cleanVar(
+          `${cleanVar(c.amount, 20)} (receipt ${cleanVar(c.receiptNo, 20)}, balance due ${cleanVar(c.balance, 20)})`,
+          90,
+        ),
+      ];
   }
 }
 

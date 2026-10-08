@@ -1,64 +1,78 @@
 # WhatsApp templates to create
 
-Create these **5 templates** (category **Utility**) in your WhatsApp provider's template manager, in **English** and, if you want Hindi messages, in **Hindi** too. Keep the `{{1}}`, `{{2}}`… placeholders exactly as written: the app fills them in this order. When a template is approved, send me its **template id** (the number your provider shows) for each row below.
+Create these **5 templates** (category **Utility**) in your WhatsApp provider's template manager, in **English** and, if you want Hindi messages, in **Hindi** too. When a template is approved, send me its **template id** (the number your provider shows) for each row below.
 
-Placeholders are always the same per message type:
+## Why only 3 variables
 
-| Message            | When it is sent               | `{{1}}`     | `{{2}}`   | `{{3}}` | `{{4}}` | `{{5}}`     | `{{6}}`       |
-| ------------------ | ----------------------------- | ----------- | --------- | ------- | ------- | ----------- | ------------- |
-| `absent`           | a student is marked Absent    | parent name | institute | student | batch   | date        | –             |
-| `late`             | a student is marked Late      | parent name | institute | student | batch   | date        | –             |
-| `fee_due`          | a few days before the due day | parent name | institute | student | amount  | month       | due date      |
-| `fee_overdue`      | the fee is past its due date  | parent name | institute | student | amount  | month       | pending since |
-| `payment_received` | you record a payment          | parent name | institute | student | amount  | receipt no. | balance due   |
+WhatsApp (Meta) often rejects templates that have many `{{ }}` variables compared with the amount of text. So every message here has **exactly 3 variables**, never starts or ends with one, and never puts two next to each other. The details (class and date, amount and month, receipt and balance) are folded into the third variable, which the app builds for you.
+
+Placeholders are always:
+
+| Variable | Meaning                       |
+| -------- | ----------------------------- |
+| `{{1}}`  | student name                  |
+| `{{2}}`  | institute name                |
+| `{{3}}`  | what happened (see the table) |
+
+| Message            | When it is sent               | `{{3}}` looks like                              |
+| ------------------ | ----------------------------- | ----------------------------------------------- |
+| `absent`           | a student is marked Absent    | `Maths 10 class on 8 Oct 2026`                  |
+| `late`             | a student is marked Late      | `Maths 10 class on 8 Oct 2026`                  |
+| `fee_due`          | a few days before the due day | `₹1,000 for Oct 2026, due on 10 Oct 2026`       |
+| `fee_overdue`      | the fee is past its due date  | `₹1,000 for Oct 2026, pending since 1 Oct 2026` |
+| `payment_received` | you record a payment          | `₹400 (receipt TD-00001, balance due ₹600)`     |
+
+When you submit each template, WhatsApp asks for an **example value** for each variable. Use the examples in the table (and for `{{1}}` something like `Asha Rao`, for `{{2}}` something like `Alpha Academy`). Real examples help approval.
 
 ## English text
 
 **absent**
 
-> Dear {{1}}, {{3}} was marked ABSENT in the {{4}} class at {{2}} on {{5}}. Please contact us if this is a mistake.
+> Dear Parent, {{1}} was marked ABSENT in the {{3}}. If this is a mistake, please contact {{2}}. Thank you.
 
 **late**
 
-> Dear {{1}}, {{3}} came LATE to the {{4}} class at {{2}} on {{5}}.
+> Dear Parent, {{1}} came LATE to the {{3}}. We are sharing this so you are aware. Regards, {{2}}. Thank you.
 
 **fee_due**
 
-> Dear {{1}}, {{3}}'s fee of {{4}} for {{5}} at {{2}} is due on {{6}}. Please pay on time. Thank you.
+> Dear Parent, this is a gentle reminder about the fee for {{1}}: {{3}}. Please pay on time. Regards, {{2}}. Thank you.
 
 **fee_overdue**
 
-> Dear {{1}}, {{3}}'s fee of {{4}} for {{5}} at {{2}} has been pending since {{6}}. Please pay at your earliest convenience. Thank you.
+> Dear Parent, the fee for {{1}} is still pending: {{3}}. Please pay at your earliest convenience. Regards, {{2}}. Thank you.
 
 **payment_received**
 
-> Dear {{1}}, we have received {{4}} towards {{3}}'s fee at {{2}}. Receipt no. {{5}}. Balance due: {{6}}. Thank you.
+> Dear Parent, we have received {{3}} towards the fee of {{1}}. Regards, {{2}}. Thank you.
 
 ## Hindi text (optional)
 
 **absent**
 
-> प्रिय {{1}}, {{3}} {{5}} को {{2}} की {{4}} कक्षा में अनुपस्थित रहा/रही। यदि यह गलती है तो कृपया हमसे संपर्क करें।
+> प्रिय अभिभावक, {{1}} को {{3}} में अनुपस्थित दर्ज किया गया। यदि यह गलती है तो कृपया {{2}} से संपर्क करें। धन्यवाद।
 
 **late**
 
-> प्रिय {{1}}, {{3}} {{5}} को {{2}} की {{4}} कक्षा में देर से पहुँचा/पहुँची।
+> प्रिय अभिभावक, {{1}} {{3}} में देर से पहुँचा/पहुँची। आपकी जानकारी के लिए यह संदेश भेजा गया है। सादर, {{2}}। धन्यवाद।
 
 **fee_due**
 
-> प्रिय {{1}}, {{2}} में {{3}} की {{5}} की फीस {{4}} {{6}} तक देय है। कृपया समय पर भुगतान करें। धन्यवाद।
+> प्रिय अभिभावक, {{1}} की फीस के बारे में एक विनम्र स्मरण: {{3}}। कृपया समय पर भुगतान करें। सादर, {{2}}। धन्यवाद।
 
 **fee_overdue**
 
-> प्रिय {{1}}, {{2}} में {{3}} की {{5}} की फीस {{4}} {{6}} से बाकी है। कृपया जल्द भुगतान करें। धन्यवाद।
+> प्रिय अभिभावक, {{1}} की फीस अभी बाकी है: {{3}}। कृपया जल्द भुगतान करें। सादर, {{2}}। धन्यवाद।
 
 **payment_received**
 
-> प्रिय {{1}}, {{2}} में {{3}} की फीस के लिए {{4}} प्राप्त हुए। रसीद संख्या {{5}}। बाकी राशि: {{6}}। धन्यवाद।
+> प्रिय अभिभावक, {{1}} की फीस के लिए {{3}} प्राप्त हुए। सादर, {{2}}। धन्यवाद।
+
+(In the Hindi `absent`, `late` and `fee_*` texts the app still fills `{{3}}` with the English-style details, for example `Maths 10 class on 8 Oct 2026`; the date is written in the language you choose in Settings.)
 
 ## How you give me the ids
 
-Send them in this shape (leave a language out if you did not create it):
+Send them in this shape (leave a language out if you did not create it; English is used when a Hindi id is missing):
 
 ```
 absent:           en = ______   hi = ______
@@ -68,10 +82,18 @@ fee_overdue:      en = ______   hi = ______
 payment_received: en = ______   hi = ______
 ```
 
-They are configuration, not secrets. They go into one setting called `WA_TEMPLATES` (see `docs/SETUP.md`, section 6).
+They are configuration, not secrets. They go into one setting called `WA_TEMPLATES` (see `server/.env.example`).
+
+## If WhatsApp still rejects one
+
+Tell me the rejection reason. The usual fixes, which I can apply without changing anything else:
+
+- **"Too many variables for the text"**: I can drop to 2 variables (student and details) and put the institute name into the fixed text.
+- **"Marketing content"**: remove words like "gentle reminder" or "please pay on time" from `fee_due` / `fee_overdue` and keep only the facts.
+- **Variable at the start or end**: the texts above already avoid it.
 
 ## Notes
 
 - WhatsApp only allows a business to start a conversation with an approved template, which is why the wording is fixed and only the `{{ }}` values change.
 - The app sends **only to parents whose "Send updates to parent" switch is on**, and only if you turned that message type on in Settings.
-- Templates must not contain promotional wording, or they may be rejected as Marketing instead of Utility.
+- The login-code message uses its own authentication template (id `1809804`) and is not part of this list.

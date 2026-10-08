@@ -188,11 +188,11 @@ describe('attendance messages', () => {
     const absent = h.provider.sent.find((m) => m.templateId === '101')!;
     expect(absent).toMatchObject({
       to: '+919876500001',
-      vars: ['Mr Rao', 'Alpha Academy', 'Asha Rao', 'Maths 10', '8 Oct 2026'],
+      vars: ['Asha Rao', 'Alpha Academy', 'Maths 10 class on 8 Oct 2026'],
     });
     expect(h.provider.sent.find((m) => m.templateId === '102')).toMatchObject({
       to: '+919876500002',
-      vars: ['Mrs K', 'Alpha Academy', 'Bala K', 'Maths 10', '8 Oct 2026'],
+      vars: ['Bala K', 'Alpha Academy', 'Maths 10 class on 8 Oct 2026'],
     });
     expect(
       (await rows()).every((r) => r.status === 'sent' && r.vars === null && r.provider_id),
@@ -222,7 +222,7 @@ describe('attendance messages', () => {
     await mark(A, b, TODAY, { [s1]: 'A', [s2]: 'L' });
     await run();
     expect(h.provider.sent.map((m) => m.templateId).sort()).toEqual(['102', '201']); // absent has a hi template, late falls back to en
-    expect(h.provider.sent.find((m) => m.templateId === '201')!.vars[4]).toMatch(/2026/);
+    expect(h.provider.sent.find((m) => m.templateId === '201')!.vars[2]).toMatch(/2026/);
   });
 
   it('switching a type off queues only the other', async () => {
@@ -281,7 +281,7 @@ describe('payment messages', () => {
     await run();
     expect(h.provider.sent[0]).toMatchObject({
       templateId: '105',
-      vars: ['Mr Rao', 'Alpha Academy', 'Asha Rao', '₹400', 'TD-00001', '₹600'],
+      vars: ['Asha Rao', 'Alpha Academy', '₹400 (receipt TD-00001, balance due ₹600)'],
     });
   });
 
@@ -311,7 +311,7 @@ describe('fee reminders', () => {
     await run();
     expect(h.provider.sent[0]).toMatchObject({
       templateId: '103',
-      vars: ['Mr Rao', 'Alpha Academy', 'Asha Rao', '₹1,000', 'Oct 2026', '10 Oct 2026'],
+      vars: ['Asha Rao', 'Alpha Academy', '₹1,000 for Oct 2026, due on 10 Oct 2026'],
     });
     h.clock.now = new Date('2026-10-09T06:00:00Z');
     expect(await remind()).toBe(0); // 1 day before is not the day
@@ -549,27 +549,40 @@ describe('template helpers', () => {
     expect(cleanVar(undefined)).toBe('-');
     expect(cleanVar('x'.repeat(100))).toHaveLength(60);
   });
-  it('varsFor builds the values in the documented order', () => {
-    expect(
-      varsFor('fee_due', {
-        parent: '',
-        institute: 'I',
-        student: 'S',
-        amount: '₹1',
-        period: 'Oct 2026',
-        dueDate: '10 Oct',
-      }),
-    ).toEqual(['Parent', 'I', 'S', '₹1', 'Oct 2026', '10 Oct']);
-    expect(
-      varsFor('payment_received', {
-        parent: 'P',
-        institute: 'I',
-        student: 'S',
-        amount: '₹1',
-        receiptNo: 'TD-1',
-        balance: '₹0',
-      }),
-    ).toEqual(['P', 'I', 'S', '₹1', 'TD-1', '₹0']);
+  it('every message has exactly three values: student, institute, details', () => {
+    const c = {
+      parent: 'P',
+      institute: 'I',
+      student: 'S',
+      batch: 'Maths',
+      date: '8 Oct 2026',
+      amount: '₹1',
+      period: 'Oct 2026',
+      dueDate: '10 Oct 2026',
+      since: '1 Oct 2026',
+      receiptNo: 'TD-1',
+      balance: '₹0',
+    };
+    expect(varsFor('absent', c)).toEqual(['S', 'I', 'Maths class on 8 Oct 2026']);
+    expect(varsFor('late', c)).toEqual(['S', 'I', 'Maths class on 8 Oct 2026']);
+    expect(varsFor('fee_due', c)).toEqual(['S', 'I', '₹1 for Oct 2026, due on 10 Oct 2026']);
+    expect(varsFor('fee_overdue', c)).toEqual([
+      'S',
+      'I',
+      '₹1 for Oct 2026, pending since 1 Oct 2026',
+    ]);
+    expect(varsFor('payment_received', c)).toEqual(['S', 'I', '₹1 (receipt TD-1, balance due ₹0)']);
+  });
+  it('a very long batch name is cut, never the date at the end', () => {
+    const v = varsFor('absent', {
+      parent: '',
+      institute: 'I',
+      student: 'S',
+      batch: 'B'.repeat(80),
+      date: '8 Oct 2026',
+    });
+    expect(v[2]).toMatch(/ class on 8 Oct 2026$/);
+    expect(v[2]!.length).toBeLessThanOrEqual(80);
   });
   it('overdueStage: day 1, then every N days, at most 4', () => {
     expect([0, 1, 2, 7, 8, 9, 15, 22, 23, 29].map((d) => overdueStage(d, 7))).toEqual([

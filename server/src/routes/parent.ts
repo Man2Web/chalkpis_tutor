@@ -52,13 +52,11 @@ export function parentRoutes(app: FastifyInstance, deps: Deps) {
       { instituteId: inst(req), studentId: sid(req), createdBy: req.auth!.userId, days },
       now(),
     );
-    return reply
-      .code(201)
-      .send({
-        token: l.token,
-        url: `${config.PUBLIC_BASE_URL ?? ''}/p/${l.token}`,
-        expiresAt: l.expiresAt.toISOString(),
-      });
+    return reply.code(201).send({
+      token: l.token,
+      url: `${config.PUBLIC_BASE_URL ?? ''}/p/${l.token}`,
+      expiresAt: l.expiresAt.toISOString(),
+    });
   });
   app.delete('/students/:id/parent-link', write, async (req) => ({
     revoked: await revokeParentLinks(pool, inst(req), sid(req)),
