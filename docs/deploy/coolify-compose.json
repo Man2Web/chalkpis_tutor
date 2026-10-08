@@ -1,0 +1,64 @@
+{
+  "services": {
+    "api": {
+      "build": {
+        "context": "https://github.com/Man2Web/chalkpis_tutor.git#main:server"
+      },
+      "restart": "unless-stopped",
+      "depends_on": {
+        "db": {
+          "condition": "service_healthy"
+        }
+      },
+      "environment": [
+        "SERVICE_FQDN_API_8080",
+        "NODE_ENV=production",
+        "TRUST_PROXY=true",
+        "PORT=8080",
+        "LOG_LEVEL=info",
+        "PUBLIC_BASE_URL=https://api.chalkpis.com",
+        "FILES_DIR=/data/uploads",
+        "DB_HOST=db",
+        "DB_PORT=3306",
+        "DB_USER=chalkpis",
+        "DB_PASSWORD=${SERVICE_PASSWORD_DB}",
+        "DB_NAME=chalkpis",
+        "JWT_SECRET=${SERVICE_PASSWORD_64_JWT}",
+        "OTP_PEPPER=${SERVICE_PASSWORD_64_PEPPER}",
+        "WA_API_URL=https://103.229.250.150/unified/v2/send",
+        "WA_FROM=916384009225",
+        "WA_API_METHOD=POST",
+        "WA_TEMPLATE_OTP=1809804",
+        "WA_TEMPLATES=${WA_TEMPLATES}",
+        "TRIAL_DAYS=90"
+      ],
+      "volumes": ["uploads:/data/uploads", "backups:/data/backups"]
+    },
+    "db": {
+      "image": "mariadb:11",
+      "restart": "unless-stopped",
+      "environment": [
+        "MARIADB_DATABASE=chalkpis",
+        "MARIADB_USER=chalkpis",
+        "MARIADB_PASSWORD=${SERVICE_PASSWORD_DB}",
+        "MARIADB_ROOT_PASSWORD=${SERVICE_PASSWORD_ROOT}"
+      ],
+      "command": [
+        "--character-set-server=utf8mb4",
+        "--collation-server=utf8mb4_unicode_ci"
+      ],
+      "volumes": ["dbdata:/var/lib/mysql"],
+      "healthcheck": {
+        "test": ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 10
+      }
+    }
+  },
+  "volumes": {
+    "uploads": {},
+    "backups": {},
+    "dbdata": {}
+  }
+}
