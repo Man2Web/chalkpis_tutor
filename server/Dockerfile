@@ -13,10 +13,12 @@ ENV NODE_ENV=production
 ENV FILES_DIR=/data/uploads
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force \
+ && apk add --no-cache mariadb-client
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
 COPY public ./public
+COPY scripts/backup.sh scripts/restore.sh ./scripts/
 RUN mkdir -p /data/uploads && chown -R node:node /data /app
 USER node
 EXPOSE 8080
