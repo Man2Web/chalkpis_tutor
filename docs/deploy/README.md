@@ -25,6 +25,16 @@ Do this after the newest code is pushed: the code on GitHub must be the version 
 
 Switched off for now (no `RAZORPAY_*` settings). The app hides plan purchase. `TRIAL_DAYS` (90) is how long a new tutor can work before the app becomes read-only.
 
-## Backups
+## Backups (running)
 
-Not set up yet. Add the scheduled task described in `docs/BACKUPS.md` (Coolify: the service's **Scheduled Tasks**, container `api`, command `sh scripts/backup.sh`, daily) and Coolify's own **Backups** for the database. Practise one restore.
+A `backup` service in the same Coolify stack (`backup-loop.sh`, built from the same image as the API) runs **every 24 hours**:
+
+1. `scripts/backup.sh` writes a dated folder (database dump, pictures archive, checksums) into the persistent `backups` volume at `/data/backups` and keeps the newest 14;
+2. it restores that backup into a scratch database (`backup_verify`) and compares its table count with the live database;
+3. it drops the scratch database and logs `restore check: live=N restored=N`.
+
+Where to look: Coolify -> the service -> **Runtime Logs** -> **Backup**. Any line saying `BACKUP FAILED` or `RESTORE CHECK FAILED` needs attention. The first run (8 Oct 2026) passed: 21 tables live, 21 restored.
+
+**Limits to know:** these backups live in a Docker volume on the same VPS. They protect against mistakes, a bad deploy and database trouble, but NOT against losing the server's disk. For that, add one of: Hostinger's weekly VPS backup (hPanel -> the VPS -> Backups), or an S3-compatible bucket (Coolify -> S3 Storage, then copy the volume there). Also practise a real restore with `docs/BACKUPS.md` before you depend on it.
+
+**Taking a backup right now:** Coolify -> the service -> restart only the Backup resource (it backs up first thing when it starts).

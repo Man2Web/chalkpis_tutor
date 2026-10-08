@@ -30,6 +30,8 @@
         "WA_API_METHOD=POST",
         "WA_TEMPLATE_OTP=1809804",
         "WA_TEMPLATES=${WA_TEMPLATES}",
+        "WA_CLIENT_ID=${WA_CLIENT_ID}",
+        "WA_CLIENT_PASSWORD=${WA_CLIENT_PASSWORD}",
         "TRIAL_DAYS=90"
       ],
       "volumes": ["uploads:/data/uploads", "backups:/data/backups"]
@@ -54,6 +56,37 @@
         "timeout": "5s",
         "retries": 10
       }
+    },
+    "backup": {
+      "build": {
+        "context": "https://github.com/Man2Web/chalkpis_tutor.git#main:server"
+      },
+      "restart": "unless-stopped",
+      "user": "0",
+      "healthcheck": {
+        "disable": true
+      },
+      "depends_on": {
+        "db": {
+          "condition": "service_healthy"
+        }
+      },
+      "environment": [
+        "DB_HOST=db",
+        "DB_PORT=3306",
+        "DB_USER=chalkpis",
+        "DB_PASSWORD=${SERVICE_PASSWORD_DB}",
+        "DB_NAME=chalkpis",
+        "DB_ROOT_PASSWORD=${SERVICE_PASSWORD_ROOT}",
+        "FILES_DIR=/data/uploads",
+        "BACKUP_DIR=/data/backups",
+        "BACKUP_KEEP=14"
+      ],
+      "volumes": ["uploads:/data/uploads:ro", "backups:/data/backups"],
+      "entrypoint": ["sh", "-c"],
+      "command": [
+        "mkdir -p /etc/my.cnf.d && printf '[client]\\nskip-ssl\\n' > /etc/my.cnf.d/zz-internal.cnf\nwhile true; do\n  echo \"backup started $$(date -u +%FT%TZ)\"\n  if sh scripts/backup.sh; then\n    B=$$(ls -1d /data/backups/*T*Z | sort | tail -n 1)\n    export MYSQL_PWD=\"$$DB_ROOT_PASSWORD\"\n    mariadb -h db -uroot -e \"DROP DATABASE IF EXISTS backup_verify\"\n    if DB_USER=root DB_PASSWORD=\"$$DB_ROOT_PASSWORD\" sh scripts/restore.sh \"$$B\" backup_verify; then\n      L=$$(mariadb -h db -uroot -N -e \"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='chalkpis'\")\n      R=$$(mariadb -h db -uroot -N -e \"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='backup_verify'\")\n      echo \"restore check: live=$$L restored=$$R\"\n      [ \"$$L\" = \"$$R\" ] && [ \"$$R\" -gt 0 ] || echo \"RESTORE CHECK FAILED\"\n    else\n      echo \"RESTORE CHECK FAILED\"\n    fi\n    mariadb -h db -uroot -e \"DROP DATABASE IF EXISTS backup_verify\"\n  else\n    echo \"BACKUP FAILED\"\n  fi\n  sleep 86400\ndone\n"
+      ]
     }
   },
   "volumes": {
