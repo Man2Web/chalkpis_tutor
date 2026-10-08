@@ -442,5 +442,53 @@
     "typeToConfirm": "Type {{word}}",
     "deleteForever": "Delete forever",
     "deleteFailed": "Could not delete the account. Check your internet and try again."
+  },
+  "billing": {
+    "title": "Plans & billing",
+    "plan": {
+      "trial": "Free trial",
+      "starter": "Starter",
+      "standard": "Standard",
+      "pro": "Pro"
+    },
+    "active": "Active",
+    "expired": "Expired",
+    "endsOn_one": "Ends {{date}} · {{count}} day left",
+    "endsOn_other": "Ends {{date}} · {{count}} days left",
+    "endedOn": "Ended {{date}}",
+    "readOnly": "The app is read-only: you can look at everything, but not add or change anything. Renew to continue.",
+    "usage": "Usage",
+    "unlimitedUsed": "{{used}} (unlimited)",
+    "choosePlan": "Choose a plan",
+    "forMonths_one": "for {{count}} month",
+    "forMonths_other": "for {{count}} months",
+    "upToStudents_one": "Up to {{count}} student",
+    "upToStudents_other": "Up to {{count}} students",
+    "upToBatches_one": "Up to {{count}} batch",
+    "upToBatches_other": "Up to {{count}} batches",
+    "unlimitedStudents": "Unlimited students",
+    "unlimitedBatches": "Unlimited batches",
+    "choose": "Choose {{plan}}",
+    "renew": "Renew {{plan}}",
+    "history": "Payment history",
+    "noHistory": "No payments yet",
+    "notConfigured": "Online payments are not set up yet. Please contact support.",
+    "failed": "Could not start the payment. Please try again.",
+    "activated": "Plan activated",
+    "seePlans": "See plans",
+    "testMode": "Test mode: no real money moves. Tap below to pretend the payment went through.",
+    "simulatePay": "Pay {{amount}} (test)",
+    "completeInBrowser": "Complete the payment in your browser. When you are done, come back and tap the button below.",
+    "paidRefresh": "I have paid — refresh",
+    "openAgain": "Open payment page again",
+    "banner": {
+      "expired": "Your plan has ended. The app is read-only until you renew.",
+      "expiringSoon_one": "Your plan ends in {{count}} day",
+      "expiringSoon_other": "Your plan ends in {{count}} days",
+      "trialEnding_one": "Your free trial ends in {{count}} day",
+      "trialEnding_other": "Your free trial ends in {{count}} days",
+      "trial_one": "Free trial: {{count}} day left",
+      "trial_other": "Free trial: {{count}} days left"
+    }
   }
 }

@@ -54,5 +54,19 @@ npx firebase deploy --config firebase/firebase.json --only firestore,storage,fun
 4. `eas build --platform android --profile production` — EAS creates and stores a signing keystore for you (back it up: `eas credentials`).
 5. Upload the `.aab` to Play Console. Required: privacy policy URL (set `EXPO_PUBLIC_PRIVACY_POLICY_URL`) and the in-app delete-account flow (Settings).
 
+## 5. Online payments (Razorpay) for plans
+Plans work end to end in the emulators with a test mode ("Pay ₹399 (test)"), no account needed. For real money:
+1. Create a Razorpay account (https://razorpay.com), finish KYC, and in **Settings -> API keys** generate a **Test mode** key pair first.
+2. Store three secrets (Firebase will ask for the value of each). Until you have real keys type `unset` for each: the app then says "Online payments are not set up yet" instead of failing.
+   ```
+   npx firebase functions:secrets:set RAZORPAY_KEY_ID
+   npx firebase functions:secrets:set RAZORPAY_KEY_SECRET
+   npx firebase functions:secrets:set RAZORPAY_WEBHOOK_SECRET
+   ```
+3. Deploy, then in Razorpay **Settings -> Webhooks -> Add new webhook**: URL `https://asia-south1-<your-project-id>.cloudfunctions.net/razorpayWebhook`, a secret of your choice (the same value as `RAZORPAY_WEBHOOK_SECRET`), event **payment_link.paid**.
+4. Pay a test plan with Razorpay's test card/UPI. The owner's plan should switch to active within seconds; a retried webhook never extends the plan twice.
+5. When ready, replace the secrets with Live keys and redeploy.
+The prices and limits live in `functions/src/lib/plans.ts` (the server decides; the app only displays them).
+
 ## Secrets
 Nothing secret is committed. Razorpay and WhatsApp keys (Phase 2) go in Firebase Functions secrets: `npx firebase functions:secrets:set RAZORPAY_KEY_SECRET`.

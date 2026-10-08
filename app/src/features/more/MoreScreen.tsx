@@ -16,6 +16,11 @@ export function MoreScreen() {
     <Screen padded={false}>
       <View style={{ paddingTop: spacing.lg }}>
         <ListItem
+          title={t('billing.title')}
+          right={chevron}
+          onPress={() => nav.navigate('Billing')}
+        />
+        <ListItem
           title={t('batches.title')}
           right={chevron}
           onPress={() => nav.navigate('Batches')}

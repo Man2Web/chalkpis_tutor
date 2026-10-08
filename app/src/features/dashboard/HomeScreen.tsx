@@ -27,6 +27,7 @@ import type { MainStackParams } from '../../navigation/types';
 import { colors, radius, shadow, spacing, type } from '../../theme';
 import { useSession } from '../auth/session';
 import { scheduleLabel } from '../batches/format';
+import { PlanBanner } from '../billing/PlanBanner';
 import { AttendanceRing } from './AttendanceRing';
 import { dashboardStats } from './logic';
 
@@ -178,6 +179,8 @@ export function HomeScreen() {
           </View>
           <Avatar name={name ?? '?'} size={40} />
         </View>
+
+        <PlanBanner />
 
         {loading ? (
           <Skeleton height={130} />

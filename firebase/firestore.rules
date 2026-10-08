@@ -48,6 +48,15 @@ service cloud.firestore {
         allow read: if isMember(id);
         allow write: if false;
       }
+      // Purchase history is written by the billing functions only.
+      match /billing/{pid} {
+        allow read: if isOwner(id);
+        allow write: if false;
+      }
+      // Webhook bookkeeping (idempotency keys): server only, no client access at all.
+      match /billingEvents/{eid} {
+        allow read, write: if false;
+      }
       match /counters/{doc} {
         allow read: if isMember(id);
         allow write: if false;

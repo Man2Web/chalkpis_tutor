@@ -442,5 +442,53 @@
     "typeToConfirm": "{{word}} लिखें",
     "deleteForever": "हमेशा के लिए हटाएँ",
     "deleteFailed": "खाता नहीं हटाया जा सका। इंटरनेट जाँचकर फिर कोशिश करें।"
+  },
+  "billing": {
+    "title": "प्लान और बिलिंग",
+    "plan": {
+      "trial": "मुफ़्त ट्रायल",
+      "starter": "स्टार्टर",
+      "standard": "स्टैंडर्ड",
+      "pro": "प्रो"
+    },
+    "active": "चालू",
+    "expired": "समाप्त",
+    "endsOn_one": "{{date}} को समाप्त · {{count}} दिन बाकी",
+    "endsOn_other": "{{date}} को समाप्त · {{count}} दिन बाकी",
+    "endedOn": "{{date}} को समाप्त हुआ",
+    "readOnly": "ऐप अभी केवल पढ़ने के लिए है: आप सब देख सकते हैं, पर कुछ जोड़ या बदल नहीं सकते। जारी रखने के लिए नवीनीकरण करें।",
+    "usage": "उपयोग",
+    "unlimitedUsed": "{{used}} (असीमित)",
+    "choosePlan": "प्लान चुनें",
+    "forMonths_one": "{{count}} महीने के लिए",
+    "forMonths_other": "{{count}} महीने के लिए",
+    "upToStudents_one": "{{count}} विद्यार्थी तक",
+    "upToStudents_other": "{{count}} विद्यार्थी तक",
+    "upToBatches_one": "{{count}} बैच तक",
+    "upToBatches_other": "{{count}} बैच तक",
+    "unlimitedStudents": "असीमित विद्यार्थी",
+    "unlimitedBatches": "असीमित बैच",
+    "choose": "{{plan}} चुनें",
+    "renew": "{{plan}} का नवीनीकरण",
+    "history": "भुगतान इतिहास",
+    "noHistory": "अभी कोई भुगतान नहीं",
+    "notConfigured": "ऑनलाइन भुगतान अभी चालू नहीं है। कृपया सहायता से संपर्क करें।",
+    "failed": "भुगतान शुरू नहीं हो सका। कृपया फिर कोशिश करें।",
+    "activated": "प्लान चालू हो गया",
+    "seePlans": "प्लान देखें",
+    "testMode": "टेस्ट मोड: असली पैसे नहीं कटते। भुगतान हो जाने का दिखावा करने के लिए नीचे टैप करें।",
+    "simulatePay": "{{amount}} चुकाएँ (टेस्ट)",
+    "completeInBrowser": "अपने ब्राउज़र में भुगतान पूरा करें। हो जाने पर वापस आकर नीचे का बटन दबाएँ।",
+    "paidRefresh": "मैंने भुगतान कर दिया — ताज़ा करें",
+    "openAgain": "भुगतान पेज फिर खोलें",
+    "banner": {
+      "expired": "आपका प्लान समाप्त हो गया है। नवीनीकरण तक ऐप केवल पढ़ने के लिए है।",
+      "expiringSoon_one": "आपका प्लान {{count}} दिन में समाप्त होगा",
+      "expiringSoon_other": "आपका प्लान {{count}} दिन में समाप्त होगा",
+      "trialEnding_one": "आपका मुफ़्त ट्रायल {{count}} दिन में समाप्त होगा",
+      "trialEnding_other": "आपका मुफ़्त ट्रायल {{count}} दिन में समाप्त होगा",
+      "trial_one": "मुफ़्त ट्रायल: {{count}} दिन बाकी",
+      "trial_other": "मुफ़्त ट्रायल: {{count}} दिन बाकी"
+    }
   }
 }

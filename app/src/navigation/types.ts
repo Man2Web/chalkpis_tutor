@@ -27,4 +27,5 @@ export type MainStackParams = {
   Reminder: { studentId: string };
   Reports: undefined;
   Settings: undefined;
+  Billing: undefined;
 };

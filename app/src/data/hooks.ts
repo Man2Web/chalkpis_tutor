@@ -49,6 +49,8 @@ export interface Limits {
   activeStudentCount: number;
   batchCount: number;
   plan: string;
+  status: string;
+  expiresAtMs: number;
   active: boolean;
 }
 
@@ -70,6 +72,8 @@ export function useLimits() {
         activeStudentCount: c?.activeStudentCount ?? 0,
         batchCount: c?.batchCount ?? 0,
         plan: s?.plan ?? 'trial',
+        status: s?.status ?? 'expired',
+        expiresAtMs: expires,
         active: s?.status === 'active' && expires > Date.now(),
       };
     },
@@ -283,6 +287,27 @@ export function useDuesForPeriod(month: string) {
     queryFn: async (): Promise<FeeDue[]> => {
       const snap = await getDocs(query(col(id, 'feeDues'), where('period', '==', month)));
       return snap.docs.map(toDue);
+    },
+  });
+}
+
+export interface BillingRecord {
+  id: string;
+  planId: string;
+  amountPaise: number;
+  provider: string;
+  expiresAt: Timestamp;
+  createdAt: Timestamp;
+}
+
+/** Past plan purchases, newest first. */
+export function useBillingHistory() {
+  const id = useInstituteId();
+  return useQuery({
+    queryKey: ['billing', id],
+    queryFn: async (): Promise<BillingRecord[]> => {
+      const snap = await getDocs(query(col(id, 'billing'), orderBy('createdAt', 'desc')));
+      return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<BillingRecord, 'id'>) }));
     },
   });
 }

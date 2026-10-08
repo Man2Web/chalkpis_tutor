@@ -7,3 +7,12 @@
 - [x] Phase 1e: fees (overview, ledger, collect, receipts PDF, reversal, discounts, waive, one-off charges, fee plan, reminders)
 - [x] Phase 1f: dashboard, reports (CSV + PDF), settings (profile, institute, language, delete account), seed script, README, manual test checklist
 - [ ] Phase 2: billing, notifications, parent view, staff, offline, Hindi
+
+## Phase 2 progress
+- [x] 2 design: premium UI applied app-wide
+- [x] 2a plans and billing: catalogue, Razorpay payment links + webhook (signed, idempotent), emulator test mode, expiry job, Plans & billing screen, usage meters, expiry banner, read-only after expiry
+- [ ] 2b parent notifications (provider interface + mock, absent/late + fee messages, opt-out, delivery log, settings)
+- [ ] 2c parent view (token link, callable, hosted read-only page)
+- [ ] 2d staff role (invite by phone, assign batches, attendance only)
+- [ ] 2e offline (offline payments with provisional receipts, sync indicator)
+- [ ] 2f Hindi/number-format audit

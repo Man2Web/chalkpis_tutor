@@ -34,3 +34,8 @@
 | 31 | Delete account requires typing DELETE; it removes institute data, files, profile and the sign-in | Play Store requirement; hard to trigger by accident |
 | 32 | Cold start, 100-student attendance time and APK size are NOT measured yet; targets are in MANUAL-TEST.md | Needs a real device and a release build |
 | 33 | Premium UI applied app-wide through theme tokens (`app/src/theme`): iOS-style grouped ground #F2F2F7, 20-24 px cards with two-layer shadows, tinted avatars (same name = same colour), large titles, filled/outline tab icons, attendance ring on Home | Design approved on the "TutorDesk Premium UI" canvas; one set of tokens keeps every screen consistent |
+| 34 | Plans are bought through Razorpay PAYMENT LINKS (server creates the link, owner pays in the browser, a signed webhook activates the plan) | No native payment SDK in the app; works the same on every phone; the app can never mark itself paid |
+| 35 | The price and limits come only from `functions/src/lib/plans.ts`; a purchase whose amount does not match its plan is refused and logged | Cannot buy Pro for the Starter price, even with a forged request |
+| 36 | Each payment id is processed once (`billingEvents/{paymentId}`); renewing while active adds months on top of the remaining time | Razorpay retries webhooks; owners never lose paid days |
+| 37 | The mock payment path exists only when running in the emulator; production without Razorpay keys says "not configured" | A missing key must never hand out free plans |
+| 38 | `expireSubscriptions` runs daily at 03:00 IST and only flips status; rules already block writes the moment `expiresAt` passes | Read-only is enforced by the rules even if the job is late; data is never deleted |
