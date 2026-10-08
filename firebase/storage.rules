@@ -1,0 +1,18 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isMember(instituteId) {
+      return request.auth != null
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.instituteId == instituteId;
+    }
+
+    // Files live under institutes/{instituteId}/...; only that institute's members may access.
+    match /institutes/{instituteId}/{allPaths=**} {
+      allow read: if isMember(instituteId);
+      allow write: if isMember(instituteId)
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*|application/pdf');
+      allow delete: if isMember(instituteId);
+    }
+  }
+}

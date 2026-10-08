@@ -1,0 +1,18 @@
+{
+  "name": "tutordesk",
+  "private": true,
+  "scripts": {
+    "install:all": "npm --prefix app install && npm --prefix functions install && npm --prefix firebase install",
+    "emulators": "firebase emulators:start --config firebase/firebase.json --import emulator-data --export-on-exit emulator-data",
+    "seed": "npm --prefix functions run seed",
+    "typecheck": "npm --prefix app run typecheck && npm --prefix functions run typecheck && npm --prefix firebase run typecheck",
+    "lint": "npm --prefix app run lint && npm --prefix functions run lint && npm --prefix firebase run lint",
+    "test": "npm --prefix app test -- --ci && npm --prefix functions test",
+    "test:rules": "firebase emulators:exec --config firebase/firebase.json --only firestore,storage \"npm --prefix firebase test\"",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "firebase-tools": "^14.0.0",
+    "husky": "^9.1.0"
+  }
+}

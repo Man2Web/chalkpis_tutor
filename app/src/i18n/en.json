@@ -1,0 +1,10 @@
+{
+  "app": { "name": "TutorDesk", "tagline": "Students, attendance and fees in one place" },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "retry": "Try again",
+    "loading": "Loading…",
+    "error": "Something went wrong"
+  }
+}
