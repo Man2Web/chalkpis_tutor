@@ -14,5 +14,5 @@ Start with [docs/SETUP.md](docs/SETUP.md).
 | `npm run install:all` | install app, functions, firebase packages |
 | `npm run emulators` | local Firebase emulators |
 | `npm run typecheck` / `lint` / `test` | checks across all packages |
-| `npm run test:rules` | rules tests against the emulator (needs Java) |
+| `npm run test:emulator` | rules + functions tests against emulators (needs Java 17+) |
 | `npm run seed` | demo data (added in Phase 1f) |

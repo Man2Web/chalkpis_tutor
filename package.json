@@ -8,8 +8,9 @@
     "typecheck": "npm --prefix app run typecheck && npm --prefix functions run typecheck && npm --prefix firebase run typecheck",
     "lint": "npm --prefix app run lint && npm --prefix functions run lint && npm --prefix firebase run lint",
     "test": "npm --prefix app test -- --ci && npm --prefix functions test",
-    "test:rules": "firebase emulators:exec --config firebase/firebase.json --only firestore,storage \"npm --prefix firebase test\"",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:emulator": "firebase emulators:exec --config firebase/firebase.json --only firestore,storage \"npm --prefix firebase test && npm --prefix functions test\"",
+    "test:rules": "firebase emulators:exec --config firebase/firebase.json --only firestore,storage \"npm --prefix firebase test && npm --prefix functions test\""
   },
   "devDependencies": {
     "firebase-tools": "^14.0.0",

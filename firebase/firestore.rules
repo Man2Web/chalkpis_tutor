@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+    function signedIn() { return request.auth != null; }
+    function userDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function hasUserDoc() { return exists(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function myInstitute() { return userDoc().instituteId; }
+    function isMember(id) { return signedIn() && hasUserDoc() && myInstitute() == id; }
+    function isOwner(id) { return isMember(id) && userDoc().role == 'owner'; }
+    function isStaff(id) { return isMember(id) && userDoc().role == 'staff'; }
+
+    // Subscription must exist, be active and not past its expiry date.
+    function subActive(id) {
+      let s = get(/databases/$(database)/documents/institutes/$(id)/subscription/current).data;
+      return s.status == 'active' && s.expiresAt > request.time;
+    }
+    function ownerCanWrite(id) { return isOwner(id) && subActive(id); }
+
+    function unchanged(field) {
+      return request.resource.data.get(field, null) == resource.data.get(field, null);
+    }
+
+    // ---------- users ----------
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      // First sign-in: a user may create their own doc as owner only, with NO institute.
+      // instituteId is assigned later by the createInstitute function (Admin SDK).
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.role == 'owner'
+        && request.resource.data.get('instituteId', null) == null;
+      // Role and institute can never be changed by the client.
+      allow update: if signedIn() && request.auth.uid == uid && unchanged('role') && unchanged('instituteId');
+      allow delete: if false;
+    }
+
+    // ---------- institutes ----------
+    match /institutes/{id} {
+      allow read: if isMember(id);
+      // Created by the createInstitute function (Admin SDK). Clients cannot create.
+      allow create: if false;
+      // Owner edits details and allocates receipt numbers; ownerUid is immutable.
+      allow update: if isOwner(id) && unchanged('ownerUid');
+      allow delete: if false;
+
+      match /subscription/{doc} {
+        allow read: if isMember(id);
+        allow write: if false;
+      }
+      match /counters/{doc} {
+        allow read: if isMember(id);
+        allow write: if false;
+      }
+
+      match /students/{sid} {
+        allow read: if isMember(id);
+        allow create, update: if ownerCanWrite(id);
+        allow delete: if false; // soft delete via status
+      }
+
+      match /batches/{bid} {
+        allow read: if isMember(id);
+        allow create, update: if ownerCanWrite(id);
+        allow delete: if false; // archive instead
+      }
+
+      // Staff may mark attendance (Phase 2); owner full access.
+      match /attendance/{aid} {
+        allow read: if isMember(id);
+        allow create, update: if subActive(id) && (isOwner(id) || isStaff(id));
+        allow delete: if false;
+      }
+
+      match /feeDues/{did} {
+        allow read: if isOwner(id);
+        allow create, update: if ownerCanWrite(id);
+        allow delete: if ownerCanWrite(id) && resource.data.paid == 0;
+      }
+
+      // Append-only ledger. Corrections use a reversing (negative) entry.
+      match /payments/{pid} {
+        allow read: if isOwner(id);
+        allow create: if ownerCanWrite(id)
+          && request.resource.data.amount is int
+          && request.resource.data.amount != 0;
+        allow update, delete: if false;
+      }
+
+      match /messages/{mid} {
+        allow read: if isOwner(id);
+        allow write: if false;
+      }
+
+      match /staff/{suid} {
+        allow read: if isOwner(id) || (isStaff(id) && request.auth.uid == suid);
+        allow write: if ownerCanWrite(id);
+      }
+    }
+
+    match /parentLinks/{token} {
+      allow read, write: if false; // served only through the parentView callable
+    }
+  }
+}
