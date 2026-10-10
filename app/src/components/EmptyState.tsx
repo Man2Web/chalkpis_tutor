@@ -20,9 +20,13 @@ export function EmptyState({
 }: Props) {
   return (
     <View style={styles.wrap}>
-      <Ionicons name={icon} size={48} color={colors.textMuted} />
-      <Text style={[type.heading, styles.center]}>{title}</Text>
-      {!!message && <Text style={[type.caption, styles.center]}>{message}</Text>}
+      <View style={styles.iconWrap}>
+        <Ionicons name={icon} size={34} color={colors.gray} />
+      </View>
+      <Text style={[type.title3, styles.center]}>{title}</Text>
+      {!!message && (
+        <Text style={[type.subhead, styles.center, { color: colors.textMuted }]}>{message}</Text>
+      )}
       {!!actionLabel && !!onAction && <Button title={actionLabel} onPress={onAction} />}
     </View>
   );
@@ -30,5 +34,13 @@ export function EmptyState({
 
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', gap: spacing.md, padding: spacing.xxl },
-  center: { textAlign: 'center' },
+  center: { textAlign: 'center', maxWidth: 320 },
+  iconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.fill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

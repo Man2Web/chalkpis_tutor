@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Button, Input, Screen } from '../../components';
 import type { AuthStackParams } from '../../navigation/types';
-import { spacing, type } from '../../theme';
+import { colors, spacing, type } from '../../theme';
 import { DevCodeHint } from './DevCodeHint';
 import { authErrorKey, confirmCode, RESEND_SECONDS, sendCode } from './phoneAuth';
 
@@ -49,10 +50,31 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
 
   return (
     <Screen>
-      <Text style={[type.title, { marginTop: spacing.xl }]}>{t('auth.otpTitle')}</Text>
-      <Text style={[type.caption, { marginBottom: spacing.lg }]}>
-        {t('auth.otpSentTo', { phone })}
-      </Text>
+      <View
+        style={{
+          alignItems: 'center',
+          gap: spacing.sm,
+          marginTop: spacing.xxl,
+          marginBottom: spacing.xl,
+        }}
+      >
+        <View
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: 32,
+            backgroundColor: colors.primarySoft,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons name="lock-closed" size={30} color={colors.primary} />
+        </View>
+        <Text style={[type.title1, { textAlign: 'center' }]}>{t('auth.otpTitle')}</Text>
+        <Text style={[type.callout, { textAlign: 'center', color: colors.textMuted }]}>
+          {t('auth.otpSentTo', { phone })}
+        </Text>
+      </View>
       <DevCodeHint phone={phone} onUse={setCode} />
       <Input
         label={t('auth.otpLabel')}
@@ -64,6 +86,8 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
         maxLength={6}
         error={error}
         autoFocus
+        placeholder="••••••"
+        style={{ fontSize: 28, letterSpacing: 10, textAlign: 'center', fontWeight: '600' }}
       />
       <Button title={t('auth.verify')} onPress={verify} loading={busy} />
       <Button

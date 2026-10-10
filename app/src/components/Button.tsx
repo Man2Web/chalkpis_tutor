@@ -1,16 +1,36 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
-import { colors, radius, spacing, TAP } from '../theme';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import { haptic } from '../lib/haptics';
+import { colors, radius, spacing } from '../theme';
+
+type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
 type Props = {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+  /** primary = filled, secondary = tinted, danger = destructive, ghost = plain text button (iOS styles). */
+  variant?: Variant;
   loading?: boolean;
   disabled?: boolean;
+  size?: 'large' | 'small';
   style?: ViewStyle;
 };
 
-export function Button({ title, onPress, variant = 'primary', loading, disabled, style }: Props) {
+const ink: Record<Variant, string> = {
+  primary: colors.onPrimary,
+  secondary: colors.primaryDark,
+  danger: colors.danger,
+  ghost: colors.primaryDark,
+};
+
+export function Button({
+  title,
+  onPress,
+  variant = 'primary',
+  loading,
+  disabled,
+  size = 'large',
+  style,
+}: Props) {
   const off = disabled || loading;
   return (
     <Pressable
@@ -18,21 +38,28 @@ export function Button({ title, onPress, variant = 'primary', loading, disabled,
       accessibilityLabel={title}
       accessibilityState={{ disabled: !!off, busy: !!loading }}
       disabled={off}
-      onPress={onPress}
+      onPress={() => {
+        haptic.tap();
+        onPress();
+      }}
+      android_ripple={
+        variant === 'ghost' ? undefined : { color: 'rgba(255,255,255,0.25)', foreground: true }
+      }
       style={({ pressed }) => [
         styles.base,
+        size === 'small' && styles.small,
         styles[variant],
-        pressed && { opacity: 0.85 },
-        off && { opacity: 0.5 },
+        pressed && Platform.OS !== 'android' && { opacity: 0.7 },
+        off && { opacity: 0.4 },
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator
-          color={variant === 'primary' || variant === 'danger' ? '#fff' : colors.primary}
-        />
+        <ActivityIndicator color={ink[variant]} />
       ) : (
-        <Text style={[styles.text, textColor[variant]]}>{title}</Text>
+        <Text style={[styles.text, size === 'small' && styles.smallText, { color: ink[variant] }]}>
+          {title}
+        </Text>
       )}
     </Pressable>
   );
@@ -40,21 +67,18 @@ export function Button({ title, onPress, variant = 'primary', loading, disabled,
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: TAP + 2,
-    paddingHorizontal: spacing.lg,
+    minHeight: 50,
+    paddingHorizontal: spacing.xl,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
-  primary: { backgroundColor: colors.primary, boxShadow: '0 6px 16px rgba(47,91,234,0.28)' },
+  small: { minHeight: 34, paddingHorizontal: spacing.md, borderRadius: radius.pill },
+  primary: { backgroundColor: colors.primary },
   secondary: { backgroundColor: colors.primarySoft },
-  danger: { backgroundColor: colors.danger },
-  ghost: { backgroundColor: 'transparent' },
-  text: { fontSize: 16, fontWeight: '600', letterSpacing: -0.2 },
-});
-const textColor = StyleSheet.create({
-  primary: { color: colors.onPrimary },
-  secondary: { color: colors.primaryDark },
-  danger: { color: colors.onPrimary },
-  ghost: { color: colors.primary },
+  danger: { backgroundColor: colors.dangerSoft },
+  ghost: { backgroundColor: 'transparent', minHeight: 44 },
+  text: { fontSize: 17, fontWeight: '600', letterSpacing: -0.41 },
+  smallText: { fontSize: 15, letterSpacing: -0.24 },
 });

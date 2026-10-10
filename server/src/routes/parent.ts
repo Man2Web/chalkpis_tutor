@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
 import { idParam, parse } from '../lib/params.js';
+import { sendParentLinkNow } from '../messaging/sendNow.js';
 import {
   DEFAULT_LINK_DAYS,
   MAX_LINK_DAYS,
@@ -20,6 +21,8 @@ type Deps = Pick<AppDeps, 'config' | 'pool'> & { clock?: () => Date };
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'public');
 const linkBody = z.object({
   days: z.number().int().min(1).max(MAX_LINK_DAYS).default(DEFAULT_LINK_DAYS),
+  /** Also send the link to the parent on WhatsApp right away. */
+  sendWhatsApp: z.boolean().default(false),
 });
 const viewBody = z.object({ token: z.string().max(100) });
 
@@ -46,17 +49,21 @@ export function parentRoutes(app: FastifyInstance, deps: Deps) {
 
   // ---- the tutor's side ----
   app.post('/students/:id/parent-link', write, async (req, reply) => {
-    const { days } = parse(linkBody, req.body ?? {});
+    const { days, sendWhatsApp } = parse(linkBody, req.body ?? {});
     const l = await createParentLink(
       pool,
       { instituteId: inst(req), studentId: sid(req), createdBy: req.auth!.userId, days },
       now(),
     );
-    return reply.code(201).send({
-      token: l.token,
-      url: `${config.PUBLIC_BASE_URL ?? ''}/p/${l.token}`,
-      expiresAt: l.expiresAt.toISOString(),
-    });
+    const url = `${config.PUBLIC_BASE_URL ?? ''}/p/${l.token}`;
+    let sent = false;
+    if (sendWhatsApp) {
+      await sendParentLinkNow(pool, inst(req), sid(req), url, now());
+      sent = true;
+    }
+    return reply
+      .code(201)
+      .send({ token: l.token, url, expiresAt: l.expiresAt.toISOString(), sent });
   });
   app.delete('/students/:id/parent-link', write, async (req) => ({
     revoked: await revokeParentLinks(pool, inst(req), sid(req)),

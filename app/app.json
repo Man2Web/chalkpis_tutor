@@ -54,6 +54,14 @@
         "projectId": "2912efb6-e322-43b4-818d-41bdf9d09534"
       }
     },
-    "owner": "man2web"
+    "owner": "man2web",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/2912efb6-e322-43b4-818d-41bdf9d09534",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    }
   }
 }

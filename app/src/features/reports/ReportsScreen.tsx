@@ -211,7 +211,6 @@ export function ReportsScreen() {
   return (
     <Screen padded={false}>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
-        <Text style={type.title}>{t('reports.title')}</Text>
         <View
           style={{
             flexDirection: 'row',

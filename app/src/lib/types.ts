@@ -46,8 +46,11 @@ export interface Student {
   monthlyFee: number; // paise
   feeCycle: FeeCycle;
   dueDay: number;
+  discount?: number; // paise per period
   notifyParent: boolean;
   notes?: string;
+  dob?: string; // yyyy-mm-dd or ''
+  gender?: '' | 'male' | 'female' | 'other';
 }
 
 export type Mark = 'P' | 'A' | 'L';

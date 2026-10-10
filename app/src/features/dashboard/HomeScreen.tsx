@@ -1,10 +1,10 @@
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import {
-  Avatar,
+  Button,
   Card,
   Chip,
   EmptyState,
@@ -16,109 +16,97 @@ import {
 import { useAddGuard } from '../../data/guards';
 import {
   useAttendanceOn,
+  useAttendanceRange,
   useBatches,
   usePaymentsThisMonth,
   useStudents,
   useUnpaidDues,
 } from '../../data/hooks';
-import { prettyDate, todayYmd } from '../../lib/dates';
+import { addDays, prettyDate, todayYmd } from '../../lib/dates';
 import { formatINR } from '../../lib/money';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, radius, shadow, spacing, type } from '../../theme';
+import { colors, spacing, type } from '../../theme';
 import { useSession } from '../auth/session';
 import { scheduleLabel } from '../batches/format';
 import { PlanBanner } from '../billing/PlanBanner';
+import { AnnouncementBanner } from '../announcements/AnnouncementBanner';
 import { AttendanceRing } from './AttendanceRing';
-import { dashboardStats } from './logic';
+import { HomeHero } from './HomeHero';
+import { greetingKey, HomeHeader } from './HomeHeader';
+import { haptic } from '../../lib/haptics';
+import { TasksCard } from '../tasks/TasksCard';
+import { dashboardStats, weekAttendance } from './logic';
+import { WeekChart } from './WeekChart';
 
-type Nav = NativeStackNavigationProp<MainStackParams & { Attendance: undefined; Fees: undefined }>;
+type Nav = NativeStackNavigationProp<
+  MainStackParams & { Attendance: undefined; Fees: undefined; More: undefined }
+>;
 
-function Stat({
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: string;
-}) {
-  return (
-    <Card style={{ flexBasis: '47%', flexGrow: 1, gap: 2, paddingVertical: 14 }}>
-      <Text style={type.caption}>{label}</Text>
-      <Text
-        style={[
-          type.heading,
-          {
-            fontSize: 24,
-            lineHeight: 30,
-            letterSpacing: -0.5,
-            fontWeight: '700',
-            color: tone ?? colors.text,
-          },
-        ]}
-      >
-        {value}
-      </Text>
-      {sub ? <Text style={[type.caption, { fontSize: 12 }]}>{sub}</Text> : null}
-    </Card>
-  );
-}
-
+/** A round quick-action button with a label, like the shortcuts row in iOS apps. */
 function Action({
   icon,
   label,
-  tone,
+  color,
   onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
-  tone: { bg: string; fg: string };
+  color: string;
   onPress: () => void;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      onPress={onPress}
+      onPress={() => {
+        haptic.tap();
+        onPress();
+      }}
       style={({ pressed }) => ({
         flex: 1,
         alignItems: 'center',
-        gap: spacing.sm,
-        paddingTop: 14,
-        paddingBottom: 12,
-        borderRadius: radius.lg - 2,
-        backgroundColor: colors.surface,
-        opacity: pressed ? 0.85 : 1,
-        ...shadow.card,
+        gap: 6,
+        opacity: pressed ? 0.6 : 1,
       })}
     >
       <View
         style={{
-          width: 40,
-          height: 40,
-          borderRadius: 20,
+          width: 52,
+          height: 52,
+          borderRadius: 26,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: tone.bg,
+          backgroundColor: color,
         }}
       >
-        <Ionicons name={icon} size={22} color={tone.fg} />
+        <Ionicons name={icon} size={24} color="#FFFFFF" />
       </View>
-      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>{label}</Text>
+      <Text
+        style={{ fontSize: 12, fontWeight: '500', color: colors.text, textAlign: 'center' }}
+        numberOfLines={2}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
 
+/** Small grey uppercase heading above a group, as in iOS. */
+const SectionTitle = ({ children }: { children: string }) => (
+  <Text style={[type.sectionHeader, { marginLeft: spacing.xs, marginTop: spacing.sm }]}>
+    {children}
+  </Text>
+);
+
 export function HomeScreen() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const nav = useNavigation<Nav>();
   const name = useSession((s) => s.profile?.name);
   const today = todayYmd();
   const students = useStudents();
   const batches = useBatches();
   const attendance = useAttendanceOn(today);
+  const week = useAttendanceRange(addDays(today, -6), today);
   const unpaid = useUnpaidDues();
   const month = usePaymentsThisMonth();
   const guard = useAddGuard();
@@ -163,148 +151,173 @@ export function HomeScreen() {
   });
   const toMark = s.todaysBatches.filter((b) => b.status === 'notMarked').length;
 
+  const collectedShare =
+    s.collectedMonth + s.pendingAmount > 0
+      ? s.collectedMonth / (s.collectedMonth + s.pendingAmount)
+      : null;
+  const firstName = (name ?? '').split(' ')[0];
+
   return (
     <Screen padded={false}>
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
-        <View
-          style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}
-        >
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={[type.caption, { fontWeight: '500' }]}>
-              {prettyDate(today, i18n.language === 'hi' ? 'hi-IN' : 'en-IN')}
-            </Text>
-            <Text style={type.title} numberOfLines={1}>
-              {t('home.hello', { name: (name ?? '').split(' ')[0] })}
-            </Text>
-          </View>
-          <Avatar name={name ?? '?'} size={40} />
+      <ScrollView
+        contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
+        refreshControl={
+          <RefreshControl
+            refreshing={false}
+            onRefresh={() => {
+              haptic.select();
+              refetchAll();
+              void week.refetch();
+            }}
+          />
+        }
+      >
+        <HomeHeader name={name ?? ''} onProfile={() => nav.navigate('More')} />
+
+        <View style={{ gap: 2, marginBottom: spacing.xs }}>
+          <Text style={type.footnote}>{prettyDate(today, 'en-IN')}</Text>
+          <Text style={type.title1} numberOfLines={1}>
+            {t(`home.greeting.${greetingKey()}`, { name: firstName })}
+          </Text>
         </View>
 
+        <AnnouncementBanner />
         <PlanBanner />
 
-        {loading ? (
-          <Skeleton height={130} />
-        ) : (
-          <Card
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: spacing.lg,
-              padding: 18,
-              borderRadius: radius.xl,
-              ...shadow.raised,
-            }}
-          >
-            <AttendanceRing present={s.presentToday} total={s.markedToday} />
-            <View style={{ flex: 1, gap: 6 }}>
-              <Text style={type.heading}>{t('home.heroTitle')}</Text>
-              <Text style={[type.caption, { fontSize: 14, lineHeight: 19 }]}>
-                {s.markedToday
-                  ? t(toMark ? 'home.toMark' : 'home.allMarked', { count: toMark })
-                  : t('home.notMarkedYet')}
-              </Text>
-              {toMark > 0 && s.markedToday > 0 ? (
-                <Chip label={t('home.toMark', { count: toMark })} tone="warning" />
-              ) : null}
-            </View>
+        {!loading && s.activeStudents === 0 ? (
+          <Card style={{ gap: spacing.sm }}>
+            <Text style={type.title3}>{t('home.firstRunTitle')}</Text>
+            <Text style={[type.subhead, { color: colors.textMuted }]}>
+              {t('home.firstRunText')}
+            </Text>
+            <Button
+              title={t('home.firstRunAction')}
+              onPress={() => {
+                if (guard.check('student')) nav.navigate('StudentForm');
+              }}
+            />
           </Card>
+        ) : null}
+
+        {loading ? (
+          <Skeleton height={210} />
+        ) : (
+          <HomeHero
+            label={t('home.collectedMonth')}
+            value={formatINR(s.collectedMonth)}
+            sub={t('home.todayAmount', { amount: formatINR(s.collectedToday) })}
+            progress={collectedShare}
+            progressLabel={
+              collectedShare === null
+                ? undefined
+                : t('home.collectedShare', { percent: Math.round(collectedShare * 100) })
+            }
+            stats={[
+              { label: t('home.pendingFees'), value: formatINR(s.pendingAmount) },
+              { label: t('home.overdue'), value: formatINR(s.overdueAmount) },
+              { label: t('home.students'), value: String(s.activeStudents) },
+            ]}
+          />
         )}
 
-        <View style={{ flexDirection: 'row', gap: 10 }}>
+        <Card
+          style={{
+            flexDirection: 'row',
+            paddingVertical: spacing.lg,
+            paddingHorizontal: spacing.sm,
+          }}
+        >
           <Action
-            icon="add"
+            icon="person-add"
             label={t('home.addStudent')}
-            tone={{ bg: colors.primarySoft, fg: colors.primary }}
+            color={colors.primary}
             onPress={() => {
               if (guard.check('student')) nav.navigate('StudentForm');
             }}
           />
           <Action
-            icon="calendar-outline"
+            icon="checkmark-done"
             label={t('home.markAttendance')}
-            tone={{ bg: colors.successSoft, fg: colors.success }}
+            color={colors.successFill}
             onPress={() => nav.navigate('Attendance')}
           />
           <Action
-            icon="cash-outline"
+            icon="wallet"
             label={t('home.collectFee')}
-            tone={{ bg: colors.warningSoft, fg: colors.warning }}
+            color={colors.warningFill}
             onPress={() => nav.navigate('Fees')}
           />
-        </View>
+          <Action
+            icon="image"
+            label={t('poster.short')}
+            color={colors.pink}
+            onPress={() => nav.navigate('Poster')}
+          />
+        </Card>
 
-        {loading ? (
-          <View style={{ gap: spacing.sm }}>
-            <Skeleton height={84} />
-            <Skeleton height={84} />
+        <SectionTitle>{t('home.today')}</SectionTitle>
+        <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.lg,
+              padding: spacing.lg,
+            }}
+          >
+            <AttendanceRing present={s.presentToday} total={s.markedToday} />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={type.heading}>{t('home.heroTitle')}</Text>
+              <Text style={[type.subhead, { color: colors.textMuted }]}>
+                {s.markedToday
+                  ? t(toMark ? 'home.toMark' : 'home.allMarked', { count: toMark })
+                  : s.todaysBatches.length
+                    ? t('home.notMarkedYet')
+                    : t('home.noClassesToday')}
+              </Text>
+            </View>
           </View>
+          {s.todaysBatches.map((tb) => (
+            <View
+              key={tb.batch.id}
+              style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }}
+            >
+              <ListItem
+                title={tb.batch.name}
+                subtitle={scheduleLabel(tb.batch, t)}
+                right={
+                  tb.status === 'marked' ? (
+                    <Chip
+                      small
+                      label={t('attendance.presentOf', { present: tb.present, total: tb.total })}
+                      tone="success"
+                    />
+                  ) : tb.status === 'notMarked' ? (
+                    <Chip small label={t('attendance.notMarked')} tone="warning" />
+                  ) : (
+                    <Chip
+                      small
+                      label={t(
+                        tb.status === 'cancelled' ? 'attendance.cancelled' : 'attendance.holiday',
+                      )}
+                    />
+                  )
+                }
+                onPress={() =>
+                  nav.navigate('MarkAttendance', { batchId: tb.batch.id, date: today })
+                }
+              />
+            </View>
+          ))}
+        </Card>
+
+        {week.data ? (
+          <WeekChart points={weekAttendance(week.data, today, addDays)} today={today} />
         ) : (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            <Stat
-              label={t('home.pendingFees')}
-              value={formatINR(s.pendingAmount)}
-              sub={t('fees.studentsCount', { count: s.pendingStudents })}
-              tone={s.pendingAmount ? colors.warning : colors.text}
-            />
-            <Stat
-              label={t('home.collectedMonth')}
-              value={formatINR(s.collectedMonth)}
-              sub={t('home.todayAmount', { amount: formatINR(s.collectedToday) })}
-              tone={colors.success}
-            />
-            <Stat
-              label={t('home.students')}
-              value={String(s.activeStudents)}
-              sub={t('home.acrossBatches', { count: s.activeBatches })}
-            />
-            <Stat
-              label={t('home.overdue')}
-              value={formatINR(s.overdueAmount)}
-              sub={t('fees.studentsCount', { count: s.overdueStudents })}
-              tone={s.overdueAmount ? colors.danger : colors.text}
-            />
-          </View>
+          <Skeleton height={150} />
         )}
 
-        <Text style={[type.heading, { fontSize: 20, marginTop: spacing.xs, paddingHorizontal: 4 }]}>
-          {t('home.todaysBatches')}
-        </Text>
-        <View
-          style={{
-            backgroundColor: colors.surface,
-            borderRadius: radius.lg,
-            overflow: 'hidden',
-            ...shadow.card,
-          }}
-        >
-          {!loading && s.todaysBatches.length === 0 ? (
-            <EmptyState icon="calendar-outline" title={t('home.noClassesToday')} />
-          ) : null}
-          {s.todaysBatches.map((tb) => (
-            <ListItem
-              key={tb.batch.id}
-              title={tb.batch.name}
-              subtitle={scheduleLabel(tb.batch, t)}
-              right={
-                tb.status === 'marked' ? (
-                  <Chip
-                    label={t('attendance.presentOf', { present: tb.present, total: tb.total })}
-                    tone="success"
-                  />
-                ) : tb.status === 'notMarked' ? (
-                  <Chip label={t('attendance.notMarked')} tone="warning" />
-                ) : (
-                  <Chip
-                    label={t(
-                      tb.status === 'cancelled' ? 'attendance.cancelled' : 'attendance.holiday',
-                    )}
-                  />
-                )
-              }
-              onPress={() => nav.navigate('MarkAttendance', { batchId: tb.batch.id, date: today })}
-            />
-          ))}
-        </View>
+        <TasksCard date={today} />
       </ScrollView>
       <UpgradePrompt
         visible={!!guard.blocked}

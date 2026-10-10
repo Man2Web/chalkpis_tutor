@@ -27,11 +27,13 @@ export const lastOfMonth = (ymd: string) => {
   return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
 };
 
-export type RangePreset = 'thisMonth' | 'lastMonth' | 'last30';
+export type RangePreset = 'last7' | 'thisMonth' | 'lastMonth' | 'last30' | 'last90';
 
 export function rangeFor(preset: RangePreset, today: string): { from: string; to: string } {
   if (preset === 'thisMonth') return { from: firstOfMonth(today), to: today };
+  if (preset === 'last7') return { from: addDays(today, -6), to: today };
   if (preset === 'last30') return { from: addDays(today, -29), to: today };
+  if (preset === 'last90') return { from: addDays(today, -89), to: today };
   const prevMonthDay = addDays(firstOfMonth(today), -1);
   return { from: firstOfMonth(prevMonthDay), to: lastOfMonth(prevMonthDay) };
 }

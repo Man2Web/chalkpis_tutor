@@ -50,3 +50,11 @@ export const rangeQuery = z
     studentId: z.string().uuid().optional(),
   })
   .refine((q) => q.to >= q.from, { path: ['to'] });
+
+export const advanceInput = z.object({
+  studentId: z.string().uuid(),
+  months: z.array(period).min(1).max(13),
+  mode: z.enum(['cash', 'upi', 'bank', 'other']),
+  paidOn: ymd.optional(),
+  note: z.string().trim().max(200).default(''),
+});

@@ -31,6 +31,9 @@ const fields = {
   discount: z.number().int().min(0).max(100_000_000),
   notifyParent: z.boolean(),
   notes: z.string().max(500),
+  // yyyy-mm-dd, or '' for not given
+  dob: z.union([z.literal(''), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]),
+  gender: z.enum(['', 'male', 'female', 'other']),
   joinedAt: z.string().datetime().optional(),
   batchIds: z.array(z.string().uuid()).max(20),
 };
@@ -47,6 +50,8 @@ export const studentInput = z.object({
   discount: fields.discount.default(0),
   notifyParent: fields.notifyParent.default(true),
   notes: fields.notes.default(''),
+  dob: fields.dob.default(''),
+  gender: fields.gender.default(''),
   joinedAt: fields.joinedAt,
   batchIds: fields.batchIds.default([]),
 });

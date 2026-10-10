@@ -10,7 +10,9 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
 }));
+jest.mock('../FeesHistoryCard', () => ({ FeesHistoryCard: () => null }));
 jest.mock('../../../data/hooks', () => ({
+  useInstitute: () => ({ data: { name: 'X', upiId: 'sir@upi', receiptPrefix: 'TD' } }),
   useUnpaidDues: jest.fn(),
   useStudents: jest.fn(),
   usePaymentsThisMonth: jest.fn(),
@@ -70,7 +72,7 @@ it('lists overdue students first and filters to overdue', async () => {
   await render(<FeesOverviewScreen />);
   const names = screen.getAllByText(/Asha Rao|Bala K/).map((n) => n.props.children);
   expect(names).toEqual(['Asha Rao', 'Bala K']);
-  await fireEvent.press(screen.getAllByRole('button', { name: 'Overdue' })[0]);
+  await fireEvent.press(screen.getByRole('tab', { name: 'Overdue' }));
   expect(screen.queryByText('Bala K')).toBeNull();
 });
 

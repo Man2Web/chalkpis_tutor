@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, spacing, TAP, type } from '../theme';
 
 type Props = {
@@ -7,20 +7,26 @@ type Props = {
   subtitle?: string;
   left?: ReactNode;
   right?: ReactNode;
+  /** Shown under the subtitle (for example a status chip), so long names are not squeezed. */
+  below?: ReactNode;
   onPress?: () => void;
 };
 
-export function ListItem({ title, subtitle, left, right, onPress }: Props) {
+export function ListItem({ title, subtitle, left, right, below, onPress }: Props) {
   return (
     <Pressable
       disabled={!onPress}
       onPress={onPress}
       accessibilityRole={onPress ? 'button' : undefined}
-      style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.primarySoft }]}
+      android_ripple={onPress ? { color: 'rgba(0,0,0,0.08)' } : undefined}
+      style={({ pressed }) => [
+        styles.row,
+        pressed && Platform.OS !== 'android' && { backgroundColor: '#E5E5EA' },
+      ]}
     >
       {left}
       <View style={styles.body}>
-        <Text style={type.body} numberOfLines={1}>
+        <Text style={[type.body, styles.title]} numberOfLines={1}>
           {title}
         </Text>
         {!!subtitle && (
@@ -28,6 +34,7 @@ export function ListItem({ title, subtitle, left, right, onPress }: Props) {
             {subtitle}
           </Text>
         )}
+        {below}
       </View>
       {right}
     </Pressable>
@@ -44,5 +51,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     backgroundColor: colors.surface,
   },
-  body: { flex: 1, gap: 2 },
+  body: { flex: 1, gap: 3 },
+  title: { fontWeight: '500' },
 });

@@ -2,14 +2,17 @@ import { useMemo, useState } from 'react';
 import { FlatList, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import {
+  InsetSeparator,
+  listCard,
+  SearchField,
   Avatar,
   BottomSheet,
   Button,
   Chip,
   EmptyState,
-  Input,
   ListItem,
   Screen,
   Skeleton,
@@ -18,7 +21,7 @@ import {
 import { useAddGuard } from '../../data/guards';
 import { useBatches, usePendingStudentIds, useStudents } from '../../data/hooks';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, radius, spacing, type } from '../../theme';
+import { colors, spacing, type } from '../../theme';
 import { distinctClasses, filterStudents } from './logic';
 
 export function StudentsListScreen() {
@@ -71,14 +74,12 @@ export function StudentsListScreen() {
           style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
         >
           <Text style={type.largeTitle}>{t('tabs.students')}</Text>
-          <Button title={t('students.add')} onPress={() => setMenu(true)} />
+          <Button size="small" title={t('students.add')} onPress={() => setMenu(true)} />
         </View>
-        <Input
-          label={t('students.search')}
+        <SearchField
           value={search}
           onChangeText={setSearch}
           placeholder={t('students.searchHint')}
-          autoCorrect={false}
         />
         <ScrollView
           horizontal
@@ -131,12 +132,8 @@ export function StudentsListScreen() {
         </View>
       ) : (
         <FlatList
-          style={{
-            marginHorizontal: spacing.lg,
-            marginBottom: spacing.md,
-            borderRadius: radius.lg,
-            overflow: 'hidden',
-          }}
+          style={{ flex: 1 }}
+          contentContainerStyle={listCard}
           data={list}
           keyExtractor={(s) => s.id}
           initialNumToRender={15}
@@ -147,9 +144,7 @@ export function StudentsListScreen() {
               onRefresh={() => void students.refetch()}
             />
           }
-          ItemSeparatorComponent={() => (
-            <View style={{ height: 1, backgroundColor: colors.border }} />
-          )}
+          ItemSeparatorComponent={InsetSeparator}
           ListEmptyComponent={
             inTab.length === 0 && tab === 'active' ? (
               <EmptyState
@@ -173,11 +168,12 @@ export function StudentsListScreen() {
                 .filter(Boolean)
                 .join(' • ')}
               left={<Avatar name={item.name} uri={item.photoUrl} />}
-              right={
+              below={
                 pending.data?.has(item.id) ? (
-                  <Chip label={t('students.feesPending')} tone="warning" />
+                  <Chip label={t('students.feesPending')} tone="warning" small />
                 ) : undefined
               }
+              right={<Ionicons name="chevron-forward" size={18} color={colors.textMuted} />}
               onPress={() => nav.navigate('StudentProfile', { id: item.id })}
             />
           )}

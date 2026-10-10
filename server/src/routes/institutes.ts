@@ -27,6 +27,12 @@ const patchBody = z
       .trim()
       .toLowerCase()
       .regex(/^([a-z0-9._-]{2,50}@[a-z][a-z0-9]{1,30})?$/),
+    // The tutor's own payment page; https only, empty clears it
+    paymentLink: z
+      .string()
+      .trim()
+      .max(300)
+      .refine((v) => v === '' || /^https:\/\/[^\s<>"]+$/i.test(v)),
   })
   .partial()
   .refine((v) => Object.keys(v).length > 0);
@@ -53,7 +59,7 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
   // The institute is always the caller's own, taken from their membership; there is no id in the URL to tamper with.
   app.get('/institute', { preHandler: [auth, requireInstitute] }, async (req) => {
     const [rows] = (await deps.pool.query(
-      'SELECT name, address, phone, upi_id, receipt_prefix, timezone, currency, logo_path FROM institutes WHERE id = ?',
+      'SELECT name, address, phone, upi_id, payment_link, receipt_prefix, timezone, currency, logo_path FROM institutes WHERE id = ?',
       [req.auth!.instituteId],
     )) as unknown as [
       {
@@ -61,6 +67,7 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
         address: string;
         phone: string;
         upi_id: string;
+        payment_link: string;
         receipt_prefix: string;
         timezone: string;
         currency: string;
@@ -73,6 +80,7 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
       address: r.address,
       phone: r.phone,
       upiId: r.upi_id,
+      paymentLink: r.payment_link,
       receiptPrefix: r.receipt_prefix,
       timezone: r.timezone,
       currency: r.currency,
@@ -87,12 +95,13 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
       return reply.code(402).send({ error: 'plan_expired' });
     const b = body.data;
     await deps.pool.query(
-      'UPDATE institutes SET name = COALESCE(?, name), address = COALESCE(?, address), phone = COALESCE(?, phone), upi_id = COALESCE(?, upi_id), receipt_prefix = COALESCE(?, receipt_prefix) WHERE id = ?',
+      'UPDATE institutes SET name = COALESCE(?, name), address = COALESCE(?, address), phone = COALESCE(?, phone), upi_id = COALESCE(?, upi_id), payment_link = COALESCE(?, payment_link), receipt_prefix = COALESCE(?, receipt_prefix) WHERE id = ?',
       [
         b.name ?? null,
         b.address ?? null,
         b.phone ?? null,
         b.upiId ?? null,
+        b.paymentLink ?? null,
         b.receiptPrefix ?? null,
         req.auth!.instituteId,
       ],

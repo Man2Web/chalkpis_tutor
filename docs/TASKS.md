@@ -35,4 +35,7 @@
 
 - [x] v2.0 quick wins: UPI id setting and QR on the reminder screen (share as image), "Mark as paid by UPI", Excel export with fee status per student, import from Excel/CSV (Sheets, Notion via export); 297 server tests, 266 app tests
 - [ ] v2.0 still to do: the QR inside the automatic WhatsApp fee reminder needs a new template with an image header (owner to get it approved)
+- [x] v2 UI: Home summary card, consistent list cards, keyboard-safe forms, responsive column (decisions 98-99)
+- [x] v2 group 1 (no outside accounts): today's tasks, 7-day attendance chart with streak, first-run card, student date of birth and gender, payment link, "No UPI id" warning, advance payment for several months, attendance register Excel export (7 days to 3 months), fees history chart (6/12 months) and sorting, poster maker; 309 server tests, 275 app tests
+- [ ] v2 group 2 (needs a Claude API key): AI question paper, homework, worksheet, progress note, Google profile/post/review reply, marketing kit, check a paper, register photo import
 - [ ] v2.1 SMS fallback and plans/message cap; v2.2 AI Assistant and Paper Checking; v2.3 Google/email login, website, iPhone

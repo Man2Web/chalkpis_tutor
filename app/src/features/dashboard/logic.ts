@@ -68,3 +68,41 @@ export function dashboardStats(i: DashboardInput) {
     todaysBatches,
   };
 }
+
+export interface DayPoint {
+  date: string;
+  /** Share present or late, 0-100; null when nothing was marked that day. */
+  pct: number | null;
+}
+
+/** The last 7 days ending today, oldest first, for the Home chart. Holidays count as not marked. */
+export function weekAttendance(
+  docs: AttendanceDoc[],
+  today: string,
+  addDays: (d: string, n: number) => string,
+): DayPoint[] {
+  const out: DayPoint[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const date = addDays(today, -i);
+    let p = 0;
+    let t = 0;
+    for (const d of docs) {
+      if (d.date !== date || d.holiday) continue;
+      for (const m of Object.values(d.marks)) {
+        t++;
+        if (m !== 'A') p++;
+      }
+    }
+    out.push({ date, pct: t ? Math.round((p / t) * 100) : null });
+  }
+  return out;
+}
+
+/** Days in a row, counting back from today (or yesterday if today is not marked yet), with attendance saved. */
+export function markingStreak(points: DayPoint[]): number {
+  let i = points.length - 1;
+  if (i >= 0 && points[i]!.pct === null) i--;
+  let n = 0;
+  for (; i >= 0 && points[i]!.pct !== null; i--) n++;
+  return n;
+}

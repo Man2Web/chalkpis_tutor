@@ -24,7 +24,7 @@ export function BatchFormFields({ control }: { control: Control<BatchForm> }) {
       <FormInput control={control} name="name" label={t('onboarding.batchName')} />
       <FormInput control={control} name="subject" label={t('onboarding.subject')} />
       <FormInput control={control} name="class" label={t('onboarding.class')} />
-      <Text style={type.label}>{t('onboarding.days')}</Text>
+      <Text style={type.fieldLabel}>{t('onboarding.days')}</Text>
       <Controller
         control={control}
         name="days"

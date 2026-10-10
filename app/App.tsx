@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Platform, View } from 'react-native';
+import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import './src/i18n';
 import { ToastHost } from './src/components';
+import { KeyboardRoot } from './src/components/KeyboardScroll';
 import AnimatedSplash from './src/components/AnimatedSplash';
 import { useSession, useSessionBootstrap } from './src/features/auth/session';
 import { loadSavedLanguage } from './src/lib/language';
@@ -34,27 +35,15 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
-        {/* Browser preview: show the app at phone width, centred. */}
-        <View
-          style={
-            Platform.OS === 'web'
-              ? { flex: 1, alignItems: 'center', backgroundColor: '#E5E7EB' }
-              : { flex: 1 }
-          }
-        >
-          <View
-            style={
-              Platform.OS === 'web'
-                ? { flex: 1, width: '100%', maxWidth: 480, overflow: 'hidden' }
-                : { flex: 1 }
-            }
-          >
+        <KeyboardRoot>
+          {/* Full width everywhere; each screen centres its own column on wide screens. */}
+          <View style={{ flex: 1 }}>
             <AnimatedSplash appReady={appReady}>
               <RootNavigator />
               <ToastHost />
             </AnimatedSplash>
           </View>
-        </View>
+        </KeyboardRoot>
         <StatusBar style="dark" />
       </SafeAreaProvider>
     </QueryClientProvider>

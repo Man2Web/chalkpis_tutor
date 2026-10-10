@@ -1,4 +1,13 @@
-export type MessageType = 'absent' | 'late' | 'fee_due' | 'fee_overdue' | 'payment_received';
+export type MessageType =
+  | 'absent'
+  | 'late'
+  | 'fee_due'
+  | 'fee_overdue'
+  | 'payment_received'
+  | 'fee_reminder'
+  | 'fee_link'
+  | 'parent_link';
+/** Messages are English only. The type is kept so stored rows and settings still read. */
 export type Lang = 'en' | 'hi';
 export const MESSAGE_TYPES: MessageType[] = [
   'absent',
@@ -6,9 +15,15 @@ export const MESSAGE_TYPES: MessageType[] = [
   'fee_due',
   'fee_overdue',
   'payment_received',
+  'fee_reminder',
+  'fee_link',
+  'parent_link',
 ];
 
-/** { absent: { en: "1809231", hi: "..." }, ... }. Set once as the WA_TEMPLATES setting. */
+/**
+ * { absent: { en: "chalkpis_absent" }, ... }: the template id (ValueFirst) or template name (Meta Cloud API) per
+ * message type. Set once as the WA_TEMPLATES setting.
+ */
 export type TemplateMap = Partial<Record<MessageType, Partial<Record<Lang, string>>>>;
 
 /** Reads the WA_TEMPLATES JSON safely; anything malformed is ignored rather than crashing a send. */
@@ -32,9 +47,8 @@ export function parseTemplates(json: string | undefined): TemplateMap {
   }
 }
 
-/** The template id for a message in the wanted language, falling back to English. */
-export const templateFor = (map: TemplateMap, type: MessageType, lang: Lang) =>
-  map[type]?.[lang] ?? map[type]?.en;
+/** The template for a message. Everything is sent in English. */
+export const templateFor = (map: TemplateMap, type: MessageType) => map[type]?.en;
 
 export interface MessageContext {
   parent: string;
@@ -48,6 +62,8 @@ export interface MessageContext {
   since?: string;
   receiptNo?: string;
   balance?: string;
+  /** A web address: the tutor's payment page or the private parent page. */
+  link?: string;
 }
 
 /** WhatsApp template values must be single-line; `~` separates values for this gateway. */
@@ -85,6 +101,16 @@ export function varsFor(type: MessageType, c: MessageContext): string[] {
       return m(
         `${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 20)}, pending since ${cleanVar(c.since, 20)}`,
       );
+    case 'fee_reminder':
+      return m(`${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 40)}`);
+    case 'fee_link':
+      return [
+        student,
+        cleanVar(`${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 40)}`, 90),
+        cleanVar(c.link, 300),
+      ];
+    case 'parent_link':
+      return [student, cleanVar(c.link, 300), institute];
     case 'payment_received':
       return m(
         `${cleanVar(c.amount, 20)} (receipt ${cleanVar(c.receiptNo, 20)}, balance due ${cleanVar(c.balance, 20)})`,

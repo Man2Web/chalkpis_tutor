@@ -1,15 +1,14 @@
 import { useState } from 'react';
-import { Share, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { BottomSheet, Button, Card, Chip, toast } from '../../components';
-import { useInstitute, useInstituteId } from '../../data/hooks';
+import { useInstituteId } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
-import { open, whatsappUrl } from '../../lib/contact';
 import { prettyDate, toYmd } from '../../lib/dates';
 import { spacing, type } from '../../theme';
 import { createParentLink, getParentLinkStatus, revokeParentLinks, type CreatedLink } from './api';
-import { LINK_DAYS, linkMessage, type LinkDays } from './logic';
+import { LINK_DAYS, type LinkDays } from './logic';
 
 interface Props {
   student: { id: string; name: string; parentName: string; parentPhone: string };
@@ -17,12 +16,10 @@ interface Props {
 
 /** On a student's profile: make a private read-only link for the parents, send it, or switch every link off. */
 export function ParentLinkCard({ student }: Props) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const instituteId = useInstituteId();
-  const institute = useInstitute();
   const qc = useQueryClient();
-  const lang = i18n.language === 'hi' ? 'hi' : 'en';
-  const locale = lang === 'hi' ? 'hi-IN' : 'en-IN';
+  const locale = 'en-IN';
   const [days, setDays] = useState<LinkDays>(30);
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<CreatedLink | null>(null);
@@ -39,8 +36,10 @@ export function ParentLinkCard({ student }: Props) {
   const create = async () => {
     setBusy(true);
     try {
-      setCreated(await createParentLink(student.id, days));
+      const link = await createParentLink(student.id, days);
+      setCreated(link);
       await refreshStatus();
+      if (link.sent) toast(t('parentLink.sentApi'), 'success');
     } catch (e) {
       reportError(e);
       toast(t('parentLink.failed'), 'error');
@@ -62,27 +61,6 @@ export function ParentLinkCard({ student }: Props) {
       toast(t('parentLink.failed'), 'error');
     } finally {
       setBusy(false);
-    }
-  };
-
-  const message = created
-    ? linkMessage(lang, {
-        parent: student.parentName,
-        student: student.name,
-        institute: institute.data?.name ?? '',
-        url: created.url,
-      })
-    : '';
-
-  const send = async () => {
-    if (!(await open(whatsappUrl(student.parentPhone, message))))
-      toast(t('students.cannotOpen'), 'error');
-  };
-  const share = async () => {
-    try {
-      await Share.share({ message });
-    } catch {
-      toast(t('parentLink.cannotShare'), 'error');
     }
   };
 
@@ -115,7 +93,7 @@ export function ParentLinkCard({ student }: Props) {
         ))}
       </View>
       <Button
-        title={t('parentLink.create')}
+        title={t('parentLink.createAndSend')}
         onPress={create}
         loading={busy && !confirm}
         disabled={busy}
@@ -130,8 +108,6 @@ export function ParentLinkCard({ student }: Props) {
           >
             {created.url}
           </Text>
-          <Button title={t('parentLink.sendWhatsapp')} onPress={send} />
-          <Button variant="secondary" title={t('parentLink.share')} onPress={share} />
         </View>
       ) : null}
 

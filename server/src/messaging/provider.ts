@@ -2,9 +2,14 @@ import { randomBytes } from 'node:crypto';
 
 export interface OutgoingMessage {
   to: string; // E.164
+  /** The template id (ValueFirst) or template name (Meta Cloud API). */
   templateId: string;
   vars: string[];
   reference: string;
+  /** Public picture for a template with an image header (the UPI QR). */
+  imageUrl?: string;
+  /** Authentication (login code) template: Meta needs the code again for its copy-code button. */
+  otp?: boolean;
 }
 
 export interface SendResult {
@@ -14,7 +19,7 @@ export interface SendResult {
 }
 
 export interface MessageProvider {
-  name: 'whatsapp' | 'mock';
+  name: 'whatsapp' | 'meta' | 'mock';
   send(m: OutgoingMessage): Promise<SendResult>;
 }
 
@@ -70,7 +75,8 @@ export class WhatsAppProvider implements MessageProvider {
             text: '',
             templateinfo: [m.templateId, ...m.vars].join('~'),
             type: '',
-            mediadata: '',
+            // ValueFirst's field for a header picture (to confirm with ValueFirst for image templates)
+            mediadata: m.imageUrl ?? '',
             b_urlinfo: '1',
             filename: '',
             addresses: [
@@ -103,6 +109,79 @@ export class WhatsAppProvider implements MessageProvider {
       return { ok: true, providerId: body.whatsapp.messages[0]?.id };
     } catch (e) {
       // Never put the request (phone numbers, credentials) into the error text.
+      return { ok: false, error: (e as { code?: string }).code ?? (e as Error).name ?? 'network' };
+    }
+  }
+}
+
+export interface MetaCloudConfig {
+  /** The WhatsApp phone number id from Meta (not the phone number itself). */
+  phoneNumberId: string;
+  /** A permanent system-user access token with whatsapp_business_messaging. */
+  token: string;
+  /** Graph API version, e.g. v23.0. */
+  version?: string;
+  /** Template language code; templates are English only. */
+  language?: string;
+}
+
+/**
+ * Sends approved templates straight through Meta's WhatsApp Cloud API
+ * (POST https://graph.facebook.com/<version>/<phone-number-id>/messages). Template ids here are template NAMES.
+ */
+export class MetaCloudProvider implements MessageProvider {
+  name = 'meta' as const;
+  constructor(
+    private cfg: MetaCloudConfig,
+    private fetchFn: typeof fetch = fetch,
+  ) {}
+
+  body(m: OutgoingMessage) {
+    const text = (t: string) => ({ type: 'text', text: t });
+    const components: unknown[] = [];
+    if (m.imageUrl)
+      components.push({
+        type: 'header',
+        parameters: [{ type: 'image', image: { link: m.imageUrl } }],
+      });
+    if (m.vars.length) components.push({ type: 'body', parameters: m.vars.map(text) });
+    if (m.otp && m.vars[0])
+      components.push({
+        type: 'button',
+        sub_type: 'url',
+        index: '0',
+        parameters: [text(m.vars[0])],
+      });
+    return {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: digits(m.to),
+      type: 'template',
+      template: {
+        name: m.templateId,
+        language: { code: this.cfg.language ?? 'en' },
+        ...(components.length ? { components } : {}),
+      },
+      biz_opaque_callback_data: m.reference,
+    };
+  }
+
+  async send(m: OutgoingMessage): Promise<SendResult> {
+    const url = `https://graph.facebook.com/${this.cfg.version ?? 'v23.0'}/${this.cfg.phoneNumberId}/messages`;
+    try {
+      const res = await this.fetchFn(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.cfg.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.body(m)),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        messages?: { id?: string }[];
+        error?: { code?: number };
+      };
+      if (!res.ok) return { ok: false, error: `meta-${json.error?.code ?? res.status}` };
+      return { ok: true, providerId: json.messages?.[0]?.id };
+    } catch (e) {
+      // Never put the request (phone numbers, the token) into the error text.
       return { ok: false, error: (e as { code?: string }).code ?? (e as Error).name ?? 'network' };
     }
   }

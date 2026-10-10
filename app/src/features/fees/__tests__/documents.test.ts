@@ -1,4 +1,4 @@
-import { buildReminder, receiptHtml } from '../documents';
+import { receiptHtml, reminderKind, reminderPreview } from '../documents';
 
 const base = {
   lang: 'en' as const,
@@ -12,31 +12,22 @@ const base = {
   balance: '₹500',
 };
 
-describe('buildReminder', () => {
-  const v = {
-    parentName: 'Mr Kumar',
-    studentName: 'Kavin',
-    amount: '₹1,500',
-    period: 'Mar 2026',
-    institute: 'Bright',
-  };
-  it('english', () => {
-    const t = buildReminder('en', v);
-    expect(t).toContain('Dear Mr Kumar,');
-    expect(t).toContain("Kavin's fee of ₹1,500 for Mar 2026");
+describe('reminderPreview', () => {
+  const v = { studentName: 'Kavin', amount: '₹1,500', period: 'Mar 2026', institute: 'Bright' };
+  it('picks the payment link first, then the UPI QR, then plain text', () => {
+    expect(reminderKind({ payLink: 'https://p', upiId: 'a@b' })).toBe('link');
+    expect(reminderKind({ upiId: 'a@bank' })).toBe('qr');
+    expect(reminderKind({})).toBe('text');
   });
-  it('tells the parent where to pay only when a UPI id is set', () => {
-    expect(buildReminder('en', v)).not.toContain('UPI');
-    expect(buildReminder('en', { ...v, upiId: 'sir@oksbi' })).toContain('Pay by UPI: sir@oksbi');
-    expect(buildReminder('hi', { ...v, upiId: 'sir@oksbi' })).toContain('sir@oksbi');
+  it('fills the approved template words with the values', () => {
+    expect(reminderPreview('qr', v)).toBe(
+      'Dear Parent, the fee for Kavin is pending: ₹1,500 for Mar 2026. Scan the QR code above with any UPI app (Google Pay, PhonePe, Paytm) to pay Bright directly. Please ignore this message if you have already paid. Thank you.',
+    );
+    expect(reminderPreview('link', { ...v, payLink: 'https://pay.x/1' })).toContain(
+      'You can pay online here: https://pay.x/1 Please ignore',
+    );
+    expect(reminderPreview('text', v)).toContain('is still pending: ₹1,500 for Mar 2026');
   });
-  it('hindi', () => {
-    const t = buildReminder('hi', v);
-    expect(t).toContain('प्रिय Mr Kumar');
-    expect(t).toContain('₹1,500');
-  });
-  it('works without a parent name', () =>
-    expect(buildReminder('en', { ...v, parentName: ' ' }).startsWith('Hello,')).toBe(true));
 });
 
 describe('receiptHtml', () => {

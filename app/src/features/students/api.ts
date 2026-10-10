@@ -19,6 +19,8 @@ function fields(form: StudentForm) {
     dueDay: form.dueDay,
     notifyParent: form.notifyParent,
     notes: form.notes ?? '',
+    dob: form.dob?.trim() ?? '',
+    gender: form.gender ?? '',
   };
 }
 

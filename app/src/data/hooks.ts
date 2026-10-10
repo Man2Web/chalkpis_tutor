@@ -237,6 +237,7 @@ export interface Institute {
   address?: string;
   phone?: string;
   upiId?: string;
+  paymentLink?: string;
   receiptPrefix: string;
 }
 
@@ -252,6 +253,7 @@ export function useInstitute() {
         address: d.address,
         phone: d.phone,
         upiId: d.upiId,
+        paymentLink: d.paymentLink,
         receiptPrefix: d.receiptPrefix,
       };
     },

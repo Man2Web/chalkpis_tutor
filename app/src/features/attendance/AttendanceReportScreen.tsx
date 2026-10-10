@@ -2,16 +2,29 @@ import { useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { Avatar, Card, Chip, EmptyState, ListItem, Screen, Skeleton } from '../../components';
+import {
+  Avatar,
+  Button,
+  Card,
+  Chip,
+  EmptyState,
+  ListItem,
+  Screen,
+  Skeleton,
+  toast,
+} from '../../components';
 import { useAttendanceRange, useBatches, useStudents } from '../../data/hooks';
 import { rangeFor, todayYmd, type RangePreset } from '../../lib/dates';
 import { LOW_ATTENDANCE_PERCENT } from '../../lib/types';
 import type { MainStackParams } from '../../navigation/types';
 import { colors, spacing, type } from '../../theme';
 import { useIsStaff } from '../auth/session';
-import { batchStats, lowAttendance, overallStat, studentStats } from './logic';
+import { shareBinaryFile } from '../../lib/exportFile';
+import { reportError } from '../../lib/analytics';
+import { buildXlsx } from '../../lib/xlsx';
+import { batchStats, lowAttendance, overallStat, registerSheet, studentStats } from './logic';
 
-const PRESETS: RangePreset[] = ['thisMonth', 'lastMonth', 'last30'];
+const PRESETS: RangePreset[] = ['last7', 'thisMonth', 'lastMonth', 'last30', 'last90'];
 
 export function AttendanceReportScreen({
   navigation,
@@ -40,10 +53,22 @@ export function AttendanceReportScreen({
   const rows = [...data.stats].sort((a, b) => (a[1].pct ?? 101) - (b[1].pct ?? 101));
   const loading = docs.isLoading || students.isLoading || batches.isLoading;
 
+  const exportExcel = async () => {
+    try {
+      const sheet = registerSheet(docs.data ?? [], students.data ?? []);
+      await shareBinaryFile(
+        `chalkpis-attendance-${from}-to-${to}.xlsx`,
+        buildXlsx(sheet, 'Attendance', true),
+      );
+    } catch (e) {
+      reportError(e);
+      toast(t('reports.exportFailed'), 'error');
+    }
+  };
+
   return (
     <Screen padded={false}>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
-        <Text style={type.title}>{t('attendance.reports')}</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
           {PRESETS.map((p) => (
             <Chip
@@ -89,6 +114,7 @@ export function AttendanceReportScreen({
           />
         ) : (
           <>
+            <Button variant="secondary" title={t('attendance.exportExcel')} onPress={exportExcel} />
             <Card style={{ gap: spacing.xs }}>
               <Text style={type.caption}>{t('attendance.average')}</Text>
               <Text style={[type.title, { fontSize: 32 }]}>{data.overall.pct}%</Text>

@@ -12,6 +12,8 @@ interface StudentRow {
   parent_name: string;
   parent_phone: string;
   class: string;
+  dob: Date | string | null;
+  gender: '' | 'male' | 'female' | 'other';
   photo_path: string | null;
   joined_at: Date;
   status: 'active' | 'inactive';
@@ -23,6 +25,10 @@ interface StudentRow {
   notes: string;
 }
 
+/** DATE columns come back as a Date at UTC midnight (the pool runs in UTC). */
+const ymd = (v: Date | string | null) =>
+  v == null ? '' : typeof v === 'string' ? v.slice(0, 10) : v.toISOString().slice(0, 10);
+
 export const toStudent = (r: StudentRow, batchIds: string[]) => ({
   id: r.id,
   name: r.name,
@@ -30,6 +36,8 @@ export const toStudent = (r: StudentRow, batchIds: string[]) => ({
   parentName: r.parent_name,
   parentPhone: r.parent_phone,
   class: r.class,
+  dob: ymd(r.dob),
+  gender: r.gender,
   photoUrl: r.photo_path ? `/students/${r.id}/photo` : null,
   joinedAt: r.joined_at.toISOString(),
   status: r.status,
@@ -123,6 +131,8 @@ const insertRow = (instituteId: string, s: StudentInput, now: Date) => [
   s.parentName,
   s.parentPhone,
   s.class,
+  s.dob || null,
+  s.gender,
   s.joinedAt ? new Date(s.joinedAt) : now,
   s.monthlyFee,
   s.feeCycle,
@@ -132,7 +142,7 @@ const insertRow = (instituteId: string, s: StudentInput, now: Date) => [
   s.notes,
 ];
 const COLS =
-  'id, institute_id, name, phone, parent_name, parent_phone, class, joined_at, monthly_fee, fee_cycle, due_day, discount, notify_parent, notes';
+  'id, institute_id, name, phone, parent_name, parent_phone, class, dob, gender, joined_at, monthly_fee, fee_cycle, due_day, discount, notify_parent, notes';
 
 /** Adds students (one or many) all-or-nothing, under the plan's student limit. Returns the new ids. */
 export async function createStudents(
@@ -187,6 +197,8 @@ export async function updateStudent(
         parent_name: patch.parentName,
         parent_phone: patch.parentPhone,
         class: patch.class,
+        dob: patch.dob === undefined ? undefined : patch.dob || null,
+        gender: patch.gender,
         monthly_fee: patch.monthlyFee,
         fee_cycle: patch.feeCycle,
         due_day: patch.dueDay,

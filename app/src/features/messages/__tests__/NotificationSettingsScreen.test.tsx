@@ -69,10 +69,3 @@ it('steppers move by one and stop at the limits', async () => {
     expect(saveNotifySettings).toHaveBeenCalledWith('I1', { feeDueDaysBefore: 14 }),
   );
 });
-
-it('language can be switched to Hindi', async () => {
-  set({ enabled: true });
-  await render(<NotificationSettingsScreen />);
-  await fireEvent.press(screen.getAllByRole('button', { name: 'हिन्दी' })[0]);
-  await waitFor(() => expect(saveNotifySettings).toHaveBeenCalledWith('I1', { language: 'hi' }));
-});

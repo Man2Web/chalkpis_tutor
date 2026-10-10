@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import {
+  ActionButton,
   Avatar,
   BottomSheet,
   Button,
@@ -12,6 +13,7 @@ import {
   Input,
   ListItem,
   Screen,
+  Section,
   Skeleton,
   toast,
 } from '../../components';
@@ -142,66 +144,75 @@ export function FeeLedgerScreen({
   };
 
   const statusChip = (d: FeeDue) => {
-    if (d.status === 'paid') return <Chip label={t('fees.status.paid')} tone="success" />;
-    if (d.status === 'waived') return <Chip label={t('fees.status.waived')} />;
+    if (d.status === 'paid') return <Chip small label={t('fees.status.paid')} tone="success" />;
+    if (d.status === 'waived') return <Chip small label={t('fees.status.waived')} />;
     if (isOverdue({ ...d, dueDate: toYmd(d.dueDate.toDate()) }, today))
-      return <Chip label={t('fees.overdue')} tone="danger" />;
+      return <Chip small label={t('fees.overdue')} tone="danger" />;
     return (
       <Chip
+        small
         label={t(d.status === 'partial' ? 'fees.status.partial' : 'fees.status.pending')}
         tone="warning"
       />
     );
   };
 
-  return (
-    <Screen padded={false}>
-      <View style={{ padding: spacing.lg, gap: spacing.md }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-          <Avatar name={student.name} uri={student.photoUrl} size={56} />
-          <View style={{ flex: 1 }}>
-            <Text style={type.title}>{student.name}</Text>
-            <Text style={type.caption}>
-              {t('fees.monthlyIs', { fee: formatINR(student.monthlyFee) })}
-            </Text>
-          </View>
-        </View>
-        <Card style={{ gap: 2, borderColor: owe ? colors.warning : colors.success }}>
-          <Text style={type.caption}>{t('fees.totalDue')}</Text>
-          <Text style={[type.title, { fontSize: 28 }]}>{formatINR(owe)}</Text>
-        </Card>
-        <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' }}>
-          {nextDue ? (
-            <Button
-              title={t('fees.collect')}
-              onPress={() => navigation.navigate('CollectFee', { dueId: nextDue.id })}
-            />
-          ) : null}
-          <Button
-            variant="secondary"
-            title={t('fees.addCharge')}
-            onPress={() => {
-              setFormError(undefined);
-              setCharge(true);
-            }}
-          />
-          <Button
-            variant="secondary"
-            title={t('fees.editPlan')}
-            onPress={() => navigation.navigate('FeePlan', { studentId })}
-          />
-          {owe > 0 ? (
-            <Button
-              variant="ghost"
-              title={t('fees.remind')}
-              onPress={() => navigation.navigate('Reminder', { studentId })}
-            />
-          ) : null}
-        </View>
+  const owesTone = owe > 0 ? colors.warning : colors.success;
 
-        <Text style={type.heading}>{t('fees.dues')}</Text>
+  return (
+    <Screen>
+      <View style={{ alignItems: 'center', gap: 4, marginTop: spacing.sm }}>
+        <Avatar name={student.name} uri={student.photoUrl} size={64} />
+        <Text style={[type.title3, { textAlign: 'center' }]}>{student.name}</Text>
+        <Text style={type.footnote}>
+          {t('fees.monthlyIs', { fee: formatINR(student.monthlyFee) })}
+        </Text>
       </View>
-      <View style={{ backgroundColor: colors.surface }}>
+
+      <Card style={{ alignItems: 'center', gap: 2, marginVertical: spacing.md }}>
+        <Text style={type.footnote}>{owe > 0 ? t('fees.totalDue') : t('students.allPaid')}</Text>
+        <Text style={[type.largeTitle, { color: owe > 0 ? colors.text : owesTone }]}>
+          {formatINR(owe)}
+        </Text>
+        {nextDue ? (
+          <Button
+            style={{ alignSelf: 'stretch', marginTop: spacing.md }}
+            title={t('fees.collect')}
+            onPress={() => navigation.navigate('CollectFee', { dueId: nextDue.id })}
+          />
+        ) : null}
+      </Card>
+
+      <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.xl }}>
+        <ActionButton
+          icon="add-circle"
+          label={t('fees.addChargeShort')}
+          onPress={() => {
+            setFormError(undefined);
+            setCharge(true);
+          }}
+        />
+        {student.feeCycle === 'monthly' && student.monthlyFee > 0 ? (
+          <ActionButton
+            icon="calendar"
+            label={t('fees.advanceShort')}
+            onPress={() => navigation.navigate('AdvancePayment', { studentId })}
+          />
+        ) : null}
+        <ActionButton
+          icon="options"
+          label={t('fees.planShort')}
+          onPress={() => navigation.navigate('FeePlan', { studentId })}
+        />
+        <ActionButton
+          icon="notifications"
+          label={t('fees.remind')}
+          onPress={() => navigation.navigate('Reminder', { studentId })}
+          disabled={owe <= 0}
+        />
+      </View>
+
+      <Section title={t('fees.dues')} footer={list.length ? t('fees.duesFooter') : undefined}>
         {list.length === 0 ? (
           <EmptyState
             icon="receipt-outline"
@@ -212,8 +223,8 @@ export function FeeLedgerScreen({
         {list.map((d) => (
           <ListItem
             key={d.id}
-            title={`${d.description} • ${periodLabel(d.period, locale)}`}
-            subtitle={`${formatINR(netDue(d))}${d.discount ? ` (${t('fees.discountOf', { amount: formatINR(d.discount) })})` : ''} • ${t('fees.paidOf', { amount: formatINR(d.paid) })}`}
+            title={`${d.description} · ${periodLabel(d.period, locale)}`}
+            subtitle={`${formatINR(netDue(d))}${d.discount ? ` (${t('fees.discountOf', { amount: formatINR(d.discount) })})` : ''} · ${t('fees.paidOf', { amount: formatINR(d.paid) })}`}
             right={statusChip(d)}
             onPress={() => {
               setSelected(d);
@@ -222,20 +233,19 @@ export function FeeLedgerScreen({
             }}
           />
         ))}
-      </View>
+      </Section>
 
-      <View style={{ padding: spacing.lg, gap: spacing.sm }}>
-        <Text style={type.heading}>{t('fees.payments')}</Text>
-      </View>
-      <View style={{ backgroundColor: colors.surface, marginBottom: spacing.xxl }}>
+      <Section title={t('fees.payments')}>
         {(payments.data ?? []).length === 0 ? (
-          <Text style={[type.caption, { padding: spacing.lg }]}>{t('fees.noPayments')}</Text>
+          <Text style={[type.subhead, { padding: spacing.lg, color: colors.textMuted }]}>
+            {t('fees.noPayments')}
+          </Text>
         ) : null}
         {(payments.data ?? []).map((p) => (
           <ListItem
             key={p.id}
             title={p.amount < 0 ? t('fees.reversalTitle') : (p.receiptNo ?? '')}
-            subtitle={`${prettyDate(toYmd(p.paidAt.toDate()), locale)} • ${t(`fees.mode.${p.mode}`)}`}
+            subtitle={`${prettyDate(toYmd(p.paidAt.toDate()), locale)} · ${t(`fees.mode.${p.mode}`)}`}
             right={
               <View style={{ alignItems: 'flex-end', gap: 2 }}>
                 <Text
@@ -243,13 +253,15 @@ export function FeeLedgerScreen({
                 >
                   {formatINR(p.amount)}
                 </Text>
-                {reversed.has(p.id) ? <Chip label={t('fees.reversedChip')} tone="danger" /> : null}
+                {reversed.has(p.id) ? (
+                  <Chip small label={t('fees.reversedChip')} tone="danger" />
+                ) : null}
               </View>
             }
             onPress={() => navigation.navigate('Receipt', { paymentId: p.id })}
           />
         ))}
-      </View>
+      </Section>
 
       <BottomSheet visible={charge} onClose={() => setCharge(false)} title={t('fees.addCharge')}>
         <View

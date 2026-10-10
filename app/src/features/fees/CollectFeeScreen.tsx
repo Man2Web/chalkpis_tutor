@@ -113,7 +113,7 @@ export function CollectFeeScreen({
         </Text>
       ) : null}
 
-      <Text style={type.label}>{t('fees.paidBy')}</Text>
+      <Text style={type.fieldLabel}>{t('fees.paidBy')}</Text>
       <View
         style={{
           flexDirection: 'row',

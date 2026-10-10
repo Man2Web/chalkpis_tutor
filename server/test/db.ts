@@ -28,6 +28,8 @@ export const testConfig = (over: Partial<Config> = {}): Config => ({
   RATE_LIMIT_PER_MIN: 300,
   TRIAL_DAYS: 7,
   CORS_ORIGINS: [],
+  WA_CLOUD_API_VERSION: 'v23.0',
+  ADMIN_PHONES: [],
   FILES_DIR: path.join(os.tmpdir(), 'tutordesk-test-files'),
   TRUST_PROXY: false,
   DB_HOST: ADMIN.host,

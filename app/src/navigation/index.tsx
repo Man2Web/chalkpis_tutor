@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LanguageScreen } from '../features/auth/LanguageScreen';
 import { OtpScreen } from '../features/auth/OtpScreen';
@@ -13,6 +13,7 @@ import { MoreScreen } from '../features/more/MoreScreen';
 import { BatchScreen } from '../features/onboarding/BatchScreen';
 import { ProfileScreen } from '../features/onboarding/ProfileScreen';
 import { StudentsScreen } from '../features/onboarding/StudentsScreen';
+import { haptic } from '../lib/haptics';
 import { colors } from '../theme';
 import { CollectFeeScreen } from '../features/fees/CollectFeeScreen';
 import { FeeLedgerScreen } from '../features/fees/FeeLedgerScreen';
@@ -20,12 +21,19 @@ import { FeePlanScreen } from '../features/fees/FeePlanScreen';
 import { FeesOverviewScreen } from '../features/fees/FeesOverviewScreen';
 import { ReceiptScreen } from '../features/fees/ReceiptScreen';
 import { ReminderScreen } from '../features/fees/ReminderScreen';
+import { AdvancePaymentScreen } from '../features/fees/AdvancePaymentScreen';
+import { PosterScreen } from '../features/poster/PosterScreen';
+import { LegalScreen } from '../features/legal/LegalScreen';
 import { BillingScreen } from '../features/billing/BillingScreen';
 import { MessageLogScreen } from '../features/messages/MessageLogScreen';
 import { NotificationSettingsScreen } from '../features/messages/NotificationSettingsScreen';
 import { HomeScreen } from '../features/dashboard/HomeScreen';
 import { ReportsScreen } from '../features/reports/ReportsScreen';
-import { SettingsScreen } from '../features/settings/SettingsScreen';
+import {
+  EditProfileScreen,
+  PaymentSettingsScreen,
+  SettingsScreen,
+} from '../features/settings/SettingsScreen';
 import { AttendanceHomeScreen } from '../features/attendance/AttendanceHomeScreen';
 import { AttendanceReportScreen } from '../features/attendance/AttendanceReportScreen';
 import { MarkAttendanceScreen } from '../features/attendance/MarkAttendanceScreen';
@@ -49,6 +57,11 @@ function AuthStack() {
       <Auth.Screen name="Language" component={LanguageScreen} />
       <Auth.Screen name="Phone" component={PhoneLoginScreen} />
       <Auth.Screen name="Otp" component={OtpScreen} />
+      <Auth.Screen
+        name="Legal"
+        component={LegalScreen as never}
+        options={{ headerShown: true, title: '', ...stackHeader }}
+      />
     </Auth.Navigator>
   );
 }
@@ -69,33 +82,44 @@ function OnboardingStack({ resume }: { resume: boolean }) {
 const ICONS = {
   Home: 'home-outline',
   Students: 'people-outline',
-  Attendance: 'checkmark-done-outline',
-  Fees: 'cash-outline',
-  More: 'menu-outline',
+  Attendance: 'checkmark-circle-outline',
+  Fees: 'wallet-outline',
+  More: 'person-circle-outline',
 } as const;
+
+/** iOS-style navigation bar on both platforms: plain background, no shadow, blue back arrow, centred title on iOS. */
+const stackHeader = {
+  headerShadowVisible: false,
+  headerStyle: { backgroundColor: colors.bg },
+  headerTintColor: colors.primary,
+  headerTitleStyle: { fontSize: 17, fontWeight: '600' as const, color: colors.text },
+  headerBackButtonDisplayMode: 'minimal' as const,
+  contentStyle: { backgroundColor: colors.bg },
+  // Android gets the same push-from-the-right movement as iOS; iOS keeps its native swipe-back.
+  animation: Platform.OS === 'android' ? ('ios_from_right' as const) : ('default' as const),
+};
 
 function MainTabs() {
   const { t } = useTranslation();
   const staff = useIsStaff();
   return (
     <Tabs.Navigator
+      screenListeners={{ tabPress: () => haptic.select() }}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textMuted,
+        tabBarInactiveTintColor: colors.gray,
         tabBarStyle: {
-          minHeight: 66,
-          paddingBottom: 8,
-          paddingTop: 6,
-          backgroundColor: 'rgba(249,249,251,0.97)',
+          backgroundColor: 'rgba(249,249,249,0.96)',
           borderTopWidth: 0.5,
-          borderTopColor: 'rgba(60,60,67,0.18)',
+          borderTopColor: 'rgba(0,0,0,0.2)',
+          elevation: 0,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-        tabBarIcon: ({ color, size, focused }) => {
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '500', letterSpacing: 0.1 },
+        tabBarIcon: ({ color, focused }) => {
           const outline = ICONS[route.name as keyof typeof ICONS];
           const name = (focused ? outline.replace('-outline', '') : outline) as typeof outline;
-          return <Ionicons name={name} size={size + 2} color={color} />;
+          return <Ionicons name={name} size={26} color={color} />;
         },
       })}
     >
@@ -122,7 +146,7 @@ function MainTabs() {
           options={{ title: t('tabs.fees') }}
         />
       )}
-      <Tabs.Screen name="More" component={MoreScreen} options={{ title: t('tabs.more') }} />
+      <Tabs.Screen name="More" component={MoreScreen} options={{ title: t('tabs.profile') }} />
     </Tabs.Navigator>
   );
 }
@@ -130,7 +154,7 @@ function MainTabs() {
 function MainStack() {
   const { t } = useTranslation();
   return (
-    <Main.Navigator>
+    <Main.Navigator screenOptions={stackHeader}>
       <Main.Screen name="Tabs" component={MainTabs} options={{ headerShown: false }} />
       <Main.Screen
         name="StudentForm"
@@ -187,6 +211,19 @@ function MainStack() {
         component={ReminderScreen}
         options={{ title: t('fees.remind') }}
       />
+      <Main.Screen name="Poster" component={PosterScreen} options={{ title: t('poster.title') }} />
+      <Main.Screen
+        name="Legal"
+        component={LegalScreen}
+        options={({ route }) => ({
+          title: route.params.doc === 'privacy' ? t('legal.privacy') : t('legal.terms'),
+        })}
+      />
+      <Main.Screen
+        name="AdvancePayment"
+        component={AdvancePaymentScreen}
+        options={{ title: t('fees.advanceTitle') }}
+      />
       <Main.Screen
         name="Reports"
         component={ReportsScreen}
@@ -195,7 +232,17 @@ function MainStack() {
       <Main.Screen
         name="Settings"
         component={SettingsScreen}
-        options={{ title: t('settings.title') }}
+        options={{ title: t('settings.instituteTitle') }}
+      />
+      <Main.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{ title: t('settings.editProfile') }}
+      />
+      <Main.Screen
+        name="PaymentSettings"
+        component={PaymentSettingsScreen}
+        options={{ title: t('settings.paymentsTitle') }}
       />
       <Main.Screen
         name="Billing"
@@ -216,7 +263,7 @@ function MainStack() {
       <Main.Screen
         name="AttendanceReport"
         component={AttendanceReportScreen}
-        options={{ title: t('attendance.reports') }}
+        options={{ title: t('more.attendanceReport') }}
       />
       <Main.Screen
         name="BatchDetail"

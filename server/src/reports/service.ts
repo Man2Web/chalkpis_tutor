@@ -123,3 +123,37 @@ export async function feesReport(db: Db, instituteId: string, q: { from: string;
     },
   };
 }
+
+/**
+ * Month by month, oldest first: what was billed for that month (after discounts, waived dues left out), how much of
+ * it has been paid so far, and how many students still owe for it. Months with no dues are present with zeros.
+ */
+export async function feesHistory(db: Db, instituteId: string, months: number, now: Date) {
+  const current = todayYmd(now).slice(0, 7);
+  const [cy, cm] = current.split('-').map(Number) as [number, number];
+  const periods = Array.from({ length: months }, (_, i) =>
+    new Date(Date.UTC(cy, cm - months + i, 1)).toISOString().slice(0, 7),
+  );
+  const [rows] = (await db.query(
+    `SELECT period,
+            SUM(CAST(amount AS SIGNED) - CAST(discount AS SIGNED)) AS billed,
+            SUM(LEAST(paid, amount - discount)) AS paid,
+            COUNT(DISTINCT IF(status IN ('pending','partial'), student_id, NULL)) AS owing
+       FROM fee_dues
+      WHERE institute_id = ? AND period BETWEEN ? AND ? AND status <> 'waived'
+      GROUP BY period`,
+    [instituteId, periods[0], periods[periods.length - 1]],
+  )) as unknown as [{ period: string; billed: number; paid: number; owing: number }[]];
+  const by = new Map(rows.map((r) => [r.period, r]));
+  return {
+    months: periods.map((p) => {
+      const r = by.get(p);
+      return {
+        period: p,
+        billed: Number(r?.billed ?? 0),
+        paid: Number(r?.paid ?? 0),
+        owingStudents: Number(r?.owing ?? 0),
+      };
+    }),
+  };
+}

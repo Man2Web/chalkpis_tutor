@@ -136,3 +136,51 @@ describe('dashboardStats', () => {
     });
   });
 });
+
+describe('weekAttendance and markingStreak', () => {
+  const { weekAttendance, markingStreak } = jest.requireActual('../logic');
+  const { addDays } = jest.requireActual('../../../lib/dates');
+  const doc = (date: string, marks: Record<string, 'P' | 'A' | 'L'>, holiday = false) => ({
+    id: date,
+    batchId: 'b',
+    date,
+    marks,
+    holiday,
+  });
+  it('gives seven days ending today, with present+late share and gaps', () => {
+    const pts = weekAttendance(
+      [
+        doc('2026-10-10', { a: 'P', b: 'A', c: 'L', d: 'P' }),
+        doc('2026-10-09', { a: 'A' }),
+        doc('2026-10-08', { a: 'P' }, true),
+      ],
+      '2026-10-10',
+      addDays,
+    );
+    expect(pts.map((p: { date: string }) => p.date)).toEqual([
+      '2026-10-04',
+      '2026-10-05',
+      '2026-10-06',
+      '2026-10-07',
+      '2026-10-08',
+      '2026-10-09',
+      '2026-10-10',
+    ]);
+    expect(pts.map((p: { pct: number | null }) => p.pct)).toEqual([
+      null,
+      null,
+      null,
+      null,
+      null,
+      0,
+      75,
+    ]);
+  });
+  it('counts the streak back from today, or from yesterday when today is not marked yet', () => {
+    const p = (...v: (number | null)[]) => v.map((pct, i) => ({ date: String(i), pct }));
+    expect(markingStreak(p(null, 50, 80, 90))).toBe(3);
+    expect(markingStreak(p(50, 80, 90, null))).toBe(3);
+    expect(markingStreak(p(50, null, 90, null))).toBe(1);
+    expect(markingStreak(p(null, null))).toBe(0);
+  });
+});

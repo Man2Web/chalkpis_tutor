@@ -82,3 +82,35 @@ Changing the server address later: edit `EXPO_PUBLIC_API_URL` in `app/eas.json` 
 ## 6. Parent page
 
 Parents open `https://tutor.chalkpis.com/p/<token>`. The tutor makes the link on the student's profile. The page is served by the same server (`server/public/`), is read-only, and shows one student's attendance, fees and receipts only.
+
+## 6. Updating the app without a new build (EAS Update)
+
+Small changes to screens, texts, colours and app logic (anything in JavaScript) reach phones over the air: no new
+build, no Play Store review. The app checks for an update each time it opens and uses it on the **next** start.
+
+**One time:** the app must contain `expo-updates`, so make **one** new build after this change
+(`npx eas-cli@latest build --profile preview --platform android`, or `production` for the Play Store) and install it.
+
+**Each update** (from the `app` folder, after `npx eas-cli@latest login`):
+
+```bash
+npm run update:preview -- "Fix fee reminder text"
+npm run update:production -- "Fix fee reminder text"
+```
+
+`preview` reaches phones with the preview (APK) build, `production` the Play Store build. The scripts always build
+against `https://tutor.chalkpis.com`, never the laptop address in `app/.env`.
+
+**What still needs a new build:** anything native: adding or upgrading a library with native code (camera, keyboard,
+haptics...), changing `app.json` (name, icon, permissions, splash) or upgrading Expo. The app uses the
+`fingerprint` runtime version, so an update made after such a change is simply not offered to older builds; make a
+new build instead. To undo a bad update: `npx eas-cli@latest update:republish` the previous one, or publish a fix.
+
+## 7. Store listing links
+
+- Privacy Policy: https://tutor.chalkpis.com/privacy
+- Terms and Conditions: https://tutor.chalkpis.com/terms
+- Support email: hello@chalkpis.com
+
+To change the wording, edit `app/src/features/legal/legal.json`, copy it to `server/public/legal.json`, redeploy the
+server and publish an app update.

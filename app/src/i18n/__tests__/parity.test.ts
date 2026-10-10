@@ -1,28 +1,50 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import en from '../en.json';
-import hi from '../hi.json';
 
-const keys = (o: Record<string, unknown>, prefix = ''): string[] =>
-  Object.entries(o).flatMap(([k, v]) =>
-    typeof v === 'object' && v !== null
-      ? keys(v as Record<string, unknown>, `${prefix}${k}.`)
-      : [`${prefix}${k}`],
-  );
+const SRC = path.join(__dirname, '..', '..');
 
-describe('translations', () => {
-  it('Hindi has exactly the same keys as English', () => {
-    expect(keys(hi).sort()).toEqual(keys(en).sort());
+function files(dir: string): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) return e.name === '__tests__' ? [] : files(p);
+    return /\.(ts|tsx)$/.test(e.name) ? [p] : [];
   });
-  it('placeholders match in every string', () => {
-    const flat = (o: Record<string, unknown>, p = ''): [string, string][] =>
-      Object.entries(o).flatMap(([k, v]) =>
-        typeof v === 'object' && v
-          ? flat(v as Record<string, unknown>, `${p}${k}.`)
-          : [[`${p}${k}`, String(v)] as [string, string]],
-      );
-    const hiMap = new Map(flat(hi));
-    for (const [key, text] of flat(en)) {
-      const ph = (s: string) => (s.match(/{{\w+}}/g) ?? []).sort().join();
-      expect(ph(hiMap.get(key) ?? '')).toBe(ph(text));
+}
+
+const has = (key: string) =>
+  key.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown> | undefined)?.[k], en) !==
+    undefined ||
+  // plural keys live as key_one / key_other
+  ['_one', '_other'].some((s) => {
+    const parts = key.split('.');
+    const last = parts.pop()!;
+    const parent = parts.reduce<unknown>(
+      (o, k) => (o as Record<string, unknown> | undefined)?.[k],
+      en,
+    );
+    return (parent as Record<string, unknown> | undefined)?.[last + s] !== undefined;
+  });
+
+describe('translations (English only)', () => {
+  it('every fixed text key used in the code exists in en.json', () => {
+    const missing: string[] = [];
+    for (const f of files(SRC)) {
+      const src = fs.readFileSync(f, 'utf8');
+      for (const m of src.matchAll(/\bt\('([a-zA-Z0-9_.]+)'/g))
+        if (!has(m[1]!)) missing.push(`${path.relative(SRC, f)}: ${m[1]}`);
     }
+    expect(missing).toEqual([]);
+  });
+});
+
+describe('legal texts', () => {
+  it('the app and the website show the same Privacy Policy and Terms', () => {
+    const app = fs.readFileSync(path.join(SRC, 'features', 'legal', 'legal.json'), 'utf8');
+    const web = fs.readFileSync(
+      path.join(SRC, '..', '..', 'server', 'public', 'legal.json'),
+      'utf8',
+    );
+    expect(web).toBe(app);
   });
 });

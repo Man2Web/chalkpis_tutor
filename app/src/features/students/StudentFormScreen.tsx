@@ -62,6 +62,8 @@ export function StudentFormScreen({
             dueDay: existing.dueDay,
             notifyParent: existing.notifyParent,
             notes: existing.notes ?? '',
+            dob: existing.dob ?? '',
+            gender: existing.gender ?? '',
             joinedOn: toYmd(existing.joinedAt.toDate()),
           }
         : {
@@ -75,6 +77,8 @@ export function StudentFormScreen({
             dueDay: 1,
             notifyParent: true,
             notes: '',
+            dob: '',
+            gender: '',
             joinedOn: todayYmd(),
           },
     [existing],
@@ -186,7 +190,7 @@ export function StudentFormScreen({
       />
       <FormInput control={control} name="class" label={t('onboarding.class')} />
 
-      <Text style={type.label}>{t('students.batches')}</Text>
+      <Text style={type.fieldLabel}>{t('students.batches')}</Text>
       <View
         style={{
           flexDirection: 'row',
@@ -214,7 +218,7 @@ export function StudentFormScreen({
         label={t('onboarding.monthlyFee')}
         keyboardType="decimal-pad"
       />
-      <Text style={type.label}>{t('students.feeCycle')}</Text>
+      <Text style={type.fieldLabel}>{t('students.feeCycle')}</Text>
       <Controller
         control={control}
         name="feeCycle"
@@ -278,6 +282,38 @@ export function StudentFormScreen({
               onValueChange={field.onChange}
               accessibilityLabel={t('students.notifyParent')}
             />
+          </View>
+        )}
+      />
+      <FormInput
+        control={control}
+        name="dob"
+        label={t('students.dob')}
+        placeholder="YYYY-MM-DD"
+        keyboardType="numbers-and-punctuation"
+        maxLength={10}
+      />
+      <Text style={type.fieldLabel}>{t('students.gender')}</Text>
+      <Controller
+        control={control}
+        name="gender"
+        render={({ field }) => (
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: spacing.sm,
+              marginBottom: spacing.md,
+            }}
+          >
+            {(['male', 'female', 'other'] as const).map((g) => (
+              <Chip
+                key={g}
+                label={t(`students.genders.${g}`)}
+                selected={field.value === g}
+                onPress={() => field.onChange(field.value === g ? '' : g)}
+              />
+            ))}
           </View>
         )}
       />

@@ -3,11 +3,20 @@ import { FlatList, RefreshControl, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { Button, Chip, EmptyState, ListItem, Screen, Skeleton } from '../../components';
+import {
+  Button,
+  Chip,
+  EmptyState,
+  InsetSeparator,
+  ListItem,
+  listCard,
+  Screen,
+  Skeleton,
+} from '../../components';
 import { useAttendanceOn, useBatches } from '../../data/hooks';
 import { todayYmd, weekdayOf } from '../../lib/dates';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, radius, spacing, type } from '../../theme';
+import { spacing, type } from '../../theme';
 import { useIsStaff } from '../auth/session';
 import { scheduleLabel } from '../batches/format';
 import { DateStrip } from './DateStrip';
@@ -70,6 +79,7 @@ export function AttendanceHomeScreen() {
           <Text style={type.largeTitle}>{t('tabs.attendance')}</Text>
           <Button
             variant="secondary"
+            size="small"
             title={t('attendance.reports')}
             onPress={() => nav.navigate('AttendanceReport')}
           />
@@ -85,12 +95,8 @@ export function AttendanceHomeScreen() {
         </View>
       ) : (
         <FlatList
-          style={{
-            marginHorizontal: spacing.lg,
-            marginBottom: spacing.md,
-            borderRadius: radius.lg,
-            overflow: 'hidden',
-          }}
+          style={{ flex: 1 }}
+          contentContainerStyle={listCard}
           data={sorted}
           keyExtractor={(b) => b.id}
           refreshControl={
@@ -102,9 +108,7 @@ export function AttendanceHomeScreen() {
               }}
             />
           }
-          ItemSeparatorComponent={() => (
-            <View style={{ height: 1, backgroundColor: colors.border }} />
-          )}
+          ItemSeparatorComponent={InsetSeparator}
           ListEmptyComponent={
             staff ? (
               <EmptyState

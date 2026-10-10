@@ -1,3 +1,4 @@
+import { haptic } from '../../lib/haptics';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -86,10 +87,14 @@ export function MarkAttendanceScreen({
 
   // Functional update: two quick taps in a row must both count.
   const baseMark = useMemo(() => new Map(rows.map((r) => [r.student.id, r.mark])), [rows]);
-  const setMark = (id: string) =>
+  const setMark = (id: string) => {
+    haptic.select();
     setEdits((prev) => tapMark(prev, date, id, baseMark.get(id) ?? 'P'));
-  const markAllPresent = () =>
+  };
+  const markAllPresent = () => {
+    haptic.success();
     setEdits({ date, marks: Object.fromEntries(rows.map((r) => [r.student.id, 'P' as Mark])) });
+  };
 
   const save = async () => {
     setBusy(true);
@@ -160,21 +165,23 @@ export function MarkAttendanceScreen({
                 flexWrap: 'wrap',
               }}
             >
-              <Chip label={`${t('attendance.present')} ${c.P}`} tone="success" />
-              <Chip label={`${t('attendance.absent')} ${c.A}`} tone="danger" />
-              <Chip label={`${t('attendance.late')} ${c.L}`} tone="warning" />
+              <Chip small label={`${t('attendance.present')} ${c.P}`} tone="success" />
+              <Chip small label={`${t('attendance.absent')} ${c.A}`} tone="danger" />
+              <Chip small label={`${t('attendance.late')} ${c.L}`} tone="warning" />
             </View>
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
               <Button
                 style={{ flex: 1 }}
+                size="small"
                 variant="secondary"
                 title={t('attendance.markAll')}
                 onPress={markAllPresent}
               />
               <Button
                 style={{ flex: 1 }}
-                variant="ghost"
-                title={t('attendance.holidayOrCancel')}
+                size="small"
+                variant="secondary"
+                title={t('attendance.holidayShort')}
                 onPress={() => setSheet(true)}
               />
             </View>

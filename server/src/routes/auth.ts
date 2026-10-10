@@ -19,6 +19,13 @@ type Deps = Pick<AppDeps, 'config' | 'pool'> & {
   clock?: () => Date;
 };
 
+async function isBlocked(pool: Deps['pool'], userId: string) {
+  const [rows] = (await pool.query('SELECT blocked_at FROM users WHERE id = ?', [
+    userId,
+  ])) as unknown as [{ blocked_at: Date | null }[]];
+  return !!rows[0]?.blocked_at;
+}
+
 /** The profile the app needs right after login. Never includes anything about other users. */
 async function profile(deps: Deps, userId: string) {
   const [rows] = (await deps.pool.query(
@@ -40,6 +47,7 @@ async function profile(deps: Deps, userId: string) {
   if (!r) return null;
   return {
     user: { id: r.id, phone: r.phone, name: r.name, language: r.language },
+    isAdmin: deps.config.ADMIN_PHONES.includes(r.phone),
     membership: r.institute_id
       ? { instituteId: r.institute_id, role: r.role, onboardingDone: !!r.onboarding_done }
       : null,
@@ -87,6 +95,17 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
       if (!body.success) return reply.code(400).send({ error: 'bad_request' });
       const v = await verifyOtp(otpDeps, body.data.phone, body.data.code);
       if (!v.ok) return reply.code(401).send({ error: 'invalid_code' });
+      // Checked only after a correct code, so a blocked number cannot be discovered by guessing.
+      if (await isBlocked(deps.pool, v.userId))
+        return reply.code(403).send({ error: 'account_blocked' });
+      await deps.pool.query('UPDATE users SET last_login_at = ? WHERE id = ?', [
+        (deps.clock ?? (() => new Date()))(),
+        v.userId,
+      ]);
+      await deps.pool.query('INSERT INTO login_events (user_id, created_at) VALUES (?, ?)', [
+        v.userId,
+        (deps.clock ?? (() => new Date()))(),
+      ]);
       const session = await startSession(sessionDeps, v.userId);
       return {
         accessToken: session.accessToken,

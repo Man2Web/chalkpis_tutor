@@ -74,7 +74,13 @@ export async function requestOtp(deps: OtpDeps, rawPhone: unknown): Promise<OtpR
       );
     });
 
-    const sent = await deps.provider!.send({ to: phone, templateId, vars: [code], reference: id });
+    const sent = await deps.provider!.send({
+      to: phone,
+      templateId,
+      vars: [code],
+      reference: id,
+      otp: true,
+    });
     if (!sent.ok) {
       await conn.query('DELETE FROM otp_codes WHERE id = ?', [id]); // a code nobody received must not count against the limits
       return { ok: false, error: 'unavailable' } as const;

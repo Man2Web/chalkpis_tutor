@@ -101,7 +101,7 @@ describe('settings', () => {
     expect((await on(A, { language: 'hi', feeDueDaysBefore: 5 })).status).toBe(200);
     expect((await A.call('GET', '/settings/notifications')).body).toMatchObject({
       enabled: true,
-      language: 'hi',
+      language: 'en', // English only: an old app asking for Hindi gets English
       feeDueDaysBefore: 5,
     });
     expect((await B.call('GET', '/settings/notifications')).body.enabled).toBe(false); // B unaffected
@@ -217,12 +217,12 @@ describe('attendance messages', () => {
     });
   });
 
-  it('the language setting picks the Hindi template, falling back to English when there is none', async () => {
+  it('messages are always English, even if Hindi was asked for', async () => {
     await on(A, { language: 'hi' });
     await mark(A, b, TODAY, { [s1]: 'A', [s2]: 'L' });
     await run();
-    expect(h.provider.sent.map((m) => m.templateId).sort()).toEqual(['102', '201']); // absent has a hi template, late falls back to en
-    expect(h.provider.sent.find((m) => m.templateId === '201')!.vars[1]).toMatch(/2026/);
+    expect(h.provider.sent.map((m) => m.templateId).sort()).toEqual(['101', '102']);
+    expect(h.provider.sent.find((m) => m.templateId === '101')!.vars[1]).toMatch(/2026/);
   });
 
   it('switching a type off queues only the other', async () => {
@@ -442,8 +442,9 @@ describe('the worker', () => {
     expect((await rows())[0]).toMatchObject({
       status: 'failed',
       attempts: MAX_ATTEMPTS,
-      vars: null,
     });
+    // a failed message keeps its values (wiped after 7 days) so an admin can retry it
+    expect((await rows())[0]!.vars).toContain('Asha Rao');
     expect(await run()).toMatchObject({ sent: 0, failed: 0 }); // finished: never retried again
   });
 
@@ -539,9 +540,8 @@ describe('template helpers', () => {
     expect(parseTemplates('{"absent":{"en":1809231,"hi":" "},"nope":{"en":"1"},"late":5}')).toEqual(
       { absent: { en: '1809231' } },
     );
-    expect(templateFor(TEMPLATES, 'absent', 'hi')).toBe('201');
-    expect(templateFor(TEMPLATES, 'late', 'hi')).toBe('102');
-    expect(templateFor({}, 'late', 'en')).toBeUndefined();
+    expect(templateFor(TEMPLATES, 'absent')).toBe('101');
+    expect(templateFor({}, 'late')).toBeUndefined();
   });
   it('cleanVar strips the separator and line breaks, never returns empty, and caps the length', () => {
     expect(cleanVar('a~b\nc\t d')).toBe('a b c d');

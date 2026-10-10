@@ -42,3 +42,23 @@ Where to look: Coolify -> the service -> **Runtime Logs** -> **Backup**. Any lin
 **Limits to know:** these backups live in a Docker volume on the same VPS. They protect against mistakes, a bad deploy and database trouble, but NOT against losing the server's disk. For that, add one of: Hostinger's weekly VPS backup (hPanel -> the VPS -> Backups), or an S3-compatible bucket (Coolify -> S3 Storage, then copy the volume there). Also practise a real restore with `docs/BACKUPS.md` before you depend on it.
 
 **Taking a backup right now:** Coolify -> the service -> restart only the Backup resource (it backs up first thing when it starts).
+
+## Admin dashboard
+
+`https://tutor.chalkpis.com/admin` (sign in with an `ADMIN_PHONES` number and the WhatsApp code). Press **⌘K / Ctrl+K**
+anywhere to search logins and centres or jump to a page; **● Live** refreshes every 30 s; **◐** switches light/dark.
+
+| Page | What it shows / does |
+| --- | --- |
+| Overview | 30-day KPIs with change vs the previous 30 days and trend lines; logins, signed-in now, centres by plan, students; usage chart; activation funnel; centres that need attention; live sign-in feed |
+| Analytics | 7/30/90/180-day charts: sign-ups, sign-ins, active centres, fees recorded, WhatsApp sent vs failed, attendance saved; active plans; plan revenue by month; retention (7/30 d) and trial-to-paid |
+| Centres | Every centre with plan, students, last activity, fees and WhatsApp (30 d) and a 0-100 health score; search, filters (trial, paid, ended, at risk), sorting, CSV export; detail with people, activity, message mix, plan payments and plan extension |
+| Logins | Every tutor and helper; sign out everywhere, block/unblock, extend plan; CSV export |
+| WhatsApp | Every parent message platform-wide with status and reason, 7-day delivery rate, top failure reasons, per-type delivery; **Retry** for a failed message (within 7 days) |
+| Announcements | Publish a banner to every tutor's Home (info / good news / warning, for everyone, tutors or helpers, 1 day to no end) with a live preview; end it any time |
+| Sign-in activity | Every login-code request in the last day and its result |
+| Audit log | Every admin action |
+| System health | Server version and uptime, database ping and size, last migration, message queue backlog, WhatsApp sender and templates, scheduled jobs |
+
+Who is an admin: the numbers in `ADMIN_PHONES` (comma separated), set in Coolify **Environment Variables**, then
+redeploy. Admin accounts cannot be blocked from the dashboard.

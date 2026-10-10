@@ -4,7 +4,12 @@ import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createPool } from './db.js';
 import { MockBillingProvider, RazorpayProvider, type BillingProvider } from './billing/provider.js';
-import { MockProvider, WhatsAppProvider, type MessageProvider } from './messaging/provider.js';
+import {
+  MetaCloudProvider,
+  MockProvider,
+  WhatsAppProvider,
+  type MessageProvider,
+} from './messaging/provider.js';
 import { startScheduler } from './jobs/runner.js';
 import { parseTemplates } from './messaging/templates.js';
 import { startWorker } from './messaging/worker.js';
@@ -20,7 +25,13 @@ async function main() {
     if (r.applied.length) console.log(`migrations applied: ${r.applied.join(', ')}`);
   }
   let provider: MessageProvider | null = null;
-  if (
+  if (config.WA_CLOUD_PHONE_NUMBER_ID && config.WA_CLOUD_TOKEN && config.WA_TEMPLATE_OTP) {
+    provider = new MetaCloudProvider({
+      phoneNumberId: config.WA_CLOUD_PHONE_NUMBER_ID,
+      token: config.WA_CLOUD_TOKEN,
+      version: config.WA_CLOUD_API_VERSION,
+    });
+  } else if (
     config.WA_API_URL &&
     config.WA_FROM &&
     config.WA_CLIENT_ID &&

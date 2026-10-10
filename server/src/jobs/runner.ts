@@ -45,6 +45,11 @@ async function cleanupJob(pool: Pool, now: Date) {
     n += res.affectedRows;
   };
   await run('DELETE FROM otp_codes WHERE expires_at < ?', [ago(1)]);
+  // failed messages keep their values for a possible retry from the admin dashboard, for 7 days only
+  await run(
+    "UPDATE messages SET vars = NULL, media_url = NULL WHERE status = 'failed' AND vars IS NOT NULL AND created_at < ?",
+    [ago(7)],
+  );
   await run(
     'DELETE FROM refresh_tokens WHERE expires_at < ? OR (revoked_at IS NOT NULL AND revoked_at < ?)',
     [ago(7), ago(7)],

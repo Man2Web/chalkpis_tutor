@@ -116,7 +116,7 @@ it('shows saved marks when editing a past day', async () => {
 it('saves a holiday with no marks', async () => {
   setup();
   await render(<MarkAttendanceScreen navigation={navigation} route={route} />);
-  await fireEvent.press(screen.getByRole('button', { name: 'Holiday / cancelled' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Holiday' }));
   await fireEvent.press(screen.getByRole('button', { name: 'Class cancelled' }));
   expect(screen.getByText('Marked as class cancelled')).toBeTruthy();
   await fireEvent.press(screen.getByRole('button', { name: 'Save' }));

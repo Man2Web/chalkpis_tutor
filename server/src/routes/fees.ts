@@ -3,6 +3,7 @@ import type { AppDeps } from '../app.js';
 import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
 import { requireActivePlan } from '../institutes/limits.js';
 import {
+  advanceInput,
   chargeInput,
   discountInput,
   duesQuery,
@@ -20,6 +21,7 @@ import {
   getPayment,
   listDues,
   listPayments,
+  recordAdvance,
   recordPayment,
   reversePayment,
   setDiscount,
@@ -27,7 +29,8 @@ import {
 } from '../fees/service.js';
 import { currentPeriod } from '../lib/ist.js';
 import { idParam, parse } from '../lib/params.js';
-import { dashboard, feesReport } from '../reports/service.js';
+import { z } from 'zod';
+import { dashboard, feesHistory, feesReport } from '../reports/service.js';
 
 type Deps = Pick<AppDeps, 'config' | 'pool'> & { clock?: () => Date };
 
@@ -44,6 +47,13 @@ export function feeRoutes(app: FastifyInstance, deps: Deps) {
     feesReport(deps.pool, inst(req), parse(rangeQuery, req.query)),
   );
 
+  app.get('/reports/fees-history', read, async (req) => {
+    const q = parse(
+      z.object({ months: z.coerce.number().int().min(1).max(24).default(6) }),
+      req.query,
+    );
+    return feesHistory(deps.pool, inst(req), q.months, now());
+  });
   app.get('/fees/overview', read, async (req) => feesOverview(deps.pool, inst(req), now()));
   app.get('/fees/dues', read, async (req) => ({
     dues: await listDues(deps.pool, inst(req), parse(duesQuery, req.query), now()),
@@ -69,6 +79,19 @@ export function feeRoutes(app: FastifyInstance, deps: Deps) {
           req.auth!.userId,
           id(req),
           parse(paymentInput, req.body),
+          now(),
+        ),
+      ),
+  );
+  app.post('/fees/advance', write, async (req, reply) =>
+    reply
+      .code(201)
+      .send(
+        await recordAdvance(
+          deps.pool,
+          inst(req),
+          req.auth!.userId,
+          parse(advanceInput, req.body),
           now(),
         ),
       ),

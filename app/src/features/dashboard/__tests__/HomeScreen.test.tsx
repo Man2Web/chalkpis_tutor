@@ -21,10 +21,20 @@ jest.mock('../../auth/session', () => ({
   useSession: (sel: (s: { profile: { name: string } }) => unknown) =>
     sel({ profile: { name: 'Asha' } }),
 }));
+jest.mock('../../announcements/AnnouncementBanner', () => ({ AnnouncementBanner: () => null }));
+jest.mock('../../tasks/api', () => ({
+  useTasks: () => ({ data: [], isLoading: false }),
+  useTaskActions: () => ({
+    add: { mutate: jest.fn() },
+    toggle: { mutate: jest.fn() },
+    remove: { mutate: jest.fn() },
+  }),
+}));
 jest.mock('../../../data/hooks', () => ({
   useStudents: jest.fn(),
   useBatches: jest.fn(),
   useAttendanceOn: jest.fn(),
+  useAttendanceRange: () => ({ data: [], isLoading: false, isError: false }),
   useUnpaidDues: jest.fn(),
   usePaymentsThisMonth: jest.fn(),
   useLimits: jest.fn(),
@@ -59,9 +69,9 @@ beforeEach(() => jest.clearAllMocks());
 it('greets the tutor and shows zeroed numbers for a new institute', async () => {
   setup();
   await render(<HomeScreen />);
-  expect(screen.getByText('Hello, Asha')).toBeTruthy();
-  expect(screen.getByText('Not marked yet')).toBeTruthy();
+  expect(screen.getByText(/^Good (morning|afternoon|evening), Asha$/)).toBeTruthy();
   expect(screen.getByText('No classes scheduled today')).toBeTruthy();
+  expect(screen.getByText('Chalkpis')).toBeTruthy(); // logo and name, top left
 });
 
 it('quick actions navigate', async () => {

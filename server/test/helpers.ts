@@ -45,6 +45,10 @@ export interface Tenant {
 }
 
 const TABLES = [
+  'login_events',
+  'announcements',
+  'admin_audit',
+  'tasks',
   'job_runs',
   'staff_batches',
   'parent_links',

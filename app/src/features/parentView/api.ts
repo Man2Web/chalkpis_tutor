@@ -10,13 +10,18 @@ export interface LinkStatus {
   latestExpiresAt: string | null;
 }
 
-export async function createParentLink(studentId: string, days: number): Promise<CreatedLink> {
-  const r = await api<{ url: string; expiresAt: string }>(
+/** Makes a new private link and (by default) has the server send it to the parent through the WhatsApp API. */
+export async function createParentLink(
+  studentId: string,
+  days: number,
+  sendWhatsApp = true,
+): Promise<CreatedLink & { sent: boolean }> {
+  const r = await api<{ url: string; expiresAt: string; sent?: boolean }>(
     'POST',
     `/students/${studentId}/parent-link`,
-    { days },
+    { days, sendWhatsApp },
   );
-  return { url: r.url, expiresAt: r.expiresAt };
+  return { url: r.url, expiresAt: r.expiresAt, sent: !!r.sent };
 }
 
 export async function revokeParentLinks(studentId: string): Promise<number> {

@@ -32,7 +32,9 @@ interface Row {
   student_id: string;
   type: MessageType;
   lang: Lang;
+  manual: number;
   vars: string | null;
+  media_url: string | null;
   attempts: number;
   parent_phone: string;
   student_status: string;
@@ -61,7 +63,7 @@ export async function processQueue(deps: WorkerDeps, limit = 25): Promise<Tally>
     [claim, now, now, limit],
   );
   const [rows] = (await pool.query(
-    `SELECT m.id, m.institute_id, m.student_id, m.type, m.lang, m.vars, m.attempts, s.parent_phone, s.status AS student_status, s.notify_parent
+    `SELECT m.id, m.institute_id, m.student_id, m.type, m.lang, m.manual, m.vars, m.media_url, m.attempts, s.parent_phone, s.status AS student_status, s.notify_parent
        FROM messages m JOIN students s ON s.institute_id = m.institute_id AND s.id = m.student_id WHERE m.claim = ?`,
     [claim],
   )) as unknown as [Row[]];
@@ -78,7 +80,8 @@ export async function processQueue(deps: WorkerDeps, limit = 25): Promise<Tally>
     } = {},
   ) => {
     await pool.query(
-      'UPDATE messages SET status = ?, reason = ?, error = ?, provider_id = ?, channel = ?, template_id = ?, sent_at = ?, vars = NULL, claim = NULL WHERE id = ?',
+      `UPDATE messages SET status = ?, reason = ?, error = ?, provider_id = ?, channel = ?, template_id = ?, sent_at = ?,
+         vars = IF(? = 'failed', vars, NULL), media_url = IF(? = 'failed', media_url, NULL), claim = NULL WHERE id = ?`,
       [
         status,
         extra.reason ?? null,
@@ -87,6 +90,9 @@ export async function processQueue(deps: WorkerDeps, limit = 25): Promise<Tally>
         extra.channel ?? null,
         extra.templateId ?? null,
         status === 'sent' ? now : null,
+        // a failed message keeps its values for 7 days so an admin can retry it; the cleanup job wipes them
+        status,
+        status,
         r.id,
       ],
     );
@@ -107,7 +113,9 @@ export async function processQueue(deps: WorkerDeps, limit = 25): Promise<Tally>
 
   for (const r of rows) {
     const inst = await institute(r.institute_id);
-    if (!inst.enabled) {
+    // The automatic-messages switch and the per-student opt-out are about automatic messages; something the tutor
+    // pressed Send for goes out anyway (only to an active student).
+    if (!inst.enabled && !r.manual) {
       await settled(r, 'skipped', { reason: 'switched-off' });
       continue;
     }
@@ -115,7 +123,7 @@ export async function processQueue(deps: WorkerDeps, limit = 25): Promise<Tally>
       await settled(r, 'skipped', { reason: 'plan-expired' });
       continue;
     }
-    if (r.student_status !== 'active' || !r.notify_parent) {
+    if (r.student_status !== 'active' || (!r.notify_parent && !r.manual)) {
       await settled(r, 'skipped', { reason: 'opted-out' });
       continue;
     }
@@ -127,7 +135,7 @@ export async function processQueue(deps: WorkerDeps, limit = 25): Promise<Tally>
       await settled(r, 'skipped', { reason: 'not-configured' });
       continue;
     }
-    const templateId = templateFor(deps.templates, r.type, r.lang);
+    const templateId = templateFor(deps.templates, r.type);
     if (!templateId) {
       await settled(r, 'skipped', { reason: 'no-template' });
       continue;
@@ -144,6 +152,7 @@ export async function processQueue(deps: WorkerDeps, limit = 25): Promise<Tally>
       templateId,
       vars,
       reference: r.id,
+      ...(r.media_url ? { imageUrl: r.media_url } : {}),
     });
     if (result.ok) {
       await settled(r, 'sent', {

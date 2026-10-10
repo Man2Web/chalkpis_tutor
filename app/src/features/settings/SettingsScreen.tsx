@@ -1,78 +1,64 @@
 import { useState } from 'react';
-import { Image, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { BottomSheet, Button, Card, Chip, Input, Screen, Skeleton, toast } from '../../components';
+import { api, uploadImage } from '../../api/client';
+import { Avatar, Button, Input, Screen, Section, Skeleton, toast } from '../../components';
 import { useInstitute, useRefreshData } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
-import { open } from '../../lib/contact';
-import { api, uploadImage } from '../../api/client';
-import { setLanguage, type Lang } from '../../lib/language';
+import { cleanUpi, upiLink } from '../../lib/upi';
+import type { MainStackParams } from '../../navigation/types';
 import { colors, spacing, type } from '../../theme';
-import { logout, refreshProfile, useSession } from '../auth/session';
-import { cleanUpi } from '../../lib/upi';
-import { canDelete, cleanPrefix, DELETE_WORD } from './logic';
+import { refreshProfile, useSession } from '../auth/session';
+import { UpiQr } from '../../components/UpiQr';
+import { cleanPrefix } from './logic';
 
-const PRIVACY_URL = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL ?? '';
+const Loading = () => (
+  <Screen>
+    <Skeleton height={160} />
+  </Screen>
+);
 
-export function SettingsScreen() {
-  const { t, i18n } = useTranslation();
-  const { uid, profile } = useSession();
+/** Institute details shown on receipts: logo, name, address, phone, receipt prefix. */
+export function SettingsScreen({
+  navigation,
+}: Partial<NativeStackScreenProps<MainStackParams, 'Settings'>>) {
+  const { t } = useTranslation();
   const refresh = useRefreshData();
   const institute = useInstitute();
-
-  const [name, setName] = useState<string>();
   const [instName, setInstName] = useState<string>();
   const [address, setAddress] = useState<string>();
   const [phone, setPhone] = useState<string>();
   const [prefix, setPrefix] = useState<string>();
-  const [upi, setUpi] = useState<string>();
-  const [upiError, setUpiError] = useState<string>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
-  const [del, setDel] = useState(false);
-  const [typed, setTyped] = useState('');
 
-  if (institute.isLoading || !institute.data || !uid)
-    return (
-      <Screen>
-        <Skeleton height={160} />
-      </Screen>
-    );
+  if (institute.isLoading || !institute.data) return <Loading />;
   const inst = institute.data;
-  const lang: Lang = i18n.language === 'hi' ? 'hi' : 'en';
-
-  const nameV = name ?? profile?.name ?? '';
   const instV = instName ?? inst.name;
   const addrV = address ?? inst.address ?? '';
   const phoneV = phone ?? inst.phone ?? '';
   const prefixV = prefix ?? inst.receiptPrefix;
-  const upiV = upi ?? inst.upiId ?? '';
 
   const save = async () => {
     setError(undefined);
-    setUpiError(undefined);
     const clean = cleanPrefix(prefixV);
-    const cleanUpiId = cleanUpi(upiV);
-    if (nameV.trim().length < 2 || instV.trim().length < 2)
-      return setError(t('validation.required'));
+    if (instV.trim().length < 2) return setError(t('validation.required'));
     if (!clean) return setError(t('settings.prefixInvalid'));
-    if (cleanUpiId === null) return setUpiError(t('settings.upiInvalid'));
     setBusy(true);
     try {
-      await api('PATCH', '/me', { name: nameV.trim() });
       await api('PATCH', '/institute', {
         name: instV.trim(),
         address: addrV.trim(),
         phone: phoneV.trim(),
         receiptPrefix: clean,
-        upiId: cleanUpiId,
       });
-      await refreshProfile();
       await refresh();
       setPrefix(clean);
-      setUpi(cleanUpiId);
       toast(t('students.saved'), 'success');
+      navigation?.goBack();
     } catch (e) {
       reportError(e);
       toast(t('common.error'), 'error');
@@ -98,58 +84,37 @@ export function SettingsScreen() {
     }
   };
 
-  const pickLanguage = async (l: Lang) => {
-    await setLanguage(l);
-    try {
-      await api('PATCH', '/me', { language: l });
-    } catch (e) {
-      reportError(e); // the screen language already changed; syncing the profile can fail quietly
-    }
-  };
-
-  const deleteAccount = async () => {
-    setBusy(true);
-    try {
-      await api('DELETE', '/account', { confirm: true });
-      try {
-        await logout();
-      } catch {
-        // the account is already gone; the session ends on its own
-      }
-    } catch (e) {
-      reportError(e);
-      toast(t('settings.deleteFailed'), 'error');
-      setBusy(false);
-    }
-  };
-
   return (
     <Screen>
-      <Text style={type.heading}>{t('settings.profile')}</Text>
-      <Input label={t('onboarding.tutorName')} value={nameV} onChangeText={setName} />
-      <Input label={t('auth.phoneLabel')} value={profile?.phone ?? ''} editable={false} />
-
-      <Text style={[type.heading, { marginTop: spacing.md }]}>{t('settings.institute')}</Text>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: spacing.md,
-          marginBottom: spacing.md,
-        }}
+      <Pressable
+        onPress={changeLogo}
+        accessibilityRole="button"
+        accessibilityLabel={inst.logoUrl ? t('onboarding.changeLogo') : t('onboarding.addLogo')}
+        style={{ alignItems: 'center', gap: spacing.sm, marginVertical: spacing.md }}
       >
         {inst.logoUrl ? (
           <Image
             source={{ uri: inst.logoUrl }}
-            style={{ width: 56, height: 56, borderRadius: 12 }}
+            style={{ width: 88, height: 88, borderRadius: 20 }}
           />
-        ) : null}
-        <Button
-          variant="secondary"
-          title={inst.logoUrl ? t('onboarding.changeLogo') : t('onboarding.addLogo')}
-          onPress={changeLogo}
-        />
-      </View>
+        ) : (
+          <View
+            style={{
+              width: 88,
+              height: 88,
+              borderRadius: 20,
+              backgroundColor: colors.fill,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="image-outline" size={34} color={colors.gray} />
+          </View>
+        )}
+        <Text style={[type.subhead, { color: colors.primaryDark, fontWeight: '600' }]}>
+          {inst.logoUrl ? t('onboarding.changeLogo') : t('onboarding.addLogo')}
+        </Text>
+      </Pressable>
       <Input label={t('onboarding.instituteName')} value={instV} onChangeText={setInstName} />
       <Input label={t('settings.address')} value={addrV} onChangeText={setAddress} multiline />
       <Input
@@ -166,8 +131,104 @@ export function SettingsScreen() {
         autoCapitalize="characters"
         maxLength={6}
         error={error}
+        hint={t('settings.prefixHint')}
       />
-      <Text style={[type.caption, { marginBottom: spacing.md }]}>{t('settings.prefixHint')}</Text>
+      <Button title={t('common.save')} onPress={save} loading={busy} />
+    </Screen>
+  );
+}
+
+/** The tutor's own name (shown in the app) and the phone they sign in with. */
+export function EditProfileScreen({
+  navigation,
+}: NativeStackScreenProps<MainStackParams, 'EditProfile'>) {
+  const { t } = useTranslation();
+  const { profile } = useSession();
+  const [name, setName] = useState<string>();
+  const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const nameV = name ?? profile?.name ?? '';
+
+  const save = async () => {
+    if (nameV.trim().length < 2) return setError(t('validation.required'));
+    setBusy(true);
+    try {
+      await api('PATCH', '/me', { name: nameV.trim() });
+      await refreshProfile();
+      toast(t('students.saved'), 'success');
+      navigation.goBack();
+    } catch (e) {
+      reportError(e);
+      toast(t('common.error'), 'error');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Screen>
+      <View style={{ alignItems: 'center', marginVertical: spacing.md }}>
+        <Avatar name={nameV || '?'} size={88} />
+      </View>
+      <Input
+        label={t('onboarding.tutorName')}
+        value={nameV}
+        onChangeText={setName}
+        error={error}
+        autoComplete="name"
+      />
+      <Input
+        label={t('auth.phoneLabel')}
+        value={profile?.phone ?? ''}
+        editable={false}
+        hint={t('settings.phoneHint')}
+      />
+      <Button title={t('common.save')} onPress={save} loading={busy} />
+    </Screen>
+  );
+}
+
+/** Where parents pay: the tutor's UPI id (shown as a QR in reminders) or their own payment link. */
+export function PaymentSettingsScreen({
+  navigation,
+}: NativeStackScreenProps<MainStackParams, 'PaymentSettings'>) {
+  const { t } = useTranslation();
+  const refresh = useRefreshData();
+  const institute = useInstitute();
+  const [upi, setUpi] = useState<string>();
+  const [link, setLink] = useState<string>();
+  const [upiError, setUpiError] = useState<string>();
+  const [linkError, setLinkError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+
+  if (institute.isLoading || !institute.data) return <Loading />;
+  const inst = institute.data;
+  const upiV = upi ?? inst.upiId ?? '';
+  const linkV = link ?? inst.paymentLink ?? '';
+  const preview = cleanUpi(upiV);
+
+  const save = async () => {
+    setUpiError(undefined);
+    setLinkError(undefined);
+    const cleanUpiId = cleanUpi(upiV);
+    if (cleanUpiId === null) return setUpiError(t('settings.upiInvalid'));
+    const cleanLink = linkV.trim();
+    if (cleanLink && !/^https:\/\/[^\s<>"]+$/i.test(cleanLink))
+      return setLinkError(t('settings.linkInvalid'));
+    setBusy(true);
+    try {
+      await api('PATCH', '/institute', { upiId: cleanUpiId, paymentLink: cleanLink });
+      await refresh();
+      toast(t('students.saved'), 'success');
+      navigation.goBack();
+    } catch (e) {
+      reportError(e);
+      toast(t('common.error'), 'error');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Screen>
       <Input
         label={t('settings.upiId')}
         value={upiV}
@@ -176,70 +237,31 @@ export function SettingsScreen() {
         autoCorrect={false}
         keyboardType="email-address"
         maxLength={80}
+        placeholder="name@okhdfcbank"
         error={upiError}
+        hint={t('settings.upiHint')}
       />
-      <Text style={[type.caption, { marginBottom: spacing.md }]}>{t('settings.upiHint')}</Text>
-      <Button title={t('common.save')} onPress={save} loading={busy} />
-
-      <Text style={[type.heading, { marginTop: spacing.lg }]}>{t('settings.language')}</Text>
-      <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md }}>
-        <Chip label="English" selected={lang === 'en'} onPress={() => pickLanguage('en')} />
-        <Chip label="हिन्दी" selected={lang === 'hi'} onPress={() => pickLanguage('hi')} />
-      </View>
-
-      {PRIVACY_URL ? (
-        <Button
-          variant="ghost"
-          title={t('settings.privacy')}
-          onPress={() => void open(PRIVACY_URL)}
-        />
+      {preview ? (
+        <Section title={t('settings.qrPreview')} footer={t('settings.qrPreviewHint')}>
+          <View style={{ alignItems: 'center', padding: spacing.lg, gap: spacing.sm }}>
+            <UpiQr value={upiLink({ upiId: preview, payeeName: inst.name })} size={180} />
+            <Text style={type.footnote}>{preview}</Text>
+          </View>
+        </Section>
       ) : null}
-      <Button variant="secondary" title={t('more.logout')} onPress={() => void logout()} />
-
-      <Card style={{ marginTop: spacing.xl, borderColor: colors.danger, gap: spacing.sm }}>
-        <Text style={[type.heading, { color: colors.danger }]}>{t('settings.deleteTitle')}</Text>
-        <Text style={type.caption}>{t('settings.deleteWarning')}</Text>
-        <Button
-          variant="danger"
-          title={t('settings.deleteButton')}
-          onPress={() => {
-            setTyped('');
-            setDel(true);
-          }}
-        />
-      </Card>
-
-      <BottomSheet
-        visible={del}
-        onClose={() => setDel(false)}
-        title={t('settings.deleteConfirmTitle')}
-      >
-        <Text style={[type.body, { marginBottom: spacing.md }]}>
-          {t('settings.deleteConfirmHelp', { word: DELETE_WORD })}
-        </Text>
-        <Input
-          label={t('settings.typeToConfirm', { word: DELETE_WORD })}
-          value={typed}
-          onChangeText={setTyped}
-          autoCapitalize="characters"
-          autoCorrect={false}
-        />
-        <View style={{ gap: spacing.sm }}>
-          <Button
-            variant="danger"
-            title={t('settings.deleteForever')}
-            onPress={deleteAccount}
-            disabled={!canDelete(typed)}
-            loading={busy}
-          />
-          <Button
-            variant="ghost"
-            title={t('common.cancel')}
-            onPress={() => setDel(false)}
-            disabled={busy}
-          />
-        </View>
-      </BottomSheet>
+      <Input
+        label={t('settings.paymentLink')}
+        value={linkV}
+        onChangeText={setLink}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+        maxLength={300}
+        placeholder="https://"
+        error={linkError}
+        hint={t('settings.paymentLinkHint')}
+      />
+      <Button title={t('common.save')} onPress={save} loading={busy} />
     </Screen>
   );
 }

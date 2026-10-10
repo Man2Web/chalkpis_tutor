@@ -182,7 +182,7 @@ export function ImportScreen({
 
   const batchPicker = (
     <View style={{ gap: spacing.sm, marginBottom: spacing.md }}>
-      <Text style={type.label}>{t('import.defaultBatch')}</Text>
+      <Text style={type.fieldLabel}>{t('import.defaultBatch')}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {activeBatches.map((b) => (
           <Chip

@@ -15,6 +15,19 @@ export const studentSchema = z.object({
   dueDay: z.number().int('dueDay').min(1, 'dueDay').max(31, 'dueDay'),
   notifyParent: z.boolean(),
   notes: z.string().max(500).optional(),
+  /** yyyy-mm-dd or blank; never in the future. */
+  dob: z
+    .string()
+    .refine(
+      (v) =>
+        v === '' ||
+        (/^\d{4}-\d{2}-\d{2}$/.test(v) &&
+          !Number.isNaN(Date.parse(v)) &&
+          v <= new Date().toISOString().slice(0, 10)),
+      'date',
+    )
+    .optional(),
+  gender: z.enum(['', 'male', 'female', 'other']).optional(),
   /** yyyy-mm-dd; blank = today (new student) / unchanged (edit). */
   joinedOn: z
     .string()

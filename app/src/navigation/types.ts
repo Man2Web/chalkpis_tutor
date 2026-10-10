@@ -1,4 +1,5 @@
 export type AuthStackParams = {
+  Legal: { doc: 'privacy' | 'terms' };
   Language: undefined;
   Phone: undefined;
   Otp: { phone: string };
@@ -25,8 +26,13 @@ export type MainStackParams = {
   Receipt: { paymentId: string };
   FeePlan: { studentId: string };
   Reminder: { studentId: string };
+  AdvancePayment: { studentId: string };
+  Poster: undefined;
+  Legal: { doc: 'privacy' | 'terms' };
   Reports: undefined;
   Settings: undefined;
+  EditProfile: undefined;
+  PaymentSettings: undefined;
   Billing: undefined;
   NotificationSettings: undefined;
   MessageLog: undefined;

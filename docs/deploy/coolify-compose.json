@@ -32,6 +32,9 @@
         "WA_TEMPLATES=${WA_TEMPLATES}",
         "WA_CLIENT_ID=${WA_CLIENT_ID}",
         "WA_CLIENT_PASSWORD=${WA_CLIENT_PASSWORD}",
+        "WA_CLOUD_PHONE_NUMBER_ID=${WA_CLOUD_PHONE_NUMBER_ID}",
+        "WA_CLOUD_TOKEN=${WA_CLOUD_TOKEN}",
+        "ADMIN_PHONES=${ADMIN_PHONES}",
         "TRIAL_DAYS=90"
       ],
       "volumes": ["uploads:/data/uploads", "backups:/data/backups"]

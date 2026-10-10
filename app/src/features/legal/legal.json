@@ -1,0 +1,166 @@
+{
+  "company": "M2W Technologies Private Limited",
+  "brand": "Man2Web",
+  "email": "hello@chalkpis.com",
+  "privacy": {
+    "title": "Privacy Policy",
+    "updated": "11 October 2026",
+    "intro": "Chalkpis for Tutors (\"Chalkpis\", \"we\", \"us\") is built and run by M2W Technologies Private Limited (Man2Web), India. This policy explains what information the Chalkpis app and website handle, why, and the choices you have. If anything here is unclear, write to hello@chalkpis.com.",
+    "sections": [
+      {
+        "h": "Who this covers",
+        "p": [
+          "Tutors and coaching centres who sign up for Chalkpis (\"you\"), the helpers they invite, and the students and parents whose details a tutor adds to the app.",
+          "For student and parent details, the tutor or centre decides what is entered and why; we process those details on the tutor's behalf to run the service."
+        ]
+      },
+      {
+        "h": "Information we collect",
+        "p": [
+          "About you: your name, mobile number, institute name, address, phone, logo, UPI id and payment link (if you add them), and your plan.",
+          "About your students and their parents, as entered by you: names, class, batches, parent name and mobile number, optional student phone, date of birth, gender, photo and notes; attendance; fees, discounts, payments and receipts.",
+          "Messages: a log of WhatsApp messages sent to parents (type, time, status and the last 4 digits of the number). The message values are deleted once a message is sent or has failed.",
+          "Technical: sign-in sessions and basic server logs needed to keep the service secure. We do not use advertising trackers and we do not sell personal data."
+        ]
+      },
+      {
+        "h": "How we use it",
+        "p": [
+          "To run the app for you: keep student records, attendance and fees, make receipts and reports, and show parents their child's details on a private link you choose to share.",
+          "To send WhatsApp messages you have switched on or asked for (absent and late alerts, fee reminders with your UPI QR or payment link, receipts, parent page links) and your sign-in codes.",
+          "To keep the service safe, fix problems and meet legal duties."
+        ]
+      },
+      {
+        "h": "Who we share it with",
+        "p": [
+          "WhatsApp messages are sent from our business number through the WhatsApp Business Platform (Meta) and our messaging partner ValueFirst Digital Media. They receive the parent's number and the message text needed to deliver it.",
+          "Our servers are hosted by our cloud provider. App updates are delivered through Expo (EAS).",
+          "If paid plans are switched on, plan payments are handled by Razorpay; we never see your card or bank details.",
+          "Tuition fees go straight from parents to your own UPI id or payment page. Chalkpis never receives or holds that money.",
+          "We share information with authorities only when the law requires it."
+        ]
+      },
+      {
+        "h": "How long we keep it",
+        "p": [
+          "We keep your data while your account is open. When you delete your account (Profile > Delete my account), your institute, students, attendance, fees, messages and pictures are removed from our live systems straight away.",
+          "Encrypted backups are kept for up to 14 days and then deleted. Plan payment records may be kept longer where tax law requires it."
+        ]
+      },
+      {
+        "h": "Security",
+        "p": [
+          "All traffic is encrypted (HTTPS). Every record belongs to one institute and the server checks that on every request, so one tutor can never see another tutor's data. Parent links are long secret links that you can switch off at any time; parent pages never show phone numbers or notes."
+        ]
+      },
+      {
+        "h": "Children",
+        "p": [
+          "Chalkpis is used by tutors, not by children. Tutors add student details for teaching and fee records and are responsible for having the parent's consent to do so and to message them on WhatsApp, as required by the Digital Personal Data Protection Act, 2023."
+        ]
+      },
+      {
+        "h": "Your choices and rights",
+        "p": [
+          "You can see, correct or delete the details you entered at any time in the app, and switch parent messages off (for everyone or for one student).",
+          "Parents and students can ask their tutor to correct or remove their details, or write to us and we will help the tutor do so.",
+          "You can delete your account in the app at any time."
+        ]
+      },
+      {
+        "h": "Changes",
+        "p": [
+          "We may update this policy. We will show the new date at the top and tell you in the app if the changes are important."
+        ]
+      },
+      {
+        "h": "Contact and grievance officer",
+        "p": [
+          "Grievance Officer, M2W Technologies Private Limited (Man2Web). Email: hello@chalkpis.com. We reply within 7 days and resolve complaints within 30 days."
+        ]
+      }
+    ]
+  },
+  "terms": {
+    "title": "Terms and Conditions",
+    "updated": "11 October 2026",
+    "intro": "These terms are an agreement between you and M2W Technologies Private Limited (Man2Web), India, who build and run Chalkpis for Tutors. By creating an account or using the app you accept them. Questions: hello@chalkpis.com.",
+    "sections": [
+      {
+        "h": "The service",
+        "p": [
+          "Chalkpis helps tutors and coaching centres keep student records, attendance and fees, send WhatsApp updates to parents, make receipts, reports and posters, and share a private parent page."
+        ]
+      },
+      {
+        "h": "Your account",
+        "p": [
+          "You sign in with your mobile number and a one-time code. Keep your phone secure; you are responsible for what is done with your account, including by helpers you invite.",
+          "You must give correct details and be at least 18 years old."
+        ]
+      },
+      {
+        "h": "Your data and your responsibilities",
+        "p": [
+          "You own the information you enter. You give us permission to store and process it only to run Chalkpis for you, as described in the Privacy Policy.",
+          "You confirm that you have the parent's consent to keep their child's details and to send them messages on WhatsApp, and that the details you enter are accurate.",
+          "Use parent messages only for genuine tuition updates. Do not send spam, unlawful, misleading or offensive content."
+        ]
+      },
+      {
+        "h": "Fees paid by parents",
+        "p": [
+          "Parents pay you directly through your UPI id or your own payment page. Chalkpis is not a party to those payments, does not hold the money and is not responsible for refunds or disputes between you and parents. Check that your UPI id is correct."
+        ]
+      },
+      {
+        "h": "Plans and billing",
+        "p": [
+          "New accounts start with a free trial. If paid plans are available, their prices and limits are shown in the app before you pay. A plan covers the period shown and does not renew by itself unless the app clearly says so.",
+          "When a plan ends, your records stay readable but you cannot add or change them until you renew."
+        ]
+      },
+      {
+        "h": "WhatsApp messages",
+        "p": [
+          "Messages are sent from our business number using templates approved by WhatsApp. Delivery depends on WhatsApp and the parent's phone; we cannot promise that every message is delivered or read."
+        ]
+      },
+      {
+        "h": "Acceptable use",
+        "p": [
+          "Do not try to access other accounts, break or overload the service, copy the app, or use it for anything illegal. We may suspend accounts that do."
+        ]
+      },
+      {
+        "h": "Availability and changes",
+        "p": [
+          "We work to keep Chalkpis available and your data safe, with daily backups, but the service is provided \"as is\" and may sometimes be unavailable. We may improve or change features; we will give notice of important changes."
+        ]
+      },
+      {
+        "h": "Limitation of liability",
+        "p": [
+          "To the extent the law allows, we are not liable for indirect losses, lost income or lost data, and our total liability is limited to the amount you paid us in the 3 months before the claim."
+        ]
+      },
+      {
+        "h": "Ending your account",
+        "p": [
+          "You can delete your account at any time in the app. We may close accounts that break these terms. On deletion your data is removed as described in the Privacy Policy."
+        ]
+      },
+      {
+        "h": "Law",
+        "p": [
+          "These terms are governed by the laws of India, and the courts of India have jurisdiction."
+        ]
+      },
+      {
+        "h": "Contact",
+        "p": ["M2W Technologies Private Limited (Man2Web). Email: hello@chalkpis.com."]
+      }
+    ]
+  }
+}

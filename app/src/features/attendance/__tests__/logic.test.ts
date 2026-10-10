@@ -139,3 +139,36 @@ describe('statistics', () => {
     expect(m.get('b1')?.sessions).toBe(3);
   });
 });
+
+describe('registerSheet', () => {
+  const { registerSheet } = jest.requireActual('../logic');
+  it('lays out students by name against days, with holidays and totals', () => {
+    const sheet = registerSheet(
+      [
+        { id: '1', batchId: 'b', date: '2026-10-07', marks: { z: 'P', a: 'A' } },
+        { id: '2', batchId: 'b', date: '2026-10-05', marks: { z: 'L', a: 'P' } },
+        { id: '3', batchId: 'b', date: '2026-10-06', marks: {}, holiday: true },
+      ],
+      [
+        { id: 'z', name: 'Zoya', class: '9' },
+        { id: 'a', name: 'Arun' },
+        { id: 'n', name: 'Never marked' },
+      ],
+    );
+    expect(sheet).toEqual([
+      [
+        'Student',
+        'Class',
+        '2026-10-05',
+        '2026-10-06',
+        '2026-10-07',
+        'Present',
+        'Late',
+        'Absent',
+        '%',
+      ],
+      ['Arun', '', 'P', 'H', 'A', 1, 0, 1, 50],
+      ['Zoya', '9', 'L', 'H', 'P', 1, 1, 0, 100],
+    ]);
+  });
+});

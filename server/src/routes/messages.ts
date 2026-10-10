@@ -4,7 +4,9 @@ import type { AppDeps } from '../app.js';
 import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
 import { badRequest } from '../errors.js';
 import { enqueueFeeReminders, getSettings, saveSettings } from '../messaging/notify.js';
-import { parse } from '../lib/params.js';
+import { idParam, parse } from '../lib/params.js';
+import { payQrPng, readPayQr } from '../messaging/payQr.js';
+import { sendFeeReminderNow, sendReceiptNow } from '../messaging/sendNow.js';
 
 type Deps = Pick<AppDeps, 'config' | 'pool'> & { clock?: () => Date };
 
@@ -17,7 +19,8 @@ const settingsBody = z.object({
   feeOverdue: z.boolean(),
   overdueEveryDays: z.number().int().min(1).max(30),
   paymentReceived: z.boolean(),
-  language: z.enum(['en', 'hi']),
+  // English only now; an old app may still send 'hi', which is stored as English.
+  language: z.enum(['en', 'hi']).transform(() => 'en' as const),
 });
 
 const logQuery = z.object({
@@ -98,4 +101,33 @@ export function messageRoutes(app: FastifyInstance, deps: Deps) {
     if (!s.enabled) throw badRequest('messages_off');
     return { queued: await enqueueFeeReminders(deps.pool, inst(req), now()) };
   });
+
+  // ---- sent now by the tutor, through the WhatsApp API ----
+  const sendCfg = () => ({
+    publicBaseUrl: deps.config.PUBLIC_BASE_URL,
+    secret: deps.config.JWT_SECRET,
+  });
+  const id = (req: { params: unknown }) => idParam((req.params as { id: string }).id);
+  app.post('/students/:id/remind', write, async (req, reply) =>
+    reply.code(202).send(await sendFeeReminderNow(deps.pool, sendCfg(), inst(req), id(req), now())),
+  );
+  app.post('/fees/payments/:id/send-receipt', write, async (req, reply) => {
+    await sendReceiptNow(deps.pool, inst(req), id(req), now());
+    return reply.code(202).send({ queued: true });
+  });
+
+  // ---- the UPI QR picture WhatsApp downloads for a fee reminder (public, but only links this server signed) ----
+  app.get(
+    '/pay-qr.png',
+    { config: { rateLimit: { max: 120, timeWindow: '1 minute' } } },
+    async (req, reply) => {
+      const q = req.query as { d?: unknown; s?: unknown };
+      const p = readPayQr(deps.config.JWT_SECRET, q.d, q.s);
+      if (!p) return reply.code(404).send({ error: 'not_found' });
+      return reply
+        .type('image/png')
+        .header('Cache-Control', 'public, max-age=86400')
+        .send(await payQrPng(p));
+    },
+  );
 }

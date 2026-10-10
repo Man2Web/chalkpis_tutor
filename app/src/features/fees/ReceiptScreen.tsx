@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
+import { api, ApiError } from '../../api/client';
 import {
   BottomSheet,
   Button,
@@ -52,7 +53,7 @@ export function ReceiptScreen({
   navigation,
   route,
 }: NativeStackScreenProps<MainStackParams, 'Receipt'>) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const instituteId = useInstituteId();
   const uid = useSession((s) => s.uid) as string;
   const refresh = useRefreshData();
@@ -64,6 +65,7 @@ export function ReceiptScreen({
   const history = useStudentPayments(p?.studentId ?? '_');
   const [sheet, setSheet] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [sending, setSending] = useState(false);
 
   if (payment.isLoading || students.isLoading || institute.isLoading)
     return (
@@ -86,7 +88,7 @@ export function ReceiptScreen({
     student,
     institute: institute.data,
     due: due.data ?? null,
-    lang: i18n.language === 'hi' ? 'hi' : 'en',
+    lang: 'en',
     modeLabel: t(`fees.mode.${p.mode}`),
   });
 
@@ -96,6 +98,23 @@ export function ReceiptScreen({
     } catch (e) {
       reportError(e);
       toast(t('fees.shareFailed'), 'error');
+    }
+  };
+
+  const sendWhatsApp = async () => {
+    setSending(true);
+    try {
+      await api('POST', `/fees/payments/${p.id}/send-receipt`);
+      toast(t('fees.receiptSent'), 'success');
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'recently_sent')
+        toast(t('fees.receiptRecent'), 'error');
+      else {
+        reportError(e);
+        toast(t('fees.receiptFailed'), 'error');
+      }
+    } finally {
+      setSending(false);
     }
   };
 
@@ -141,7 +160,12 @@ export function ReceiptScreen({
       </Card>
 
       <View style={{ height: spacing.lg }} />
-      {!isReversal ? <Button title={t('fees.sharePdf')} onPress={share} /> : null}
+      {!isReversal && !reversed ? (
+        <Button title={t('fees.sendReceiptWhatsapp')} onPress={sendWhatsApp} loading={sending} />
+      ) : null}
+      {!isReversal ? (
+        <Button variant="secondary" title={t('fees.sharePdf')} onPress={share} />
+      ) : null}
       {!isReversal && !reversed ? (
         <Button variant="danger" title={t('fees.reverse')} onPress={() => setSheet(true)} />
       ) : null}

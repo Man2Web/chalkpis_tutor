@@ -247,48 +247,184 @@ export async function recordPayment(
   const paidAt = paidAtFor(p.paidOn ?? todayYmd(now), now);
   return withTransaction(pool, async (c) => {
     const due = await lockDue(c, instituteId, dueId);
-    const result = applyPayment(money(due), p.amount);
-    if ('error' in result) throw PAY_ERRORS[result.error];
-    const [inst] = (await c.query(
-      'SELECT receipt_prefix, next_receipt_no FROM institutes WHERE id = ? FOR UPDATE',
-      [instituteId],
-    )) as unknown as [{ receipt_prefix: string; next_receipt_no: number }[]];
-    const seq = Number(inst[0]!.next_receipt_no);
-    const receiptNo = formatReceiptNo(inst[0]!.receipt_prefix, seq);
-    const balanceAfter = Math.max(0, netDue(money(due)) - result.paid);
-    const id = newId();
-    await c.query(
-      `INSERT INTO payments (id, institute_id, student_id, due_id, batch_id, amount, mode, paid_at, receipt_no, note, recorded_by, balance_after)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        instituteId,
-        due.student_id,
-        dueId,
-        due.batch_id,
-        p.amount,
-        p.mode,
-        paidAt,
-        receiptNo,
-        p.note,
-        userId,
-        balanceAfter,
-      ],
-    );
-    await c.query('UPDATE fee_dues SET paid = ?, status = ? WHERE institute_id = ? AND id = ?', [
-      result.paid,
-      result.status,
-      instituteId,
-      dueId,
-    ]);
-    await c.query('UPDATE institutes SET next_receipt_no = ? WHERE id = ?', [seq + 1, instituteId]);
+    const r = await insertPayment(c, instituteId, userId, due, p.amount, p.mode, paidAt, p.note);
     await enqueuePayment(
       c,
       instituteId,
-      { paymentId: id, studentId: due.student_id, amount: p.amount, receiptNo, balanceAfter },
+      {
+        paymentId: r.paymentId,
+        studentId: due.student_id,
+        amount: p.amount,
+        receiptNo: r.receiptNo,
+        balanceAfter: r.balanceAfter,
+      },
       now,
     );
-    return { paymentId: id, receiptNo, balanceAfter, status: result.status };
+    return r;
+  });
+}
+
+/** Writes one payment against a due the caller has locked, with the next receipt number. Inside a transaction. */
+async function insertPayment(
+  c: PoolConnection,
+  instituteId: string,
+  userId: string,
+  due: DueRow,
+  amount: number,
+  mode: PaymentInput['mode'],
+  paidAt: Date,
+  note: string,
+) {
+  const result = applyPayment(money(due), amount);
+  if ('error' in result) throw PAY_ERRORS[result.error];
+  const [inst] = (await c.query(
+    'SELECT receipt_prefix, next_receipt_no FROM institutes WHERE id = ? FOR UPDATE',
+    [instituteId],
+  )) as unknown as [{ receipt_prefix: string; next_receipt_no: number }[]];
+  const seq = Number(inst[0]!.next_receipt_no);
+  const receiptNo = formatReceiptNo(inst[0]!.receipt_prefix, seq);
+  const balanceAfter = Math.max(0, netDue(money(due)) - result.paid);
+  const id = newId();
+  await c.query(
+    `INSERT INTO payments (id, institute_id, student_id, due_id, batch_id, amount, mode, paid_at, receipt_no, note, recorded_by, balance_after)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      instituteId,
+      due.student_id,
+      due.id,
+      due.batch_id,
+      amount,
+      mode,
+      paidAt,
+      receiptNo,
+      note,
+      userId,
+      balanceAfter,
+    ],
+  );
+  await c.query('UPDATE fee_dues SET paid = ?, status = ? WHERE institute_id = ? AND id = ?', [
+    result.paid,
+    result.status,
+    instituteId,
+    due.id,
+  ]);
+  await c.query('UPDATE institutes SET next_receipt_no = ? WHERE id = ?', [seq + 1, instituteId]);
+  return { paymentId: id, receiptNo, balanceAfter, status: result.status };
+}
+
+const ADVANCE_ERRORS = {
+  student: new AppError(409, 'student_not_billable'),
+  month: new AppError(400, 'bad_month'),
+  nothing: new AppError(409, 'already_paid'),
+} as const;
+
+/** Months a student can pay ahead: this month and up to 12 after it. */
+export const ADVANCE_MONTHS = 12;
+
+const addMonths = (period: string, n: number) => {
+  const [y, m] = period.split('-').map(Number) as [number, number];
+  const d = new Date(Date.UTC(y, m - 1 + n, 1));
+  return d.toISOString().slice(0, 7);
+};
+
+/**
+ * A parent pays several months at once. In one transaction: create each month's regular due if it does not exist yet
+ * (same amount, discount and due date the monthly job would use), then pay what is left on each in full, one receipt
+ * per month. Months already paid are skipped; one parent message is queued for the total.
+ */
+export async function recordAdvance(
+  pool: Pool,
+  instituteId: string,
+  userId: string,
+  a: {
+    studentId: string;
+    months: string[];
+    mode: PaymentInput['mode'];
+    paidOn?: string;
+    note: string;
+  },
+  now: Date,
+) {
+  await requireActivePlan(pool, instituteId, now);
+  const today = todayYmd(now);
+  if (a.paidOn && (a.paidOn > today || !isRealDate(a.paidOn))) throw new AppError(400, 'bad_date');
+  const paidAt = paidAtFor(a.paidOn ?? today, now);
+  const first = today.slice(0, 7);
+  const last = addMonths(first, ADVANCE_MONTHS);
+  const months = [...new Set(a.months)].sort();
+  if (!months.length || months.some((m) => m < first || m > last)) throw ADVANCE_ERRORS.month;
+
+  return withTransaction(pool, async (c) => {
+    const [rows] = (await c.query(
+      `SELECT s.id, s.status, s.monthly_fee, s.fee_cycle, s.due_day, s.discount, s.joined_at,
+              (SELECT MIN(sb.batch_id) FROM student_batches sb WHERE sb.institute_id = s.institute_id AND sb.student_id = s.id) AS batch_id
+         FROM students s WHERE s.institute_id = ? AND s.id = ? FOR UPDATE`,
+      [instituteId, a.studentId],
+    )) as unknown as [
+      {
+        id: string;
+        status: string;
+        monthly_fee: number;
+        fee_cycle: FeeCycle;
+        due_day: number;
+        discount: number;
+        joined_at: Date;
+        batch_id: string | null;
+      }[],
+    ];
+    const s = rows[0];
+    if (!s) throw notFound();
+    if (s.status !== 'active' || Number(s.monthly_fee) <= 0 || s.fee_cycle !== 'monthly')
+      throw ADVANCE_ERRORS.student;
+    const joined = ymdOf(s.joined_at);
+    if (months.some((m) => !isDueInPeriod(s.fee_cycle, joined.slice(0, 7), m)))
+      throw ADVANCE_ERRORS.month;
+
+    const paid: { period: string; paymentId: string; receiptNo: string; amount: number }[] = [];
+    for (const period of months) {
+      const amount = Number(s.monthly_fee);
+      await c.query(
+        `INSERT IGNORE INTO fee_dues (id, institute_id, student_id, batch_id, period, amount, discount, due_date, description, due_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          newId(),
+          instituteId,
+          s.id,
+          s.batch_id,
+          period,
+          amount,
+          Math.min(Number(s.discount), amount),
+          maxYmd(dueDateFor(period, s.due_day), joined),
+          descriptionFor(s.fee_cycle),
+          `${s.id}_${period}`,
+        ],
+      );
+      const [d] = (await c.query(
+        `SELECT ${DUE_COLS} FROM fee_dues d WHERE d.institute_id = ? AND d.due_key = ? FOR UPDATE`,
+        [instituteId, `${s.id}_${period}`],
+      )) as unknown as [DueRow[]];
+      const due = d[0]!;
+      const owe = due.status === 'waived' ? 0 : outstanding(money(due));
+      if (owe <= 0) continue;
+      const r = await insertPayment(c, instituteId, userId, due, owe, a.mode, paidAt, a.note);
+      paid.push({ period, paymentId: r.paymentId, receiptNo: r.receiptNo, amount: owe });
+    }
+    if (!paid.length) throw ADVANCE_ERRORS.nothing;
+    const total = paid.reduce((t, p) => t + p.amount, 0);
+    await enqueuePayment(
+      c,
+      instituteId,
+      {
+        paymentId: paid[0]!.paymentId,
+        studentId: s.id,
+        amount: total,
+        receiptNo: paid.map((p) => p.receiptNo).join(', '),
+        balanceAfter: 0,
+      },
+      now,
+    );
+    return { payments: paid, total };
   });
 }
 

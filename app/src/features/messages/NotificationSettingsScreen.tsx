@@ -1,48 +1,11 @@
-import { Pressable, Switch, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Card, Chip, EmptyState, Screen, Skeleton, toast } from '../../components';
+import { EmptyState, Row, Screen, Section, Skeleton, toast } from '../../components';
 import { useInstituteId, useNotifySettings, useRefreshData } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
-import { colors, radius, spacing, TAP, type } from '../../theme';
+import { colors, spacing, type } from '../../theme';
 import { saveNotifySettings } from './api';
 import { clampDays, type NotifySettings } from './settings';
-
-function SwitchRow({
-  label,
-  hint,
-  value,
-  onChange,
-  disabled,
-}: {
-  label: string;
-  hint?: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
-        minHeight: TAP + 8,
-        opacity: disabled ? 0.45 : 1,
-      }}
-    >
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={type.body}>{label}</Text>
-        {hint ? <Text style={type.caption}>{hint}</Text> : null}
-      </View>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        disabled={disabled}
-        accessibilityLabel={label}
-      />
-    </View>
-  );
-}
 
 function Stepper({
   label,
@@ -62,16 +25,16 @@ function Stepper({
       disabled={disabled}
       onPress={() => onChange(value + delta)}
       style={{
-        width: TAP,
-        height: TAP,
-        borderRadius: TAP / 2,
+        width: 40,
+        height: 32,
+        borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: colors.primarySoft,
-        opacity: disabled ? 0.45 : 1,
+        backgroundColor: colors.fill,
       }}
+      hitSlop={6}
     >
-      <Text style={{ fontSize: 22, fontWeight: '600', color: colors.primary }}>{sign}</Text>
+      <Text style={{ fontSize: 20, fontWeight: '500', color: colors.text }}>{sign}</Text>
     </Pressable>
   );
   return (
@@ -81,10 +44,13 @@ function Stepper({
         alignItems: 'center',
         gap: spacing.md,
         justifyContent: 'space-between',
-        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: 6,
+        backgroundColor: colors.surface,
+        opacity: disabled ? 0.45 : 1,
       }}
     >
-      <Text style={[type.caption, { flex: 1, fontSize: 14 }]}>{label}</Text>
+      <Text style={[type.body, { flex: 1 }]}>{label}</Text>
       {btn('−', -1, `${label} −`)}
       <Text style={[type.heading, { minWidth: 28, textAlign: 'center' }]}>{value}</Text>
       {btn('+', 1, `${label} +`)}
@@ -130,47 +96,38 @@ export function NotificationSettingsScreen() {
 
   return (
     <Screen>
-      <Text style={type.largeTitle}>{t('messages.settingsTitle')}</Text>
-      <Text style={[type.caption, { marginBottom: spacing.sm }]}>{t('messages.settingsHint')}</Text>
+      <Section footer={t('messages.masterHint')}>
+        <Row
+          icon="logo-whatsapp"
+          iconColor="#25D366"
+          title={t('messages.master')}
+          toggle={{ value: s.enabled, onChange: (v) => set({ enabled: v }) }}
+        />
+      </Section>
 
-      <Card style={{ borderRadius: radius.xl }}>
-        <SwitchRow
-          label={t('messages.master')}
-          hint={t('messages.masterHint')}
-          value={s.enabled}
-          onChange={(v) => set({ enabled: v })}
+      <Section title={t('messages.sendWhen')}>
+        <Row
+          title={t('messages.absent')}
+          toggle={{ value: s.absent, onChange: (v) => set({ absent: v }), disabled: off }}
         />
-      </Card>
+        <Row
+          title={t('messages.late')}
+          toggle={{ value: s.late, onChange: (v) => set({ late: v }), disabled: off }}
+        />
+        <Row
+          title={t('messages.paymentReceived')}
+          toggle={{
+            value: s.paymentReceived,
+            onChange: (v) => set({ paymentReceived: v }),
+            disabled: off,
+          }}
+        />
+      </Section>
 
-      <Text style={[type.heading, { marginTop: spacing.md }]}>{t('messages.sendWhen')}</Text>
-      <Card style={{ gap: spacing.xs }}>
-        <SwitchRow
-          label={t('messages.absent')}
-          value={s.absent}
-          onChange={(v) => set({ absent: v })}
-          disabled={off}
-        />
-        <SwitchRow
-          label={t('messages.late')}
-          value={s.late}
-          onChange={(v) => set({ late: v })}
-          disabled={off}
-        />
-        <SwitchRow
-          label={t('messages.paymentReceived')}
-          value={s.paymentReceived}
-          onChange={(v) => set({ paymentReceived: v })}
-          disabled={off}
-        />
-      </Card>
-
-      <Text style={[type.heading, { marginTop: spacing.md }]}>{t('messages.feeReminders')}</Text>
-      <Card style={{ gap: spacing.xs }}>
-        <SwitchRow
-          label={t('messages.feeDue')}
-          value={s.feeDue}
-          onChange={(v) => set({ feeDue: v })}
-          disabled={off}
+      <Section title={t('messages.feeReminders')} footer={t('messages.overdueHint')}>
+        <Row
+          title={t('messages.feeDue')}
+          toggle={{ value: s.feeDue, onChange: (v) => set({ feeDue: v }), disabled: off }}
         />
         <Stepper
           label={t('messages.daysBefore')}
@@ -178,11 +135,9 @@ export function NotificationSettingsScreen() {
           onChange={(n) => set({ feeDueDaysBefore: clampDays('feeDueDaysBefore', n) })}
           disabled={off || !s.feeDue}
         />
-        <SwitchRow
-          label={t('messages.feeOverdue')}
-          value={s.feeOverdue}
-          onChange={(v) => set({ feeOverdue: v })}
-          disabled={off}
+        <Row
+          title={t('messages.feeOverdue')}
+          toggle={{ value: s.feeOverdue, onChange: (v) => set({ feeOverdue: v }), disabled: off }}
         />
         <Stepper
           label={t('messages.repeatEvery')}
@@ -190,23 +145,9 @@ export function NotificationSettingsScreen() {
           onChange={(n) => set({ overdueEveryDays: clampDays('overdueEveryDays', n) })}
           disabled={off || !s.feeOverdue}
         />
-        <Text style={type.caption}>{t('messages.overdueHint')}</Text>
-      </Card>
+      </Section>
 
-      <Text style={[type.heading, { marginTop: spacing.md }]}>{t('messages.language')}</Text>
-      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-        <Chip
-          label="English"
-          selected={s.language === 'en'}
-          onPress={() => set({ language: 'en' })}
-        />
-        <Chip
-          label="हिन्दी"
-          selected={s.language === 'hi'}
-          onPress={() => set({ language: 'hi' })}
-        />
-      </View>
-      <Text style={[type.caption, { marginTop: spacing.sm }]}>{t('messages.footer')}</Text>
+      <Text style={[type.footnote, { marginHorizontal: spacing.lg }]}>{t('messages.footer')}</Text>
     </Screen>
   );
 }

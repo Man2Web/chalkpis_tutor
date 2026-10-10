@@ -38,3 +38,23 @@ Goal: close the gap with https://tuitionpilot.in (explored 2026-10-10) while kee
 
 - Same engineering rules as v1: every row belongs to an institute, money is integer paise, messages are queued in the same transaction as the event, tests for every business rule.
 - Each shipped feature gets a numbered entry in `docs/DECISIONS.md` and a line in `docs/TASKS.md`.
+
+## Screen-by-screen inspection of TuitionPilot (2026-10-10, guest mode, no account)
+
+| Area | What TuitionPilot has | Chalkpis today |
+| --- | --- | --- |
+| Login | Google, email code, "skip and sign in later" guest mode | WhatsApp code only |
+| Home | First-run card (add a student, send yourself a demo reminder); **Today's tasks** to-do list; **this week's attendance** bar chart with streak; pending fees card; AI Assistant tiles; "Grow your coaching" tiles; counters | Hero summary, attendance ring, quick actions, stats, today's batches |
+| AI Assistant | Question paper (subject, topic, class, board CBSE/ICSE/State/other, count, marks, difficulty, language), Homework, Worksheet, Progress note (uses attendance %, never invents progress), Check a paper (photo of answer sheet, needs sign-in) | none |
+| AI languages | English, Hindi, Hinglish, Bengali, Assamese | n/a |
+| Grow your coaching | Google Business profile text, Google post (update/offer/event), reply to review (by stars), marketing kit (new batch, admission, scholarship test, results, summer camp, crash course, festival, referral), **poster maker** (toppers/admission/festival, square or WhatsApp-status size, student photos, logo) | none |
+| Students | Classes with days, times and fee; student with DOB, gender, notes; import by **photo of the paper register** (OCR) or CSV/Excel | Batches, students, CSV/Excel/contacts import |
+| Attendance | Class + date, notify absentees toggle, Excel/CSV export for a date range, history 7/30/90 days or custom | Mark, holidays, past dates, reports; no range export |
+| Fees | "No UPI id" warning; generate a month's fees; **advance payment covering several months**; paid/unpaid/collected counters; multi-month Excel export; 6/12-month history chart; sort options | Automatic dues, collect, receipts, reminders with QR, Excel export |
+| Settings | Tutor WhatsApp number for payment alerts; UPI id; **own payment link instead of QR**; thank-you receipt toggle; automatic 9 am reminders toggle; WhatsApp/SMS channel; **upload GPay/PhonePe QR and read the UPI id from it**; subscription; support chat; delete account | Most of these exist; missing payment link, QR upload |
+
+## Build order for "all the features"
+
+1. **No outside accounts needed:** today's tasks, weekly attendance chart, advance payment for several months, attendance range export, fees history chart and sort, payment-link option, student DOB/gender, "no UPI id" warning, first-run card, poster maker (drawn on the phone).
+2. **Needs an AI provider key (Claude API):** question paper, homework, worksheet, progress note, Google profile/post/review reply, marketing kit, check a paper (vision), register photo import (vision), read UPI id from a QR photo (can be done on the phone without AI).
+3. **Needs other accounts:** SMS (DLT-registered provider), Google sign-in (Google Cloud OAuth client), email codes (an email sender), iPhone build (Apple developer account).

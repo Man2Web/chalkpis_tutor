@@ -1,3 +1,4 @@
+import { normalizeIndianPhone } from './lib/phone.js';
 import { z } from 'zod';
 
 const flag = (fallback: 'true' | 'false') =>
@@ -42,6 +43,32 @@ const schema = z.object({
   WA_CLIENT_ID: z.string().min(1).optional(),
   WA_CLIENT_PASSWORD: z.string().min(1).optional(),
   WA_API_METHOD: z.enum(['POST', 'GET']).default('POST'),
+  /**
+   * Meta WhatsApp Cloud API (direct, no gateway). When both are set the server sends through Meta instead of the
+   * ValueFirst gateway, and template settings are template NAMES.
+   */
+  WA_CLOUD_PHONE_NUMBER_ID: z
+    .string()
+    .regex(/^\d{6,25}$/)
+    .optional(),
+  WA_CLOUD_TOKEN: z.string().min(20).optional(),
+  WA_CLOUD_API_VERSION: z
+    .string()
+    .regex(/^v\d+\.\d+$/)
+    .default('v23.0'),
+  /**
+   * Mobile numbers that may open the admin dashboard (/admin), comma separated, e.g. "9876543210,+919000000001".
+   * They sign in with the usual WhatsApp code; admin rights are checked against this list on every request.
+   */
+  ADMIN_PHONES: z
+    .string()
+    .default('')
+    .transform((v) =>
+      v
+        .split(',')
+        .map((p) => normalizeIndianPhone(p.trim()))
+        .filter((p): p is string => !!p),
+    ),
   /** Approved authentication template id for the login code (one value: the code). */
   WA_TEMPLATE_OTP: z.string().min(1).optional(),
 

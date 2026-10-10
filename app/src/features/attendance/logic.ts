@@ -128,3 +128,44 @@ export function batchStats(docs: AttendanceDoc[]): Map<string, ReturnType<typeof
   for (const d of docs) by.set(d.batchId, [...(by.get(d.batchId) ?? []), d]);
   return new Map([...by].map(([id, list]) => [id, overallStat(list)]));
 }
+
+/**
+ * The register as a spreadsheet: one row per student, one column per class day (P / A / L, H for a holiday),
+ * then present, late, absent and %. Days are oldest first; students by name.
+ */
+export function registerSheet(
+  docs: AttendanceDoc[],
+  students: { id: string; name: string; class?: string }[],
+): (string | number)[][] {
+  const dates = [...new Set(docs.map((d) => d.date))].sort();
+  const byStudent = new Map<string, Map<string, string>>();
+  const holidays = new Set(docs.filter((d) => d.holiday).map((d) => d.date));
+  for (const d of docs) {
+    if (d.holiday) continue;
+    for (const [sid, m] of Object.entries(d.marks)) {
+      if (!byStudent.has(sid)) byStudent.set(sid, new Map());
+      byStudent.get(sid)!.set(d.date, m);
+    }
+  }
+  const header = ['Student', 'Class', ...dates, 'Present', 'Late', 'Absent', '%'];
+  const rows = students
+    .filter((s) => byStudent.has(s.id))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((s) => {
+      const marks = byStudent.get(s.id)!;
+      const all = [...marks.values()];
+      const p = all.filter((m) => m === 'P').length;
+      const l = all.filter((m) => m === 'L').length;
+      const a = all.filter((m) => m === 'A').length;
+      return [
+        s.name,
+        s.class ?? '',
+        ...dates.map((d) => marks.get(d) ?? (holidays.has(d) ? 'H' : '')),
+        p,
+        l,
+        a,
+        all.length ? Math.round(((p + l) / all.length) * 1000) / 10 : '',
+      ];
+    });
+  return [header, ...rows];
+}

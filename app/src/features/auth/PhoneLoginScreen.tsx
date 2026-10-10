@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Button, Input, Screen } from '../../components';
 import { normalizeIndianPhone } from '../../lib/phone';
 import type { AuthStackParams } from '../../navigation/types';
-import { spacing, type } from '../../theme';
+import { colors, spacing, type } from '../../theme';
 import { authErrorKey, sendCode } from './phoneAuth';
 
 export function PhoneLoginScreen({ navigation }: NativeStackScreenProps<AuthStackParams, 'Phone'>) {
@@ -33,8 +34,31 @@ export function PhoneLoginScreen({ navigation }: NativeStackScreenProps<AuthStac
 
   return (
     <Screen>
-      <Text style={[type.title, { marginTop: spacing.xl }]}>{t('auth.phoneTitle')}</Text>
-      <Text style={[type.caption, { marginBottom: spacing.lg }]}>{t('auth.phoneHint')}</Text>
+      <View
+        style={{
+          alignItems: 'center',
+          gap: spacing.sm,
+          marginTop: spacing.xxl,
+          marginBottom: spacing.xl,
+        }}
+      >
+        <View
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: 32,
+            backgroundColor: 'rgba(37,211,102,0.14)',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons name="logo-whatsapp" size={34} color="#1DA851" />
+        </View>
+        <Text style={[type.title1, { textAlign: 'center' }]}>{t('auth.phoneTitle')}</Text>
+        <Text style={[type.callout, { textAlign: 'center', color: colors.textMuted }]}>
+          {t('auth.phoneHint')}
+        </Text>
+      </View>
       <Input
         label={t('auth.phoneLabel')}
         value={value}
@@ -44,6 +68,7 @@ export function PhoneLoginScreen({ navigation }: NativeStackScreenProps<AuthStac
         textContentType="telephoneNumber"
         maxLength={16}
         placeholder="98765 43210"
+        prefix="+91"
         error={error}
         autoFocus
       />

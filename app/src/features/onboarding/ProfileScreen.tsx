@@ -72,7 +72,7 @@ export function ProfileScreen({
         autoComplete="name"
       />
       <FormInput control={control} name="instituteName" label={t('onboarding.instituteName')} />
-      <Text style={type.label}>{t('onboarding.logo')}</Text>
+      <Text style={type.fieldLabel}>{t('onboarding.logo')}</Text>
       <View
         style={{
           flexDirection: 'row',

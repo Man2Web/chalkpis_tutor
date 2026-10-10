@@ -1,3 +1,4 @@
+/** Receipts are English only; the type stays so stored settings keep reading. */
 export type DocLang = 'en' | 'hi';
 
 const esc = (s: string) =>
@@ -8,23 +9,32 @@ const esc = (s: string) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
+export type ReminderKind = 'qr' | 'link' | 'text';
+
 export interface ReminderVars {
-  parentName: string;
   studentName: string;
   amount: string; // already formatted, e.g. ₹1,500
-  period: string; // e.g. Mar 2026
+  period: string; // e.g. Oct 2026
   institute: string;
-  /** The tutor's UPI id; when set the text tells the parent where to pay. */
-  upiId?: string;
+  /** The tutor's own payment page, when set. */
+  payLink?: string;
 }
 
-/** Pre-filled fee reminder text (editable by the tutor before sending). */
-export function buildReminder(lang: DocLang, v: ReminderVars): string {
-  const name = v.parentName.trim();
-  if (lang === 'hi') {
-    return `${name ? `प्रिय ${name},` : 'नमस्ते,'}\n${v.institute} में ${v.studentName} की ${v.period} की फीस ${v.amount} बाकी है। कृपया जल्द भुगतान करें।${v.upiId ? `\nUPI से भुगतान: ${v.upiId}` : ''}\nधन्यवाद।`;
-  }
-  return `${name ? `Dear ${name},` : 'Hello,'}\nThis is a reminder that ${v.studentName}'s fee of ${v.amount} for ${v.period} is pending at ${v.institute}. Please pay at your earliest convenience.${v.upiId ? `\nPay by UPI: ${v.upiId}` : ''}\nThank you.`;
+/** Which WhatsApp template the server will use: the payment link if set, else the UPI QR picture, else plain text. */
+export const reminderKind = (o: { payLink?: string; upiId?: string }): ReminderKind =>
+  o.payLink ? 'link' : o.upiId ? 'qr' : 'text';
+
+/**
+ * The exact words the parent receives (the approved WhatsApp template with the values filled in), shown to the
+ * tutor before sending. Keep in step with docs/WHATSAPP-TEMPLATES.md.
+ */
+export function reminderPreview(kind: ReminderKind, v: ReminderVars): string {
+  const details = `${v.amount} for ${v.period}`;
+  if (kind === 'link')
+    return `Dear Parent, the fee for ${v.studentName} is pending: ${details}. You can pay online here: ${v.payLink} Please ignore this message if you have already paid. Thank you.`;
+  if (kind === 'qr')
+    return `Dear Parent, the fee for ${v.studentName} is pending: ${details}. Scan the QR code above with any UPI app (Google Pay, PhonePe, Paytm) to pay ${v.institute} directly. Please ignore this message if you have already paid. Thank you.`;
+  return `Dear Parent, the fee for ${v.studentName} is still pending: ${details}. Please pay at your earliest convenience. Regards, ${v.institute}. Thank you.`;
 }
 
 const LABELS = {

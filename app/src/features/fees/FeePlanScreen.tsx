@@ -101,7 +101,7 @@ export function FeePlanScreen({
         label={t('onboarding.monthlyFee')}
         keyboardType="decimal-pad"
       />
-      <Text style={type.label}>{t('students.feeCycle')}</Text>
+      <Text style={type.fieldLabel}>{t('students.feeCycle')}</Text>
       <Controller
         control={control}
         name="feeCycle"

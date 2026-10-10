@@ -13,7 +13,8 @@
     "retry": "Try again",
     "loading": "Loading…",
     "error": "Something went wrong. Please try again.",
-    "offline": "No internet. Please check your connection."
+    "offline": "No internet. Please check your connection.",
+    "edit": "Edit"
   },
   "validation": {
     "required": "This is required",
@@ -91,11 +92,22 @@
     "students": "Students",
     "attendance": "Attendance",
     "fees": "Fees",
-    "more": "More"
+    "more": "More",
+    "profile": "Profile"
   },
   "more": {
     "logout": "Log out",
-    "staffNote": "You can take attendance for the batches the owner has given you."
+    "staffNote": "You can take attendance for the batches the owner has given you.",
+    "business": "Business",
+    "parents": "Parents",
+    "tools": "Tools",
+    "account": "Account",
+    "linkSet": "Payment link",
+    "deleteFooter": "Deletes your institute, students, attendance and fee records for good.",
+    "daysLeft_one": "{{count}} day left",
+    "daysLeft_other": "{{count}} days left",
+    "attendanceReport": "Attendance report",
+    "feeReport": "Monthly report"
   },
   "limits": {
     "title": "Plan limit reached",
@@ -150,7 +162,22 @@
     "cannotOpen": "Could not open that app",
     "count_one": "{{count}} student",
     "count_other": "{{count}} students",
-    "fees": "Fees & payments"
+    "fees": "Fees & payments",
+    "dob": "Date of birth (optional)",
+    "gender": "Gender (optional)",
+    "genders": {
+      "male": "Male",
+      "female": "Female",
+      "other": "Other"
+    },
+    "call": "Call",
+    "sms": "Message",
+    "allPaid": "All paid",
+    "parentSection": "Parent",
+    "feesAndPayments": "Fees and payments",
+    "details": "Details",
+    "dobShort": "Date of birth",
+    "genderShort": "Gender"
   },
   "batches": {
     "title": "Batches",
@@ -247,7 +274,9 @@
     "range": {
       "thisMonth": "This month",
       "lastMonth": "Last month",
-      "last30": "Last 30 days"
+      "last30": "Last 30 days",
+      "last7": "Last 7 days",
+      "last90": "Last 3 months"
     },
     "allBatches": "All batches",
     "noData": "No attendance recorded yet",
@@ -264,7 +293,9 @@
     "allStudents": "All students",
     "last30": "Attendance, last 30 days",
     "low": "Low",
-    "noBatchesAssigned": "No batches are assigned to you yet. Ask the owner."
+    "noBatchesAssigned": "No batches are assigned to you yet. Ask the owner.",
+    "exportExcel": "Download register (Excel)",
+    "holidayShort": "Holiday"
   },
   "fees": {
     "pending": "Pending",
@@ -358,7 +389,6 @@
     "recurringDiscount": "Discount on every due (₹)",
     "message": "Message",
     "sendWhatsapp": "Send on WhatsApp",
-    "sendSms": "Send as SMS",
     "nothingDue": "Nothing is due",
     "ledgerTitle": "Fee ledger",
     "collectTitle": "Collect fee",
@@ -370,7 +400,45 @@
     "markPaid": "Mark as paid by UPI",
     "markPaidAsk": "Record {{amount}} as received by UPI? The receipt goes to the parent if parent messages are on.",
     "markPaidConfirm": "Yes, record payment",
-    "markPaidDone": "Payment recorded"
+    "markPaidDone": "Payment recorded",
+    "payLinkUsed": "Reminders send your payment link: {{link}}",
+    "noUpiTitle": "No UPI id yet",
+    "noUpiText": "Parents have no way to pay you from a reminder until you add one.",
+    "noUpiAction": "Add your UPI id",
+    "advanceTitle": "Record advance payment",
+    "advanceWhich": "Which months did they pay for?",
+    "advanceTotal_one": "Total for {{count}} month",
+    "advanceTotal_other": "Total for {{count}} months",
+    "advanceHint": "Each month gets its own receipt. The parent gets one thank-you message for the total.",
+    "advanceSave": "Record {{amount}}",
+    "advanceDone_one": "{{amount}} recorded for {{count}} month",
+    "advanceDone_other": "{{amount}} recorded for {{count}} months",
+    "advanceNothing": "Those months are already paid.",
+    "advanceMonthlyOnly": "Advance payment works for students on a monthly fee.",
+    "perMonth": "{{amount}} a month",
+    "history": "Fees history",
+    "historyMonths_one": "{{count}} month",
+    "historyMonths_other": "{{count}} months",
+    "historyEmpty": "No fees in these months yet.",
+    "historySummary": "Collected {{paid}} of {{billed}} billed",
+    "sort": {
+      "unpaid": "Overdue first",
+      "name": "Name (A–Z)",
+      "amount": "Amount (high to low)"
+    },
+    "addChargeShort": "Add charge",
+    "advanceShort": "Advance",
+    "planShort": "Fee plan",
+    "duesFooter": "Tap a due to give a discount or waive it.",
+    "parentWillGet": "What the parent will get",
+    "viaApi": "Sent from your business WhatsApp number through the WhatsApp API. You do not need to open WhatsApp.",
+    "reminderSent": "Reminder sent on WhatsApp",
+    "reminderRecent": "A reminder was just sent. Try again in a few minutes.",
+    "reminderFailed": "Could not send the reminder. Check your internet and try again.",
+    "sendReceiptWhatsapp": "Send receipt on WhatsApp",
+    "receiptSent": "Receipt sent on WhatsApp",
+    "receiptRecent": "This receipt was just sent. Try again in a few minutes.",
+    "receiptFailed": "Could not send the receipt. Check your internet and try again."
   },
   "home": {
     "hello": "Hello, {{name}}",
@@ -394,7 +462,17 @@
     "overdue": "Overdue",
     "acrossBatches_one": "in {{count}} batch",
     "acrossBatches_other": "across {{count}} batches",
-    "todayAmount": "{{amount}} today"
+    "todayAmount": "{{amount}} today",
+    "firstRunTitle": "Add your first student",
+    "firstRunText": "It takes 30 seconds. Then mark attendance and send a fee reminder with your UPI QR.",
+    "firstRunAction": "Add your first student",
+    "greeting": {
+      "morning": "Good morning, {{name}}",
+      "afternoon": "Good afternoon, {{name}}",
+      "evening": "Good evening, {{name}}"
+    },
+    "collectedShare": "{{percent}}% of fees collected",
+    "today": "Today"
   },
   "reports": {
     "title": "Reports",
@@ -455,7 +533,17 @@
     "deleteFailed": "Could not delete the account. Check your internet and try again.",
     "upiId": "Your UPI id",
     "upiHint": "Parents pay you directly. A QR code with this UPI id is shown on fee reminders. Example: name@okhdfcbank",
-    "upiInvalid": "Enter a UPI id like name@bank"
+    "upiInvalid": "Enter a UPI id like name@bank",
+    "paymentLink": "Payment link (optional)",
+    "paymentLinkHint": "Your own payment page (Razorpay, Instamojo...). When set, fee reminders send this link instead of your UPI QR.",
+    "linkInvalid": "Enter a full link starting with https://",
+    "phoneHint": "You sign in with this number. It cannot be changed here.",
+    "qrPreview": "What parents will scan",
+    "qrPreviewHint": "Ask a friend to scan it with any UPI app to check it opens your account.",
+    "instituteTitle": "Institute and receipts",
+    "paymentsTitle": "Payments and UPI",
+    "editProfile": "Edit profile",
+    "notSet": "Not set"
   },
   "billing": {
     "title": "Plans & billing",
@@ -537,7 +625,10 @@
       "late": "Late",
       "fee_due": "Fee due soon",
       "fee_overdue": "Fee overdue",
-      "payment_received": "Payment received"
+      "payment_received": "Payment received",
+      "fee_reminder": "Fee reminder (UPI QR)",
+      "fee_link": "Fee reminder (payment link)",
+      "parent_link": "Parent page link"
     },
     "status": {
       "sent": "Sent",
@@ -574,7 +665,9 @@
     "revokeConfirm": "Yes, switch off",
     "revoked": "Links switched off",
     "failed": "Something went wrong. Please try again.",
-    "cannotShare": "Could not open the share menu"
+    "cannotShare": "Could not open the share menu",
+    "createAndSend": "Send link to parent on WhatsApp",
+    "sentApi": "Link sent to the parent on WhatsApp"
   },
   "staff": {
     "title": "Staff",
@@ -599,5 +692,93 @@
       "planExpired": "Your plan has ended. Renew it to add helpers.",
       "invalid": "Check the name and the 10-digit mobile number."
     }
+  },
+  "tasks": {
+    "title": "Today's tasks",
+    "left_one": "{{count}} left",
+    "left_other": "{{count}} left",
+    "empty": "Nothing on your list. Add something below.",
+    "placeholder": "Add a task, e.g. Call Rohan’s parent",
+    "add": "Add task",
+    "remove": "Remove task"
+  },
+  "week": {
+    "title": "This week's attendance",
+    "streak_one": "{{count}} day streak",
+    "streak_other": "{{count}} day streak",
+    "noMarks": "No marks yet",
+    "hint": "Mark attendance daily to keep this chart full.",
+    "today": "Today",
+    "days": {
+      "sun": "Su",
+      "mon": "Mo",
+      "tue": "Tu",
+      "wed": "We",
+      "thu": "Th",
+      "fri": "Fr",
+      "sat": "Sa"
+    },
+    "last7": "Last 7 days"
+  },
+  "poster": {
+    "title": "Poster maker",
+    "hint": "Posters for WhatsApp status and Instagram. Free.",
+    "kinds": {
+      "toppers": "Toppers",
+      "admission": "Admission",
+      "festival": "Festival"
+    },
+    "sizes": {
+      "square": "Square",
+      "status": "Status (tall)"
+    },
+    "defaults": {
+      "toppers": {
+        "headline": "Our toppers",
+        "subline": "Congratulations on your excellent results!"
+      },
+      "admission": {
+        "headline": "Admissions open",
+        "subline": "New batches for Classes 6 to 12. Limited seats."
+      },
+      "festival": {
+        "headline": "Happy Diwali",
+        "subline": "Warm wishes to all our students and parents"
+      }
+    },
+    "headline": "Headline",
+    "subline": "Line below (optional)",
+    "students": "Students",
+    "studentN": "Student {{n}}",
+    "studentName": "Name",
+    "studentDetail": "Marks or result",
+    "studentDetailHint": "e.g. 98% • Class 10",
+    "addPhoto": "Add photo",
+    "remove": "Remove",
+    "addStudent": "+ Add student",
+    "centre": "Centre name",
+    "phone": "Call us — phone",
+    "addLogo": "Add logo (optional)",
+    "changeLogo": "Change logo",
+    "download": "Download poster",
+    "short": "Poster"
+  },
+  "welcome": {
+    "title": "Welcome to Chalkpis",
+    "attendanceTitle": "Attendance in seconds",
+    "attendanceText": "Everyone starts present. Tap only the absent ones.",
+    "feesTitle": "Get paid on time",
+    "feesText": "Fee reminders carry your own UPI QR. Parents pay you directly.",
+    "parentsTitle": "Parents stay in the loop",
+    "parentsText": "Absent alerts and receipts go to parents on WhatsApp."
+  },
+  "legal": {
+    "about": "About",
+    "privacy": "Privacy Policy",
+    "terms": "Terms and Conditions",
+    "contact": "Contact us",
+    "builtBy": "Chalkpis is built by Man2Web (M2W Technologies Private Limited), India.",
+    "agreePrefix": "By continuing you agree to the",
+    "and": "and"
   }
 }

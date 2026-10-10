@@ -81,7 +81,7 @@ it('uses the singular for one student', async () => {
 it('search narrows the list', async () => {
   setup([student('1', 'Asha Rao'), student('2', 'Bala K')]);
   await render(<StudentsListScreen />);
-  await fireEvent.changeText(screen.getByLabelText('Search'), 'bala');
+  await fireEvent.changeText(screen.getByLabelText('Name or phone number'), 'bala');
   expect(screen.queryByText('Asha Rao')).toBeNull();
   expect(screen.getByText('Bala K')).toBeTruthy();
 });

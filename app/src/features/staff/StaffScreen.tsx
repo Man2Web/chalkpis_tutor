@@ -112,7 +112,7 @@ export function StaffScreen() {
 
   const batchChips = (
     <View style={{ gap: spacing.sm }}>
-      <Text style={type.label}>{t('staff.batches')}</Text>
+      <Text style={type.fieldLabel}>{t('staff.batches')}</Text>
       {active.length === 0 ? (
         <Text style={type.caption}>{t('staff.noBatchesYet')}</Text>
       ) : (
