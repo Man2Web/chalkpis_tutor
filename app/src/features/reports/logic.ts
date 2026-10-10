@@ -72,23 +72,66 @@ export interface StudentRow {
   stat: Stat;
 }
 
+export interface FeeStatusRow {
+  student: string;
+  className: string;
+  description: string;
+  billed: number; // paise, after discount
+  paid: number; // paise
+  status: 'Paid' | 'Part paid' | 'Unpaid' | 'Waived';
+}
+
+/** Paid / part paid / unpaid / waived for each due of the month, unpaid first, then by student name. */
+export function feeStatusRows(
+  dues: FeeDue[],
+  students: { id: string; name: string; class?: string }[],
+): FeeStatusRow[] {
+  const byId = new Map(students.map((s) => [s.id, s]));
+  const rank = { Unpaid: 0, 'Part paid': 1, Waived: 2, Paid: 3 } as const;
+  return dues
+    .map((d): FeeStatusRow => {
+      const billed = netDue(d);
+      const status =
+        d.status === 'waived'
+          ? 'Waived'
+          : outstanding(d) === 0
+            ? 'Paid'
+            : d.paid > 0
+              ? 'Part paid'
+              : 'Unpaid';
+      return {
+        student: byId.get(d.studentId)?.name ?? '—',
+        className: byId.get(d.studentId)?.class ?? '',
+        description: d.description,
+        billed,
+        paid: d.paid,
+        status,
+      };
+    })
+    .sort((a, b) => rank[a.status] - rank[b.status] || a.student.localeCompare(b.student));
+}
+
 export interface ReportData {
   month: string; // yyyy-mm
   institute: string;
   collection: CollectionReport;
   batches: Pick<Batch, 'id' | 'name'>[];
   students: StudentRow[];
+  /** Who owes what for the month (one row per due). Left out of the sheet when absent. */
+  fees?: FeeStatusRow[];
   attendancePct: number | null;
   sessions: number;
 }
 
-const rupees = (paise: number) => (paise / 100).toFixed(2);
+const rupeesText = (paise: number) => (paise / 100).toFixed(2);
+const rupeesNum = (paise: number) => Math.round(paise) / 100;
 const batchName = (data: ReportData, id: string | null) =>
   id ? (data.batches.find((b) => b.id === id)?.name ?? id) : 'No batch';
 
 /** Rows for a spreadsheet: summary, by mode, by batch, then one row per student. Money in rupees. */
-export function reportCsvRows(data: ReportData): (string | number)[][] {
+export function reportCsvRows(data: ReportData, numeric = false): (string | number)[][] {
   const c = data.collection;
+  const rupees = numeric ? rupeesNum : rupeesText;
   const rows: (string | number)[][] = [
     ['Report', data.month, data.institute],
     [],
@@ -103,6 +146,22 @@ export function reportCsvRows(data: ReportData): (string | number)[][] {
     [],
     ['Collected by batch'],
     ...c.byBatch.map((b) => [batchName(data, b.batchId), rupees(b.amount)]),
+    ...(data.fees
+      ? [
+          [],
+          ['Fees for the month'],
+          ['Student', 'Class', 'Fee', 'Billed', 'Paid', 'Pending', 'Status'],
+          ...data.fees.map((f) => [
+            f.student,
+            f.className,
+            f.description,
+            rupees(f.billed),
+            rupees(f.paid),
+            rupees(Math.max(0, f.billed - f.paid)),
+            f.status,
+          ]),
+        ]
+      : []),
     [],
     ['Attendance'],
     ['Average attendance %', data.attendancePct ?? ''],

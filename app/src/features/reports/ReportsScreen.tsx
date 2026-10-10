@@ -25,7 +25,8 @@ import {
 import { reportError } from '../../lib/analytics';
 import { lastOfMonth, todayYmd } from '../../lib/dates';
 import { toCsv } from '../../lib/csv';
-import { shareTextFile } from '../../lib/exportFile';
+import { shareBinaryFile, shareTextFile } from '../../lib/exportFile';
+import { buildXlsx } from '../../lib/xlsx';
 import { formatINR } from '../../lib/money';
 import { sharePdfHtml } from '../../lib/pdf';
 import { LOW_ATTENDANCE_PERCENT, PAY_MODES } from '../../lib/types';
@@ -36,6 +37,7 @@ import { periodLabel } from '../fees/logic';
 import {
   attendanceTrend,
   collectionReport,
+  feeStatusRows,
   reportCsvRows,
   reportHtml,
   type ReportData,
@@ -93,6 +95,7 @@ export function ReportsScreen() {
       low: lowAttendance(stats).map((l) => ({ ...l, name: byId.get(l.studentId)?.name ?? '—' })),
       overall,
       rows,
+      fees: feeStatusRows(dues.data ?? [], students.data ?? []),
     };
   }, [dues.data, payments.data, attendance.data, students.data]);
 
@@ -102,6 +105,7 @@ export function ReportsScreen() {
     collection: model.collection,
     batches: (batches.data ?? []).map((b) => ({ id: b.id, name: b.name })),
     students: model.rows,
+    fees: model.fees,
     attendancePct: model.overall.pct,
     sessions: model.overall.sessions,
   };
@@ -113,7 +117,22 @@ export function ReportsScreen() {
   const exportCsv = async () => {
     setBusy(true);
     try {
-      await shareTextFile(`tutordesk-report-${month}.csv`, toCsv(reportCsvRows(data)));
+      await shareTextFile(`chalkpis-report-${month}.csv`, toCsv(reportCsvRows(data)));
+    } catch (e) {
+      reportError(e);
+      toast(t('reports.exportFailed'), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const exportExcel = async () => {
+    setBusy(true);
+    try {
+      await shareBinaryFile(
+        `chalkpis-report-${month}.xlsx`,
+        buildXlsx(reportCsvRows(data, true), month),
+      );
     } catch (e) {
       reportError(e);
       toast(t('reports.exportFailed'), 'error');
@@ -225,6 +244,13 @@ export function ReportsScreen() {
         ) : (
           <>
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <Button
+                style={{ flex: 1 }}
+                variant="secondary"
+                title={t('reports.exportExcel')}
+                onPress={exportExcel}
+                disabled={busy}
+              />
               <Button
                 style={{ flex: 1 }}
                 variant="secondary"

@@ -25,6 +25,11 @@ describe('buildReminder', () => {
     expect(t).toContain('Dear Mr Kumar,');
     expect(t).toContain("Kavin's fee of ₹1,500 for Mar 2026");
   });
+  it('tells the parent where to pay only when a UPI id is set', () => {
+    expect(buildReminder('en', v)).not.toContain('UPI');
+    expect(buildReminder('en', { ...v, upiId: 'sir@oksbi' })).toContain('Pay by UPI: sir@oksbi');
+    expect(buildReminder('hi', { ...v, upiId: 'sir@oksbi' })).toContain('sir@oksbi');
+  });
   it('hindi', () => {
     const t = buildReminder('hi', v);
     expect(t).toContain('प्रिय Mr Kumar');

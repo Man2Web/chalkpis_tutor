@@ -10,6 +10,7 @@ import { api, uploadImage } from '../../api/client';
 import { setLanguage, type Lang } from '../../lib/language';
 import { colors, spacing, type } from '../../theme';
 import { logout, refreshProfile, useSession } from '../auth/session';
+import { cleanUpi } from '../../lib/upi';
 import { canDelete, cleanPrefix, DELETE_WORD } from './logic';
 
 const PRIVACY_URL = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL ?? '';
@@ -25,6 +26,8 @@ export function SettingsScreen() {
   const [address, setAddress] = useState<string>();
   const [phone, setPhone] = useState<string>();
   const [prefix, setPrefix] = useState<string>();
+  const [upi, setUpi] = useState<string>();
+  const [upiError, setUpiError] = useState<string>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [del, setDel] = useState(false);
@@ -44,13 +47,17 @@ export function SettingsScreen() {
   const addrV = address ?? inst.address ?? '';
   const phoneV = phone ?? inst.phone ?? '';
   const prefixV = prefix ?? inst.receiptPrefix;
+  const upiV = upi ?? inst.upiId ?? '';
 
   const save = async () => {
     setError(undefined);
+    setUpiError(undefined);
     const clean = cleanPrefix(prefixV);
+    const cleanUpiId = cleanUpi(upiV);
     if (nameV.trim().length < 2 || instV.trim().length < 2)
       return setError(t('validation.required'));
     if (!clean) return setError(t('settings.prefixInvalid'));
+    if (cleanUpiId === null) return setUpiError(t('settings.upiInvalid'));
     setBusy(true);
     try {
       await api('PATCH', '/me', { name: nameV.trim() });
@@ -59,10 +66,12 @@ export function SettingsScreen() {
         address: addrV.trim(),
         phone: phoneV.trim(),
         receiptPrefix: clean,
+        upiId: cleanUpiId,
       });
       await refreshProfile();
       await refresh();
       setPrefix(clean);
+      setUpi(cleanUpiId);
       toast(t('students.saved'), 'success');
     } catch (e) {
       reportError(e);
@@ -159,6 +168,17 @@ export function SettingsScreen() {
         error={error}
       />
       <Text style={[type.caption, { marginBottom: spacing.md }]}>{t('settings.prefixHint')}</Text>
+      <Input
+        label={t('settings.upiId')}
+        value={upiV}
+        onChangeText={setUpi}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        maxLength={80}
+        error={upiError}
+      />
+      <Text style={[type.caption, { marginBottom: spacing.md }]}>{t('settings.upiHint')}</Text>
       <Button title={t('common.save')} onPress={save} loading={busy} />
 
       <Text style={[type.heading, { marginTop: spacing.lg }]}>{t('settings.language')}</Text>

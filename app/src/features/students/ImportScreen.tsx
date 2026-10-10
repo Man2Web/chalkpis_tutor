@@ -22,7 +22,8 @@ import {
   useStudents,
 } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
-import { readText } from '../../lib/files';
+import { readBytes } from '../../lib/files';
+import { parseXlsx } from '../../lib/xlsx';
 import { parseCsv, toCsv } from '../../lib/csv';
 import { normalizeIndianPhone } from '../../lib/phone';
 import type { MainStackParams } from '../../navigation/types';
@@ -75,8 +76,11 @@ export function ImportScreen({
         copyToCacheDirectory: true,
       });
       if (res.canceled) return;
-      const text = await readText(res.assets[0].uri);
-      const parsed = mapImportRows(parseCsv(text), ctx());
+      const bytes = await readBytes(res.assets[0].uri);
+      // An .xlsx file is a zip ("PK"); anything else is read as CSV text.
+      const isXlsx = bytes[0] === 0x50 && bytes[1] === 0x4b;
+      const grid = isXlsx ? parseXlsx(bytes) : parseCsv(new TextDecoder('utf-8').decode(bytes));
+      const parsed = mapImportRows(grid, ctx());
       if (!parsed.length) toast(t('import.emptyFile'), 'error');
       else setRows(parsed);
     } catch (e) {
@@ -248,10 +252,10 @@ export function ImportScreen({
   if (mode === 'csv') {
     return (
       <Screen>
-        <Text style={type.title}>{t('import.csvTitle')}</Text>
-        <Text style={[type.caption, { marginBottom: spacing.md }]}>{t('import.csvHelp')}</Text>
+        <Text style={type.title}>{t('import.fileTitle')}</Text>
+        <Text style={[type.caption, { marginBottom: spacing.md }]}>{t('import.fileHelp')}</Text>
         {batchPicker}
-        <Button title={t('import.chooseFile')} onPress={pickCsv} />
+        <Button title={t('import.chooseAnyFile')} onPress={pickCsv} />
       </Screen>
     );
   }

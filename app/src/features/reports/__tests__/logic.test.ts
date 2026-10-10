@@ -2,6 +2,7 @@ import type { AttendanceDoc, FeeDue, Payment } from '../../../lib/types';
 import {
   attendanceTrend,
   collectionReport,
+  feeStatusRows,
   reportCsvRows,
   reportHtml,
   type ReportData,
@@ -158,5 +159,56 @@ describe('exports', () => {
     expect(h).not.toContain('<b>Rao</b>');
     expect(h).toContain('Asha &lt;b&gt;Rao&lt;/b&gt;');
     expect(h).toContain('Sunrise, &quot;Classes&quot;');
+  });
+});
+
+describe('feeStatusRows', () => {
+  const students = [
+    { id: 'a', name: 'Asha', class: '9' },
+    { id: 'b', name: 'Bala', class: '10' },
+    { id: 'c', name: 'Chitra' },
+    { id: 'd', name: 'Dev' },
+  ];
+  const rows = feeStatusRows(
+    [
+      due('d', { paid: 100000, status: 'paid' }),
+      due('c', { paid: 40000, status: 'partial' }),
+      due('b'),
+      due('a', { status: 'waived' }),
+      due('zz'),
+    ],
+    students,
+  );
+  it('lists unpaid first, then part paid, waived and paid, by name inside each', () => {
+    expect(rows.map((r) => [r.student, r.status])).toEqual([
+      ['—', 'Unpaid'],
+      ['Bala', 'Unpaid'],
+      ['Chitra', 'Part paid'],
+      ['Asha', 'Waived'],
+      ['Dev', 'Paid'],
+    ]);
+  });
+  it('goes into the spreadsheet with money as numbers when asked', () => {
+    const data = {
+      month: '2026-10',
+      institute: 'X',
+      collection: collectionReport([], []),
+      batches: [],
+      students: [],
+      fees: rows,
+      attendancePct: null,
+      sessions: 0,
+    } as ReportData;
+    const sheet = reportCsvRows(data, true);
+    expect(sheet).toContainEqual(['Chitra', '', '', 1000, 400, 600, 'Part paid']);
+    expect(reportCsvRows(data)).toContainEqual([
+      'Chitra',
+      '',
+      '',
+      '1000.00',
+      '400.00',
+      '600.00',
+      'Part paid',
+    ]);
   });
 });

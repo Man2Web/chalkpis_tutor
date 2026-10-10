@@ -30,3 +30,9 @@
 - [x] Deployed to the Hostinger VPS: https://api.chalkpis.com is live (HTTPS, database connected, parent page served). Still to do: push the newest code and redeploy, add the WhatsApp client id/password (see docs/deploy/README.md), backups run daily with an automatic restore check (off-server copy still to add)
 - [x] EAS build setup prepared: eas.json (development, preview apk, production aab), Chalkpis icons, Android bundle verified. Waiting on: Expo login, `eas init`, first build (docs/SETUP.md section 5)
 - [ ] then: offline use with saved-for-later changes (2e)
+
+## Version 2 (see docs/V2-PLAN.md)
+
+- [x] v2.0 quick wins: UPI id setting and QR on the reminder screen (share as image), "Mark as paid by UPI", Excel export with fee status per student, import from Excel/CSV (Sheets, Notion via export); 297 server tests, 266 app tests
+- [ ] v2.0 still to do: the QR inside the automatic WhatsApp fee reminder needs a new template with an image header (owner to get it approved)
+- [ ] v2.1 SMS fallback and plans/message cap; v2.2 AI Assistant and Paper Checking; v2.3 Google/email login, website, iPhone

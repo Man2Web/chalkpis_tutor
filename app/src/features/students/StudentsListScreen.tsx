@@ -195,7 +195,7 @@ export function StudentsListScreen() {
           />
           <Button
             variant="secondary"
-            title={t('import.fromCsv')}
+            title={t('import.fromFile')}
             onPress={() => {
               setMenu(false);
               nav.navigate('StudentImport', { mode: 'csv' });

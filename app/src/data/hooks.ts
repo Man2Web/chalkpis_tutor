@@ -236,6 +236,7 @@ export interface Institute {
   logoUrl?: string | null;
   address?: string;
   phone?: string;
+  upiId?: string;
   receiptPrefix: string;
 }
 
@@ -250,6 +251,7 @@ export function useInstitute() {
         logoUrl: d.logoUrl,
         address: d.address,
         phone: d.phone,
+        upiId: d.upiId,
         receiptPrefix: d.receiptPrefix,
       };
     },

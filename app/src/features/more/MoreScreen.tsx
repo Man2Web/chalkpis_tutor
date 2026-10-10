@@ -58,7 +58,7 @@ export function MoreScreen() {
           onPress={() => nav.navigate('Reports')}
         />
         <ListItem
-          title={t('import.fromCsv')}
+          title={t('import.fromFile')}
           right={chevron}
           onPress={() => nav.navigate('StudentImport', { mode: 'csv' })}
         />

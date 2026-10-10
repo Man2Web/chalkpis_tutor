@@ -21,6 +21,12 @@ const patchBody = z
       .trim()
       .toUpperCase()
       .regex(/^[A-Z0-9]{2,6}$/),
+    // name@bank; empty clears it
+    upiId: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .regex(/^([a-z0-9._-]{2,50}@[a-z][a-z0-9]{1,30})?$/),
   })
   .partial()
   .refine((v) => Object.keys(v).length > 0);
@@ -47,13 +53,14 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
   // The institute is always the caller's own, taken from their membership; there is no id in the URL to tamper with.
   app.get('/institute', { preHandler: [auth, requireInstitute] }, async (req) => {
     const [rows] = (await deps.pool.query(
-      'SELECT name, address, phone, receipt_prefix, timezone, currency, logo_path FROM institutes WHERE id = ?',
+      'SELECT name, address, phone, upi_id, receipt_prefix, timezone, currency, logo_path FROM institutes WHERE id = ?',
       [req.auth!.instituteId],
     )) as unknown as [
       {
         name: string;
         address: string;
         phone: string;
+        upi_id: string;
         receipt_prefix: string;
         timezone: string;
         currency: string;
@@ -65,6 +72,7 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
       name: r.name,
       address: r.address,
       phone: r.phone,
+      upiId: r.upi_id,
       receiptPrefix: r.receipt_prefix,
       timezone: r.timezone,
       currency: r.currency,
@@ -79,11 +87,12 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
       return reply.code(402).send({ error: 'plan_expired' });
     const b = body.data;
     await deps.pool.query(
-      'UPDATE institutes SET name = COALESCE(?, name), address = COALESCE(?, address), phone = COALESCE(?, phone), receipt_prefix = COALESCE(?, receipt_prefix) WHERE id = ?',
+      'UPDATE institutes SET name = COALESCE(?, name), address = COALESCE(?, address), phone = COALESCE(?, phone), upi_id = COALESCE(?, upi_id), receipt_prefix = COALESCE(?, receipt_prefix) WHERE id = ?',
       [
         b.name ?? null,
         b.address ?? null,
         b.phone ?? null,
+        b.upiId ?? null,
         b.receiptPrefix ?? null,
         req.auth!.instituteId,
       ],

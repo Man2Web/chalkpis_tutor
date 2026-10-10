@@ -181,12 +181,8 @@
   },
   "import": {
     "title": "विद्यार्थी इम्पोर्ट करें",
-    "fromCsv": "CSV फ़ाइल से इम्पोर्ट करें",
     "fromContacts": "फोन कॉन्टैक्ट से इम्पोर्ट करें",
-    "csvTitle": "CSV फ़ाइल से इम्पोर्ट",
-    "csvHelp": "पहली पंक्ति में कॉलम के नाम होने चाहिए। उपयोगी कॉलम: name, parent phone, phone, parent name, class, batch, monthly fee, fee cycle, due day। केवल name और parent phone ज़रूरी हैं।",
     "defaultBatch": "बिना बैच वाले विद्यार्थी यहाँ रखें:",
-    "chooseFile": "CSV फ़ाइल चुनें",
     "emptyFile": "उस फ़ाइल में कोई विद्यार्थी पंक्ति नहीं मिली।",
     "readFailed": "वह फ़ाइल पढ़ी नहीं जा सकी।",
     "contactsTitle": "कॉन्टैक्ट से इम्पोर्ट",
@@ -215,7 +211,11 @@
     "done_one": "{{count}} विद्यार्थी इम्पोर्ट हुआ",
     "done_other": "{{count}} विद्यार्थी इम्पोर्ट हुए",
     "importN_one": "{{count}} विद्यार्थी इम्पोर्ट करें",
-    "importN_other": "{{count}} विद्यार्थी इम्पोर्ट करें"
+    "importN_other": "{{count}} विद्यार्थी इम्पोर्ट करें",
+    "fromFile": "Excel, Sheets, CSV या Notion से इम्पोर्ट",
+    "fileTitle": "फ़ाइल से इम्पोर्ट",
+    "fileHelp": "Excel (.xlsx) या CSV फ़ाइल चुनें। Google Sheets में File > Download उपयोग करें; Notion से तालिका CSV में निर्यात करें। पहली पंक्ति में कॉलम के नाम होने चाहिए। उपयोगी कॉलम: name, parent phone, phone, parent name, class, batch, monthly fee, fee cycle, due day। केवल name और parent phone ज़रूरी हैं।",
+    "chooseAnyFile": "Excel या CSV फ़ाइल चुनें"
   },
   "attendance": {
     "markTitle": "उपस्थिति लें",
@@ -362,7 +362,15 @@
     "nothingDue": "कुछ बाकी नहीं है",
     "ledgerTitle": "फीस बही",
     "collectTitle": "फीस लें",
-    "planTitle": "फीस योजना"
+    "planTitle": "फीस योजना",
+    "upiQrTitle": "UPI से भुगतान",
+    "upiQrCaption": "{{name}} को {{amount}} देने के लिए स्कैन करें",
+    "upiMissing": "यहाँ भुगतान QR कोड दिखाने के लिए सेटिंग्स में अपनी UPI आईडी जोड़ें।",
+    "shareQr": "QR इमेज भेजें",
+    "markPaid": "UPI से भुगतान मिला",
+    "markPaidAsk": "क्या {{amount}} UPI से मिला दर्ज करें? अभिभावक संदेश चालू हों तो रसीद अभिभावक को जाएगी।",
+    "markPaidConfirm": "हाँ, भुगतान दर्ज करें",
+    "markPaidDone": "भुगतान दर्ज हुआ"
   },
   "home": {
     "hello": "नमस्ते, {{name}}",
@@ -423,7 +431,8 @@
       "absent": "अनुपस्थित",
       "percent": "%",
       "noBatch": "कोई बैच नहीं"
-    }
+    },
+    "exportExcel": "Excel निर्यात"
   },
   "settings": {
     "title": "सेटिंग",
@@ -443,7 +452,10 @@
     "deleteConfirmHelp": "सारा डेटा हमेशा के लिए मिट जाएगा। पुष्टि के लिए {{word}} लिखें।",
     "typeToConfirm": "{{word}} लिखें",
     "deleteForever": "हमेशा के लिए हटाएँ",
-    "deleteFailed": "खाता नहीं हटाया जा सका। इंटरनेट जाँचकर फिर कोशिश करें।"
+    "deleteFailed": "खाता नहीं हटाया जा सका। इंटरनेट जाँचकर फिर कोशिश करें।",
+    "upiId": "आपकी UPI आईडी",
+    "upiHint": "अभिभावक सीधे आपको भुगतान करते हैं। इस UPI आईडी का QR कोड फीस रिमाइंडर पर दिखता है। उदाहरण: name@okhdfcbank",
+    "upiInvalid": "name@bank जैसी UPI आईडी लिखें"
   },
   "billing": {
     "title": "प्लान और बिलिंग",

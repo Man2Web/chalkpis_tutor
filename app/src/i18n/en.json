@@ -181,12 +181,8 @@
   },
   "import": {
     "title": "Import students",
-    "fromCsv": "Import from CSV file",
     "fromContacts": "Import from phone contacts",
-    "csvTitle": "Import from a CSV file",
-    "csvHelp": "First row must be column names. Useful columns: name, parent phone, phone, parent name, class, batch, monthly fee, fee cycle, due day. Only name and parent phone are required.",
     "defaultBatch": "Put students without a batch in:",
-    "chooseFile": "Choose CSV file",
     "emptyFile": "No student rows found in that file.",
     "readFailed": "Could not read that file.",
     "contactsTitle": "Import from contacts",
@@ -215,7 +211,11 @@
     "done_one": "{{count}} student imported",
     "done_other": "{{count}} students imported",
     "importN_one": "Import {{count}} student",
-    "importN_other": "Import {{count}} students"
+    "importN_other": "Import {{count}} students",
+    "fromFile": "Import from Excel, Sheets, CSV or Notion",
+    "fileTitle": "Import from a file",
+    "fileHelp": "Choose an Excel (.xlsx) or CSV file. From Google Sheets use File > Download; from Notion export the table as CSV. First row must be column names. Useful columns: name, parent phone, phone, parent name, class, batch, monthly fee, fee cycle, due day. Only name and parent phone are required.",
+    "chooseAnyFile": "Choose Excel or CSV file"
   },
   "attendance": {
     "markTitle": "Mark attendance",
@@ -362,7 +362,15 @@
     "nothingDue": "Nothing is due",
     "ledgerTitle": "Fee ledger",
     "collectTitle": "Collect fee",
-    "planTitle": "Fee plan"
+    "planTitle": "Fee plan",
+    "upiQrTitle": "Pay by UPI",
+    "upiQrCaption": "Scan to pay {{amount}} to {{name}}",
+    "upiMissing": "Add your UPI id in Settings to show a payment QR code here.",
+    "shareQr": "Share QR image",
+    "markPaid": "Mark as paid by UPI",
+    "markPaidAsk": "Record {{amount}} as received by UPI? The receipt goes to the parent if parent messages are on.",
+    "markPaidConfirm": "Yes, record payment",
+    "markPaidDone": "Payment recorded"
   },
   "home": {
     "hello": "Hello, {{name}}",
@@ -423,7 +431,8 @@
       "absent": "Absent",
       "percent": "%",
       "noBatch": "No batch"
-    }
+    },
+    "exportExcel": "Export Excel"
   },
   "settings": {
     "title": "Settings",
@@ -443,7 +452,10 @@
     "deleteConfirmHelp": "All data will be erased for good. Type {{word}} to confirm.",
     "typeToConfirm": "Type {{word}}",
     "deleteForever": "Delete forever",
-    "deleteFailed": "Could not delete the account. Check your internet and try again."
+    "deleteFailed": "Could not delete the account. Check your internet and try again.",
+    "upiId": "Your UPI id",
+    "upiHint": "Parents pay you directly. A QR code with this UPI id is shown on fee reminders. Example: name@okhdfcbank",
+    "upiInvalid": "Enter a UPI id like name@bank"
   },
   "billing": {
     "title": "Plans & billing",

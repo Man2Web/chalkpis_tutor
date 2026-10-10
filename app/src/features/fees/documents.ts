@@ -14,15 +14,17 @@ export interface ReminderVars {
   amount: string; // already formatted, e.g. ₹1,500
   period: string; // e.g. Mar 2026
   institute: string;
+  /** The tutor's UPI id; when set the text tells the parent where to pay. */
+  upiId?: string;
 }
 
 /** Pre-filled fee reminder text (editable by the tutor before sending). */
 export function buildReminder(lang: DocLang, v: ReminderVars): string {
   const name = v.parentName.trim();
   if (lang === 'hi') {
-    return `${name ? `प्रिय ${name},` : 'नमस्ते,'}\n${v.institute} में ${v.studentName} की ${v.period} की फीस ${v.amount} बाकी है। कृपया जल्द भुगतान करें। धन्यवाद।`;
+    return `${name ? `प्रिय ${name},` : 'नमस्ते,'}\n${v.institute} में ${v.studentName} की ${v.period} की फीस ${v.amount} बाकी है। कृपया जल्द भुगतान करें।${v.upiId ? `\nUPI से भुगतान: ${v.upiId}` : ''}\nधन्यवाद।`;
   }
-  return `${name ? `Dear ${name},` : 'Hello,'}\nThis is a reminder that ${v.studentName}'s fee of ${v.amount} for ${v.period} is pending at ${v.institute}. Please pay at your earliest convenience. Thank you.`;
+  return `${name ? `Dear ${name},` : 'Hello,'}\nThis is a reminder that ${v.studentName}'s fee of ${v.amount} for ${v.period} is pending at ${v.institute}. Please pay at your earliest convenience.${v.upiId ? `\nPay by UPI: ${v.upiId}` : ''}\nThank you.`;
 }
 
 const LABELS = {
