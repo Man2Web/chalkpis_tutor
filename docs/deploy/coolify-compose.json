@@ -16,7 +16,7 @@
         "TRUST_PROXY=true",
         "PORT=8080",
         "LOG_LEVEL=info",
-        "PUBLIC_BASE_URL=https://api.chalkpis.com",
+        "PUBLIC_BASE_URL=https://tutor.chalkpis.com",
         "FILES_DIR=/data/uploads",
         "DB_HOST=db",
         "DB_PORT=3306",

@@ -25,14 +25,14 @@ The server is a Docker app (`server/Dockerfile`); Coolify builds and runs it. Do
 1. **Git repository.** `https://github.com/Man2Web/chalkpis_tutor.git`. Push this project to it from a terminal that is signed in to GitHub with write access: `git push -u origin main`. For a private repository, Coolify pulls with a **deploy key**: in Coolify choose **Private Repository (with Deploy Key)**, copy the public key it shows, and add it in GitHub under the repository's **Settings -> Deploy keys** (read-only is enough).
 2. **Database.** In Coolify: **New resource -> Database -> MariaDB 11**. Note its internal host name, user, password and database name. Turn on its **Backups** (see [BACKUPS.md](BACKUPS.md)).
 3. **Application.** **New resource -> Application -> your repository**, build pack **Dockerfile**, base directory `server`, port `8080`. Add a **persistent storage** volume mounted at `/data/uploads` (logos and student photos live there) and another at `/data/backups`.
-4. **Domain.** Done: `api.chalkpis.com` already points to the VPS (200.234.43.196). In Coolify set the application's domain to `https://api.chalkpis.com`; Coolify issues the HTTPS certificate by itself.
+4. **Domain.** Done: `tutor.chalkpis.com` points to the VPS (200.234.43.196). In Coolify set the application's domain to `https://tutor.chalkpis.com`; Coolify issues the HTTPS certificate by itself.
 5. **Settings (Environment variables).** Set these in Coolify, never in the code. Generate each secret with `openssl rand -base64 48`.
 
    | Setting                                                                          | Value                                                                                         |
    | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
    | `NODE_ENV`                                                                       | `production`                                                                                  |
    | `TRUST_PROXY`                                                                    | `true`                                                                                        |
-   | `PUBLIC_BASE_URL`                                                                | `https://api.chalkpis.com`                                                                    |
+   | `PUBLIC_BASE_URL`                                                                | `https://tutor.chalkpis.com`                                                                    |
    | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`                        | from the Coolify database                                                                     |
    | `JWT_SECRET`, `OTP_PEPPER`                                                       | two different long random values                                                              |
    | `WA_API_URL`, `WA_FROM`, `WA_CLIENT_ID`, `WA_CLIENT_PASSWORD`, `WA_TEMPLATE_OTP` | your WhatsApp gateway (see section 3)                                                         |
@@ -41,7 +41,7 @@ The server is a Docker app (`server/Dockerfile`); Coolify builds and runs it. Do
 
    Leave `OTP_DEV_ECHO` unset in production (it is ignored there anyway).
 
-6. **Deploy.** The server creates and updates its database tables by itself on start. Open `https://api.chalkpis.com/health`: it should say `{"status":"ok","db":"up"}`.
+6. **Deploy.** The server creates and updates its database tables by itself on start. Open `https://tutor.chalkpis.com/health`: it should say `{"status":"ok","db":"up"}`.
 7. **Backups.** Add the scheduled task from [BACKUPS.md](BACKUPS.md) and practise one restore.
 
 The container build has not been tried yet (Docker is not installed on the development Mac), so expect Coolify's first build to be the first real test.
@@ -59,7 +59,7 @@ The owner has chosen not to connect a payment gateway yet. With no `RAZORPAY_*` 
 
 1. Create a Razorpay account and finish KYC; in **Settings -> API keys** make a **Test mode** key pair first.
 2. Set `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and a `RAZORPAY_WEBHOOK_SECRET` (16+ characters of your choice).
-3. In Razorpay **Settings -> Webhooks -> Add new webhook**: URL `https://api.chalkpis.com/billing/webhooks/razorpay`, the same secret, event **payment_link.paid**.
+3. In Razorpay **Settings -> Webhooks -> Add new webhook**: URL `https://tutor.chalkpis.com/billing/webhooks/razorpay`, the same secret, event **payment_link.paid**.
 4. Buy a plan with Razorpay's test card or UPI. The plan switches on within seconds, and a re-delivered webhook never extends it twice.
 5. When ready, swap in the Live keys.
 
@@ -67,7 +67,7 @@ Without keys, local runs use a mock ("Pay (test)" in the app); in production buy
 
 ## 5. Build the Android app (EAS)
 
-Already prepared in the repository: `app/eas.json` (three build profiles, each pointing the app at `https://api.chalkpis.com`), the app name and package id (`in.chalkpis.tutors`), and the Chalkpis icons (made from the animation's mark: launcher icon, Android adaptive and themed icons). The app was checked to bundle for Android.
+Already prepared in the repository: `app/eas.json` (three build profiles, each pointing the app at `https://tutor.chalkpis.com`), the app name and package id (`in.chalkpis.tutors`), and the Chalkpis icons (made from the animation's mark: launcher icon, Android adaptive and themed icons). The app was checked to bundle for Android.
 
 Steps that need your Expo account (free, https://expo.dev):
 
@@ -81,4 +81,4 @@ Changing the server address later: edit `EXPO_PUBLIC_API_URL` in `app/eas.json` 
 
 ## 6. Parent page
 
-Parents open `https://api.chalkpis.com/p/<token>`. The tutor makes the link on the student's profile. The page is served by the same server (`server/public/`), is read-only, and shows one student's attendance, fees and receipts only.
+Parents open `https://tutor.chalkpis.com/p/<token>`. The tutor makes the link on the student's profile. The page is served by the same server (`server/public/`), is read-only, and shows one student's attendance, fees and receipts only.

@@ -8,17 +8,17 @@
       "developmentClient": true,
       "distribution": "internal",
       "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.chalkpis.com" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://tutor.chalkpis.com" }
     },
     "preview": {
       "distribution": "internal",
       "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.chalkpis.com" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://tutor.chalkpis.com" }
     },
     "production": {
       "autoIncrement": true,
       "android": { "buildType": "app-bundle" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.chalkpis.com" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://tutor.chalkpis.com" }
     }
   },
   "submit": {
