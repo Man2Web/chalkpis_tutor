@@ -204,14 +204,16 @@ export class AppleProvider implements OAuthProvider {
  * environment-variable boxes often mangle multi-line values.
  */
 export function normalizePem(raw: string) {
-  const body = raw
-    .trim()
-    .replace(/^["']|["']$/g, '')
-    .replace(/\\n/g, '\n')
-    .replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '')
-    .replace(/\s+/g, '');
+  const body = pemBody(raw);
   return `-----BEGIN PRIVATE KEY-----\n${(body.match(/.{1,64}/g) ?? []).join('\n')}\n-----END PRIVATE KEY-----\n`;
 }
+
+/** Just the base64 of the key: escaped newlines (even double-escaped), quotes and stray characters dropped. */
+export const pemBody = (raw: string) =>
+  raw
+    .replace(/\\+n/g, '\n')
+    .replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '')
+    .replace(/[^A-Za-z0-9+/=]/g, '');
 
 // ---------- state: what the start step hands to the callback, signed so nobody can forge it ----------
 

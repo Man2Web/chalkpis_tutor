@@ -361,6 +361,7 @@ describe('the real Google and Apple providers check every token', () => {
       p8.replace(/\n/g, '\\n'), // single line with \n
       `"${p8.replace(/\n/g, '\\n')}"`, // with quotes
       p8.replace(/\n/g, ' '), // line breaks turned into spaces
+      p8.replace(/\n/g, '\\\\n'), // \n escaped twice by an env editor
       body, // just the base64
     ];
     const opts = { servicesId: 's', teamId: 't', keyId: 'k' };

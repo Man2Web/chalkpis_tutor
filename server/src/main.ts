@@ -7,6 +7,7 @@ import { MockMailer, SmtpMailer, type Mailer } from './auth/mailer.js';
 import {
   AppleProvider,
   GoogleProvider,
+  pemBody,
   type OAuthProvider,
   type OAuthProviderName,
 } from './auth/oauth.js';
@@ -103,7 +104,10 @@ async function main() {
     });
     // A key that does not parse would only fail at someone's sign-in; say so at startup instead.
     if (await apple.keyWorks()) oauth.apple = apple;
-    else console.warn('Sign in with Apple is off: APPLE_PRIVATE_KEY is not a valid .p8 key.');
+    else
+      console.warn(
+        `Sign in with Apple is off: APPLE_PRIVATE_KEY is not a valid .p8 key (${pemBody(config.APPLE_PRIVATE_KEY!).length} key characters; a Sign in with Apple .p8 has 200).`,
+      );
   } else if (appleMissing.length < 4)
     console.warn(`Sign in with Apple is off: missing ${appleMissing.join(', ')}.`);
   const app = await buildApp({ config, pool, provider, billing, mailer, oauth });
