@@ -63,6 +63,18 @@
       "url": "https://u.expo.dev/2912efb6-e322-43b4-818d-41bdf9d09534",
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0
+    },
+    "ios": {
+      "bundleIdentifier": "in.chalkpis.tutors",
+      "supportsTablet": false,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSContactsUsageDescription": "Chalkpis reads a contact only when you choose to add a student or parent from your contacts.",
+        "NSPhotoLibraryUsageDescription": "Chalkpis uses a photo you pick as your institute logo or a student photo.",
+        "NSCameraUsageDescription": "Chalkpis uses the camera when you take a photo for your institute logo or a student."
+      }
     }
   }
 }
