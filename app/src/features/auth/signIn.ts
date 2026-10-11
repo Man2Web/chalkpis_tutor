@@ -1,3 +1,4 @@
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { ApiError, apiPublic } from '../../api/client';
@@ -8,6 +9,8 @@ export interface Methods {
   email: boolean;
   google: boolean;
   apple: boolean;
+  /** iPhone: Apple's own sign-in sheet (no browser); the web Apple flow is the fallback. */
+  appleNative: boolean;
 }
 
 /** Which sign-in buttons to show; if the server cannot be reached, WhatsApp (always set up) is offered alone. */
@@ -15,7 +18,7 @@ export async function signInMethods(): Promise<Methods> {
   try {
     return await apiPublic<Methods>('GET', '/auth/methods');
   } catch {
-    return { whatsapp: true, email: false, google: false, apple: false };
+    return { whatsapp: true, email: false, google: false, apple: false, appleNative: false };
   }
 }
 
@@ -65,4 +68,36 @@ export async function oauthSignIn(
   const ticket = params.get('ticket');
   if (!ticket) throw new ApiError(400, error ?? 'failed');
   return complete(await apiPublic('POST', '/auth/ticket', { ticket, secret }));
+}
+
+/**
+ * Sign in with Apple through iOS's own sheet. The server hands out a single-use nonce first; Apple seals it into the
+ * identity token, so a token caught elsewhere cannot be replayed. Apple shares the name only on the very first
+ * sign-in, so it goes along when there is one. Apple accounts never have to add a mobile number.
+ */
+export async function appleNativeSignIn(): Promise<NeedsPhone | null | 'cancelled'> {
+  startingWith('apple');
+  const { nonce } = await apiPublic<{ nonce: string }>('POST', '/auth/apple/nonce', {});
+  let cred: AppleAuthentication.AppleAuthenticationCredential;
+  try {
+    cred = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+      nonce,
+    });
+  } catch (e) {
+    if ((e as { code?: unknown } | null)?.code === 'ERR_REQUEST_CANCELED') return 'cancelled';
+    throw e;
+  }
+  if (!cred.identityToken) throw new ApiError(400, 'failed');
+  const name = cred.fullName;
+  return complete(
+    await apiPublic('POST', '/auth/apple/native', {
+      identityToken: cred.identityToken,
+      nonce,
+      fullName: name ? { givenName: name.givenName, familyName: name.familyName } : null,
+    }),
+  );
 }

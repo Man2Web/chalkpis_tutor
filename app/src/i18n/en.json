@@ -59,7 +59,9 @@
       "blocked": "This account has been blocked. Contact hello@chalkpis.com.",
       "unavailable": "This sign-in option is not available right now. Please try another one.",
       "providerFailed": "Could not sign in with {{provider}}. Please try again or use another option.",
-      "invalidEmailCode": "That code is wrong. Check your email and try again."
+      "invalidEmailCode": "That code is wrong. Check your email and try again.",
+      "phoneInUse": "This number already has its own Chalkpis account. To use it, sign out and continue with WhatsApp.",
+      "phoneAlreadySet": "This account already has a mobile number."
     },
     "welcomeHeadline": "Run your tuition from your phone",
     "continueWhatsApp": "Continue with WhatsApp",
@@ -849,6 +851,14 @@
       "google": "Google",
       "apple": "Apple",
       "email": "Email"
-    }
+    },
+    "notAdded": "Not added"
+  },
+  "addPhone": {
+    "title": "Add your mobile number",
+    "hint": "Add your mobile so parents and helpers can reach you and you can sign in with WhatsApp too. We send a code on WhatsApp to confirm it.",
+    "added": "Mobile number added",
+    "unavailable": "WhatsApp codes cannot be sent right now. Please try again later.",
+    "failed": "Could not add your number. Please try again."
   }
 }

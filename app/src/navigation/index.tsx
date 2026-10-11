@@ -14,6 +14,7 @@ import { PhoneLoginScreen } from '../features/auth/PhoneLoginScreen';
 import { useIsStaff, useSession } from '../features/auth/session';
 import { StaffScreen } from '../features/staff/StaffScreen';
 import { AccountScreen } from '../features/account/AccountScreen';
+import { AddPhoneScreen } from '../features/account/AddPhoneScreen';
 import { BatchScreen } from '../features/onboarding/BatchScreen';
 import { ProfileScreen } from '../features/onboarding/ProfileScreen';
 import { StudentsScreen } from '../features/onboarding/StudentsScreen';
@@ -302,6 +303,12 @@ function MainStack() {
         name="EditProfile"
         component={EditProfileScreen}
         options={{ title: t('settings.editProfile') }}
+      />
+      <Main.Screen
+        name="AddPhone"
+        component={AddPhoneScreen}
+        // the brand step layout has its own back button and title; this one names the page for screen readers
+        options={{ title: t('addPhone.title'), headerShown: false }}
       />
       <Main.Screen
         name="PaymentSettings"

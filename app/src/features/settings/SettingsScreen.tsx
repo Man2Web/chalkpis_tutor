@@ -176,12 +176,21 @@ export function EditProfileScreen({
         error={error}
         autoComplete="name"
       />
-      <Input
-        label={t('auth.phoneLabel')}
-        value={profile?.phone ?? ''}
-        editable={false}
-        hint={t('settings.phoneHint')}
-      />
+      {profile?.phone ? (
+        <Input
+          label={t('auth.phoneLabel')}
+          value={profile.phone}
+          editable={false}
+          hint={t('settings.phoneHint')}
+        />
+      ) : (
+        // an account made with Apple has no number yet
+        <Button
+          variant="outline"
+          title={t('addPhone.title')}
+          onPress={() => navigation.navigate('AddPhone')}
+        />
+      )}
       <Button title={t('common.save')} onPress={save} loading={busy} />
     </Screen>
   );

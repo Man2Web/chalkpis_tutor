@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -14,7 +15,7 @@ import { colors, column, font, radius, spacing, type } from '../../theme';
 import { BrandBackdrop, BRAND_DEEP, Float, PreviewCard } from './brand';
 import { authErrorKey } from './authErrors';
 import { lastSignInMethod, type SignInMethod } from './phoneAuth';
-import { oauthSignIn, signInMethods, type Methods } from './signIn';
+import { appleNativeSignIn, oauthSignIn, signInMethods, type Methods } from './signIn';
 
 /** What a tutor's day looks like in Chalkpis, as three little cards floating in the hero. */
 const CARDS = [
@@ -122,22 +123,81 @@ function ProviderButton({
           <Text style={{ fontSize: 16, ...font('600'), color: l.fg }}>{label}</Text>
         </>
       )}
-      {lastUsed && !busy ? (
+      {lastUsed && !busy ? <LastUsedBadge label={lastUsed} /> : null}
+    </Pressable>
+  );
+}
+
+/** The "Last used" pill over a button's top edge. */
+function LastUsedBadge({ label }: { label: string }) {
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        top: -9,
+        right: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 999,
+        backgroundColor: colors.text,
+      }}
+    >
+      <Text style={{ fontSize: 11, ...font('600'), color: colors.surface }}>{label}</Text>
+    </View>
+  );
+}
+
+/**
+ * Apple's own system button (its title, logo and look are Apple's and cannot be restyled), sized like the others.
+ * It has no loading state of its own, so a spinner covers it while the sign-in runs.
+ */
+function AppleNativeButton({
+  onPress,
+  busy,
+  disabled,
+  lastUsed,
+}: {
+  onPress: () => void;
+  busy?: boolean;
+  disabled?: boolean;
+  lastUsed?: string;
+}) {
+  return (
+    <View
+      pointerEvents={disabled ? 'none' : 'auto'}
+      style={{ opacity: disabled && !busy ? 0.5 : 1 }}
+    >
+      <AppleAuthentication.AppleAuthenticationButton
+        testID="appleNativeButton"
+        buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+        buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+        cornerRadius={radius.md + 2}
+        style={{ height: 52, width: '100%' }}
+        onPress={() => {
+          haptic.tap();
+          onPress();
+        }}
+      />
+      {busy ? (
         <View
           style={{
             position: 'absolute',
-            top: -9,
-            right: 12,
-            paddingHorizontal: 8,
-            paddingVertical: 2,
-            borderRadius: 999,
-            backgroundColor: colors.text,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            borderRadius: radius.md + 2,
+            backgroundColor: '#000000',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          <Text style={{ fontSize: 11, ...font('600'), color: colors.surface }}>{lastUsed}</Text>
+          <ActivityIndicator color="#FFFFFF" />
         </View>
       ) : null}
-    </Pressable>
+      {lastUsed && !busy ? <LastUsedBadge label={lastUsed} /> : null}
+    </View>
   );
 }
 
@@ -154,7 +214,10 @@ export function LanguageScreen({
     email: false,
     google: false,
     apple: false,
+    appleNative: false,
   });
+  // iPhone with Apple's own sign-in available (iOS 13+) and switched on at the server
+  const [appleNative, setAppleNative] = useState(false);
   const [busy, setBusy] = useState<'google' | 'apple' | null>(null);
   const [last, setLast] = useState<SignInMethod | null>(null);
   // `busy` disables the buttons only after a render; two taps in one frame must not open two sign-in sheets
@@ -165,20 +228,34 @@ export function LanguageScreen({
     void lastSignInMethod().then(setLast);
   }, []);
 
-  const withProvider = async (p: 'google' | 'apple') => {
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || !methods.appleNative) return;
+    let alive = true;
+    AppleAuthentication.isAvailableAsync()
+      .then((ok) => alive && setAppleNative(ok))
+      .catch(() => undefined); // stays on the web Apple flow
+    return () => {
+      alive = false;
+    };
+  }, [methods.appleNative]);
+
+  /** native: Apple's own sheet on iPhone; otherwise the provider's page in a browser sheet. */
+  const withProvider = async (p: 'google' | 'apple', native = false) => {
     if (opening.current) return;
     opening.current = true;
     setBusy(p);
     try {
-      const r = await oauthSignIn(p);
+      const r = native ? await appleNativeSignIn() : await oauthSignIn(p);
       if (r && r !== 'cancelled')
         navigation.navigate('Phone', { signupToken: r.signupToken, email: r.email, name: r.name });
       // signed in: the navigator moves on by itself; cancelled: stay here quietly
     } catch (e) {
       const key = authErrorKey(e);
       if (key === 'generic' || key === 'signupExpired') reportError(e);
+      // natively a refused token (invalid_ticket) is simply a failed Apple sign-in; nothing took too long
+      const failed = key === 'generic' || (native && key === 'signupExpired');
       toast(
-        key === 'generic'
+        failed
           ? t('auth.errors.providerFailed', { provider: p === 'google' ? 'Google' : 'Apple' })
           : t(`auth.errors.${key}`),
         'error',
@@ -295,7 +372,15 @@ export function LanguageScreen({
               />
             ) : null}
             {social.map((p) =>
-              methods[p] ? (
+              p === 'apple' && appleNative ? (
+                <AppleNativeButton
+                  key={p}
+                  onPress={() => void withProvider(p, true)}
+                  busy={busy === p}
+                  disabled={!!busy}
+                  lastUsed={tag(p)}
+                />
+              ) : methods[p] ? (
                 <ProviderButton
                   key={p}
                   look={p}

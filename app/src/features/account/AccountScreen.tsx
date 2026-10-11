@@ -67,8 +67,11 @@ function ProfileCard({ onEdit, plan }: { onEdit?: () => void; plan?: string }) {
   );
 }
 
-/** How this account can sign in: WhatsApp always; Google and email, and Apple on iPhone. */
-function SignInSection() {
+/**
+ * How this account can sign in: WhatsApp (once it has a mobile number), Google and email, and Apple on iPhone.
+ * An account made with Apple has no number yet; its WhatsApp row offers to add one.
+ */
+function SignInSection({ onAddPhone }: { onAddPhone: () => void }) {
   const { t } = useTranslation();
   const profile = useSession((s) => s.profile);
   const on = new Set(profile?.signInMethods ?? []);
@@ -87,7 +90,18 @@ function SignInSection() {
   );
   return (
     <Section title={t('account.signIn')} footer={t('account.signInFooter')}>
-      <Row icon="logo-whatsapp" iconColor="#1DA851" title="WhatsApp" value={profile?.phone ?? ''} />
+      {profile?.phone ? (
+        <Row icon="logo-whatsapp" iconColor="#1DA851" title="WhatsApp" value={profile.phone} />
+      ) : (
+        <Row
+          icon="logo-whatsapp"
+          iconColor="#1DA851"
+          title="WhatsApp"
+          subtitle={t('addPhone.title')}
+          value={t('account.notAdded')}
+          onPress={onAddPhone}
+        />
+      )}
       {row('google', 'logo-google', '#4285F4')}
       {/* Apple is an iPhone sign-in; on Android it shows only if this account already uses it */}
       {Platform.OS === 'ios' || on.has('apple') ? row('apple', 'logo-apple', colors.text) : null}
@@ -170,7 +184,7 @@ function AccountContent({ go, onDelete }: { go: Nav['navigate']; onDelete: () =>
   return (
     <>
       <ProfileCard onEdit={() => go('EditProfile')} plan={planLabel} />
-      <SignInSection />
+      <SignInSection onAddPhone={() => go('AddPhone')} />
 
       <Section title={t('more.business')}>
         <Row

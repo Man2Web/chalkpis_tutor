@@ -36,6 +36,8 @@ export type MainStackParams = {
   Reports: undefined;
   Settings: undefined;
   EditProfile: undefined;
+  /** Adds a mobile number to an account that has none (made with Apple). */
+  AddPhone: undefined;
   PaymentSettings: undefined;
   Billing: undefined;
   NotificationSettings: undefined;

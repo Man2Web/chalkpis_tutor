@@ -57,7 +57,8 @@
           "imageWidth": 104
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "extra": {
       "eas": {
@@ -76,6 +77,7 @@
     "ios": {
       "bundleIdentifier": "in.chalkpis.tutors",
       "supportsTablet": false,
+      "usesAppleSignIn": true,
       "config": {
         "usesNonExemptEncryption": false
       },

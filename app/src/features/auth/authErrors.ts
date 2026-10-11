@@ -11,6 +11,8 @@ export type AuthErrorKey =
   | 'blocked'
   | 'unavailable'
   | 'network'
+  | 'phoneInUse'
+  | 'phoneAlreadySet'
   | 'generic';
 
 export function authErrorKey(e: unknown): AuthErrorKey {
@@ -31,6 +33,11 @@ export function authErrorKey(e: unknown): AuthErrorKey {
       return 'unavailable';
     case 'invalid_code':
       return 'invalidCode'; // wrong, expired, used and never-sent codes all look the same on purpose
+    // adding a mobile number to a signed-in account
+    case 'phone_in_use':
+      return 'phoneInUse';
+    case 'phone_already_set':
+      return 'phoneAlreadySet';
     case 'too_soon':
     case 'too_many':
     case 'rate_limited':

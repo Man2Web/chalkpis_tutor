@@ -81,3 +81,25 @@ jest.mock('@testing-library/react-native', () => {
   // Getters, not a copy: `screen` is replaced on every render, so it has to be read live.
   return new Proxy(actual, { get: (target, key) => (key === 'render' ? render : target[key]) });
 });
+
+// Sign in with Apple is native iOS only; tests switch it on per case with isAvailableAsync / signInAsync.
+jest.mock('expo-apple-authentication', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const React = require('react');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Pressable, Text } = require('react-native');
+  return {
+    isAvailableAsync: jest.fn(async () => false),
+    signInAsync: jest.fn(),
+    AppleAuthenticationScope: { FULL_NAME: 0, EMAIL: 1 },
+    AppleAuthenticationButtonType: { SIGN_IN: 0, CONTINUE: 1, SIGN_UP: 2 },
+    AppleAuthenticationButtonStyle: { WHITE: 0, WHITE_OUTLINE: 1, BLACK: 2 },
+    // stands in for the system button, which reads "Continue with Apple"
+    AppleAuthenticationButton: ({ onPress, testID }: { onPress: () => void; testID?: string }) =>
+      React.createElement(
+        Pressable,
+        { onPress, testID, accessibilityRole: 'button', accessibilityLabel: 'Apple native' },
+        React.createElement(Text, null, 'Continue with Apple'),
+      ),
+  };
+});

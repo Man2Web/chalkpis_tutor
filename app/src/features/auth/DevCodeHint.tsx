@@ -5,10 +5,18 @@ import { devCodeFor } from './phoneAuth';
 
 /**
  * Local testing only: when the server runs in test mode it returns the login code instead of relying on WhatsApp,
- * so show it on screen. Renders nothing when the server did not send one (always the case in production).
+ * so show it on screen. `code` replaces the sign-in one (adding a number while signed in). Renders nothing when
+ * the server did not send one (always the case in production).
  */
-export function DevCodeHint({ phone, onUse }: { phone: string; onUse: (code: string) => void }) {
-  const code = devCodeFor(phone);
+export function DevCodeHint({
+  phone,
+  code = devCodeFor(phone),
+  onUse,
+}: {
+  phone: string;
+  code?: string | null;
+  onUse: (code: string) => void;
+}) {
   if (!code) return null;
   return (
     <Card
