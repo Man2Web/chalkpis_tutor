@@ -5,7 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Button, Screen } from '../../components';
 import type { AuthStackParams } from '../../navigation/types';
 import appIcon from '../../../assets/icon.png';
-import { colors, spacing, type } from '../../theme';
+import { colors, spacing, type, font } from '../../theme';
 
 const FEATURES = [
   { icon: 'checkmark-circle', color: colors.successFill, key: 'attendance' },
@@ -57,7 +57,7 @@ export function LanguageScreen({
       <Text style={[type.footnote, { textAlign: 'center', marginTop: spacing.sm }]}>
         {t('legal.agreePrefix')}{' '}
         <Text
-          style={{ color: colors.primaryDark, fontWeight: '600' }}
+          style={{ color: colors.primaryDark, ...font('600') }}
           onPress={() => navigation.navigate('Legal', { doc: 'terms' })}
           accessibilityRole="link"
         >
@@ -65,7 +65,7 @@ export function LanguageScreen({
         </Text>{' '}
         {t('legal.and')}{' '}
         <Text
-          style={{ color: colors.primaryDark, fontWeight: '600' }}
+          style={{ color: colors.primaryDark, ...font('600') }}
           onPress={() => navigation.navigate('Legal', { doc: 'privacy' })}
           accessibilityRole="link"
         >

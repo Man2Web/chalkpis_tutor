@@ -8,9 +8,6 @@ jest.mock('../phoneAuth', () => ({
   sendCode: jest.fn(),
   authErrorKey: jest.requireActual('../authErrors').authErrorKey,
 }));
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
-}));
 
 const navigation = { navigate: jest.fn() } as never;
 const route = { key: 'k', name: 'Phone' } as never;

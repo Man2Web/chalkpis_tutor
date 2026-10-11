@@ -3,7 +3,8 @@ import { Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Button, Input, Screen } from '../../components';
+import { OtpInput } from 'panelui-native/components/otp-input';
+import { Button, Screen } from '../../components';
 import type { AuthStackParams } from '../../navigation/types';
 import { colors, spacing, type } from '../../theme';
 import { DevCodeHint } from './DevCodeHint';
@@ -63,12 +64,14 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
             width: 64,
             height: 64,
             borderRadius: 32,
-            backgroundColor: colors.primarySoft,
+            backgroundColor: colors.shell,
+            borderWidth: 1,
+            borderColor: colors.border,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Ionicons name="lock-closed" size={30} color={colors.primary} />
+          <Ionicons name="chatbubble-ellipses" size={28} color={colors.text} />
         </View>
         <Text style={[type.title1, { textAlign: 'center' }]}>{t('auth.otpTitle')}</Text>
         <Text style={[type.callout, { textAlign: 'center', color: colors.textMuted }]}>
@@ -76,19 +79,26 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
         </Text>
       </View>
       <DevCodeHint phone={phone} onUse={setCode} />
-      <Input
-        label={t('auth.otpLabel')}
-        value={code}
-        onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
-        keyboardType="number-pad"
-        autoComplete="sms-otp"
-        textContentType="oneTimeCode"
-        maxLength={6}
-        error={error}
-        autoFocus
-        placeholder="••••••"
-        style={{ fontSize: 28, letterSpacing: 10, textAlign: 'center', fontWeight: '600' }}
-      />
+      <View className="mb-4 items-center">
+        <OtpInput
+          length={6}
+          value={code}
+          onChangeText={(v) => {
+            setError(undefined);
+            setCode(v);
+          }}
+          onComplete={(v) => {
+            setCode(v);
+          }}
+          type="numeric"
+          autoFocus
+          autoComplete="sms-otp"
+          textContentType="oneTimeCode"
+          isInvalid={!!error}
+          errorMessage={error}
+          accessibilityLabel={t('auth.otpLabel')}
+        />
+      </View>
       <Button title={t('auth.verify')} onPress={verify} loading={busy} />
       <Button
         variant="ghost"

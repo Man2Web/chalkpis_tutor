@@ -1,20 +1,16 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable } from 'react-native';
+import { Alert } from 'panelui-native/components/alert';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { useLimits } from '../../data/hooks';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, radius, spacing, type } from '../../theme';
-import { subscriptionState, type BannerKind } from './logic';
+import { subscriptionState } from './logic';
 
-const LOOK: Record<Exclude<BannerKind, null>, { bg: string; fg: string }> = {
-  expired: { bg: colors.dangerSoft, fg: colors.danger },
-  expiringSoon: { bg: colors.warningSoft, fg: colors.warning },
-  trialEnding: { bg: colors.warningSoft, fg: colors.warning },
-  trial: { bg: colors.primarySoft, fg: colors.primaryDark },
-};
-
-/** Top-of-Home note about the plan: trial running, ending soon, or ended (read-only). Hidden when all is well. */
+/**
+ * Top-of-Home alert when the plan needs action: the trial or plan ends within days, or has ended. A trial that
+ * is simply running is not shown here; the plan lives in the Account tab.
+ */
 export function PlanBanner() {
   const { t } = useTranslation();
   const nav = useNavigation<NativeStackNavigationProp<MainStackParams>>();
@@ -31,28 +27,20 @@ export function PlanBanner() {
     },
     Date.now(),
   );
-  if (!s.banner) return null;
-  const look = LOOK[s.banner];
+  if (!s.banner || s.banner === 'trial') return null;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={t(`billing.banner.${s.banner}`, { count: s.daysLeft })}
       onPress={() => nav.navigate('Billing')}
-      style={{
-        backgroundColor: look.bg,
-        borderRadius: radius.md,
-        padding: spacing.md,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
-      }}
     >
-      <View style={{ flex: 1 }}>
-        <Text style={[type.label, { color: look.fg }]}>
-          {t(`billing.banner.${s.banner}`, { count: s.daysLeft })}
-        </Text>
-      </View>
-      <Text style={[type.label, { color: look.fg }]}>{t('billing.seePlans')}</Text>
+      <Alert variant={s.banner === 'expired' ? 'destructive' : 'warning'}>
+        <Alert.Indicator />
+        <Alert.Content>
+          <Alert.Title>{t(`billing.banner.${s.banner}`, { count: s.daysLeft })}</Alert.Title>
+          <Alert.Description>{t('billing.seePlans')}</Alert.Description>
+        </Alert.Content>
+      </Alert>
     </Pressable>
   );
 }

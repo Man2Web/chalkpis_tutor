@@ -37,7 +37,7 @@ The server is a Docker app (`server/Dockerfile`); Coolify builds and runs it. Do
    | `JWT_SECRET`, `OTP_PEPPER`                                                       | two different long random values                                                              |
    | `WA_API_URL`, `WA_FROM`, `WA_CLIENT_ID`, `WA_CLIENT_PASSWORD`, `WA_TEMPLATE_OTP` | your WhatsApp gateway (see section 3)                                                         |
    | `WA_TEMPLATES`                                                                   | the approved parent-message template ids (see [WHATSAPP-TEMPLATES.md](WHATSAPP-TEMPLATES.md)) |
-   | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`              | see section 4                                                                                 |
+   | `PHONEPE_CLIENT_ID`, `PHONEPE_CLIENT_SECRET`, `PHONEPE_CLIENT_VERSION`, `PHONEPE_ENV`, `PHONEPE_WEBHOOK_USERNAME`, `PHONEPE_WEBHOOK_PASSWORD` | see section 4 (plan payments) |
 
    Leave `OTP_DEV_ECHO` unset in production (it is ignored there anyway).
 
@@ -53,17 +53,25 @@ The container build has not been tried yet (Docker is not installed on the devel
 - To confirm with your gateway provider: that `templateinfo` is `<templateId>~<value1>~<value2>~<value3>`, and whether it expects POST or GET (`WA_API_METHOD`). Delivery reports are not tracked yet, so "Sent" means the gateway accepted the message.
 - Test with a student whose parent number is **your own** number before switching messages on for everyone.
 
-## 4. Online payments (Razorpay): switched off for now
+## 4. Online payments: PhonePe Payment Gateway (plan purchases)
 
-The owner has chosen not to connect a payment gateway yet. With no `RAZORPAY_*` settings the server reports payments as unavailable, the app hides the plan buy buttons and shows a note, and nobody can renew a plan. So set `TRIAL_DAYS` to something long (for example 90 or 365) in the server settings; when a trial ends the app becomes read-only, nothing is deleted. Turn payments on later by following the steps below; nothing else changes.
+Tutors buy Starter / Standard / Pro in the app (Account > Plans & billing). The server creates a PhonePe Standard Checkout (v2) order, the tutor pays on PhonePe's secure page (UPI, card or net banking), and the money goes to the M2W PhonePe merchant account. The plan switches on **only after the server asks PhonePe for the order's status and it says COMPLETED for the exact price**: the webhook, the "payment received" page and the app all just trigger that check, so nothing sent from outside can switch a plan on, and a payment is never applied twice.
 
-1. Create a Razorpay account and finish KYC; in **Settings -> API keys** make a **Test mode** key pair first.
-2. Set `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and a `RAZORPAY_WEBHOOK_SECRET` (16+ characters of your choice).
-3. In Razorpay **Settings -> Webhooks -> Add new webhook**: URL `https://tutor.chalkpis.com/billing/webhooks/razorpay`, the same secret, event **payment_link.paid**.
-4. Buy a plan with Razorpay's test card or UPI. The plan switches on within seconds, and a re-delivered webhook never extends it twice.
-5. When ready, swap in the Live keys.
+1. In the PhonePe Business dashboard, **Developer settings > API keys**: note the **Client ID**, **Client Version** and **Client Secret** (start with the **Test/UAT** keys).
+2. In Coolify (server environment variables), set (type the values yourself; never paste them in chat):
+   | Variable | Value |
+   | --- | --- |
+   | `PHONEPE_CLIENT_ID` | Client ID |
+   | `PHONEPE_CLIENT_SECRET` | Client Secret |
+   | `PHONEPE_CLIENT_VERSION` | Client Version (usually `1`) |
+   | `PHONEPE_ENV` | `sandbox` with test keys, `production` with live keys |
+   | `PHONEPE_WEBHOOK_USERNAME`, `PHONEPE_WEBHOOK_PASSWORD` | a username and a long password you make up (used in step 3) |
+   | `PUBLIC_BASE_URL` | `https://tutor.chalkpis.com` (where PhonePe sends the payer back) |
+3. In the PhonePe dashboard, **Developer settings > Webhooks > Create webhook**: URL `https://tutor.chalkpis.com/billing/webhooks/phonepe`, the same username and password, events **checkout.order.completed** and **checkout.order.failed**.
+4. Redeploy, then buy a plan from the app with PhonePe's test payment options. The app shows "Plan activated" by itself within seconds of paying.
+5. When PhonePe approves the live account, swap in the live keys and set `PHONEPE_ENV=production`.
 
-Without keys, local runs use a mock ("Pay (test)" in the app); in production buying says "not set up yet".
+When PhonePe keys are set they are used; otherwise Razorpay keys (`RAZORPAY_*`, older setup) if present. With neither, production says online payment is not set up (set `TRIAL_DAYS` long meanwhile), and local runs use a mock ("Pay (test)").
 
 ## 5. Build the Android app (EAS)
 

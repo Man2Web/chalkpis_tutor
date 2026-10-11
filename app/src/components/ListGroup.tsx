@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { colors, radius, shadow, spacing } from '../theme';
+import { colors, radius, spacing } from '../theme';
 
 /** Rounded white card that holds a list, same look on every screen. */
 export const listCard = StyleSheet.create({
@@ -9,7 +9,8 @@ export const listCard = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     overflow: 'hidden',
-    ...shadow.card,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 }).card;
 

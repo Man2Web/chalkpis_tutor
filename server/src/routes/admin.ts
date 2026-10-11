@@ -33,6 +33,17 @@ import {
   systemHealth,
   toCsv,
 } from '../admin/ops.js';
+import {
+  addNote,
+  cohorts,
+  deleteNote,
+  events,
+  eventsQuery,
+  noteBody,
+  notes,
+  setTags,
+  tagsBody,
+} from '../admin/crm.js';
 import { authenticate, requireAdmin } from '../auth/guard.js';
 import { parseTemplates } from '../messaging/templates.js';
 import { idParam, parse } from '../lib/params.js';
@@ -58,7 +69,7 @@ const VERSION = (() => {
 })();
 
 const ADMIN_CSP =
-  "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+  "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
 /**
  * The platform owner's dashboard. The page itself is public (it is only a sign-in screen and a script); every
@@ -247,6 +258,33 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
     )(reply);
   });
 
+  // ---- activity feed, cohorts, notes and tags ----
+  app.get('/admin/api/events', guard, async (req) =>
+    events(pool, parse(eventsQuery, req.query), now()),
+  );
+  app.get('/admin/api/cohorts', guard, async (req) => {
+    const { weeks } = parse(
+      z.object({ weeks: z.coerce.number().int().min(2).max(26).default(10) }),
+      req.query,
+    );
+    return cohorts(pool, weeks, now());
+  });
+  app.get('/admin/api/institutes/:id/notes', guard, async (req) => ({
+    notes: await notes(pool, id(req)),
+  }));
+  app.post('/admin/api/institutes/:id/notes', guard, async (req, reply) =>
+    reply
+      .code(201)
+      .send(await addNote(pool, actor(req), id(req), parse(noteBody, req.body).body, now())),
+  );
+  app.delete('/admin/api/institutes/:id/notes/:noteId', guard, async (req) => {
+    await deleteNote(pool, id(req), idParam((req.params as { noteId: string }).noteId));
+    return { ok: true };
+  });
+  app.put('/admin/api/institutes/:id/tags', guard, async (req) =>
+    setTags(pool, id(req), parse(tagsBody, req.body).tags),
+  );
+
   // ---- for tutors and helpers in the app: live announcements ----
   app.get('/announcements', { preHandler: authenticate(deps) }, async (req) => ({
     announcements: await liveAnnouncements(pool, req.auth!.role, now()),
@@ -264,4 +302,26 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
   app.get('/admin', file('admin.html', 'text/html; charset=utf-8'));
   app.get('/admin.js', file('admin.js', 'text/javascript; charset=utf-8'));
   app.get('/admin.css', file('admin.css', 'text/css; charset=utf-8'));
+  // The Chalkpis logo for the dashboard: full (light and dark letters) and the mark alone. Fixed names only.
+  const LOGOS = new Set(['logo', 'logo-dark', 'logo-mark']);
+  app.get<{ Params: { name: string } }>('/admin-logo/:name', async (req, reply) => {
+    const name = req.params.name.replace(/\.svg$/, '');
+    if (!LOGOS.has(name)) return reply.code(404).send({ error: 'not_found' });
+    return reply
+      .header('Cache-Control', 'public, max-age=86400')
+      .header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'")
+      .type('image/svg+xml')
+      .send(await readFile(path.join(PUBLIC_DIR, `${name}.svg`)));
+  });
+  // Inter for the dashboard, served from here because the CSP allows no outside fonts. Fixed names only.
+  const FONTS = new Set(['Inter_400Regular', 'Inter_500Medium', 'Inter_600SemiBold', 'Inter_700Bold']);
+  app.get<{ Params: { name: string } }>('/admin-fonts/:name', async (req, reply) => {
+    const name = req.params.name.replace(/\.ttf$/, '');
+    if (!FONTS.has(name)) return reply.code(404).send({ error: 'not_found' });
+    return reply
+      .header('Cache-Control', 'public, max-age=31536000, immutable')
+      .header('Cross-Origin-Resource-Policy', 'same-origin')
+      .type('font/ttf')
+      .send(await readFile(path.join(PUBLIC_DIR, 'fonts', `${name}.ttf`)));
+  });
 }

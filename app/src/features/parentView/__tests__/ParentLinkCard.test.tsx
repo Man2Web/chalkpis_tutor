@@ -4,9 +4,6 @@ import '../../../i18n';
 import { ParentLinkCard } from '../ParentLinkCard';
 import { createParentLink, getParentLinkStatus, revokeParentLinks } from '../api';
 
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
-}));
 jest.mock('../../../data/hooks', () => ({
   useInstituteId: () => 'I1',
   useInstitute: () => ({ data: { name: 'Bright' } }),

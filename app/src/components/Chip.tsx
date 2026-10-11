@@ -1,6 +1,5 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Chip as PanelChip } from 'panelui-native/components/chip';
 import { haptic } from '../lib/haptics';
-import { colors, radius, spacing, TAP } from '../theme';
 
 type Props = {
   label: string;
@@ -11,20 +10,29 @@ type Props = {
   small?: boolean;
 };
 
-const tones = {
-  neutral: { bg: colors.fill, fg: colors.text },
-  accent: { bg: colors.primarySoft, fg: colors.primaryDark },
-  success: { bg: colors.successSoft, fg: colors.success },
-  warning: { bg: colors.warningSoft, fg: colors.warning },
-  danger: { bg: colors.dangerSoft, fg: colors.danger },
-};
+const VARIANT = {
+  neutral: 'default',
+  accent: 'info',
+  success: 'success',
+  warning: 'warning',
+  danger: 'destructive',
+} as const;
 
+/** PanelUI Chip: a filter when it has onPress (selected = on), otherwise a status label. */
 export function Chip({ label, selected, onPress, tone = 'neutral', small }: Props) {
-  const t = tones[tone];
   const interactive = !!onPress;
   return (
-    <Pressable
+    <PanelChip
+      variant={interactive && tone === 'neutral' && !selected ? 'outline' : VARIANT[tone]}
+      size={small ? 'sm' : 'md'}
+      selected={selected}
       disabled={!interactive}
+      haptics={false}
+      accessibilityRole={interactive ? 'button' : 'text'}
+      accessibilityLabel={label}
+      accessibilityState={{ selected: !!selected }}
+      aria-selected={interactive ? !!selected : undefined}
+      hitSlop={small && interactive ? 10 : undefined}
       onPress={
         onPress
           ? () => {
@@ -33,37 +41,11 @@ export function Chip({ label, selected, onPress, tone = 'neutral', small }: Prop
             }
           : undefined
       }
-      accessibilityRole={interactive ? 'button' : 'text'}
-      accessibilityState={{ selected: !!selected }}
-      style={[
-        styles.chip,
-        { backgroundColor: selected ? colors.primary : t.bg },
-        interactive && !small && { minHeight: TAP },
-        small && styles.small,
-      ]}
-      hitSlop={small && interactive ? 10 : undefined}
+      className="self-start"
+      // a status label is not disabled, it is just not a button: keep it at full strength
+      style={!interactive ? { opacity: 1 } : undefined}
     >
-      <Text
-        style={{
-          color: selected ? colors.onPrimary : t.fg,
-          fontWeight: selected ? '600' : '500',
-          fontSize: small ? 13 : 15,
-          letterSpacing: -0.2,
-        }}
-      >
-        {label}
-      </Text>
-    </Pressable>
+      {label}
+    </PanelChip>
   );
 }
-
-const styles = StyleSheet.create({
-  chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: radius.pill,
-    justifyContent: 'center',
-    alignSelf: 'flex-start',
-  },
-  small: { paddingHorizontal: spacing.sm + 2, paddingVertical: 3 },
-});

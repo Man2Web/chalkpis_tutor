@@ -1,5 +1,6 @@
 import type { Pool } from '../db.js';
 import { notFound } from '../errors.js';
+import { tagsFor } from './crm.js';
 
 const DAY = 86_400_000;
 /** Calendar day in India for a UTC column. */
@@ -243,7 +244,11 @@ export async function listInstitutes(
     `${INST_SELECT} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} LIMIT 1000`,
     args,
   )) as unknown as [InstRow[]];
-  let list = rows.map((r) => toInstitute(r, now));
+  const tags = await tagsFor(
+    pool,
+    rows.map((r) => r.id),
+  );
+  let list = rows.map((r) => ({ ...toInstitute(r, now), tags: tags.get(r.id) ?? [] }));
   if (q.filter === 'at-risk') list = list.filter((i) => i.health < 40);
   const t = (s: string | null) => (s ? Date.parse(s) : 0);
   const sorters: Record<InstituteSort, (a: (typeof list)[0], b: (typeof list)[0]) => number> = {
@@ -295,8 +300,9 @@ export async function getInstitute(pool: Pool, id: string, now: Date) {
                FROM fee_dues WHERE institute_id = ? AND status IN ('pending','partial')) AS outstanding`,
     [id, since, id, since, id],
   )) as unknown as [[{ attendance30: number; payments30: number; outstanding: number }]];
+  const tags = await tagsFor(pool, [id]);
   return {
-    institute: toInstitute(rows[0], now),
+    institute: { ...toInstitute(rows[0], now), tags: tags.get(id) ?? [] },
     activity: {
       attendance30: n(counts!.attendance30),
       payments30: n(counts!.payments30),

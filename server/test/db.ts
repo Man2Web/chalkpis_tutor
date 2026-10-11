@@ -29,6 +29,8 @@ export const testConfig = (over: Partial<Config> = {}): Config => ({
   TRIAL_DAYS: 7,
   CORS_ORIGINS: [],
   WA_CLOUD_API_VERSION: 'v23.0',
+  PHONEPE_CLIENT_VERSION: '1',
+  PHONEPE_ENV: 'sandbox',
   ADMIN_PHONES: [],
   FILES_DIR: path.join(os.tmpdir(), 'tutordesk-test-files'),
   TRUST_PROXY: false,

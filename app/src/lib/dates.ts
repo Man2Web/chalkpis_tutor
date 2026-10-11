@@ -46,3 +46,7 @@ export const prettyDate = (ymd: string, locale = 'en-IN') =>
     month: 'short',
     timeZone: 'UTC',
   });
+
+/** "5 Oct": for tight spaces such as list subtitles, where the weekday adds nothing. */
+export const shortDate = (ymd: string, locale = 'en-IN') =>
+  toUtc(ymd).toLocaleDateString(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' });

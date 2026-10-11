@@ -1,7 +1,7 @@
 import { Platform, Pressable, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { haptic } from '../lib/haptics';
-import { colors, radius, spacing } from '../theme';
+import { colors, radius, spacing, font } from '../theme';
 
 /** The rounded icon buttons under a contact's name in iOS Contacts (call, message, ...). */
 export function ActionButton({
@@ -30,17 +30,19 @@ export function ActionButton({
         alignItems: 'center',
         gap: 4,
         paddingVertical: spacing.sm + 2,
-        borderRadius: radius.md - 2,
-        backgroundColor: pressed && Platform.OS !== 'android' ? '#E5E5EA' : colors.surface,
+        borderRadius: radius.md + 2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: pressed && Platform.OS !== 'android' ? colors.shell : colors.surface,
         opacity: disabled ? 0.4 : 1,
         overflow: 'hidden',
       })}
     >
       <View style={{ height: 26, justifyContent: 'center' }}>
-        <Ionicons name={icon} size={22} color={colors.primary} />
+        <Ionicons name={icon} size={21} color={colors.text} />
       </View>
       <Text
-        style={{ fontSize: 12, fontWeight: '500', color: colors.primaryDark }}
+        style={{ fontSize: 12, ...font('500'), color: colors.text }}
         numberOfLines={1}
       >
         {label}

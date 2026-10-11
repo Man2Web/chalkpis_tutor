@@ -1,19 +1,6 @@
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import {
-  Button,
-  Card,
-  Chip,
-  EmptyState,
-  ListItem,
-  Screen,
-  Skeleton,
-  UpgradePrompt,
-} from '../../components';
-import { useAddGuard } from '../../data/guards';
+import { Chip, EmptyState, ListItem, Panel, Screen, Skeleton, TopBar } from '../../components';
 import {
   useAttendanceOn,
   useAttendanceRange,
@@ -24,7 +11,6 @@ import {
 } from '../../data/hooks';
 import { addDays, prettyDate, todayYmd } from '../../lib/dates';
 import { formatINR } from '../../lib/money';
-import type { MainStackParams } from '../../navigation/types';
 import { colors, spacing, type } from '../../theme';
 import { useSession } from '../auth/session';
 import { scheduleLabel } from '../batches/format';
@@ -32,75 +18,14 @@ import { PlanBanner } from '../billing/PlanBanner';
 import { AnnouncementBanner } from '../announcements/AnnouncementBanner';
 import { AttendanceRing } from './AttendanceRing';
 import { HomeHero } from './HomeHero';
-import { greetingKey, HomeHeader } from './HomeHeader';
+import { greetingKey } from './greeting';
 import { haptic } from '../../lib/haptics';
 import { TasksCard } from '../tasks/TasksCard';
 import { dashboardStats, weekAttendance } from './logic';
 import { WeekChart } from './WeekChart';
 
-type Nav = NativeStackNavigationProp<
-  MainStackParams & { Attendance: undefined; Fees: undefined; More: undefined }
->;
-
-/** A round quick-action button with a label, like the shortcuts row in iOS apps. */
-function Action({
-  icon,
-  label,
-  color,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  color: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={() => {
-        haptic.tap();
-        onPress();
-      }}
-      style={({ pressed }) => ({
-        flex: 1,
-        alignItems: 'center',
-        gap: 6,
-        opacity: pressed ? 0.6 : 1,
-      })}
-    >
-      <View
-        style={{
-          width: 52,
-          height: 52,
-          borderRadius: 26,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: color,
-        }}
-      >
-        <Ionicons name={icon} size={24} color="#FFFFFF" />
-      </View>
-      <Text
-        style={{ fontSize: 12, fontWeight: '500', color: colors.text, textAlign: 'center' }}
-        numberOfLines={2}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-/** Small grey uppercase heading above a group, as in iOS. */
-const SectionTitle = ({ children }: { children: string }) => (
-  <Text style={[type.sectionHeader, { marginLeft: spacing.xs, marginTop: spacing.sm }]}>
-    {children}
-  </Text>
-);
-
 export function HomeScreen() {
   const { t } = useTranslation();
-  const nav = useNavigation<Nav>();
   const name = useSession((s) => s.profile?.name);
   const today = todayYmd();
   const students = useStudents();
@@ -109,7 +34,6 @@ export function HomeScreen() {
   const week = useAttendanceRange(addDays(today, -6), today);
   const unpaid = useUnpaidDues();
   const month = usePaymentsThisMonth();
-  const guard = useAddGuard();
 
   const loading =
     students.isLoading ||
@@ -172,7 +96,7 @@ export function HomeScreen() {
           />
         }
       >
-        <HomeHeader name={name ?? ''} onProfile={() => nav.navigate('More')} />
+        <TopBar />
 
         <View style={{ gap: 2, marginBottom: spacing.xs }}>
           <Text style={type.footnote}>{prettyDate(today, 'en-IN')}</Text>
@@ -183,21 +107,6 @@ export function HomeScreen() {
 
         <AnnouncementBanner />
         <PlanBanner />
-
-        {!loading && s.activeStudents === 0 ? (
-          <Card style={{ gap: spacing.sm }}>
-            <Text style={type.title3}>{t('home.firstRunTitle')}</Text>
-            <Text style={[type.subhead, { color: colors.textMuted }]}>
-              {t('home.firstRunText')}
-            </Text>
-            <Button
-              title={t('home.firstRunAction')}
-              onPress={() => {
-                if (guard.check('student')) nav.navigate('StudentForm');
-              }}
-            />
-          </Card>
-        ) : null}
 
         {loading ? (
           <Skeleton height={210} />
@@ -213,50 +122,19 @@ export function HomeScreen() {
                 : t('home.collectedShare', { percent: Math.round(collectedShare * 100) })
             }
             stats={[
-              { label: t('home.pendingFees'), value: formatINR(s.pendingAmount) },
-              { label: t('home.overdue'), value: formatINR(s.overdueAmount) },
-              { label: t('home.students'), value: String(s.activeStudents) },
+              { label: t('home.pendingShort'), value: formatINR(s.pendingAmount), icon: 'time' },
+              {
+                label: t('home.overdue'),
+                value: formatINR(s.overdueAmount),
+                icon: 'alert-circle',
+                bad: s.overdueAmount > 0,
+              },
+              { label: t('home.students'), value: String(s.activeStudents), icon: 'people' },
             ]}
           />
         )}
 
-        <Card
-          style={{
-            flexDirection: 'row',
-            paddingVertical: spacing.lg,
-            paddingHorizontal: spacing.sm,
-          }}
-        >
-          <Action
-            icon="person-add"
-            label={t('home.addStudent')}
-            color={colors.primary}
-            onPress={() => {
-              if (guard.check('student')) nav.navigate('StudentForm');
-            }}
-          />
-          <Action
-            icon="checkmark-done"
-            label={t('home.markAttendance')}
-            color={colors.successFill}
-            onPress={() => nav.navigate('Attendance')}
-          />
-          <Action
-            icon="wallet"
-            label={t('home.collectFee')}
-            color={colors.warningFill}
-            onPress={() => nav.navigate('Fees')}
-          />
-          <Action
-            icon="image"
-            label={t('poster.short')}
-            color={colors.pink}
-            onPress={() => nav.navigate('Poster')}
-          />
-        </Card>
-
-        <SectionTitle>{t('home.today')}</SectionTitle>
-        <Card style={{ padding: 0, overflow: 'hidden' }}>
+        <Panel title={t('home.today')} padded={false}>
           <View
             style={{
               flexDirection: 'row',
@@ -303,13 +181,10 @@ export function HomeScreen() {
                     />
                   )
                 }
-                onPress={() =>
-                  nav.navigate('MarkAttendance', { batchId: tb.batch.id, date: today })
-                }
               />
             </View>
           ))}
-        </Card>
+        </Panel>
 
         {week.data ? (
           <WeekChart points={weekAttendance(week.data, today, addDays)} today={today} />
@@ -319,12 +194,6 @@ export function HomeScreen() {
 
         <TasksCard date={today} />
       </ScrollView>
-      <UpgradePrompt
-        visible={!!guard.blocked}
-        kind={guard.blocked?.kind ?? 'student'}
-        limit={guard.blocked?.limit}
-        onClose={guard.close}
-      />
     </Screen>
   );
 }

@@ -4,20 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
-import {
-  InsetSeparator,
-  listCard,
-  SearchField,
-  Avatar,
-  BottomSheet,
-  Button,
-  Chip,
-  EmptyState,
-  ListItem,
-  Screen,
-  Skeleton,
-  UpgradePrompt,
-} from '../../components';
+import { InsetSeparator, listCard, SearchField, Avatar, BottomSheet, Button, Chip, EmptyState, ListItem, Screen, Skeleton, UpgradePrompt, TopBar } from '../../components';
 import { useAddGuard } from '../../data/guards';
 import { useBatches, usePendingStudentIds, useStudents } from '../../data/hooks';
 import type { MainStackParams } from '../../navigation/types';
@@ -70,12 +57,10 @@ export function StudentsListScreen() {
   return (
     <Screen scroll={false} padded={false}>
       <View style={{ padding: spacing.lg, gap: spacing.sm }}>
-        <View
-          style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-        >
-          <Text style={type.largeTitle}>{t('tabs.students')}</Text>
-          <Button size="small" title={t('students.add')} onPress={() => setMenu(true)} />
-        </View>
+        <TopBar
+          title={t('tabs.students')}
+          right={<Button size="small" title={t('students.add')} onPress={() => setMenu(true)} />}
+        />
         <SearchField
           value={search}
           onChangeText={setSearch}

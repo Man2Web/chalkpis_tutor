@@ -93,7 +93,8 @@
     "attendance": "Attendance",
     "fees": "Fees",
     "more": "More",
-    "profile": "Profile"
+    "profile": "Profile",
+    "account": "Account"
   },
   "more": {
     "logout": "Log out",
@@ -295,7 +296,11 @@
     "low": "Low",
     "noBatchesAssigned": "No batches are assigned to you yet. Ask the owner.",
     "exportExcel": "Download register (Excel)",
-    "holidayShort": "Holiday"
+    "holidayShort": "Holiday",
+    "openCalendar": "open calendar",
+    "closeCalendar": "close calendar",
+    "pickDate": "Tap to pick another day",
+    "goToToday": "Go to today"
   },
   "fees": {
     "pending": "Pending",
@@ -422,9 +427,9 @@
     "historyEmpty": "No fees in these months yet.",
     "historySummary": "Collected {{paid}} of {{billed}} billed",
     "sort": {
-      "unpaid": "Overdue first",
-      "name": "Name (A–Z)",
-      "amount": "Amount (high to low)"
+      "unpaid": "Most overdue",
+      "name": "Name",
+      "amount": "Highest due"
     },
     "addChargeShort": "Add charge",
     "advanceShort": "Advance",
@@ -438,7 +443,14 @@
     "sendReceiptWhatsapp": "Send receipt on WhatsApp",
     "receiptSent": "Receipt sent on WhatsApp",
     "receiptRecent": "This receipt was just sent. Try again in a few minutes.",
-    "receiptFailed": "Could not send the receipt. Check your internet and try again."
+    "receiptFailed": "Could not send the receipt. Check your internet and try again.",
+    "historyMonthsShort": "{{count}}M",
+    "collectedShort": "This month",
+    "historyShare": "{{percent}}% collected",
+    "billed": "Billed",
+    "collected": "Collected",
+    "sortBy": "Sort",
+    "collectedThisMonth": "collected"
   },
   "home": {
     "hello": "Hello, {{name}}",
@@ -472,7 +484,8 @@
       "evening": "Good evening, {{name}}"
     },
     "collectedShare": "{{percent}}% of fees collected",
-    "today": "Today"
+    "today": "Today",
+    "pendingShort": "Pending"
   },
   "reports": {
     "title": "Reports",
@@ -580,8 +593,8 @@
     "seePlans": "See plans",
     "testMode": "Test mode: no real money moves. Tap below to pretend the payment went through.",
     "simulatePay": "Pay {{amount}} (test)",
-    "completeInBrowser": "Complete the payment in your browser. When you are done, come back and tap the button below.",
-    "paidRefresh": "I have paid — refresh",
+    "completeInBrowser": "Pay on the secure PhonePe page (UPI, card or net banking). Your plan switches on here by itself as soon as the payment is confirmed.",
+    "paidRefresh": "I have paid, check now",
     "openAgain": "Open payment page again",
     "banner": {
       "expired": "Your plan has ended. The app is read-only until you renew.",
@@ -593,7 +606,9 @@
       "trial_other": "Free trial: {{count}} days left"
     },
     "paymentsOffTitle": "Online payment is not switched on yet",
-    "paymentsOffMessage": "Plans cannot be bought in the app for now. Your trial and plan details are shown above. If your plan ends, your data stays safe and you can still read everything."
+    "paymentsOffMessage": "Plans cannot be bought in the app for now. Your trial and plan details are shown above. If your plan ends, your data stays safe and you can still read everything.",
+    "stillPending": "Still waiting for PhonePe to confirm. This usually takes a few seconds.",
+    "paymentFailed": "The payment did not go through. No money was taken; you can try again."
   },
   "messages": {
     "settingsTitle": "Parent messages",
@@ -611,7 +626,7 @@
     "repeatEvery": "Repeat every (days)",
     "overdueHint": "Overdue reminders go out the day after the due date, then repeat up to 3 more times.",
     "language": "Message language",
-    "footer": "Messages use your approved WhatsApp templates, so the wording is fixed. If a template is missing in Hindi, English is used.",
+    "footer": "Messages go from the Chalkpis WhatsApp business number using approved templates, so the wording is fixed.",
     "logTitle": "Message log",
     "filter": {
       "all": "All",
@@ -780,5 +795,8 @@
     "builtBy": "Chalkpis is built by Man2Web (M2W Technologies Private Limited), India.",
     "agreePrefix": "By continuing you agree to the",
     "and": "and"
+  },
+  "menu": {
+    "editProfile": "Edit profile"
   }
 }

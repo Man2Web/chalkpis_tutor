@@ -7,9 +7,6 @@ const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate }),
 }));
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
-}));
 jest.mock('../../../data/hooks', () => ({
   useStudents: jest.fn(),
   useBatches: jest.fn(),

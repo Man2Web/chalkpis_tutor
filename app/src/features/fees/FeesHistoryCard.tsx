@@ -3,10 +3,14 @@ import { Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client';
-import { Card, Chip, Skeleton } from '../../components';
+import { BarChart } from 'panelui-native/components/bar-chart';
+import { Panel, Segmented, Skeleton } from '../../components';
 import { useInstituteId } from '../../data/hooks';
 import { formatINR } from '../../lib/money';
-import { colors, radius, spacing, type } from '../../theme';
+import { colors, spacing, type } from '../../theme';
+
+/** What was billed: a grey that stays visible next to the green and on a white card. */
+const BILLED = '#D4D4D4';
 
 interface Month {
   period: string;
@@ -15,9 +19,10 @@ interface Month {
   owingStudents: number;
 }
 
-const BAR = 80;
-
-/** Billed vs collected for the last 6 or 12 months: grey is what was billed, green how much of it came in. */
+/**
+ * Billed (grey) against collected (green) for the last 6 or 12 months, with the share collected in the header, an
+ * amount axis and a legend; touch a month for the exact figures.
+ */
 export function FeesHistoryCard() {
   const { t, i18n } = useTranslation();
   const id = useInstituteId();
@@ -29,70 +34,88 @@ export function FeesHistoryCard() {
   });
   const locale = i18n.language === 'hi' ? 'hi-IN' : 'en-IN';
   const data = q.data ?? [];
-  const max = Math.max(1, ...data.map((m) => m.billed));
   const billed = data.reduce((s, m) => s + m.billed, 0);
   const paid = data.reduce((s, m) => s + m.paid, 0);
 
+  const monthName = (period: string) =>
+    new Date(`${period}-01T00:00:00Z`).toLocaleDateString(locale, {
+      month: 'short',
+      timeZone: 'UTC',
+    });
+
+  const share = billed > 0 ? Math.round((paid / billed) * 100) : null;
+  // ₹12,000 -> "₹12k" on the axis; the tooltip shows the exact amount
+  const axis = (rupees: number) =>
+    rupees >= 100000
+      ? `₹${(rupees / 100000).toFixed(rupees % 100000 ? 1 : 0)}L`
+      : rupees >= 1000
+        ? `₹${(rupees / 1000).toFixed(rupees % 1000 ? 1 : 0)}k`
+        : `₹${rupees}`;
+
   return (
-    <Card style={{ gap: spacing.md }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text style={type.heading}>{t('fees.history')}</Text>
-        <View style={{ flexDirection: 'row', gap: spacing.xs }}>
-          {([6, 12] as const).map((n) => (
-            <Chip
-              key={n}
-              small
-              label={t('fees.historyMonths', { count: n })}
-              selected={months === n}
-              onPress={() => setMonths(n)}
-            />
-          ))}
-        </View>
-      </View>
+    <Panel
+      title={t('fees.history')}
+      right={share !== null ? t('fees.historyShare', { percent: share }) : undefined}
+      bodyStyle={{ gap: spacing.md }}
+    >
+      <Segmented
+        options={[
+          { value: '6', label: t('fees.historyMonths', { count: 6 }) },
+          { value: '12', label: t('fees.historyMonths', { count: 12 }) },
+        ]}
+        value={String(months) as '6' | '12'}
+        onChange={(v) => setMonths(Number(v) as 6 | 12)}
+      />
       {q.isLoading ? (
-        <Skeleton height={BAR + 30} />
+        <Skeleton height={180} />
       ) : billed === 0 ? (
-        <Text style={type.caption}>{t('fees.historyEmpty')}</Text>
+        <Text style={[type.caption, { textAlign: 'center', paddingVertical: spacing.xl }]}>
+          {t('fees.historyEmpty')}
+        </Text>
       ) : (
-        <>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: BAR + 20 }}>
-            {data.map((m) => (
-              <View
-                key={m.period}
-                style={{ flex: 1, alignItems: 'center', gap: 4 }}
-                accessibilityLabel={`${m.period}: ${formatINR(m.paid)} / ${formatINR(m.billed)}`}
-              >
-                <View
-                  style={{
-                    width: '72%',
-                    height: Math.max(3, (m.billed / max) * BAR),
-                    borderRadius: radius.sm / 2,
-                    backgroundColor: colors.border,
-                    justifyContent: 'flex-end',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <View
-                    style={{
-                      height: m.billed ? `${Math.round((m.paid / m.billed) * 100)}%` : 0,
-                      backgroundColor: colors.success,
-                    }}
-                  />
-                </View>
-                <Text style={{ fontSize: 10, color: colors.textMuted }}>
-                  {new Date(`${m.period}-01T00:00:00Z`).toLocaleDateString(locale, {
-                    month: 'short',
-                    timeZone: 'UTC',
-                  })}
-                </Text>
+        <View style={{ gap: spacing.sm }}>
+          <View
+            accessibilityLabel={data
+              .map((m) => `${monthName(m.period)}: ${formatINR(m.paid)} of ${formatINR(m.billed)}`)
+              .join(', ')}
+          >
+            <BarChart
+              data={data.map((m) => ({
+                month: monthName(m.period),
+                billed: m.billed / 100,
+                collected: m.paid / 100,
+              }))}
+              xDataKey="month"
+              aspectRatio={1.8}
+            >
+              <BarChart.Grid />
+              <BarChart.Bar dataKey="billed" color={BILLED} cornerRadius={5} />
+              <BarChart.Bar dataKey="collected" color={colors.successFill} cornerRadius={5} />
+              <BarChart.YAxis ticks={3} format={axis} />
+              {/* a year of month names does not fit a phone: one letter each, as phone charts do (touch for the month) */}
+              <BarChart.XAxis
+                format={(d) => (months === 12 ? String(d.month).slice(0, 1) : String(d.month))}
+              />
+              <BarChart.Tooltip formatValue={(v) => formatINR(v * 100)} />
+            </BarChart>
+          </View>
+          {/* the legend sits under the chart, never over the bars */}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.lg }}>
+            {[
+              [BILLED, t('fees.billed')],
+              [colors.successFill, t('fees.collected')],
+            ].map(([c, label]) => (
+              <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: c }} />
+                <Text style={type.caption}>{label}</Text>
               </View>
             ))}
           </View>
-          <Text style={type.caption}>
+          <Text style={[type.caption, { textAlign: 'center' }]}>
             {t('fees.historySummary', { paid: formatINR(paid), billed: formatINR(billed) })}
           </Text>
-        </>
+        </View>
       )}
-    </Card>
+    </Panel>
   );
 }

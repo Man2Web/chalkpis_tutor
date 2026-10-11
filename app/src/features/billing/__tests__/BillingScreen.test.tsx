@@ -1,16 +1,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import '../../../i18n';
 import { BillingScreen } from '../BillingScreen';
-import { createPlanLink, mockCompletePayment } from '../api';
+import { checkPlanOrder, createPlanLink, mockCompletePayment } from '../api';
 import { useBillingHistory, useLimits, usePaymentsAvailable } from '../../../data/hooks';
 import { ApiError } from '../../../api/client';
 import { open } from '../../../lib/contact';
 import { toast } from '../../../components';
 
 const mockRefresh = jest.fn().mockResolvedValue(undefined);
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
-}));
 jest.mock('../../../data/hooks', () => ({
   useLimits: jest.fn(),
   useBillingHistory: jest.fn(),
@@ -20,6 +17,7 @@ jest.mock('../../../data/hooks', () => ({
 jest.mock('../api', () => ({
   createPlanLink: jest.fn(),
   mockCompletePayment: jest.fn().mockResolvedValue(undefined),
+  checkPlanOrder: jest.fn().mockResolvedValue('pending'),
 }));
 jest.mock('../../../lib/contact', () => ({ open: jest.fn().mockResolvedValue(true) }));
 jest.mock('../../../lib/analytics', () => ({ reportError: jest.fn() }));
@@ -115,17 +113,35 @@ it('test mode: choosing a plan opens the test sheet, and paying activates it', a
   expect(open).not.toHaveBeenCalled();
 });
 
-it('real Razorpay: opens the payment page in the browser', async () => {
+it('real gateway (PhonePe): opens the payment page in the browser', async () => {
   (createPlanLink as jest.Mock).mockResolvedValue({
-    url: 'https://rzp.io/i/abc',
+    url: 'https://mercury.phonepe.com/transact/abc',
     referenceId: 'ref2',
-    provider: 'razorpay',
+    provider: 'gateway',
   });
   await render(<BillingScreen />);
   await fireEvent.press(screen.getByRole('button', { name: 'Choose Pro' }));
-  await waitFor(() => expect(open).toHaveBeenCalledWith('https://rzp.io/i/abc'));
-  expect(await screen.findByRole('button', { name: 'I have paid — refresh' })).toBeTruthy();
+  await waitFor(() =>
+    expect(open).toHaveBeenCalledWith('https://mercury.phonepe.com/transact/abc'),
+  );
+  expect(await screen.findByRole('button', { name: 'I have paid, check now' })).toBeTruthy();
   expect(mockCompletePayment).not.toHaveBeenCalled();
+});
+
+it('switches the plan on as soon as the server confirms the PhonePe payment', async () => {
+  (createPlanLink as jest.Mock).mockResolvedValue({
+    url: 'https://mercury.phonepe.com/transact/abc',
+    referenceId: 'ref3',
+    provider: 'gateway',
+  });
+  await render(<BillingScreen />);
+  await fireEvent.press(screen.getByRole('button', { name: 'Choose Pro' }));
+  (checkPlanOrder as jest.Mock).mockResolvedValueOnce('pending').mockResolvedValueOnce('paid');
+  await fireEvent.press(await screen.findByRole('button', { name: 'I have paid, check now' }));
+  expect(toast).toHaveBeenCalledWith(expect.stringContaining('Still waiting'));
+  await fireEvent.press(screen.getByRole('button', { name: 'I have paid, check now' }));
+  await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+  expect(checkPlanOrder).toHaveBeenCalledWith('ref3');
 });
 
 it('tells the owner plainly when online payments are not set up', async () => {
@@ -156,7 +172,7 @@ it('lists past payments', async () => {
         id: 'p1',
         planId: 'starter',
         amountPaise: 39900,
-        provider: 'razorpay',
+        provider: 'gateway',
         createdAt: { toDate: () => new Date('2026-10-01T05:00:00Z') },
       },
     ]),

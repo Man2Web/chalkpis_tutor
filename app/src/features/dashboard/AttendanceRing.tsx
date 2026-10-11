@@ -1,51 +1,35 @@
 import { Text, View } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import { RingChart } from 'panelui-native/components/ring-chart';
 import { colors } from '../../theme';
 
 type Props = { present: number; total: number; size?: number };
 
-/** Circular progress: present out of marked. Empty ring when nothing is marked yet. */
-export function AttendanceRing({ present, total, size = 92 }: Props) {
-  const stroke = 9;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const frac = total > 0 ? Math.min(1, present / total) : 0;
+/** PanelUI ring: present out of marked today, with the count in the middle. Empty track before anything is marked. */
+export function AttendanceRing({ present, total, size = 96 }: Props) {
   return (
-    <View
-      style={{ width: size, height: size }}
-      accessible
-      accessibilityLabel={total ? `${present} of ${total}` : '—'}
-    >
-      <Svg width={size} height={size}>
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          stroke="#ECEFF8"
-          strokeWidth={stroke}
-          fill="none"
-        />
-        {frac > 0 ? (
-          <Circle
-            cx={size / 2}
-            cy={size / 2}
-            r={r}
-            stroke={colors.primary}
-            strokeWidth={stroke}
-            fill="none"
-            strokeLinecap="round"
-            strokeDasharray={`${c * frac} ${c}`}
-            transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          />
-        ) : null}
-      </Svg>
-      <View
-        style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}
+    <View accessible accessibilityLabel={total ? `${present} of ${total}` : '—'}>
+      <RingChart
+        data={[
+          {
+            label: 'Present',
+            value: present,
+            maxValue: Math.max(total, 1),
+            // nothing marked yet: a quiet grey ring
+            color: total ? colors.successFill : colors.border,
+          },
+        ]}
+        size={size}
+        strokeWidth={10}
       >
-        <Text style={{ fontSize: 22, fontWeight: '700', letterSpacing: -0.4, color: colors.text }}>
-          {total ? `${present}/${total}` : '—'}
-        </Text>
-      </View>
+        <RingChart.Ring index={0} />
+        <RingChart.Center>
+          {() => (
+            <Text className="text-xl font-bold tracking-tight text-foreground">
+              {total ? `${present}/${total}` : '—'}
+            </Text>
+          )}
+        </RingChart.Center>
+      </RingChart>
     </View>
   );
 }

@@ -2,19 +2,20 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator, Platform, View } from 'react-native';
+import { ActivityIndicator, Platform, Text, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { LanguageScreen } from '../features/auth/LanguageScreen';
 import { OtpScreen } from '../features/auth/OtpScreen';
 import { PhoneLoginScreen } from '../features/auth/PhoneLoginScreen';
 import { useIsStaff, useSession } from '../features/auth/session';
 import { StaffScreen } from '../features/staff/StaffScreen';
-import { MoreScreen } from '../features/more/MoreScreen';
+import { AccountScreen } from '../features/account/AccountScreen';
 import { BatchScreen } from '../features/onboarding/BatchScreen';
 import { ProfileScreen } from '../features/onboarding/ProfileScreen';
 import { StudentsScreen } from '../features/onboarding/StudentsScreen';
 import { haptic } from '../lib/haptics';
-import { colors } from '../theme';
+import { colors, font } from '../theme';
 import { CollectFeeScreen } from '../features/fees/CollectFeeScreen';
 import { FeeLedgerScreen } from '../features/fees/FeeLedgerScreen';
 import { FeePlanScreen } from '../features/fees/FeePlanScreen';
@@ -54,13 +55,30 @@ const Main = createNativeStackNavigator<MainStackParams>();
 function AuthStack() {
   return (
     <Auth.Navigator screenOptions={{ headerShown: false }}>
-      <Auth.Screen name="Language" component={LanguageScreen} />
-      <Auth.Screen name="Phone" component={PhoneLoginScreen} />
-      <Auth.Screen name="Otp" component={OtpScreen} />
+      {/* titles name the page in the browser tab and for screen readers; no header is shown */}
+      <Auth.Screen
+        name="Language"
+        component={LanguageScreen}
+        options={{ title: 'Welcome · Chalkpis' }}
+      />
+      <Auth.Screen
+        name="Phone"
+        component={PhoneLoginScreen}
+        options={{ title: 'Sign in · Chalkpis' }}
+      />
+      <Auth.Screen name="Otp" component={OtpScreen} options={{ title: 'Enter code · Chalkpis' }} />
       <Auth.Screen
         name="Legal"
         component={LegalScreen as never}
-        options={{ headerShown: true, title: '', ...stackHeader }}
+        options={({ route }) => ({
+          ...stackHeader,
+          headerShown: true,
+          headerTitle: '',
+          title:
+            (route.params as { doc?: string } | undefined)?.doc === 'privacy'
+              ? 'Privacy Policy'
+              : 'Terms and Conditions',
+        })}
       />
     </Auth.Navigator>
   );
@@ -84,15 +102,15 @@ const ICONS = {
   Students: 'people-outline',
   Attendance: 'checkmark-circle-outline',
   Fees: 'wallet-outline',
-  More: 'person-circle-outline',
+  Account: 'person-circle-outline',
 } as const;
 
-/** iOS-style navigation bar on both platforms: plain background, no shadow, blue back arrow, centred title on iOS. */
+/** Navigation bar on both platforms: plain white background, no shadow, dark back arrow, centred title on iOS. */
 const stackHeader = {
   headerShadowVisible: false,
   headerStyle: { backgroundColor: colors.bg },
   headerTintColor: colors.primary,
-  headerTitleStyle: { fontSize: 17, fontWeight: '600' as const, color: colors.text },
+  headerTitleStyle: { fontSize: 16, ...font('600'), color: colors.text },
   headerBackButtonDisplayMode: 'minimal' as const,
   contentStyle: { backgroundColor: colors.bg },
   // Android gets the same push-from-the-right movement as iOS; iOS keeps its native swipe-back.
@@ -102,52 +120,87 @@ const stackHeader = {
 function MainTabs() {
   const { t } = useTranslation();
   const staff = useIsStaff();
+  // The bar sits above the phone's home indicator / gesture area, with room for an icon and a full label.
+  const insets = useSafeAreaInsets();
+  const bottom = Math.max(insets.bottom, Platform.OS === 'android' ? 8 : 6);
+  const narrow = useWindowDimensions().width < 350;
   return (
-    <Tabs.Navigator
-      screenListeners={{ tabPress: () => haptic.select() }}
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.gray,
-        tabBarStyle: {
-          backgroundColor: 'rgba(249,249,249,0.96)',
-          borderTopWidth: 0.5,
-          borderTopColor: 'rgba(0,0,0,0.2)',
-          elevation: 0,
-        },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '500', letterSpacing: 0.1 },
-        tabBarIcon: ({ color, focused }) => {
-          const outline = ICONS[route.name as keyof typeof ICONS];
-          const name = (focused ? outline.replace('-outline', '') : outline) as typeof outline;
-          return <Ionicons name={name} size={26} color={color} />;
-        },
-      })}
-    >
-      {/* A helper (staff) only takes attendance: no home numbers, student list or fees. */}
-      {!staff && (
-        <Tabs.Screen name="Home" component={HomeScreen} options={{ title: t('tabs.home') }} />
-      )}
-      {!staff && (
+    <>
+      <Tabs.Navigator
+        screenListeners={{ tabPress: () => haptic.select() }}
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          tabBarActiveTintColor: colors.primary,
+          tabBarInactiveTintColor: colors.textFaint,
+          tabBarStyle: {
+            backgroundColor: colors.surface,
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+            elevation: 0,
+            // icon (28) + label line (16) + the tab's own padding (10), with breathing room
+            height: 64 + bottom,
+            paddingTop: 4,
+            paddingBottom: bottom,
+          },
+          tabBarLabel: ({ color, children }) => (
+            <Text
+              numberOfLines={1}
+              // a long label shrinks a little instead of being cut; big system text is capped so it fits the bar
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+              maxFontSizeMultiplier={1.25}
+              style={{
+                // the smallest phones (under 350 pt) get a slightly smaller label so "Attendance" fits
+                fontSize: narrow ? 10 : 11,
+                // tall enough for Inter, so the bottoms of the letters are not clipped
+                lineHeight: 16,
+                letterSpacing: -0.1,
+                ...font('500'),
+                color,
+                marginTop: 1,
+              }}
+            >
+              {children}
+            </Text>
+          ),
+          tabBarIcon: ({ color, focused }) => {
+            const outline = ICONS[route.name as keyof typeof ICONS];
+            const name = (focused ? outline.replace('-outline', '') : outline) as typeof outline;
+            return <Ionicons name={name} size={24} color={color} />;
+          },
+        })}
+      >
+        {/* A helper (staff) only takes attendance: no home numbers, student list or fees. */}
+        {!staff && (
+          <Tabs.Screen name="Home" component={HomeScreen} options={{ title: t('tabs.home') }} />
+        )}
+        {!staff && (
+          <Tabs.Screen
+            name="Students"
+            component={StudentsListScreen}
+            options={{ title: t('tabs.students') }}
+          />
+        )}
         <Tabs.Screen
-          name="Students"
-          component={StudentsListScreen}
-          options={{ title: t('tabs.students') }}
+          name="Attendance"
+          component={AttendanceHomeScreen}
+          options={{ title: t('tabs.attendance') }}
         />
-      )}
-      <Tabs.Screen
-        name="Attendance"
-        component={AttendanceHomeScreen}
-        options={{ title: t('tabs.attendance') }}
-      />
-      {!staff && (
+        {!staff && (
+          <Tabs.Screen
+            name="Fees"
+            component={FeesOverviewScreen}
+            options={{ title: t('tabs.fees') }}
+          />
+        )}
+        {/* Profile, settings, tools, plan and help: one place, one tab. */}
         <Tabs.Screen
-          name="Fees"
-          component={FeesOverviewScreen}
-          options={{ title: t('tabs.fees') }}
+          name="Account"
+          component={AccountScreen}
+          options={{ title: t('tabs.account') }}
         />
-      )}
-      <Tabs.Screen name="More" component={MoreScreen} options={{ title: t('tabs.profile') }} />
-    </Tabs.Navigator>
+      </Tabs.Navigator>
+    </>
   );
 }
 
@@ -174,7 +227,7 @@ function MainStack() {
       <Main.Screen
         name="Batches"
         component={BatchesScreen}
-        options={{ title: t('batches.title') }}
+        options={{ title: t('batches.title'), headerTitle: '' }} // the screen shows its own large title
       />
       <Main.Screen
         name="BatchForm"
@@ -215,8 +268,10 @@ function MainStack() {
       <Main.Screen
         name="Legal"
         component={LegalScreen}
+        // the document shows its own title; the browser tab still gets one
         options={({ route }) => ({
           title: route.params.doc === 'privacy' ? t('legal.privacy') : t('legal.terms'),
+          headerTitle: '',
         })}
       />
       <Main.Screen
@@ -247,7 +302,7 @@ function MainStack() {
       <Main.Screen
         name="Billing"
         component={BillingScreen}
-        options={{ title: t('billing.title') }}
+        options={{ title: t('billing.title'), headerTitle: '' }} // the screen shows its own large title
       />
       <Main.Screen
         name="NotificationSettings"
@@ -258,7 +313,7 @@ function MainStack() {
       <Main.Screen
         name="MessageLog"
         component={MessageLogScreen}
-        options={{ title: t('messages.logTitle') }}
+        options={{ title: t('messages.logTitle'), headerTitle: '' }} // the screen shows its own large title
       />
       <Main.Screen
         name="AttendanceReport"

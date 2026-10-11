@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { StyleSheet, Text, View } from 'react-native';
-import { colors, spacing, type } from '../theme';
+import { EmptyState as PanelEmpty } from 'panelui-native/components/empty-state';
+import { colors } from '../theme';
 import { Button } from './Button';
 
 type Props = {
@@ -11,6 +11,7 @@ type Props = {
   onAction?: () => void;
 };
 
+/** PanelUI empty state: icon, title, a line of help and one action. */
 export function EmptyState({
   icon = 'folder-open-outline',
   title,
@@ -19,28 +20,19 @@ export function EmptyState({
   onAction,
 }: Props) {
   return (
-    <View style={styles.wrap}>
-      <View style={styles.iconWrap}>
-        <Ionicons name={icon} size={34} color={colors.gray} />
-      </View>
-      <Text style={[type.title3, styles.center]}>{title}</Text>
-      {!!message && (
-        <Text style={[type.subhead, styles.center, { color: colors.textMuted }]}>{message}</Text>
-      )}
-      {!!actionLabel && !!onAction && <Button title={actionLabel} onPress={onAction} />}
-    </View>
+    <PanelEmpty>
+      <PanelEmpty.Header>
+        <PanelEmpty.Media variant="icon" size="lg">
+          <Ionicons name={icon} size={22} color={colors.textMuted} />
+        </PanelEmpty.Media>
+        <PanelEmpty.Title>{title}</PanelEmpty.Title>
+        {message ? <PanelEmpty.Description>{message}</PanelEmpty.Description> : null}
+      </PanelEmpty.Header>
+      {actionLabel && onAction ? (
+        <PanelEmpty.Content>
+          <Button title={actionLabel} onPress={onAction} size="small" />
+        </PanelEmpty.Content>
+      ) : null}
+    </PanelEmpty>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: { alignItems: 'center', gap: spacing.md, padding: spacing.xxl },
-  center: { textAlign: 'center', maxWidth: 320 },
-  iconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.fill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

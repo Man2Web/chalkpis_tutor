@@ -91,6 +91,14 @@ const schema = z.object({
   /** How long a new institute's free trial lasts. With online payment switched off, this is how long they can write before the app turns read-only. */
   TRIAL_DAYS: z.coerce.number().int().min(1).max(3650).default(7),
   /** Razorpay (plan purchases). Without keys the server uses the local mock in development and answers 503 in production. */
+  // PhonePe Standard Checkout (v2) for plan purchases; preferred over Razorpay when set.
+  PHONEPE_CLIENT_ID: z.string().min(1).optional(),
+  PHONEPE_CLIENT_SECRET: z.string().min(1).optional(),
+  PHONEPE_CLIENT_VERSION: z.string().min(1).default('1'),
+  PHONEPE_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
+  // The username and password you set for the webhook in the PhonePe dashboard.
+  PHONEPE_WEBHOOK_USERNAME: z.string().min(1).optional(),
+  PHONEPE_WEBHOOK_PASSWORD: z.string().min(1).optional(),
   RAZORPAY_KEY_ID: z.string().min(1).optional(),
   RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().min(16).optional(),

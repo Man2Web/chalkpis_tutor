@@ -6,9 +6,6 @@ import { useNotifySettings } from '../../../data/hooks';
 import { DEFAULT_SETTINGS } from '../settings';
 
 const mockRefresh = jest.fn().mockResolvedValue(undefined);
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
-}));
 jest.mock('../../../data/hooks', () => ({
   useNotifySettings: jest.fn(),
   useInstituteId: () => 'I1',
@@ -28,8 +25,12 @@ beforeEach(() => {
 
 it('everything below the master switch is disabled while messages are off', async () => {
   await render(<NotificationSettingsScreen />);
-  expect(screen.getByLabelText('Send messages to parents').props.value).toBe(false);
-  expect(screen.getByLabelText('A student is marked absent').props.disabled).toBe(true);
+  expect(screen.getByLabelText('Send messages to parents').props.accessibilityState?.checked).toBe(
+    false,
+  );
+  expect(
+    screen.getByLabelText('A student is marked absent').props.accessibilityState?.disabled,
+  ).toBe(true);
   expect(
     screen.getByLabelText('Days before the due date +').props.accessibilityState?.disabled,
   ).toBe(true);

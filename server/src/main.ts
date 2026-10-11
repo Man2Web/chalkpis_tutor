@@ -3,7 +3,12 @@ import { fileURLToPath } from 'node:url';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createPool } from './db.js';
-import { MockBillingProvider, RazorpayProvider, type BillingProvider } from './billing/provider.js';
+import {
+  MockBillingProvider,
+  PhonePeProvider,
+  RazorpayProvider,
+  type BillingProvider,
+} from './billing/provider.js';
 import {
   MetaCloudProvider,
   MockProvider,
@@ -53,12 +58,19 @@ async function main() {
     );
   }
   let billing: BillingProvider | null = null;
-  if (config.RAZORPAY_KEY_ID && config.RAZORPAY_KEY_SECRET)
+  if (config.PHONEPE_CLIENT_ID && config.PHONEPE_CLIENT_SECRET)
+    billing = new PhonePeProvider({
+      clientId: config.PHONEPE_CLIENT_ID,
+      clientSecret: config.PHONEPE_CLIENT_SECRET,
+      clientVersion: config.PHONEPE_CLIENT_VERSION,
+      env: config.PHONEPE_ENV,
+    });
+  else if (config.RAZORPAY_KEY_ID && config.RAZORPAY_KEY_SECRET)
     billing = new RazorpayProvider(config.RAZORPAY_KEY_ID, config.RAZORPAY_KEY_SECRET);
   else if (config.NODE_ENV !== 'production') billing = new MockBillingProvider();
   else
     console.warn(
-      'Razorpay is not configured: plan purchases are unavailable until RAZORPAY_* settings are set.',
+      'No payment gateway is configured: plan purchases are unavailable until PHONEPE_* (or RAZORPAY_*) settings are set.',
     );
   const app = await buildApp({ config, pool, provider, billing });
 

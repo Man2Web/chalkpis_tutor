@@ -4,9 +4,6 @@ import { CollectFeeScreen } from '../CollectFeeScreen';
 import { recordPayment } from '../api';
 import { useDue, useStudents } from '../../../data/hooks';
 
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
-}));
 jest.mock('../../../data/hooks', () => ({
   useDue: jest.fn(),
   useStudents: jest.fn(),

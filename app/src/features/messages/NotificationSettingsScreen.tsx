@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { EmptyState, Row, Screen, Section, Skeleton, toast } from '../../components';
 import { useInstituteId, useNotifySettings, useRefreshData } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
-import { colors, spacing, type } from '../../theme';
+import { colors, spacing, type, font } from '../../theme';
 import { saveNotifySettings } from './api';
 import { clampDays, type NotifySettings } from './settings';
 
@@ -34,7 +34,7 @@ function Stepper({
       }}
       hitSlop={6}
     >
-      <Text style={{ fontSize: 20, fontWeight: '500', color: colors.text }}>{sign}</Text>
+      <Text style={{ fontSize: 20, ...font('500'), color: colors.text }}>{sign}</Text>
     </Pressable>
   );
   return (

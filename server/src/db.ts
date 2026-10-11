@@ -31,8 +31,11 @@ export function createPool(
   // READ COMMITTED on every connection. MariaDB 11 otherwise fails a transaction that read a row, then locks it after
   // another request changed it ("record has changed since last read"). All money paths take explicit row locks
   // (SELECT ... FOR UPDATE), which is what keeps them correct.
+  // The session clock is UTC too, so column defaults (CURRENT_TIMESTAMP) agree with the dates we write, whatever
+  // time zone the database host runs in.
   pool.pool.on('connection', (conn) => {
     conn.query('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
+    conn.query("SET time_zone = '+00:00'");
   });
   return pool;
 }

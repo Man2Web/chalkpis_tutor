@@ -26,20 +26,20 @@ beforeEach(() => jest.clearAllMocks());
 
 it('is hidden for a healthy paid plan', async () => {
   set({});
-  const { toJSON } = await render(<PlanBanner />);
-  expect(toJSON()).toBeNull();
+  await render(<PlanBanner />);
+  expect(screen.queryByRole('button')).toBeNull();
 });
 
 it('is hidden while limits are still loading', async () => {
   (useLimits as jest.Mock).mockReturnValue({ data: undefined });
-  const { toJSON } = await render(<PlanBanner />);
-  expect(toJSON()).toBeNull();
+  await render(<PlanBanner />);
+  expect(screen.queryByRole('button')).toBeNull();
 });
 
-it('shows the trial countdown', async () => {
+it('stays out of the way while a trial simply runs (the plan is in the Account tab)', async () => {
   set({ plan: 'trial', expiresAtMs: Date.now() + 6 * day });
   await render(<PlanBanner />);
-  expect(screen.getByText('Free trial: 6 days left')).toBeTruthy();
+  expect(screen.queryByRole('button')).toBeNull();
 });
 
 it('warns when a plan is about to end', async () => {

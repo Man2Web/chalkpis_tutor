@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { RefreshControl, ScrollView, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AppState, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
   BottomSheet,
@@ -21,8 +21,8 @@ import { reportError } from '../../lib/analytics';
 import { open } from '../../lib/contact';
 import { toYmd, prettyDate } from '../../lib/dates';
 import { formatINR } from '../../lib/money';
-import { colors, radius, spacing, type } from '../../theme';
-import { createPlanLink, mockCompletePayment, type PlanLink } from './api';
+import { colors, radius, spacing, type, font } from '../../theme';
+import { checkPlanOrder, createPlanLink, mockCompletePayment, type PlanLink } from './api';
 import { billingError } from './errors';
 import { planAction, subscriptionState, usageFraction, usageLevel } from './logic';
 import { PLANS, type PlanId } from './plans';
@@ -66,6 +66,52 @@ export function BillingScreen() {
   const [busyPlan, setBusyPlan] = useState<PlanId | null>(null);
   const [link, setLink] = useState<{ plan: PlanId; data: PlanLink } | null>(null);
   const [paying, setPaying] = useState(false);
+  const [checking, setChecking] = useState(false);
+
+  // While a checkout is open, ask the server where the order stands: when the tutor comes back to the app, and every
+  // few seconds for ten minutes. The plan switches on here the moment PhonePe confirms, with no button to press.
+  const pending = link?.data.provider === 'gateway' ? link.data.referenceId : null;
+  const settled = useRef(false);
+  const check = async (orderId: string, manual = false) => {
+    if (settled.current) return;
+    if (manual) setChecking(true);
+    try {
+      const state = await checkPlanOrder(orderId);
+      if (state === 'paid') {
+        settled.current = true;
+        await refresh();
+        toast(t('billing.activated'), 'success');
+        setLink(null);
+      } else if (state === 'failed') {
+        settled.current = true;
+        toast(t('billing.paymentFailed'), 'error');
+        setLink(null);
+      } else if (manual) toast(t('billing.stillPending'));
+    } catch (e) {
+      if (manual) {
+        reportError(e);
+        toast(t('billing.failed'), 'error');
+      }
+    } finally {
+      if (manual) setChecking(false);
+    }
+  };
+  useEffect(() => {
+    if (!pending) return;
+    settled.current = false;
+    const started = Date.now();
+    const timer = setInterval(() => {
+      if (Date.now() - started > 10 * 60_000) clearInterval(timer);
+      else void check(pending);
+    }, 5000);
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') void check(pending);
+    });
+    return () => {
+      clearInterval(timer);
+      sub.remove();
+    };
+  }, [pending]);
 
   if (limits.isLoading)
     return (
@@ -135,8 +181,7 @@ export function BillingScreen() {
   };
 
   const checkNow = async () => {
-    await refresh();
-    setLink(null);
+    if (link) await check(link.data.referenceId, true);
   };
 
   const expiryText = l.expiresAtMs ? prettyDate(toYmd(new Date(l.expiresAtMs)), locale) : '—';
@@ -199,7 +244,7 @@ export function BillingScreen() {
                 }}
               >
                 <Text style={type.heading}>{planName(p.id)}</Text>
-                <Text style={[type.heading, { fontSize: 22, fontWeight: '700' }]}>
+                <Text style={[type.heading, { fontSize: 22, ...font('700') }]}>
                   {formatINR(p.pricePaise)}
                 </Text>
               </View>
@@ -280,7 +325,7 @@ export function BillingScreen() {
         ) : (
           <View style={{ gap: spacing.sm }}>
             <Text style={type.body}>{t('billing.completeInBrowser')}</Text>
-            <Button title={t('billing.paidRefresh')} onPress={checkNow} />
+            <Button title={t('billing.paidRefresh')} onPress={checkNow} loading={checking} />
             <Button
               variant="ghost"
               title={t('billing.openAgain')}

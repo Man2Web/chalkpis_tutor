@@ -4,9 +4,6 @@ import { ApiError } from '../../../api/client';
 import { StaffScreen } from '../StaffScreen';
 import { addStaff, removeStaff, setStaffBatches } from '../api';
 
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
-}));
 jest.mock('../../../lib/analytics', () => ({ reportError: jest.fn() }));
 jest.mock('../api', () => ({
   ...jest.requireActual('../api'),

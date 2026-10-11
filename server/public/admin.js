@@ -1,663 +1,807 @@
-// Chalkpis admin dashboard. Plain JavaScript, no outside code. Everything shown is inserted as text, never as HTML.
+// Chalkpis Admin. Plain JavaScript, no outside code (strict CSP). Everything shown is inserted as text, never HTML.
 (function () {
   'use strict';
   var app = document.getElementById('app');
-  var store = window.sessionStorage;
-  var local = window.localStorage;
-  var state = { view: 'overview', users: { q: '', filter: 'all', offset: 0 }, inst: { q: '', sort: 'activity', filter: 'all' }, days: 30, msg: { status: 'all', type: '' }, auto: false };
-  var timer = null;
+  var ss = window.sessionStorage, ls = window.localStorage;
+  var st = { live: ls.getItem('adm-live') === '1', collapsed: ls.getItem('adm-side') === '1', days: 30, users: { q: '', filter: 'all', offset: 0 }, inst: { q: '', sort: 'activity', filter: 'all', tag: '' }, msg: { status: 'all', type: '' }, feed: { kinds: [] } };
+  var liveTimer = null, bellTimer = null;
 
-  // ---------- helpers ----------
-  var SVGNS = 'http://www.w3.org/2000/svg';
-  function el(tag, attrs, kids, svg) {
-    var n = svg ? document.createElementNS(SVGNS, tag) : document.createElement(tag);
-    if (attrs) Object.keys(attrs).forEach(function (k) {
-      var v = attrs[k];
-      if (k === 'on') Object.keys(v).forEach(function (e) { n.addEventListener(e, v[e]); });
-      else if (k === 'class') n.setAttribute('class', v);
-      else if (k === 'style' && typeof v === 'object') Object.assign(n.style, v);
-      else if (v !== false && v != null) n.setAttribute(k, v === true ? '' : v);
-    });
-    (kids || []).forEach(function (c) {
-      if (c == null || c === false) return;
-      n.appendChild(typeof c === 'string' || typeof c === 'number' ? document.createTextNode(String(c)) : c);
-    });
+  /* ---------------- helpers ---------------- */
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, a, kids, svg) {
+    var n = svg ? document.createElementNS(NS, tag) : document.createElement(tag);
+    if (a) for (var k in a) {
+      var v = a[k];
+      if (v == null || v === false) continue;
+      if (k === 'on') for (var e in v) n.addEventListener(e, v[e]);
+      else if (k === 'style') { if (typeof v === 'object') Object.assign(n.style, v); else n.style.cssText = v; }
+      else n.setAttribute(k === 'cls' ? 'class' : k, v === true ? '' : v);
+    }
+    (kids || []).forEach(function (c) { if (c == null || c === false) return; n.appendChild(typeof c === 'object' ? c : document.createTextNode(String(c))); });
     return n;
   }
-  function s(tag, attrs, kids) { return el(tag, attrs, kids, true); }
+  function s(tag, a, kids) { return el(tag, a, kids, true); }
   function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); return n; }
   var inr = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
-  function rupees(paise) { return '₹' + inr.format(Math.round((paise || 0) / 100)); }
-  function compact(v) { return v >= 1e7 ? (v / 1e7).toFixed(1) + 'Cr' : v >= 1e5 ? (v / 1e5).toFixed(1) + 'L' : v >= 1e3 ? (v / 1e3).toFixed(1) + 'k' : String(Math.round(v)); }
-  function when(iso) { return iso ? new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '—'; }
-  function day(iso) { return iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }) : '—'; }
+  function money(p) { return '₹' + inr.format(Math.round((p || 0) / 100)); }
+  function compact(v) { v = Math.abs(v); return v >= 1e7 ? (v / 1e7).toFixed(1) + 'Cr' : v >= 1e5 ? (v / 1e5).toFixed(1) + 'L' : v >= 1e3 ? (v / 1e3).toFixed(1) + 'k' : String(Math.round(v)); }
+  var TZ = { timeZone: 'Asia/Kolkata' };
+  function when(iso) { return iso ? new Date(iso).toLocaleString('en-IN', Object.assign({ day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }, TZ)) : '—'; }
+  function time(iso) { return new Date(iso).toLocaleTimeString('en-IN', Object.assign({ hour: 'numeric', minute: '2-digit' }, TZ)); }
+  function dshort(iso) { return iso ? new Date(iso).toLocaleDateString('en-IN', Object.assign({ day: 'numeric', month: 'short' }, TZ)) : '—'; }
+  function dlong(iso) { return new Date(iso).toLocaleDateString('en-IN', Object.assign({ weekday: 'long', day: 'numeric', month: 'long' }, TZ)); }
+  function ymd(iso) { return new Date(new Date(iso).getTime() + 330 * 60000).toISOString().slice(0, 10); }
   function ago(iso) {
     if (!iso) return 'never';
     var t = (Date.now() - new Date(iso).getTime()) / 1000;
-    if (t < 60) return 'just now'; if (t < 3600) return Math.floor(t / 60) + ' min ago';
-    if (t < 86400) return Math.floor(t / 3600) + ' h ago'; return Math.floor(t / 86400) + ' d ago';
+    if (t < 45) return 'just now'; if (t < 3600) return Math.round(t / 60) + 'm ago'; if (t < 86400) return Math.round(t / 3600) + 'h ago';
+    if (t < 86400 * 30) return Math.round(t / 86400) + 'd ago'; return dshort(iso);
   }
-  function pill(text, tone) { return el('span', { class: 'pill ' + (tone || '') }, [text]); }
-  function toast(text) {
-    var t = el('div', { class: 'toast', role: 'status' }, [text]);
-    document.body.appendChild(t);
-    setTimeout(function () { t.remove(); }, 2600);
+  function initials(n) { var p = String(n || '?').replace(/^\+\d{2}/, '').trim().split(/\s+/); return ((p[0] || '?')[0] + (p[1] ? p[1][0] : '')).toUpperCase(); }
+  var PALETTE = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#6366f1', '#14b8a6', '#737373'];
+  function hue(str) { var h = 0; for (var i = 0; i < String(str).length; i++) h = (h * 31 + String(str).charCodeAt(i)) >>> 0; return PALETTE[h % PALETTE.length]; }
+  function avatar(name, cls) { return el('div', { cls: 'av ' + (cls || ''), style: { background: hue(name) }, 'aria-hidden': 'true' }, [initials(name)]); }
+  // "1 student", "2 students"
+  function n(count, one, many) { return count + ' ' + (count === 1 ? one : many || one + 's'); }
+  function pill(t, tone) { return el('span', { cls: 'pill ' + (tone || '') }, [t]); }
+  function tagEl(t) { return el('span', { cls: 'tag ' + t }, [t.replace('-', ' ')]); }
+  function cssv(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function toast(t, ok) {
+    document.querySelectorAll('.toast').forEach(function (n) { n.remove(); });
+    var n = el('div', { cls: 'toast', role: 'status' }, [ic(ok === false ? 'alert' : 'check'), t]);
+    document.body.appendChild(n); setTimeout(function () { n.remove(); }, 2600);
   }
   function delta(now, before) {
-    if (!before && !now) return el('span', { class: 'delta flat' }, ['—']);
-    if (!before) return el('span', { class: 'delta up' }, ['new']);
+    if (!now && !before) return el('span', { cls: 'delta flat' }, ['—']);
+    if (!before) return el('span', { cls: 'delta up' }, ['New']);
     var p = Math.round(((now - before) / before) * 100);
-    return el('span', { class: 'delta ' + (p > 0 ? 'up' : p < 0 ? 'down' : 'flat') }, [(p > 0 ? '▲ ' : p < 0 ? '▼ ' : '') + Math.abs(p) + '%']);
+    return el('span', { cls: 'delta ' + (p > 0 ? 'up' : p < 0 ? 'down' : 'flat') }, [(p > 0 ? '↑ ' : p < 0 ? '↓ ' : '') + Math.abs(p) + '%']);
   }
-  function healthBadge(h) {
-    var c = h >= 70 ? 'var(--green)' : h >= 40 ? 'var(--orange)' : 'var(--red)';
-    return el('span', { class: 'health' }, [el('span', { class: 'dot', style: { background: c } }), String(h)]);
+  function score(h) {
+    var c = h >= 70 ? cssv('--green') : h >= 40 ? cssv('--orange') : cssv('--red');
+    return el('span', { cls: 'score' }, [el('span', { cls: 'num' }, [String(h)]), el('span', { cls: 'track' }, [el('i', { style: { width: h + '%', background: c } })])]);
   }
-  var css = getComputedStyle(document.documentElement);
-  function color(name) { return css.getPropertyValue(name).trim() || '#007aff'; }
-
-  // ---------- charts (inline SVG) ----------
-  function lineChart(dates, series, opts) {
-    opts = opts || {};
-    var W = 640, H = opts.height || 200, L = 40, R = 8, T = 10, B = 24;
-    var max = 1;
-    series.forEach(function (sr) { sr.values.forEach(function (v) { if (v > max) max = v; }); });
-    max = niceMax(max);
-    var x = function (i) { return L + (dates.length < 2 ? 0 : (i * (W - L - R)) / (dates.length - 1)); };
-    var y = function (v) { return T + (H - T - B) * (1 - v / max); };
-    var svg = s('svg', { class: 'chart', viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': opts.label || 'chart' });
-    for (var g = 0; g <= 4; g++) {
-      var gv = (max * g) / 4;
-      svg.appendChild(s('line', { x1: L, x2: W - R, y1: y(gv), y2: y(gv), stroke: color('--line') }));
-      svg.appendChild(s('text', { x: L - 6, y: y(gv) + 3, 'text-anchor': 'end' }, [opts.money ? '₹' + compact(gv / 100) : compact(gv)]));
-    }
-    var step = Math.max(1, Math.ceil(dates.length / 7));
-    dates.forEach(function (d, i) {
-      if (i % step === 0 || i === dates.length - 1)
-        svg.appendChild(s('text', { x: x(i), y: H - 6, 'text-anchor': 'middle' }, [day(d + 'T12:00:00+05:30')]));
-    });
-    series.forEach(function (sr, si) {
-      var pts = sr.values.map(function (v, i) { return x(i) + ',' + y(v); }).join(' ');
-      if (si === 0 && opts.area !== false) {
-        var id = 'g' + Math.random().toString(36).slice(2);
-        var grad = s('linearGradient', { id: id, x1: 0, x2: 0, y1: 0, y2: 1 }, [
-          s('stop', { offset: '0', 'stop-color': sr.color, 'stop-opacity': '0.28' }),
-          s('stop', { offset: '1', 'stop-color': sr.color, 'stop-opacity': '0' }),
-        ]);
-        svg.appendChild(s('defs', null, [grad]));
-        svg.appendChild(s('polygon', { points: x(0) + ',' + y(0) + ' ' + pts + ' ' + x(sr.values.length - 1) + ',' + y(0), fill: 'url(#' + id + ')' }));
+  function empty(icon, text) { return el('div', { cls: 'empty' }, [ic(icon), el('div', null, [text])]); }
+  // The Chalkpis logo, with white letters in dark mode.
+  function logo(cls) { return el('span', { cls: 'logo ' + (cls || '') }, [el('img', { cls: 'lt', src: '/admin-logo/logo.svg', alt: 'Chalkpis' }), el('img', { cls: 'dk', src: '/admin-logo/logo-dark.svg', alt: 'Chalkpis' })]); }
+  // A list that reloads as you type: only the newest request may draw (a slow older answer is dropped), and the
+  // current rows stay visible, dimmed, while the next answer is on its way.
+  function latest(list) {
+    var n = 0;
+    return async function (fetcher, draw) {
+      var my = ++n;
+      if (list.firstChild) list.classList.add('loading'); else list.appendChild(sk(320));
+      try {
+        var r = await fetcher();
+        if (my !== n) return;
+        list.classList.remove('loading'); clear(list); draw(r);
+      } catch (e) {
+        if (my !== n) return;
+        list.classList.remove('loading'); clear(list).appendChild(card('Could not load', e.message, el('span')));
       }
-      svg.appendChild(s('polyline', { points: pts, fill: 'none', stroke: sr.color, 'stroke-width': 2.2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
-      sr.values.forEach(function (v, i) {
-        var c = s('circle', { cx: x(i), cy: y(v), r: 6, fill: 'transparent' }, [s('title', null, [day(dates[i] + 'T12:00:00+05:30') + ' · ' + sr.name + ': ' + (opts.money ? rupees(v) : v)])]);
-        svg.appendChild(c);
-      });
-    });
-    var wrap = el('div', null, [svg]);
-    if (series.length > 1 || opts.legend)
-      wrap.appendChild(el('div', { class: 'legend' }, series.map(function (sr) { return el('span', null, [el('i', { style: { background: sr.color } }), sr.name]); })));
-    return wrap;
+    };
   }
-  function niceMax(v) { if (v <= 5) return 5; var p = Math.pow(10, Math.floor(Math.log10(v))); var m = v / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p; }
-  function barChart(labels, values, opts) {
-    opts = opts || {};
-    var W = 640, H = opts.height || 180, L = 44, B = 24, T = 10;
-    var max = niceMax(Math.max.apply(null, values.concat([1])));
-    var bw = (W - L) / Math.max(values.length, 1);
-    var svg = s('svg', { class: 'chart', viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': opts.label || 'bar chart' });
-    for (var g = 0; g <= 4; g++) {
-      var gv = (max * g) / 4, yy = T + (H - T - B) * (1 - gv / max);
-      svg.appendChild(s('line', { x1: L, x2: W, y1: yy, y2: yy, stroke: color('--line') }));
-      svg.appendChild(s('text', { x: L - 6, y: yy + 3, 'text-anchor': 'end' }, [opts.money ? '₹' + compact(gv / 100) : compact(gv)]));
+  function sk(h) { return el('div', { cls: 'sk', style: { height: (h || 120) + 'px' } }); }
+
+  /* ---------------- icons (SF Symbols-like strokes) ---------------- */
+  var P = {
+    overview: 'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z', analytics: 'M4 19V5M4 19h16M8 15l3-4 3 2 5-6',
+    cohorts: 'M4 4h16v16H4zM4 9h16M4 14h16M9 4v16M14 4v16', centres: 'M4 20V8l8-4 8 4v12M9 20v-6h6v6M3 20h18',
+    users: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-1a6 6 0 0 1 12 0v1M16 3.5a4 4 0 0 1 0 7.5M22 21v-1a6 6 0 0 0-4-5.6',
+    trophy: 'M8 4h8v5a4 4 0 0 1-8 0zM8 6H4v1a4 4 0 0 0 4 4M16 6h4v1a4 4 0 0 1-4 4M12 13v4M8 21h8M10 17h4v4h-4z',
+    activity: 'M3 12h4l3-8 4 16 3-8h4', chat: 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z',
+    megaphone: 'M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM15 9a3 3 0 0 1 0 6M18 6a7 7 0 0 1 0 12',
+    key: 'M14 10a4 4 0 1 1-1.2-2.8L21 7v3h-2v2h-2v2l-3.2-1.2', audit: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6',
+    system: 'M3 12h4l2-5 4 10 2-5h6', search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM21 21l-4.3-4.3',
+    bell: 'M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0', sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
+    moon: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z', sidebar: 'M4 4h16v16H4zM9 4v16', logout: 'M9 21H5V3h4M16 17l5-5-5-5M21 12H9',
+    plus: 'M12 5v14M5 12h14', phone: 'M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z',
+    copy: 'M9 9h11v11H9zM5 15H4V4h11v1', x: 'M18 6 6 18M6 6l12 12', chev: 'M9 6l6 6-6 6', back: 'M15 6l-6 6 6 6',
+    refresh: 'M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6', download: 'M12 3v12M7 10l5 5 5-5M4 21h16', tag: 'M20 12l-8 8-9-9V4h7zM7.5 7.5h.01',
+    note: 'M4 4h16v12l-4 4H4zM16 20v-4h4', sparkle: 'M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z', alert: 'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z',
+    check: 'M20 6 9 17l-5-5', menu: 'M4 6h16M4 12h16M4 18h16', rupee: 'M6 4h12M6 9h12M14 4c3 0 4 2.5 4 5s-2 5-5 5H6l9 7',
+    calendar: 'M4 5h16v16H4zM4 10h16M9 3v4M15 3v4', login: 'M15 3h4v18h-4M10 17l5-5-5-5M15 12H3', flag: 'M5 21V4M5 4h12l-2 4 2 4H5', keyboard: 'M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M7 14h10',
+  };
+  function ic(name, cls) { return s('svg', { 'class': 'ico ' + (cls || ''), viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [s('path', { d: P[name] || P.sparkle })]); }
+
+  /* ---------------- API ---------------- */
+  function tok() { try { return JSON.parse(ss.getItem('adm') || 'null'); } catch { return null; } }
+  function saveTok(t) { ss.setItem('adm', JSON.stringify(t)); }
+  async function call(method, url, body, retried) {
+    var t = tok();
+    // JSON header only with a body: the server refuses a request that announces JSON and sends none (DELETE, bare POSTs)
+    var res = await fetch(url, { method: method, headers: Object.assign(body ? { 'Content-Type': 'application/json' } : {}, t ? { Authorization: 'Bearer ' + t.accessToken } : {}), body: body ? JSON.stringify(body) : undefined });
+    if (res.status === 401 && t && !retried) {
+      var r = await fetch('/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: t.refreshToken }) });
+      if (r.ok) { var j = await r.json(); saveTok({ accessToken: j.accessToken, refreshToken: j.refreshToken, phone: t.phone }); return call(method, url, body, true); }
+      ss.removeItem('adm'); boot(); throw new Error('Signed out');
     }
+    if (/\.csv$/.test(url) && res.ok) return res.blob();
+    var d = await res.json().catch(function () { return {}; });
+    if (!res.ok) { var e = new Error(d.error || 'Error ' + res.status); e.code = d.error; throw e; }
+    return d;
+  }
+  async function download(url, name) { var b = await call('GET', url); var a = el('a', { href: URL.createObjectURL(b), download: name }); document.body.appendChild(a); a.click(); a.remove(); toast('Downloaded ' + name); }
+
+  /* ---------------- charts ---------------- */
+  var tip = null;
+  function showTip(x, y, title, lines) {
+    if (!tip) { tip = el('div', { cls: 'tooltip' }); document.body.appendChild(tip); }
+    clear(tip); tip.appendChild(el('b', null, [title]));
+    lines.forEach(function (l) { tip.appendChild(el('div', null, [el('span', { style: { color: l[2] } }, ['● ']), l[0] + ': ', el('b', { style: { display: 'inline' } }, [l[1]])])); });
+    tip.style.display = 'block'; tip.style.left = Math.min(x + 14, innerWidth - 200) + 'px'; tip.style.top = (y + 14) + 'px';
+  }
+  function hideTip() { if (tip) tip.style.display = 'none'; }
+  function nice(v) { if (v <= 4) return 4; var p = Math.pow(10, Math.floor(Math.log10(v))), m = v / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p; }
+  function lineChart(dates, series, o) {
+    o = o || {};
+    // drawn at phone width on phones, so the axis labels stay readable instead of shrinking with the chart
+    var narrow = innerWidth < 640, W = narrow ? 420 : 720, H = o.h || (narrow ? 260 : 230), L = 44, R = 10, T = 12, B = 26, max = 1;
+    series.forEach(function (x) { x.values.forEach(function (v) { if (v > max) max = v; }); });
+    max = nice(max);
+    var X = function (i) { return L + (dates.length < 2 ? 0 : (i * (W - L - R)) / (dates.length - 1)); }, Y = function (v) { return T + (H - T - B) * (1 - v / max); };
+    var svg = s('svg', { 'class': 'chart', viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': o.label || 'chart' });
+    for (var g = 0; g <= 4; g++) { var gv = (max * g) / 4; svg.appendChild(s('line', { x1: L, x2: W - R, y1: Y(gv), y2: Y(gv), stroke: cssv('--line'), 'stroke-dasharray': g ? '3 4' : '' })); svg.appendChild(s('text', { x: L - 8, y: Y(gv) + 3.5, 'text-anchor': 'end' }, [o.money ? '₹' + compact(gv / 100) : compact(gv)])); }
+    var step = Math.max(1, Math.ceil(dates.length / (narrow ? 4 : 8)));
+    var lastI = dates.length - 1;
+    // a tick every `step` days, the last day always, and never two labels on top of each other
+    dates.forEach(function (d, i) { if ((i % step === 0 && lastI - i >= step / 2) || i === lastI) svg.appendChild(s('text', { x: X(i), y: H - 6, 'text-anchor': 'middle' }, [dshort(d + 'T12:00:00+05:30')])); });
+    series.forEach(function (sr, si) {
+      var path = sr.values.map(function (v, i) { return (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1); }).join(' ');
+      if (si === 0 && o.area !== false) {
+        var id = 'g' + Math.random().toString(36).slice(2);
+        svg.appendChild(s('defs', null, [s('linearGradient', { id: id, x1: 0, x2: 0, y1: 0, y2: 1 }, [s('stop', { offset: 0, 'stop-color': sr.color, 'stop-opacity': 0.24 }), s('stop', { offset: 1, 'stop-color': sr.color, 'stop-opacity': 0 })])]));
+        svg.appendChild(s('path', { d: path + ' L' + X(sr.values.length - 1) + ' ' + Y(0) + ' L' + X(0) + ' ' + Y(0) + 'Z', fill: 'url(#' + id + ')' }));
+      }
+      svg.appendChild(s('path', { d: path, fill: 'none', stroke: sr.color, 'stroke-width': 2.4, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+    });
+    var cross = s('line', { y1: T, y2: H - B, stroke: cssv('--faint'), 'stroke-dasharray': '3 3', opacity: 0 });
+    var dots = series.map(function (sr) { var c = s('circle', { r: 4.5, fill: sr.color, stroke: cssv('--bg-elev'), 'stroke-width': 2, opacity: 0 }); svg.appendChild(c); return c; });
+    svg.appendChild(cross);
+    var hit = s('rect', { x: L, y: T, width: W - L - R, height: H - T - B, fill: 'transparent' });
+    hit.addEventListener('mousemove', function (e) {
+      var r = svg.getBoundingClientRect(), px = ((e.clientX - r.left) / r.width) * W;
+      var i = Math.max(0, Math.min(dates.length - 1, Math.round(((px - L) / (W - L - R)) * (dates.length - 1))));
+      cross.setAttribute('x1', X(i)); cross.setAttribute('x2', X(i)); cross.setAttribute('opacity', 1);
+      dots.forEach(function (d, k) { d.setAttribute('cx', X(i)); d.setAttribute('cy', Y(series[k].values[i])); d.setAttribute('opacity', 1); });
+      showTip(e.clientX, e.clientY, dlong(dates[i] + 'T12:00:00+05:30'), series.map(function (sr) { return [sr.name, o.money ? money(sr.values[i]) : String(sr.values[i]), sr.color]; }));
+    });
+    hit.addEventListener('mouseleave', function () { cross.setAttribute('opacity', 0); dots.forEach(function (d) { d.setAttribute('opacity', 0); }); hideTip(); });
+    svg.appendChild(hit);
+    var w = el('div', null, [svg]);
+    if (series.length > 1 || o.legend) w.appendChild(el('div', { cls: 'legend' }, series.map(function (x) { return el('span', null, [el('i', { style: { background: x.color } }), x.name]); })));
+    return w;
+  }
+  function spark(values, c) {
+    var W = 200, H = 44, max = Math.max.apply(null, values.concat([1]));
+    var pts = values.map(function (v, i) { return [(i * W) / Math.max(values.length - 1, 1), H - 3 - ((H - 6) * v) / max]; });
+    var d = pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
+    var id = 's' + Math.random().toString(36).slice(2);
+    return s('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', height: 44, preserveAspectRatio: 'none', 'aria-hidden': 'true', style: 'display:block;margin-top:8px' }, [
+      s('defs', null, [s('linearGradient', { id: id, x1: 0, x2: 0, y1: 0, y2: 1 }, [s('stop', { offset: 0, 'stop-color': c, 'stop-opacity': 0.22 }), s('stop', { offset: 1, 'stop-color': c, 'stop-opacity': 0 })])]),
+      s('path', { d: d + ' L' + W + ' ' + H + ' L0 ' + H + 'Z', fill: 'url(#' + id + ')' }),
+      s('path', { d: d, fill: 'none', stroke: c, 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke', 'stroke-linejoin': 'round' }),
+    ]);
+  }
+  function bars(labels, values, o) {
+    o = o || {};
+    var W = innerWidth < 640 ? 420 : 720, H = o.h || (innerWidth < 640 ? 240 : 200), L = 46, B = 26, T = 10, max = nice(Math.max.apply(null, values.concat([1]))), bw = (W - L) / Math.max(values.length, 1);
+    var svg = s('svg', { 'class': 'chart', viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': o.label || 'bar chart' });
+    for (var g = 0; g <= 4; g++) { var gv = (max * g) / 4, y = T + (H - T - B) * (1 - gv / max); svg.appendChild(s('line', { x1: L, x2: W, y1: y, y2: y, stroke: cssv('--line'), 'stroke-dasharray': g ? '3 4' : '' })); svg.appendChild(s('text', { x: L - 8, y: y + 3.5, 'text-anchor': 'end' }, [o.money ? '₹' + compact(gv / 100) : compact(gv)])); }
     values.forEach(function (v, i) {
-      var h = ((H - T - B) * v) / max;
-      svg.appendChild(s('rect', { x: L + i * bw + bw * 0.2, y: H - B - h, width: bw * 0.6, height: Math.max(h, 1), rx: 4, fill: opts.color || color('--blue') }, [s('title', null, [labels[i] + ': ' + (opts.money ? rupees(v) : v)])]));
-      svg.appendChild(s('text', { x: L + i * bw + bw / 2, y: H - 6, 'text-anchor': 'middle' }, [labels[i]]));
+      var h = ((H - T - B) * v) / max, r = s('rect', { x: L + i * bw + bw * 0.22, y: H - B - h, width: bw * 0.56, height: Math.max(h, 1.5), rx: 5, fill: o.color || cssv('--accent') });
+      r.addEventListener('mousemove', function (e) { showTip(e.clientX, e.clientY, labels[i], [[o.name || 'Value', o.money ? money(v) : String(v), o.color || cssv('--accent')]]); });
+      r.addEventListener('mouseleave', hideTip);
+      svg.appendChild(r); svg.appendChild(s('text', { x: L + i * bw + bw / 2, y: H - 7, 'text-anchor': 'middle' }, [labels[i]]));
     });
     return svg;
   }
-  function donut(parts) {
-    var total = parts.reduce(function (a, p) { return a + p.value; }, 0) || 1;
-    var R = 52, C = 2 * Math.PI * R, off = 0;
-    var svg = s('svg', { class: 'chart', viewBox: '0 0 140 140', style: 'max-width:150px', role: 'img', 'aria-label': 'plans' });
-    svg.appendChild(s('circle', { cx: 70, cy: 70, r: R, fill: 'none', stroke: color('--fill'), 'stroke-width': 18 }));
-    parts.forEach(function (p) {
-      var len = (p.value / total) * C;
-      svg.appendChild(s('circle', { cx: 70, cy: 70, r: R, fill: 'none', stroke: p.color, 'stroke-width': 18, 'stroke-dasharray': len + ' ' + (C - len), 'stroke-dashoffset': -off, transform: 'rotate(-90 70 70)' }, [s('title', null, [p.name + ': ' + p.value])]));
-      off += len;
-    });
-    var t = s('text', { x: 70, y: 76, 'text-anchor': 'middle', style: 'font-size:20px;font-weight:700;fill:' + color('--text') }, [String(parts.reduce(function (a, p) { return a + p.value; }, 0))]);
-    svg.appendChild(t);
-    return el('div', { style: { display: 'flex', gap: '18px', alignItems: 'center' } }, [svg, el('div', { class: 'legend', style: { flexDirection: 'column', gap: '6px' } }, parts.map(function (p) { return el('span', null, [el('i', { style: { background: p.color } }), p.name + ' · ' + p.value]); }))]);
+  function donut(parts, center) {
+    var total = parts.reduce(function (a, p) { return a + p.value; }, 0), R = 54, C = 2 * Math.PI * R, off = 0;
+    var svg = s('svg', { 'class': 'chart', viewBox: '0 0 140 140', style: 'max-width:150px', role: 'img', 'aria-label': 'breakdown' });
+    svg.appendChild(s('circle', { cx: 70, cy: 70, r: R, fill: 'none', stroke: cssv('--fill'), 'stroke-width': 16 }));
+    parts.forEach(function (p) { if (!p.value) return; var len = (p.value / (total || 1)) * C; svg.appendChild(s('circle', { cx: 70, cy: 70, r: R, fill: 'none', stroke: p.color, 'stroke-width': 16, 'stroke-dasharray': Math.max(len - 2, 0.5) + ' ' + (C - len + 2), 'stroke-dashoffset': -off, transform: 'rotate(-90 70 70)', 'stroke-linecap': 'round' })); off += len; });
+    svg.appendChild(s('text', { x: 70, y: 72, 'text-anchor': 'middle', style: 'font-size:24px;font-weight:700;fill:' + cssv('--text') }, [String(total)]));
+    svg.appendChild(s('text', { x: 70, y: 90, 'text-anchor': 'middle' }, [center || 'total']));
+    return el('div', { style: { display: 'flex', gap: '22px', alignItems: 'center', flexWrap: 'wrap' } }, [svg, el('div', { cls: 'legend', style: { flexDirection: 'column', gap: '8px', marginTop: 0 } }, parts.map(function (p) { return el('span', null, [el('i', { style: { background: p.color } }), p.name + ' · ', el('b', { style: { color: cssv('--text') } }, [String(p.value)])]); }))]);
   }
-  function spark(values, c) {
-    var W = 120, H = 34, max = Math.max.apply(null, values.concat([1]));
-    var pts = values.map(function (v, i) { return ((i * W) / Math.max(values.length - 1, 1)) + ',' + (H - 2 - ((H - 4) * v) / max); }).join(' ');
-    return s('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', height: '34', preserveAspectRatio: 'none', class: 'spark', 'aria-hidden': 'true' }, [s('polyline', { points: pts, fill: 'none', stroke: c, 'stroke-width': 2, 'stroke-linejoin': 'round' })]);
+  function ring(pct, c, label) {
+    var R = 30, C = 2 * Math.PI * R;
+    return el('div', { cls: 'ring' }, [s('svg', { viewBox: '0 0 80 80', width: 78, height: 78, role: 'img', 'aria-label': label + ' ' + pct + '%' }, [
+      s('circle', { cx: 40, cy: 40, r: R, fill: 'none', stroke: cssv('--fill'), 'stroke-width': 8 }),
+      s('circle', { cx: 40, cy: 40, r: R, fill: 'none', stroke: c, 'stroke-width': 8, 'stroke-linecap': 'round', 'stroke-dasharray': (C * pct) / 100 + ' ' + C, transform: 'rotate(-90 40 40)' }),
+      s('text', { x: 40, y: 45, 'text-anchor': 'middle', style: 'font-size:15px;font-weight:700;fill:' + cssv('--text') }, [pct + '%']),
+    ])]);
   }
 
-  // ---------- API ----------
-  function tokens() { try { return JSON.parse(store.getItem('adm') || 'null'); } catch { return null; } }
-  function saveTokens(t) { store.setItem('adm', JSON.stringify(t)); }
-  async function call(method, url, body, retried) {
-    var t = tokens();
-    var res = await fetch(url, { method: method, headers: Object.assign({ 'Content-Type': 'application/json' }, t ? { Authorization: 'Bearer ' + t.accessToken } : {}), body: body ? JSON.stringify(body) : undefined });
-    if (res.status === 401 && t && !retried) {
-      var r = await fetch('/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: t.refreshToken }) });
-      if (r.ok) { var j = await r.json(); saveTokens({ accessToken: j.accessToken, refreshToken: j.refreshToken, phone: t.phone }); return call(method, url, body, true); }
-      store.removeItem('adm'); render(); throw new Error('Signed out');
-    }
-    if (url.slice(-4) === '.csv' && res.ok) return res.blob();
-    var data = await res.json().catch(function () { return {}; });
-    if (!res.ok) { var e = new Error(data.error || 'error ' + res.status); e.code = data.error; throw e; }
-    return data;
-  }
-  async function download(url, name) {
-    var blob = await call('GET', url);
-    var a = el('a', { href: URL.createObjectURL(blob), download: name });
-    document.body.appendChild(a); a.click(); a.remove();
-  }
+  /* ---------------- routing ---------------- */
+  var NAV = [
+    ['Insights', [['overview', 'Overview', 'overview'], ['analytics', 'Analytics', 'analytics'], ['cohorts', 'Retention', 'cohorts']]],
+    ['Customers', [['centres', 'Centres', 'centres'], ['logins', 'Logins', 'users'], ['leaders', 'Leaderboard', 'trophy']]],
+    ['Engagement', [['activity', 'Live activity', 'activity'], ['whatsapp', 'WhatsApp', 'chat'], ['announce', 'Announcements', 'megaphone']]],
+    ['Admin', [['signins', 'Sign-ins', 'key'], ['audit', 'Audit log', 'audit'], ['system', 'System health', 'system']]],
+  ];
+  var TITLES = {}; NAV.forEach(function (g) { g[1].forEach(function (i) { TITLES[i[0]] = [i[1], g[0]]; }); });
+  function route() { var h = location.hash.replace(/^#\/?/, '').split('/'); return { view: TITLES[h[0]] || h[0] === 'centre' ? h[0] : 'overview', id: h[1] || null }; }
+  // Going to the page you are already on refreshes it (the hash does not change, so no hashchange fires).
+  function go(view, id) { var h = '#/' + view + (id ? '/' + id : ''); if (location.hash === h) render(); else location.hash = h; }
+  window.addEventListener('hashchange', function () { if (tok()) render(); });
 
-  // ---------- sign in ----------
+  /* ---------------- sign in ---------------- */
   function loginView() {
-    var phone = el('input', { placeholder: 'Mobile number', inputmode: 'tel', autocomplete: 'tel' });
-    var code = el('input', { placeholder: '6-digit code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: '6', style: { display: 'none' } });
-    var err = el('div', { class: 'err small' }), hint = el('div', { class: 'muted small' });
-    var step = 1, btn = el('button', { class: 'primary' }, ['Send code on WhatsApp']);
-    async function go() {
+    var phone = el('input', { cls: 'field', placeholder: 'Mobile number', inputmode: 'tel', autocomplete: 'tel', 'aria-label': 'Mobile number' });
+    var code = el('input', { cls: 'field', placeholder: '6-digit code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: '6', 'aria-label': 'Code', style: { display: 'none', letterSpacing: '0.4em', textAlign: 'center', fontWeight: 700 } });
+    var err = el('div', { cls: 'err sm' }), hint = el('div', { cls: 'muted sm' }), stepN = 1;
+    var btn = el('button', { cls: 'btn primary' }, ['Continue with WhatsApp']);
+    async function submit() {
       err.textContent = ''; btn.disabled = true;
       try {
-        if (step === 1) {
+        if (stepN === 1) {
           var r = await call('POST', '/auth/otp/request', { phone: phone.value });
-          step = 2; code.style.display = ''; code.focus(); btn.textContent = 'Sign in';
-          hint.textContent = r.devCode ? 'Test mode code: ' + r.devCode : 'Enter the code sent to your WhatsApp.';
+          stepN = 2; code.style.display = ''; code.focus(); btn.textContent = 'Sign in';
+          hint.textContent = r.devCode ? 'Test mode code: ' + r.devCode : 'We sent a code to your WhatsApp.';
         } else {
           var v = await call('POST', '/auth/otp/verify', { phone: phone.value, code: code.value });
-          if (!v.isAdmin) {
-            await fetch('/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: v.refreshToken }) });
-            throw new Error('This number is not an admin.');
-          }
-          saveTokens({ accessToken: v.accessToken, refreshToken: v.refreshToken, phone: v.user.phone }); render();
+          if (!v.isAdmin) { await fetch('/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: v.refreshToken }) }); throw new Error('This number does not have admin access.'); }
+          saveTok({ accessToken: v.accessToken, refreshToken: v.refreshToken, phone: v.user.phone, name: v.user.name }); boot();
         }
-      } catch (e) {
-        err.textContent = e.code === 'invalid_code' ? 'Wrong or expired code.' : e.code === 'invalid_phone' ? 'Enter a valid mobile number.' : e.code === 'too_soon' ? 'Wait a minute before asking for a new code.' : e.message;
-      } finally { btn.disabled = false; }
+      } catch (e) { err.textContent = ({ invalid_code: 'That code is wrong or expired.', invalid_phone: 'Enter a valid mobile number.', too_soon: 'Please wait a minute before asking again.', account_blocked: 'This account is blocked.' })[e.code] || e.message; }
+      btn.disabled = false;
     }
-    btn.addEventListener('click', go);
-    [phone, code].forEach(function (i) { i.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); }); });
-    return el('div', { class: 'login' }, [el('div', { class: 'logo' }, ['C']), el('h1', null, ['Chalkpis Admin']), el('div', { class: 'muted' }, ['Sign in with an admin mobile number.']), phone, code, btn, hint, err]);
+    btn.addEventListener('click', submit);
+    [phone, code].forEach(function (i) { i.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); }); });
+    return el('div', { cls: 'login' }, [el('div', { cls: 'box' }, [logo('login-logo'), el('h1', null, ['Admin sign in']), el('div', { cls: 'muted' }, ['Sign in with your admin mobile number.']), phone, code, btn, hint, err, el('div', { cls: 'faint xs', style: { marginTop: '8px' } }, ['M2W Technologies Private Limited'])])]);
   }
 
-  // ---------- views ----------
-  function kpi(label, value, now, before, values, c) {
-    return el('div', { class: 'card kpi' }, [
-      el('h3', null, [label, delta(now, before)]),
-      el('div', { class: 'v num' }, [value]),
-      values ? spark(values, c) : null,
-    ]);
+  /* ---------------- shared bits ---------------- */
+  // PanelUI card: a grey shell with a small header and a white inner panel holding the content.
+  function card(title, sub, body, action) { return el('div', { cls: 'card panel' }, [el('div', { cls: 'card-h' }, [el('div', null, [el('h3', null, [title]), sub ? el('p', null, [sub]) : null]), action || null]), el('div', { cls: 'card-b' }, [body])]); }
+  // PanelUI Kpi anatomy: an icon tile and a quiet title, the trend on the right, a loud value, a small sparkline.
+  var KPI_ICON = { 'Active centres': 'centres', 'New sign-ups': 'sparkle', 'Sign-ups': 'sparkle', 'Sign-ins': 'login', 'Fees recorded': 'rupee', 'Plan revenue': 'rupee', 'WhatsApp delivered': 'chat' };
+  function kpi(label, value, now, before, values, color, onClick) {
+    var tile = el('span', { cls: 'ki', style: { color: color, background: 'color-mix(in srgb, ' + color + ' 12%, transparent)' } }, [ic(KPI_ICON[label] || 'activity')]);
+    return el('div', { cls: 'card kpi', style: onClick ? { cursor: 'pointer' } : null, on: onClick ? { click: onClick } : null }, [el('div', { cls: 'label' }, [el('span', { cls: 'kh' }, [tile, label]), delta(now, before)]), el('div', { cls: 'value num' }, [value]), values ? spark(values, color) : null]);
   }
+  function seg(options, value, onChange) { return el('div', { cls: 'seg', role: 'tablist' }, options.map(function (o) { return el('button', { cls: o[0] === value ? 'on' : '', role: 'tab', 'aria-selected': o[0] === value ? 'true' : 'false', on: { click: function () { onChange(o[0]); } } }, [o[1]]); })); }
+  function select(options, value, onChange, label) { var x = el('select', { cls: 'field', 'aria-label': label || 'Filter' }, options.map(function (o) { var op = el('option', { value: o[0] }, [o[1]]); if (o[0] === value) op.selected = true; return op; })); x.addEventListener('change', function () { onChange(x.value); }); return x; }
+  function searchField(value, ph, onChange) { var t, x = el('input', { cls: 'field', placeholder: ph, value: value, 'aria-label': ph }); x.addEventListener('input', function () { clearTimeout(t); t = setTimeout(function () { onChange(x.value); }, 280); }); return x; }
 
-  async function overviewView(box) {
-    var r = await Promise.all([call('GET', '/admin/api/overview'), call('GET', '/admin/api/analytics?days=30'), call('GET', '/admin/api/institutes?filter=at-risk&sort=students'), call('GET', '/admin/api/logins')]);
-    var o = r[0], a = r[1], risky = r[2].institutes, logins = r[3].logins;
-    var T = a.totals, S = a.series;
-    box.appendChild(el('div', { class: 'grid g4' }, [
-      kpi('Active centres (30 d)', T.activeInstitutes.now, T.activeInstitutes.now, T.activeInstitutes.before, S.activeInstitutes, color('--blue')),
-      kpi('New sign-ups (30 d)', T.signups.now, T.signups.now, T.signups.before, S.signups, color('--purple')),
-      kpi('Fees recorded (30 d)', rupees(T.feesRecorded.now), T.feesRecorded.now, T.feesRecorded.before, S.feesRecorded, color('--green')),
-      kpi('WhatsApp sent (30 d)', T.messagesSent.now, T.messagesSent.now, T.messagesSent.before, S.messagesSent, color('--teal')),
+  /* ---------------- views ---------------- */
+  async function overview(box) {
+    var t = tok(), hr = Number(new Intl.DateTimeFormat('en-GB', Object.assign({ hour: 'numeric', hour12: false }, TZ)).format(new Date()));
+    var r = await Promise.all([call('GET', '/admin/api/overview'), call('GET', '/admin/api/analytics?days=30'), call('GET', '/admin/api/institutes?filter=at-risk&sort=students'), call('GET', '/admin/api/events?limit=12')]);
+    var o = r[0], a = r[1], risky = r[2].institutes, ev = r[3].events, T = a.totals, S = a.series;
+    box.appendChild(el('div', { cls: 'hello' }, [el('div', null, [el('h2', null, [(hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening') + (t.name ? ', ' + t.name.split(' ')[0] : '')]), el('p', null, [dlong(new Date().toISOString()) + ' · ' + n(o.signedIn, 'tutor') + ' signed in right now'])])]));
+    box.appendChild(el('div', { cls: 'grid g4' }, [
+      kpi('Active centres', String(T.activeInstitutes.now), T.activeInstitutes.now, T.activeInstitutes.before, S.activeInstitutes, cssv('--accent'), function () { go('analytics'); }),
+      kpi('New sign-ups', String(T.signups.now), T.signups.now, T.signups.before, S.signups, cssv('--purple'), function () { go('logins'); }),
+      kpi('Fees recorded', money(T.feesRecorded.now), T.feesRecorded.now, T.feesRecorded.before, S.feesRecorded, cssv('--green'), function () { go('analytics'); }),
+      kpi('WhatsApp delivered', String(T.messagesSent.now), T.messagesSent.now, T.messagesSent.before, S.messagesSent, cssv('--teal'), function () { go('whatsapp'); }),
     ]));
-    box.appendChild(el('div', { class: 'grid g4', style: { marginTop: '14px' } }, [
-      ['Logins', o.users, (o.owners + ' tutors · ' + o.staff + ' helpers')],
-      ['Signed in now', o.signedIn, o.logins24h + ' logins in 24 h'],
-      ['Centres', o.institutes, o.trials + ' trial · ' + o.paid + ' paid · ' + o.expired + ' ended'],
-      ['Active students', o.students, Math.round(a.retention.rate7 * 100) + '% of centres used Chalkpis this week'],
-    ].map(function (x) { return el('div', { class: 'card kpi' }, [el('h3', null, [x[0]]), el('div', { class: 'v num' }, [x[1]]), el('div', { class: 'sub' }, [x[2]])]); })));
-
-    box.appendChild(el('div', { class: 'grid g2', style: { marginTop: '14px' } }, [
-      el('div', { class: 'card' }, [el('h3', null, ['Usage, last 30 days']), lineChart(a.dates, [
-        { name: 'Active centres', values: S.activeInstitutes, color: color('--blue') },
-        { name: 'Attendance saved', values: S.attendanceSaved, color: color('--green') },
-        { name: 'Sign-ins', values: S.signIns, color: color('--purple') },
-      ])]),
-      el('div', { class: 'card' }, [el('h3', null, ['Activation funnel']), funnel(a.funnel)]),
+    var metric = 'activeInstitutes', chartBox = el('div');
+    var METRICS = [['activeInstitutes', 'Active centres', '--accent'], ['signIns', 'Sign-ins', '--purple'], ['attendanceSaved', 'Attendance', '--green'], ['feesRecorded', 'Fees', '--green'], ['messagesSent', 'WhatsApp', '--teal']];
+    function drawChart() { clear(chartBox); var m = METRICS.find(function (x) { return x[0] === metric; }); chartBox.appendChild(lineChart(a.dates, [{ name: m[1], values: S[metric], color: cssv(m[2]) }], { money: metric === 'feesRecorded', h: 250 })); }
+    var segBox = el('div');
+    function drawSeg() { clear(segBox); segBox.appendChild(seg(METRICS.map(function (m) { return [m[0], m[1]]; }), metric, function (v) { metric = v; drawSeg(); drawChart(); })); }
+    drawSeg(); drawChart();
+    var feed = el('div', { cls: 'rows' }, ev.length ? ev.slice(0, 8).map(function (e) { return evRow(e, true); }) : [empty('activity', 'Nothing yet today.')]);
+    box.appendChild(el('div', { cls: 'split mt' }, [
+      el('div', { cls: 'card panel' }, [el('div', { cls: 'card-h' }, [el('div', null, [el('h3', null, ['Last 30 days']), el('p', null, ['Hover the chart for daily numbers'])]), segBox]), el('div', { cls: 'card-b' }, [chartBox])]),
+      card('Happening now', null, feed, el('button', { cls: 'btn ghost', on: { click: function () { go('activity'); } } }, ['See all'])),
     ]));
-
-    box.appendChild(el('div', { class: 'grid g2', style: { marginTop: '14px' } }, [
-      el('div', { class: 'card' }, [el('h3', null, ['Needs attention', el('button', { class: 'ghost', on: { click: function () { state.view = 'institutes'; state.inst.filter = 'at-risk'; render(); } } }, ['See all'])]),
-        risky.length ? el('div', null, risky.slice(0, 6).map(function (i) {
-          return el('div', { class: 'row', style: { cursor: 'pointer' }, on: { click: function () { openInstitute(i.id); } } }, [
-            el('div', null, [i.name, el('div', { class: 'sub' }, [(i.owner ? i.owner.phone : '') + ' · ' + i.students + ' students · active ' + ago(i.lastActivityAt)])]), healthBadge(i.health)]);
-        })) : el('div', { class: 'empty' }, ['Every centre looks healthy.'])]),
-      el('div', { class: 'card livefeed' }, [el('h3', null, ['Live sign-in activity', state.auto ? el('span', { class: 'spin' }) : null]),
-        logins.length ? el('div', null, logins.slice(0, 8).map(function (l) {
-          return el('div', { class: 'it' }, [pill(l.result, l.result === 'signed in' ? 'green' : l.result.indexOf('wrong') === 0 ? 'red' : ''), el('div', { style: { flex: '1' } }, [(l.name || l.phone), el('div', { class: 'sub' }, [l.phone + ' · ' + ago(l.at)])])]);
-        })) : el('div', { class: 'empty' }, ['No sign-ins yet.'])]),
+    box.appendChild(el('div', { cls: 'grid g3 mt' }, [
+      card('Platform', null, el('div', null, [
+        el('div', { cls: 'kv' }, [el('span', null, ['Logins']), el('b', { cls: 'num' }, [o.users + ' (' + n(o.owners, 'tutor') + ', ' + n(o.staff, 'helper') + ')'])]),
+        el('div', { cls: 'kv' }, [el('span', null, ['Centres']), el('b', { cls: 'num' }, [String(o.institutes)])]),
+        el('div', { cls: 'kv' }, [el('span', null, ['On trial · paid · ended']), el('b', { cls: 'num' }, [o.trials + ' · ' + o.paid + ' · ' + o.expired])]),
+        el('div', { cls: 'kv' }, [el('span', null, ['Active students']), el('b', { cls: 'num' }, [inr.format(o.students)])]),
+        el('div', { cls: 'kv' }, [el('span', null, ['Blocked logins']), el('b', { cls: 'num' }, [String(o.blocked)])]),
+      ])),
+      card('Health', 'Share of centres using Chalkpis', el('div', { style: { display: 'flex', gap: '20px', justifyContent: 'space-around', flexWrap: 'wrap' } }, [
+        el('div', { style: { textAlign: 'center' } }, [ring(Math.round(a.retention.rate7 * 100), cssv('--accent'), 'This week'), el('div', { cls: 'sm muted' }, ['This week'])]),
+        el('div', { style: { textAlign: 'center' } }, [ring(Math.round(a.retention.rate30 * 100), cssv('--purple'), 'This month'), el('div', { cls: 'sm muted' }, ['This month'])]),
+        el('div', { style: { textAlign: 'center' } }, [ring(Math.round(a.conversion * 100), cssv('--green'), 'Trial to paid'), el('div', { cls: 'sm muted' }, ['Trial → paid'])]),
+      ])),
+      card('Needs attention', 'Lowest health first', risky.length ? el('div', { cls: 'rows' }, risky.slice(0, 5).map(function (i) {
+        return el('div', { cls: 'r click', on: { click: function () { go('centre', i.id); } } }, [avatar(i.name, 'sq'), el('div', { cls: 'grow' }, [el('div', { cls: 'ellipsis', style: { fontWeight: 600 } }, [i.name]), el('div', { cls: 'sm muted' }, [n(i.students, 'student') + ' · active ' + ago(i.lastActivityAt)])]), score(i.health)]);
+      })) : empty('check', 'Every centre looks healthy.'), el('button', { cls: 'btn ghost', on: { click: function () { st.inst.filter = 'at-risk'; go('centres'); } } }, ['All'])),
     ]));
+    box.appendChild(el('div', { cls: 'mt' }, [card('Activation funnel', 'How far new centres get', funnel(a.funnel))]));
   }
-
   function funnel(f) {
-    var steps = [['Centres created', f.institutes], ['Added students', f.withStudents], ['Marked attendance', f.withAttendance], ['Recorded a payment', f.withPayments], ['Set UPI / pay link', f.canBePaid], ['Parent messages on', f.messagesOn], ['Bought a plan', f.everPaid]];
-    var top = Math.max(f.institutes, 1);
-    return el('div', { class: 'funnel' }, steps.map(function (st) {
-      var p = Math.round((st[1] / top) * 100);
-      return el('div', { class: 'step' }, [el('span', null, [st[0]]), el('div', { class: 'bar' }, [el('i', { style: { width: p + '%' } })]), el('span', { class: 'num', style: { textAlign: 'right' } }, [st[1] + ' · ' + p + '%'])]);
-    }));
+    var steps = [['Created a centre', f.institutes], ['Added students', f.withStudents], ['Marked attendance', f.withAttendance], ['Recorded a payment', f.withPayments], ['Set UPI or pay link', f.canBePaid], ['Turned on WhatsApp', f.messagesOn], ['Bought a plan', f.everPaid]], top = Math.max(f.institutes, 1);
+    var w = el('div', { cls: 'funnel' }, steps.map(function (x) { var p = Math.round((x[1] / top) * 100); return el('div', { cls: 'step' }, [el('span', { cls: 'sm' }, [x[0]]), el('div', { cls: 'bar' }, [el('i', { style: { width: '0%' }, 'data-w': p + '%' })]), el('span', { cls: 'num sm', style: { textAlign: 'right' } }, [el('b', null, [String(x[1])]), ' · ' + p + '%'])]); }));
+    requestAnimationFrame(function () { w.querySelectorAll('i[data-w]').forEach(function (i) { i.style.width = i.getAttribute('data-w'); }); });
+    return w;
   }
 
-  async function analyticsView(box) {
-    var seg = el('div', { class: 'actions', style: { marginBottom: '14px' } }, [7, 30, 90, 180].map(function (d) {
-      return el('button', { class: state.days === d ? 'primary' : '', on: { click: function () { state.days = d; render(); } } }, [d + ' days']);
-    }));
-    box.appendChild(seg);
-    var a = await call('GET', '/admin/api/analytics?days=' + state.days);
-    var T = a.totals, S = a.series;
-    box.appendChild(el('div', { class: 'grid g4' }, [
-      kpi('Sign-ups', T.signups.now, T.signups.now, T.signups.before, S.signups, color('--purple')),
-      kpi('Sign-ins', T.signIns.now, T.signIns.now, T.signIns.before, S.signIns, color('--blue')),
-      kpi('Active centres', T.activeInstitutes.now, T.activeInstitutes.now, T.activeInstitutes.before, S.activeInstitutes, color('--teal')),
-      kpi('Plan revenue', rupees(T.revenue.now), T.revenue.now, T.revenue.before, S.revenue, color('--green')),
+  async function analytics(box) {
+    box.appendChild(el('div', { cls: 'toolbar' }, [seg([[7, '7 days'], [30, '30 days'], [90, '90 days'], [180, '6 months']].map(function (x) { return [String(x[0]), x[1]]; }), String(st.days), function (v) { st.days = Number(v); render(); })]));
+    var a = await call('GET', '/admin/api/analytics?days=' + st.days), T = a.totals, S = a.series;
+    box.appendChild(el('div', { cls: 'grid g4' }, [
+      kpi('Sign-ups', String(T.signups.now), T.signups.now, T.signups.before, S.signups, cssv('--purple')),
+      kpi('Sign-ins', String(T.signIns.now), T.signIns.now, T.signIns.before, S.signIns, cssv('--accent')),
+      kpi('Active centres', String(T.activeInstitutes.now), T.activeInstitutes.now, T.activeInstitutes.before, S.activeInstitutes, cssv('--teal')),
+      kpi('Plan revenue', money(T.revenue.now), T.revenue.now, T.revenue.before, S.revenue, cssv('--green')),
     ]));
-    box.appendChild(el('div', { class: 'grid g2', style: { marginTop: '14px' } }, [
-      el('div', { class: 'card' }, [el('h3', null, ['Growth']), lineChart(a.dates, [{ name: 'Sign-ups', values: S.signups, color: color('--purple') }, { name: 'Sign-ins', values: S.signIns, color: color('--blue') }])]),
-      el('div', { class: 'card' }, [el('h3', null, ['Fees recorded by tutors']), lineChart(a.dates, [{ name: 'Fees', values: S.feesRecorded, color: color('--green') }], { money: true })]),
-      el('div', { class: 'card' }, [el('h3', null, ['WhatsApp delivery']), lineChart(a.dates, [{ name: 'Sent', values: S.messagesSent, color: color('--teal') }, { name: 'Failed', values: S.messagesFailed, color: color('--red') }], { area: false })]),
-      el('div', { class: 'card' }, [el('h3', null, ['Attendance saved']), lineChart(a.dates, [{ name: 'Days saved', values: S.attendanceSaved, color: color('--blue') }])]),
+    box.appendChild(el('div', { cls: 'grid g2 mt' }, [
+      card('Growth', 'New tutors and how often they come back', lineChart(a.dates, [{ name: 'Sign-ups', values: S.signups, color: cssv('--purple') }, { name: 'Sign-ins', values: S.signIns, color: cssv('--accent') }])),
+      card('Fees recorded by tutors', 'Money tutors collected from parents (not Chalkpis revenue)', lineChart(a.dates, [{ name: 'Fees', values: S.feesRecorded, color: cssv('--green') }], { money: true })),
+      card('WhatsApp delivery', null, lineChart(a.dates, [{ name: 'Delivered', values: S.messagesSent, color: cssv('--teal') }, { name: 'Failed', values: S.messagesFailed, color: cssv('--red') }], { area: false })),
+      card('Attendance saved', 'Class days marked', lineChart(a.dates, [{ name: 'Days', values: S.attendanceSaved, color: cssv('--accent') }])),
     ]));
-    var planColors = { trial: color('--blue'), starter: color('--teal'), standard: color('--purple'), pro: color('--green') };
-    box.appendChild(el('div', { class: 'grid g3', style: { marginTop: '14px' } }, [
-      el('div', { class: 'card' }, [el('h3', null, ['Active plans']), donut(a.plans.map(function (p) { return { name: p.plan, value: p.active, color: planColors[p.plan] || color('--muted') }; }))]),
-      el('div', { class: 'card' }, [el('h3', null, ['Plan revenue by month']), a.revenueByMonth.length ? barChart(a.revenueByMonth.map(function (m) { return m.month.slice(5) + '/' + m.month.slice(2, 4); }), a.revenueByMonth.map(function (m) { return m.amount; }), { money: true, color: color('--green') }) : el('div', { class: 'empty' }, ['No plan payments yet.'])]),
-      el('div', { class: 'card' }, [el('h3', null, ['Retention and conversion']),
-        el('div', { class: 'row' }, [el('span', null, ['Used Chalkpis in the last 7 days']), el('b', null, [Math.round(a.retention.rate7 * 100) + '%'])]),
-        el('div', { class: 'row' }, [el('span', null, ['Used Chalkpis in the last 30 days']), el('b', null, [Math.round(a.retention.rate30 * 100) + '%'])]),
-        el('div', { class: 'row' }, [el('span', null, ['Trial → paid']), el('b', null, [Math.round(a.conversion * 100) + '%'])]),
-        el('div', { class: 'row' }, [el('span', null, ['Centres']), el('b', null, [a.funnel.institutes])]),
-      ]),
+    var colors = { trial: cssv('--accent'), starter: cssv('--teal'), standard: cssv('--purple'), pro: cssv('--green') };
+    box.appendChild(el('div', { cls: 'grid g3 mt' }, [
+      card('Active plans', null, donut(a.plans.map(function (p) { return { name: p.plan, value: p.active, color: colors[p.plan] || cssv('--faint') }; }), 'centres')),
+      card('Plan revenue by month', null, a.revenueByMonth.length ? bars(a.revenueByMonth.map(function (m) { return m.month.slice(5) + '/' + m.month.slice(2, 4); }), a.revenueByMonth.map(function (m) { return m.amount; }), { money: true, color: cssv('--green'), name: 'Revenue' }) : empty('rupee', 'No plan payments yet.')),
+      card('Funnel', null, funnel(a.funnel)),
     ]));
   }
 
-  async function institutesView(box) {
-    var I = state.inst;
-    var q = el('input', { placeholder: 'Search centre, owner or phone', value: I.q });
-    var sort = el('select', null, [['activity', 'Last active'], ['students', 'Most students'], ['health', 'Lowest health'], ['newest', 'Newest'], ['expiring', 'Plan ending soon']].map(function (o) { var x = el('option', { value: o[0] }, [o[1]]); if (o[0] === I.sort) x.selected = true; return x; }));
-    var filter = el('select', null, [['all', 'All centres'], ['trial', 'On trial'], ['paid', 'Paid'], ['ended', 'Plan ended'], ['at-risk', 'At risk']].map(function (o) { var x = el('option', { value: o[0] }, [o[1]]); if (o[0] === I.filter) x.selected = true; return x; }));
-    var t; q.addEventListener('input', function () { clearTimeout(t); t = setTimeout(function () { I.q = q.value; load(); }, 300); });
-    sort.addEventListener('change', function () { I.sort = sort.value; load(); });
-    filter.addEventListener('change', function () { I.filter = filter.value; load(); });
-    var exp = el('button', { class: 'tinted', on: { click: function () { download('/admin/api/export/institutes.csv', 'chalkpis-institutes.csv'); } } }, ['⤓ Export CSV']);
-    var wrap = el('div', { class: 'tablewrap' });
-    box.appendChild(el('div', { class: 'tools' }, [q, filter, sort, exp]));
-    box.appendChild(wrap);
-    async function load() {
-      var r = await call('GET', '/admin/api/institutes?q=' + encodeURIComponent(I.q) + '&sort=' + I.sort + '&filter=' + I.filter);
-      clear(wrap);
-      var rows = r.institutes.map(function (i) {
-        return el('tr', { class: 'click', on: { click: function () { openInstitute(i.id); } } }, [
-          el('td', null, [el('b', null, [i.name]), el('div', { class: 'sub' }, [i.owner ? i.owner.name + ' · ' + i.owner.phone : 'no owner'])]),
-          el('td', null, [pill((i.plan || '—') + (i.planActive ? '' : ' · ended'), i.planActive ? (i.plan === 'trial' ? 'blue' : 'green') : 'orange'), el('div', { class: 'sub' }, [i.expiresAt ? 'until ' + day(i.expiresAt) : ''])]),
-          el('td', { class: 'num' }, [String(i.students), el('div', { class: 'sub' }, [i.batches + ' batches · ' + i.staff + ' helpers'])]),
-          el('td', { class: 'hide-sm' }, [ago(i.lastActivityAt)]),
-          el('td', { class: 'num hide-sm' }, [rupees(i.collected30)]),
-          el('td', { class: 'num hide-sm' }, [String(i.messages30), i.failed30 ? el('div', { class: 'sub err' }, [i.failed30 + ' failed']) : null]),
-          el('td', null, [healthBadge(i.health)]),
+  async function cohortsView(box) {
+    var r = await call('GET', '/admin/api/cohorts?weeks=12'), rows = r.cohorts;
+    if (!rows.length) { box.appendChild(card('Weekly retention', null, empty('cohorts', 'No centres joined in the last 12 weeks.'))); return; }
+    var maxW = Math.max.apply(null, rows.map(function (c) { return c.active.length; }));
+    var head = el('tr', null, [el('th', { style: { textAlign: 'left' } }, ['Joined week']), el('th', null, ['Centres'])].concat(Array.from({ length: maxW }, function (_, k) { return el('th', null, ['W' + k]); })));
+    var body = rows.map(function (c) {
+      return el('tr', null, [el('td', { style: { textAlign: 'left', fontWeight: 600 } }, [dshort(c.week + 'T12:00:00+05:30')]), el('td', null, [String(c.size)])].concat(Array.from({ length: maxW }, function (_, k) {
+        if (k >= c.active.length) return el('td');
+        var p = c.size ? Math.round((c.active[k] / c.size) * 100) : 0;
+        return el('td', { title: c.active[k] + ' of ' + c.size + ' active', style: { background: 'color-mix(in srgb, ' + cssv('--accent') + ' ' + Math.max(p, 4) + '%, transparent)', color: p > 55 ? cssv('--on-accent') : cssv('--text') } }, [p + '%']);
+      })));
+    });
+    box.appendChild(card('Weekly retention', 'Of the centres that joined each week, the share that used Chalkpis (attendance or a payment) in each week after', el('div', { style: { overflowX: 'auto' } }, [el('table', { cls: 'heat' }, [el('thead', null, [head]), el('tbody', null, body)])])));
+  }
+
+  function tableCard(headers, rows, emptyText) {
+    // each cell remembers its column name, so the phone layout (rows as cards, no header row) can label it
+    rows.forEach(function (tr) { Array.prototype.forEach.call(tr.children, function (td, i) { if (headers[i] && headers[i][0]) td.setAttribute('data-label', headers[i][0]); }); });
+    return el('div', { cls: 'card pad0' }, [el('div', { style: { overflowX: 'auto' } }, [el('table', { cls: 'table' }, [
+      el('thead', null, [el('tr', null, headers.map(function (h) { return el('th', { cls: h[1] ? 'hide-sm' : null }, [h[0]]); }))]),
+      el('tbody', null, rows.length ? rows : [el('tr', null, [el('td', { colspan: String(headers.length) }, [empty('search', emptyText || 'Nothing here.')])])]),
+    ])])]);
+  }
+
+  async function centres(box) {
+    var I = st.inst, list = el('div');
+    box.appendChild(el('div', { cls: 'toolbar' }, [
+      searchField(I.q, 'Search centre, owner or phone', function (v) { I.q = v; load(); }),
+      select([['all', 'All centres'], ['trial', 'On trial'], ['paid', 'Paid'], ['ended', 'Plan ended'], ['at-risk', 'At risk']], I.filter, function (v) { I.filter = v; load(); }, 'Filter'),
+      select([['', 'Any tag'], ['vip', 'VIP'], ['follow-up', 'Follow up'], ['churn-risk', 'Churn risk'], ['onboarding', 'Onboarding'], ['partner', 'Partner'], ['test', 'Test']], I.tag, function (v) { I.tag = v; load(); }, 'Tag'),
+      select([['activity', 'Last active'], ['students', 'Most students'], ['health', 'Lowest health'], ['newest', 'Newest'], ['expiring', 'Plan ending soon']], I.sort, function (v) { I.sort = v; load(); }, 'Sort'),
+      el('button', { cls: 'btn', on: { click: function () { download('/admin/api/export/institutes.csv', 'chalkpis-centres.csv'); } } }, [ic('download'), 'Export']),
+    ]));
+    box.appendChild(list);
+    var run = latest(list);
+    function load() { return run(function () { return call('GET', '/admin/api/institutes?q=' + encodeURIComponent(I.q) + '&sort=' + I.sort + '&filter=' + I.filter); }, function (r) {
+      var items = r.institutes.filter(function (i) { return !I.tag || (i.tags || []).indexOf(I.tag) >= 0; });
+      clear(list).appendChild(tableCard([['Centre'], ['Plan'], ['Students'], ['Last active', 1], ['Fees · 30d', 1], ['WhatsApp · 30d', 1], ['Health']], items.map(function (i) {
+        return el('tr', { cls: 'click', on: { click: function () { go('centre', i.id); } } }, [
+          el('td', null, [el('div', { cls: 'cell-main' }, [avatar(i.name, 'sq'), el('div', { cls: 'grow' }, [el('b', { cls: 'ellipsis' }, [i.name]), el('small', null, [i.owner ? i.owner.name + ' · ' + i.owner.phone : '—']), (i.tags || []).length ? el('div', { cls: 'chips', style: { marginTop: '4px' } }, i.tags.map(tagEl)) : null])])]),
+          el('td', null, [pill((i.plan || '—') + (i.planActive ? '' : ' · ended'), i.planActive ? (i.plan === 'trial' ? 'blue' : 'green') : 'orange'), el('div', { cls: 'xs muted', style: { marginTop: '3px' } }, [i.expiresAt ? 'until ' + dshort(i.expiresAt) : ''])]),
+          el('td', { cls: 'num' }, [el('b', null, [String(i.students)]), el('div', { cls: 'xs muted' }, [n(i.batches, 'batch', 'batches') + ' · ' + n(i.staff, 'helper')])]),
+          el('td', { cls: 'hide-sm' }, [ago(i.lastActivityAt)]),
+          el('td', { cls: 'num hide-sm' }, [money(i.collected30)]),
+          el('td', { cls: 'num hide-sm' }, [String(i.messages30), i.failed30 ? el('div', { cls: 'xs err' }, [i.failed30 + ' failed']) : null]),
+          el('td', null, [score(i.health)]),
         ]);
-      });
-      wrap.appendChild(el('table', null, [
-        el('thead', null, [el('tr', null, [['Centre'], ['Plan'], ['Students'], ['Last active', 1], ['Fees (30 d)', 1], ['WhatsApp (30 d)', 1], ['Health']].map(function (h) { return el('th', { class: h[1] ? 'hide-sm' : '' }, [h[0]]); }))]),
-        el('tbody', null, rows.length ? rows : [el('tr', null, [el('td', { colspan: '7', class: 'empty' }, ['No centres match.'])])]),
-      ]));
-    }
+      }), 'No centres match.'));
+    }); }
     await load();
   }
 
-  async function usersView(box) {
-    var U = state.users;
-    var q = el('input', { placeholder: 'Search name, phone or institute', value: U.q });
-    var filter = el('select', null, [['all', 'Everyone'], ['owners', 'Tutors'], ['staff', 'Helpers'], ['blocked', 'Blocked'], ['no-institute', 'Not set up yet']].map(function (f) { var o = el('option', { value: f[0] }, [f[1]]); if (U.filter === f[0]) o.selected = true; return o; }));
-    var t; q.addEventListener('input', function () { clearTimeout(t); t = setTimeout(function () { U.q = q.value; U.offset = 0; load(); }, 300); });
-    filter.addEventListener('change', function () { U.filter = filter.value; U.offset = 0; load(); });
-    var exp = el('button', { class: 'tinted', on: { click: function () { download('/admin/api/export/users.csv', 'chalkpis-logins.csv'); } } }, ['⤓ Export CSV']);
-    var wrap = el('div');
-    box.appendChild(el('div', { class: 'tools' }, [q, filter, exp]));
-    box.appendChild(wrap);
-    async function load() {
-      var r = await call('GET', '/admin/api/users?q=' + encodeURIComponent(U.q) + '&filter=' + U.filter + '&limit=50&offset=' + U.offset);
-      clear(wrap);
-      var rows = r.users.map(function (u) {
-        var status = u.blocked ? pill('Blocked', 'red') : u.isAdmin ? pill('Admin', 'blue') : u.activeSessions ? pill('Signed in', 'green') : pill('Signed out');
-        return el('tr', { class: 'click', on: { click: function () { openUser(u.id); } } }, [
-          el('td', null, [el('b', null, [u.name || '(no name)']), el('div', { class: 'sub' }, [u.phone])]),
-          el('td', null, [u.role === 'owner' ? 'Tutor' : u.role === 'staff' ? 'Helper' : '—']),
-          el('td', { class: 'hide-sm' }, [u.institute ? u.institute.name : '—', u.institute ? el('div', { class: 'sub' }, [u.institute.students + ' students']) : null]),
-          el('td', null, [u.institute ? pill((u.institute.plan || '—') + (u.institute.active ? '' : ' · ended'), u.institute.active ? 'green' : 'orange') : pill('—')]),
-          el('td', { class: 'hide-sm' }, [ago(u.lastLoginAt), el('div', { class: 'sub' }, [u.activeSessions + ' device(s)'])]),
+  async function centre(box, id) {
+    var d = await call('GET', '/admin/api/institutes/' + id), i = d.institute, owner = i.owner;
+    var tab = 'overview', body = el('div');
+    var tags = i.tags || [];
+    function contact() {
+      if (!owner) return null;
+      var digits = owner.phone.replace(/\D/g, '');
+      return el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, [
+        el('a', { cls: 'btn soft', href: 'tel:' + owner.phone }, [ic('phone'), 'Call']),
+        el('a', { cls: 'btn soft', href: 'https://wa.me/' + digits, target: '_blank', rel: 'noopener noreferrer' }, [ic('chat'), 'WhatsApp']),
+        el('button', { cls: 'btn', on: { click: function () { navigator.clipboard.writeText(owner.phone).then(function () { toast('Number copied'); }); } } }, [ic('copy'), 'Copy number']),
+      ]);
+    }
+    var tagBox = el('div', { cls: 'chips' });
+    function drawTags() {
+      clear(tagBox);
+      tags.forEach(function (t) { tagBox.appendChild(tagEl(t)); });
+      tagBox.appendChild(el('button', { cls: 'chip', on: { click: function (e) { tagMenu(e.currentTarget); } } }, [ic('tag'), tags.length ? 'Edit tags' : 'Add tag']));
+    }
+    function tagMenu(anchor) {
+      var all = ['vip', 'follow-up', 'churn-risk', 'onboarding', 'partner', 'test'];
+      menu(anchor, all.map(function (t) {
+        return [(tags.indexOf(t) >= 0 ? '✓ ' : '   ') + t.replace('-', ' '), async function () {
+          var next = tags.indexOf(t) >= 0 ? tags.filter(function (x) { return x !== t; }) : tags.concat([t]);
+          var r = await call('PUT', '/admin/api/institutes/' + id + '/tags', { tags: next }); tags = r.tags; drawTags(); toast('Tags saved');
+        }];
+      }));
+    }
+    drawTags();
+    box.appendChild(el('button', { cls: 'btn ghost', style: { marginBottom: '12px', paddingLeft: 0 }, on: { click: function () { if (history.length > 1) history.back(); else go('centres'); } } }, [ic('back'), 'Centres']));
+    box.appendChild(el('div', { cls: 'hero' }, [avatar(i.name, 'lg'), el('div', { cls: 'grow' }, [el('h2', null, [i.name]), el('div', { cls: 'meta' }, [(owner ? owner.name + ' · ' + owner.phone + ' · ' : '') + 'joined ' + dshort(i.createdAt) + ' · last active ' + ago(i.lastActivityAt)]), el('div', { style: { marginTop: '8px' } }, [tagBox])]), contact()]));
+    box.appendChild(el('div', { cls: 'grid g4' }, [
+      el('div', { cls: 'card kpi' }, [el('div', { cls: 'label' }, ['Health']), el('div', { cls: 'value' }, [score(i.health)])]),
+      el('div', { cls: 'card kpi' }, [el('div', { cls: 'label' }, ['Students']), el('div', { cls: 'value num' }, [String(i.students)]), el('div', { cls: 'sm muted' }, [n(i.batches, 'batch', 'batches') + ' · ' + n(i.staff, 'helper')])]),
+      el('div', { cls: 'card kpi' }, [el('div', { cls: 'label' }, ['Fees recorded · 30 d']), el('div', { cls: 'value num' }, [money(i.collected30)]), el('div', { cls: 'sm muted' }, [money(d.activity.outstanding) + ' still owed'])]),
+      el('div', { cls: 'card kpi' }, [el('div', { cls: 'label' }, ['Plan']), el('div', { cls: 'value', style: { fontSize: '22px', textTransform: 'capitalize' } }, [i.plan || '—']), el('div', { cls: 'sm muted' }, [(i.planActive ? 'until ' : 'ended ') + dshort(i.expiresAt)])]),
+    ]));
+    var tabs = el('div', { cls: 'tabs mt2', role: 'tablist' });
+    var TABS = [['overview', 'Overview'], ['people', 'People'], ['messages', 'WhatsApp'], ['notes', 'Notes'], ['billing', 'Plan & billing']];
+    function drawTabs() { clear(tabs); TABS.forEach(function (t) { tabs.appendChild(el('button', { cls: t[0] === tab ? 'on' : '', role: 'tab', on: { click: function () { tab = t[0]; drawTabs(); drawBody(); } } }, [t[1]])); }); }
+    async function drawBody() {
+      clear(body);
+      if (tab === 'overview') body.appendChild(el('div', { cls: 'grid g2' }, [
+        card('Last 30 days', null, el('div', null, [['Attendance days saved', d.activity.attendance30], ['Payments recorded', d.activity.payments30 + ' · ' + money(i.collected30)], ['WhatsApp delivered', i.messages30 + (i.failed30 ? ' (' + i.failed30 + ' failed)' : '')]].map(function (k) { return el('div', { cls: 'kv' }, [el('span', null, [k[0]]), el('b', { cls: 'num' }, [String(k[1])])]); }))),
+        card('Setup', 'What helps a centre succeed', el('div', null, [['Parents can pay (UPI / link)', i.canBePaid], ['Parent WhatsApp messages', i.messagesOn], ['Has students', i.students > 0], ['Has a helper', i.staff > 0]].map(function (k) { return el('div', { cls: 'kv' }, [el('span', null, [k[0]]), k[1] ? pill('Yes', 'green') : pill('No', 'orange')]); }))),
+      ]));
+      if (tab === 'people') body.appendChild(card('People', null, el('div', { cls: 'rows' }, d.people.map(function (p) {
+        return el('div', { cls: 'r click', on: { click: function () { openUser(p.id); } } }, [avatar(p.name || p.phone), el('div', { cls: 'grow' }, [el('div', { style: { fontWeight: 600 } }, [p.name || p.phone]), el('div', { cls: 'sm muted' }, [p.phone + ' · ' + (p.role === 'owner' ? 'Tutor' : 'Helper')])]), p.blocked ? pill('Blocked', 'red') : el('span', { cls: 'sm muted' }, [ago(p.lastLoginAt)]), ic('chev', 'faint')]);
+      }))));
+      if (tab === 'messages') body.appendChild(card('WhatsApp · last 30 days', null, byType(d.messages)));
+      if (tab === 'billing') body.appendChild(el('div', { cls: 'grid g2' }, [planEditor(i, function () { render(); }), card('Plan payments', null, d.billing.length ? el('div', null, d.billing.map(function (b) { return el('div', { cls: 'kv' }, [el('span', null, [when(b.at)]), el('b', null, [(b.plan || '') + ' · ' + money(b.amount)])]); })) : empty('rupee', 'No plan payments yet.'))]));
+      if (tab === 'notes') {
+        var input = el('textarea', { cls: 'field', rows: '3', placeholder: 'Add a private note (only admins see it): calls, promises, problems…', maxlength: '1000', style: { width: '100%' } });
+        var list = el('div');
+        async function loadNotes() {
+          var r = await call('GET', '/admin/api/institutes/' + id + '/notes'); clear(list);
+          if (!r.notes.length) list.appendChild(empty('note', 'No notes yet.'));
+          r.notes.forEach(function (n) {
+            list.appendChild(el('div', { cls: 'note' }, [avatar(n.author), el('div', null, [el('div', { cls: 'sm' }, [el('b', null, [n.author]), el('span', { cls: 'muted' }, [' · ' + when(n.at)])]), el('div', { cls: 'body' }, [n.body])]), el('button', { cls: 'btn icon ghost', title: 'Delete note', 'aria-label': 'Delete note', on: { click: async function () { if (!confirm('Delete this note?')) return; await call('DELETE', '/admin/api/institutes/' + id + '/notes/' + n.id); loadNotes(); } } }, [ic('x')])]));
+          });
+        }
+        body.appendChild(card('Notes', 'A private timeline for your team', el('div', null, [input, el('div', { style: { display: 'flex', justifyContent: 'flex-end', margin: '10px 0 6px' } }, [el('button', { cls: 'btn primary', on: { click: async function () { if (!input.value.trim()) return; await call('POST', '/admin/api/institutes/' + id + '/notes', { body: input.value }); input.value = ''; toast('Note added'); loadNotes(); } } }, [ic('plus'), 'Add note'])]), list])));
+        await loadNotes();
+      }
+    }
+    box.appendChild(tabs); box.appendChild(body); drawTabs(); await drawBody();
+    setCrumb(i.name, 'Customers · Centres');
+  }
+
+  function planEditor(i, done) {
+    var plan = i.plan || 'trial', days = 30, msg = el('div', { cls: 'sm' });
+    var a = el('div'), b = el('div');
+    function draw() { clear(a).appendChild(seg([['trial', 'Trial'], ['starter', 'Starter'], ['standard', 'Standard'], ['pro', 'Pro']], plan, function (v) { plan = v; draw(); })); clear(b).appendChild(seg([['7', '7d'], ['30', '30d'], ['90', '90d'], ['365', '1 yr']], String(days), function (v) { days = Number(v); draw(); })); }
+    draw();
+    return card('Plan', (i.plan || '—') + ((i.planActive || i.active) ? ', active until ' : ', ended ') + dshort(i.expiresAt), el('div', { style: { display: 'grid', gap: '12px' } }, [a, b, el('div', null, [el('button', { cls: 'btn primary', on: { click: async function () { try { var r = await call('POST', '/admin/api/institutes/' + i.id + '/plan', { plan: plan, days: days }); toast(r.plan + ' until ' + dshort(r.expiresAt)); done(); } catch (e) { msg.className = 'sm err'; msg.textContent = e.message; } } } }, ['Extend by ' + days + ' days'])]), msg]));
+  }
+
+  async function logins(box) {
+    var U = st.users, list = el('div');
+    box.appendChild(el('div', { cls: 'toolbar' }, [
+      searchField(U.q, 'Search name, phone or centre', function (v) { U.q = v; U.offset = 0; load(); }),
+      seg([['all', 'Everyone'], ['owners', 'Tutors'], ['staff', 'Helpers'], ['blocked', 'Blocked'], ['no-institute', 'Not set up']], U.filter, function (v) { U.filter = v; U.offset = 0; render(); }),
+      el('button', { cls: 'btn', on: { click: function () { download('/admin/api/export/users.csv', 'chalkpis-logins.csv'); } } }, [ic('download'), 'Export']),
+    ]));
+    box.appendChild(list);
+    var run = latest(list);
+    function load() { return run(function () { return call('GET', '/admin/api/users?q=' + encodeURIComponent(U.q) + '&filter=' + U.filter + '&limit=50&offset=' + U.offset); }, function (r) {
+      list.appendChild(tableCard([['Person'], ['Role', 1], ['Centre', 1], ['Plan'], ['Last login', 1], ['Status']], r.users.map(function (u) {
+        var status = u.blocked ? pill('Blocked', 'red') : u.isAdmin ? pill('Admin', 'blue') : u.activeSessions ? pill('Online', 'green') : pill('Offline');
+        return el('tr', { cls: 'click', on: { click: function () { openUser(u.id); } } }, [
+          el('td', null, [el('div', { cls: 'cell-main' }, [avatar(u.name || u.phone), el('div', null, [el('b', null, [u.name || '(no name)']), el('small', null, [u.phone])])])]),
+          el('td', { cls: 'hide-sm' }, [u.role === 'owner' ? 'Tutor' : u.role === 'staff' ? 'Helper' : '—']),
+          el('td', { cls: 'hide-sm' }, [u.institute ? u.institute.name : '—']),
+          el('td', null, [u.institute ? pill((u.institute.plan || '—') + (u.institute.active ? '' : ' · ended'), u.institute.active ? 'green' : 'orange') : '—']),
+          el('td', { cls: 'hide-sm' }, [ago(u.lastLoginAt), el('div', { cls: 'xs muted' }, [u.activeSessions + ' device' + (u.activeSessions === 1 ? '' : 's')])]),
           el('td', null, [status]),
         ]);
-      });
-      wrap.appendChild(el('div', { class: 'tablewrap' }, [el('table', null, [
-        el('thead', null, [el('tr', null, [['Login'], ['Role'], ['Institute', 1], ['Plan'], ['Last login', 1], ['Status']].map(function (h) { return el('th', { class: h[1] ? 'hide-sm' : '' }, [h[0]]); }))]),
-        el('tbody', null, rows.length ? rows : [el('tr', null, [el('td', { colspan: '6', class: 'empty' }, ['No logins match.'])])]),
-      ])]));
-      wrap.appendChild(el('div', { class: 'actions', style: { justifyContent: 'center', marginTop: '12px' } }, [
-        U.offset ? el('button', { on: { click: function () { U.offset -= 50; load(); } } }, ['← Previous']) : null,
-        r.users.length === 50 ? el('button', { on: { click: function () { U.offset += 50; load(); } } }, ['Next →']) : null,
-      ]));
-    }
+      }), 'No logins match.'));
+      list.appendChild(el('div', { style: { display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '14px' } }, [U.offset ? el('button', { cls: 'btn', on: { click: function () { U.offset -= 50; load(); } } }, ['← Previous']) : null, r.users.length === 50 ? el('button', { cls: 'btn', on: { click: function () { U.offset += 50; load(); } } }, ['Next →']) : null]));
+    }); }
     await load();
   }
 
-  async function whatsappView(box) {
-    var M = state.msg;
-    var status = el('select', null, ['all', 'failed', 'queued', 'sending', 'sent', 'skipped'].map(function (x) { var o = el('option', { value: x }, [x === 'all' ? 'Every status' : x]); if (M.status === x) o.selected = true; return o; }));
-    var type = el('select', null, [['', 'Every type'], ['absent', 'Absent'], ['late', 'Late'], ['fee_due', 'Fee due'], ['fee_overdue', 'Fee overdue'], ['fee_reminder', 'Reminder (QR)'], ['fee_link', 'Reminder (link)'], ['payment_received', 'Receipt'], ['parent_link', 'Parent link']].map(function (x) { var o = el('option', { value: x[0] }, [x[1]]); if (M.type === x[0]) o.selected = true; return o; }));
-    status.addEventListener('change', function () { M.status = status.value; render(); });
-    type.addEventListener('change', function () { M.type = type.value; render(); });
-    var r = await call('GET', '/admin/api/messages?status=' + M.status + '&type=' + M.type + '&limit=150');
-    var by = {};
-    r.summary.forEach(function (x) { by[x.status] = (by[x.status] || 0) + x.count; });
-    var total = Object.keys(by).reduce(function (a, k) { return a + by[k]; }, 0);
-    box.appendChild(el('div', { class: 'grid g4' }, [['Sent (7 d)', by.sent || 0, 'green'], ['Failed (7 d)', by.failed || 0, 'red'], ['Skipped (7 d)', by.skipped || 0, ''], ['Delivery rate', total ? Math.round(((by.sent || 0) / total) * 100) + '%' : '—', 'blue']].map(function (x) {
-      return el('div', { class: 'card kpi' }, [el('h3', null, [x[0]]), el('div', { class: 'v num' }, [String(x[1])])]);
-    })));
-    box.appendChild(el('div', { class: 'grid g2', style: { margin: '14px 0' } }, [
-      el('div', { class: 'card' }, [el('h3', null, ['Top reasons a message did not go']), r.topErrors.length ? el('div', null, r.topErrors.map(function (e) { return el('div', { class: 'row' }, [el('code', null, [e.error]), el('b', null, [String(e.count)])]); })) : el('div', { class: 'empty' }, ['Nothing failed this week.'])]),
-      el('div', { class: 'card' }, [el('h3', null, ['By message type (7 d)']), byType(r.summary)]),
+  async function leaders(box) {
+    var r = await call('GET', '/admin/api/institutes?sort=students'), list = r.institutes;
+    function board(title, sub, key, fmt, color) {
+      var top = list.slice().sort(function (a, b) { return b[key] - a[key]; }).filter(function (i) { return i[key] > 0; }).slice(0, 10), max = top.length ? top[0][key] : 1;
+      return card(title, sub, top.length ? el('div', { cls: 'rows' }, top.map(function (i, k) {
+        return el('div', { cls: 'r click', on: { click: function () { go('centre', i.id); } } }, [el('div', { style: { width: '26px', textAlign: 'center', fontWeight: 800, color: k < 3 ? ['#d4a017', '#9aa0a6', '#b87333'][k] : cssv('--faint') } }, [String(k + 1)]), avatar(i.name, 'sq'), el('div', { cls: 'grow' }, [el('div', { cls: 'ellipsis', style: { fontWeight: 600 } }, [i.name]), el('div', { cls: 'bar', style: { marginTop: '6px' } }, [el('i', { style: { width: (i[key] / max) * 100 + '%', background: color } })])]), el('b', { cls: 'num' }, [fmt(i[key])])]);
+      })) : empty('trophy', 'Nothing to rank yet.'));
+    }
+    box.appendChild(el('div', { cls: 'grid g3' }, [
+      board('Most students', 'Active students', 'students', String, cssv('--accent')),
+      board('Top collectors', 'Fees recorded, last 30 days', 'collected30', money, cssv('--green')),
+      board('Most engaged with parents', 'WhatsApp delivered, last 30 days', 'messages30', String, cssv('--teal')),
     ]));
-    box.appendChild(el('div', { class: 'tools' }, [status, type]));
-    var rows = r.messages.map(function (m) {
+  }
+
+  var KIND = {
+    signup: ['sparkle', '--purple', 'Sign-ups'], login: ['login', '--accent', 'Logins'], centre: ['centres', '--teal', 'New centres'], payment: ['rupee', '--green', 'Payments'],
+    reversal: ['refresh', '--orange', 'Corrections'], attendance: ['calendar', '--accent', 'Attendance'], 'message-failed': ['alert', '--red', 'WhatsApp failures'], plan: ['trophy', '--green', 'Plans'], admin: ['shield', '--faint', 'Admin'],
+  };
+  function evRow(e, compactRow) {
+    var k = KIND[e.kind] || KIND.admin, c = cssv(k[1]);
+    var clickable = e.instituteId || e.userId;
+    var n = el('div', { cls: compactRow ? 'r' + (clickable ? ' click' : '') : 'ev', style: clickable ? { cursor: 'pointer' } : null, on: clickable ? { click: function () { if (e.instituteId) go('centre', e.instituteId); else openUser(e.userId); } } : null }, [
+      el('div', { cls: 'kind', style: { width: compactRow ? '32px' : null, height: compactRow ? '32px' : null, borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, ' + c + ' 14%, transparent)', color: c, flex: 'none' } }, [ic(k[0] === 'shield' ? 'audit' : k[0])]),
+      el('div', { cls: 'grow' }, [el('div', null, [el('b', null, [e.actor]), ' ' + e.text, e.amount != null ? el('span', { cls: 'amt', style: { color: e.amount < 0 ? cssv('--orange') : cssv('--green') } }, [money(e.amount)]) : null]), compactRow ? el('div', { cls: 'xs muted' }, [ago(e.at)]) : (e.institute && e.institute !== e.actor ? el('div', { cls: 'xs muted' }, [e.institute]) : null)]),
+      compactRow ? null : el('div', { cls: 'when' }, [time(e.at)]),
+    ]);
+    return n;
+  }
+  async function activity(box) {
+    var F = st.feed, holder = el('div', { cls: 'feed' }), latest = null;
+    var chipBox = el('div', { cls: 'chips swipe', style: { marginBottom: '6px' } });
+    function drawChips() {
+      clear(chipBox);
+      chipBox.appendChild(el('button', { cls: 'chip' + (F.kinds.length ? '' : ' on'), on: { click: function () { F.kinds = []; drawChips(); load(); } } }, ['Everything']));
+      Object.keys(KIND).forEach(function (k) { var on = F.kinds.indexOf(k) >= 0; chipBox.appendChild(el('button', { cls: 'chip' + (on ? ' on' : ''), on: { click: function () { F.kinds = on ? F.kinds.filter(function (x) { return x !== k; }) : F.kinds.concat([k]); drawChips(); load(); } } }, [ic(KIND[k][0] === 'shield' ? 'audit' : KIND[k][0]), KIND[k][2]])); });
+    }
+    drawChips();
+    box.appendChild(el('div', { cls: 'hello' }, [el('div', null, [el('h2', null, ['# platform-activity']), el('p', null, ['Everything happening on Chalkpis, as it happens'])]), el('button', { cls: 'btn', on: { click: function () { load(); } } }, [ic('refresh'), 'Refresh'])]));
+    box.appendChild(chipBox); box.appendChild(holder);
+    async function load(silent) {
+      if (!silent) clear(holder).appendChild(sk(400));
+      var r = await call('GET', '/admin/api/events?limit=200&kinds=' + F.kinds.join(','));
+      if (silent) {
+        var fresh = r.events.filter(function (e) { return latest && e.at > latest; }).length;
+        if (fresh && !holder.querySelector('.newpill')) holder.insertBefore(el('div', { cls: 'newpill' }, [el('button', { on: { click: function () { load(); scrollTo({ top: 0, behavior: 'smooth' }); } } }, ['↑ ' + fresh + ' new'])]), holder.firstChild);
+        return;
+      }
+      clear(holder); latest = r.events[0] ? r.events[0].at : null;
+      if (!r.events.length) { holder.appendChild(card('Nothing yet', null, empty('activity', 'Events appear here the moment tutors use Chalkpis.'))); return; }
+      var lastDay = '';
+      r.events.forEach(function (e) {
+        var d = ymd(e.at), today = ymd(new Date().toISOString()), yest = ymd(new Date(Date.now() - 86400000).toISOString());
+        if (d !== lastDay) { lastDay = d; holder.appendChild(el('div', { cls: 'daysep' }, [el('span', null, [d === today ? 'Today' : d === yest ? 'Yesterday' : dlong(e.at)])])); }
+        holder.appendChild(evRow(e));
+      });
+    }
+    await load();
+    clearInterval(liveTimer); liveTimer = setInterval(function () { if (route().view === 'activity') load(true); }, 15000);
+  }
+
+  async function whatsapp(box) {
+    var M = st.msg, r = await call('GET', '/admin/api/messages?status=' + M.status + '&type=' + M.type + '&limit=150'), by = {};
+    r.summary.forEach(function (x) { by[x.status] = (by[x.status] || 0) + x.count; });
+    var total = Object.keys(by).reduce(function (a, k) { return a + by[k]; }, 0), rate = total ? Math.round(((by.sent || 0) / total) * 100) : 0;
+    box.appendChild(el('div', { cls: 'grid g4' }, [
+      el('div', { cls: 'card kpi' }, [el('div', { cls: 'label' }, ['Delivered · 7 d']), el('div', { cls: 'value num' }, [String(by.sent || 0)])]),
+      el('div', { cls: 'card kpi' }, [el('div', { cls: 'label' }, ['Failed · 7 d']), el('div', { cls: 'value num', style: { color: by.failed ? cssv('--red') : null } }, [String(by.failed || 0)])]),
+      el('div', { cls: 'card kpi wide' }, [el('div', { cls: 'label' }, ['Skipped · 7 d']), el('div', { cls: 'value num' }, [String(by.skipped || 0)]), el('div', { cls: 'sm muted' }, ['messages off, opted out or no template'])]),
+      el('div', { cls: 'card kpi wide', style: { flexDirection: 'row', alignItems: 'center', gap: '16px' } }, [ring(rate, rate >= 90 ? cssv('--green') : cssv('--orange'), 'Delivery rate'), el('div', null, [el('div', { cls: 'label' }, ['Delivery rate']), el('div', { cls: 'sm muted' }, [n(total, 'message') + ' this week'])])]),
+    ]));
+    box.appendChild(el('div', { cls: 'grid g2 mt' }, [
+      card('Why messages did not go', 'Top reasons this week', r.topErrors.length ? el('div', null, r.topErrors.map(function (e) { return el('div', { cls: 'kv' }, [el('code', { cls: 'sm' }, [e.error]), el('b', { cls: 'num' }, [String(e.count)])]); })) : empty('check', 'Nothing failed this week.')),
+      card('By message type', 'Delivered of total, this week', byType(r.summary)),
+    ]));
+    box.appendChild(el('div', { cls: 'toolbar mt2' }, [
+      seg([['all', 'All'], ['failed', 'Failed'], ['queued', 'Waiting'], ['sent', 'Delivered'], ['skipped', 'Skipped']], M.status, function (v) { M.status = v; render(); }),
+      select([['', 'Every type'], ['absent', 'Absent'], ['late', 'Late'], ['fee_due', 'Fee due'], ['fee_overdue', 'Fee overdue'], ['fee_reminder', 'Reminder · QR'], ['fee_link', 'Reminder · link'], ['payment_received', 'Receipt'], ['parent_link', 'Parent link']], M.type, function (v) { M.type = v; render(); }, 'Type'),
+    ]));
+    box.appendChild(tableCard([['When'], ['Centre · student'], ['Message'], ['Status'], ['', 0]], r.messages.map(function (m) {
       var tone = m.status === 'sent' ? 'green' : m.status === 'failed' ? 'red' : m.status === 'skipped' ? '' : 'blue';
       return el('tr', null, [
-        el('td', null, [when(m.createdAt)]),
-        el('td', null, [el('b', null, [m.institute]), el('div', { class: 'sub' }, [(m.student || '') + ' · ' + m.to])]),
-        el('td', null, [m.type, m.manual ? el('div', { class: 'sub' }, ['sent by tutor']) : null]),
-        el('td', null, [pill(m.status, tone), m.why ? el('div', { class: 'sub' }, [m.why]) : null]),
-        el('td', { class: 'hide-sm sub' }, [m.template || '—']),
-        el('td', null, [m.status === 'failed' ? el('button', { class: 'tinted', on: { click: async function (ev) {
-          ev.target.disabled = true;
-          try { await call('POST', '/admin/api/messages/' + m.id + '/retry'); toast('Queued again'); render(); }
-          catch (e) { ev.target.disabled = false; toast(e.code === 'cannot_retry' ? 'Too old to retry (values already wiped)' : e.message); }
-        } } }, ['Retry']) : null]),
+        el('td', { cls: 'sm' }, [when(m.createdAt)]),
+        el('td', null, [el('b', null, [m.institute]), el('div', { cls: 'xs muted' }, [(m.student || '') + ' · ' + m.to])]),
+        el('td', null, [m.type.replace(/_/g, ' '), el('div', { cls: 'xs muted' }, [m.manual ? 'sent by tutor' : 'automatic'])]),
+        el('td', null, [pill(m.status === 'sent' ? 'delivered' : m.status, tone), m.why ? el('div', { cls: 'xs muted', style: { marginTop: '3px' } }, [m.why]) : null]),
+        el('td', null, [m.status === 'failed' ? el('button', { cls: 'btn soft', on: { click: async function (ev) { ev.currentTarget.disabled = true; try { await call('POST', '/admin/api/messages/' + m.id + '/retry'); toast('Queued again'); render(); } catch (e) { toast(e.code === 'cannot_retry' ? 'Too old to retry' : e.message, false); } } } }, [ic('refresh'), 'Retry']) : null]),
       ]);
-    });
-    box.appendChild(el('div', { class: 'tablewrap' }, [el('table', null, [
-      el('thead', null, [el('tr', null, [['When'], ['Centre / student'], ['Type'], ['Status'], ['Template', 1], ['']].map(function (h) { return el('th', { class: h[1] ? 'hide-sm' : '' }, [h[0]]); }))]),
-      el('tbody', null, rows.length ? rows : [el('tr', null, [el('td', { colspan: '6', class: 'empty' }, ['No messages.'])])]),
-    ])]));
+    }), 'No messages.'));
   }
   function byType(summary) {
-    var types = {};
-    summary.forEach(function (x) { types[x.type] = types[x.type] || { sent: 0, other: 0 }; if (x.status === 'sent') types[x.type].sent += x.count; else types[x.type].other += x.count; });
-    var keys = Object.keys(types);
-    if (!keys.length) return el('div', { class: 'empty' }, ['No messages this week.']);
-    var max = Math.max.apply(null, keys.map(function (k) { return types[k].sent + types[k].other; }));
-    return el('div', null, keys.map(function (k) {
-      var t = types[k], w = ((t.sent + t.other) / max) * 100, sw = t.sent + t.other ? (t.sent / (t.sent + t.other)) * 100 : 0;
-      return el('div', { class: 'funnel' }, [el('div', { class: 'step' }, [el('span', null, [k]), el('div', { class: 'bar', style: { width: w + '%' } }, [el('i', { style: { width: sw + '%', background: 'var(--green)' } })]), el('span', { class: 'num', style: { textAlign: 'right' } }, [t.sent + ' / ' + (t.sent + t.other)])])]);
-    }));
+    var t = {}; summary.forEach(function (x) { t[x.type] = t[x.type] || { ok: 0, all: 0 }; t[x.type].all += x.count; if (x.status === 'sent') t[x.type].ok += x.count; });
+    var keys = Object.keys(t); if (!keys.length) return empty('chat', 'No messages yet.');
+    return el('div', { cls: 'funnel' }, keys.map(function (k) { var p = Math.round((t[k].ok / t[k].all) * 100); return el('div', { cls: 'step' }, [el('span', { cls: 'sm' }, [k.replace(/_/g, ' ')]), el('div', { cls: 'bar' }, [el('i', { style: { width: p + '%', background: cssv('--green') } })]), el('span', { cls: 'num sm', style: { textAlign: 'right' } }, [t[k].ok + ' / ' + t[k].all])]); }));
   }
 
-  async function announcementsView(box) {
-    var title = el('input', { placeholder: 'Title, e.g. New: poster maker', maxlength: '80' });
-    var body = el('textarea', { rows: '3', placeholder: 'A short message for tutors (optional)', maxlength: '400' });
-    var link = el('input', { placeholder: 'https:// link (optional)' });
-    var tone = el('select', null, [['info', 'Info (blue)'], ['success', 'Good news (green)'], ['warning', 'Warning (orange)']].map(function (x) { return el('option', { value: x[0] }, [x[1]]); }));
-    var aud = el('select', null, [['all', 'Everyone'], ['owners', 'Tutors only'], ['staff', 'Helpers only']].map(function (x) { return el('option', { value: x[0] }, [x[1]]); }));
-    var days = el('select', null, [[1, '1 day'], [3, '3 days'], [7, '7 days'], [30, '30 days'], ['', 'Until I end it']].map(function (x) { var o = el('option', { value: String(x[0]) }, [x[1]]); if (x[0] === 7) o.selected = true; return o; }));
-    var err = el('div', { class: 'err small' });
-    var preview = el('div', { class: 'card ann', style: { marginTop: '6px' } });
+  async function announce(box) {
+    var f = { title: '', body: '', link: '', tone: 'info', audience: 'all', days: '7' }, err = el('div', { cls: 'err sm' }), preview = el('div');
+    var TONE = { info: ['megaphone', '--accent'], success: ['sparkle', '--green'], warning: ['alert', '--orange'] };
     function drawPreview() {
-      clear(preview); preview.className = 'card ann ' + tone.value;
-      preview.appendChild(el('b', null, [title.value || 'Your title']));
-      if (body.value) preview.appendChild(el('div', { class: 'sub', style: { marginTop: '4px' } }, [body.value]));
+      var t = TONE[f.tone], c = cssv(t[1]);
+      clear(preview).appendChild(el('div', { style: { maxWidth: '360px', margin: '0 auto', background: cssv('--bg'), borderRadius: '28px', padding: '18px 14px', boxShadow: cssv('--shadow-2') } }, [
+        el('div', { cls: 'xs muted', style: { textAlign: 'center', marginBottom: '10px' } }, ['Tutor’s Home screen']),
+        el('div', { style: { display: 'flex', gap: '10px', padding: '12px', borderRadius: '12px', background: 'color-mix(in srgb, ' + c + ' 14%, transparent)' } }, [el('span', { style: { color: c } }, [ic(t[0])]), el('div', { cls: 'grow' }, [el('div', { style: { fontWeight: 700, color: c } }, [f.title || 'Your title']), f.body ? el('div', { cls: 'sm', style: { marginTop: '2px' } }, [f.body]) : null]), el('span', { cls: 'faint' }, [ic('x')])]),
+        el('div', { cls: 'sk', style: { height: '90px', marginTop: '10px', borderRadius: '18px', animation: 'none', background: 'linear-gradient(135deg,#1c8cff,#0051c7)' } }),
+      ]));
     }
-    [title, body, tone].forEach(function (i) { i.addEventListener('input', drawPreview); i.addEventListener('change', drawPreview); });
-    drawPreview();
-    var send = el('button', { class: 'primary', on: { click: async function () {
-      err.textContent = ''; send.disabled = true;
-      try {
-        await call('POST', '/admin/api/announcements', { title: title.value, body: body.value, link: link.value, tone: tone.value, audience: aud.value, days: days.value ? Number(days.value) : null });
-        toast('Announcement is live'); render();
-      } catch (e) { err.textContent = e.code === 'bad_request' ? 'Check the title (2+ letters) and that the link starts with https://' : e.message; send.disabled = false; }
-    } } }, ['Publish to the app']);
-    box.appendChild(el('div', { class: 'grid g2' }, [
-      el('div', { class: 'card form' }, [el('h3', null, ['New announcement']), el('label', null, ['Title', title]), el('label', null, ['Message', body]), el('label', null, ['Link', link]),
-        el('div', { class: 'actions' }, [el('label', null, ['Look', tone]), el('label', null, ['Who sees it', aud]), el('label', null, ['Show for', days])]), send, err]),
-      el('div', { class: 'card' }, [el('h3', null, ['Preview on the tutor’s Home']), preview, el('div', { class: 'sub', style: { marginTop: '8px' } }, ['Shows as a banner at the top of Home until it ends. Tutors can close it.'])]),
+    function inp(key, ph, multi) { var x = el(multi ? 'textarea' : 'input', { cls: 'field', placeholder: ph, rows: multi ? '3' : null, maxlength: multi ? '400' : key === 'title' ? '80' : '300', style: { width: '100%' } }); x.addEventListener('input', function () { f[key] = x.value; drawPreview(); }); return x; }
+    var segTone = el('div'), segAud = el('div'), segDays = el('div');
+    function drawSegs() {
+      clear(segTone).appendChild(seg([['info', 'Info'], ['success', 'Good news'], ['warning', 'Warning']], f.tone, function (v) { f.tone = v; drawSegs(); drawPreview(); }));
+      clear(segAud).appendChild(seg([['all', 'Everyone'], ['owners', 'Tutors'], ['staff', 'Helpers']], f.audience, function (v) { f.audience = v; drawSegs(); }));
+      clear(segDays).appendChild(seg([['1', '1 day'], ['7', '7 days'], ['30', '30 days'], ['', 'No end']], f.days, function (v) { f.days = v; drawSegs(); }));
+    }
+    drawSegs(); drawPreview();
+    function lab(t, x) { return el('label', { style: { display: 'grid', gap: '6px' } }, [el('span', { cls: 'sm muted', style: { fontWeight: 600 } }, [t]), x]); }
+    var pub = el('button', { cls: 'btn primary', on: { click: async function () {
+      err.textContent = '';
+      // say exactly what is wrong before sending anything
+      if (f.title.trim().length < 2) { err.textContent = 'Add a title (at least 2 letters).'; return; }
+      if (f.link.trim() && !/^https:\/\/\S+$/.test(f.link.trim())) { err.textContent = 'The link must start with https://'; return; }
+      pub.disabled = true;
+      try { await call('POST', '/admin/api/announcements', { title: f.title, body: f.body, link: f.link.trim(), tone: f.tone, audience: f.audience, days: f.days ? Number(f.days) : null }); toast('Live in the app'); render(); }
+      catch (e) { err.textContent = e.code === 'bad_request' ? 'A title of at least 2 letters is needed, and links must start with https://' : e.message; pub.disabled = false; }
+    } } }, [ic('megaphone'), 'Publish']);
+    box.appendChild(el('div', { cls: 'split' }, [
+      card('New announcement', 'Shows as a banner on Home until it ends; tutors can close it', el('div', { style: { display: 'grid', gap: '14px' } }, [lab('Title', inp('title', 'e.g. New: poster maker')), lab('Message', inp('body', 'One or two short sentences', true)), lab('Link (optional)', inp('link', 'https://')), lab('Look', segTone), lab('Who sees it', segAud), lab('Show for', segDays), el('div', null, [pub]), err])),
+      card('Preview', null, preview),
     ]));
     var r = await call('GET', '/admin/api/announcements');
-    box.appendChild(el('div', { class: 'section' }, ['All announcements']));
-    box.appendChild(el('div', { class: 'tablewrap' }, [el('table', null, [
-      el('thead', null, [el('tr', null, ['Announcement', 'Audience', 'From', 'Until', 'Status', ''].map(function (h) { return el('th', null, [h]); }))]),
-      el('tbody', null, r.announcements.length ? r.announcements.map(function (a) {
-        return el('tr', null, [
-          el('td', null, [el('b', null, [a.title]), a.body ? el('div', { class: 'sub' }, [a.body]) : null]),
-          el('td', null, [a.audience]), el('td', null, [when(a.startsAt)]), el('td', null, [a.endsAt ? when(a.endsAt) : 'no end']),
-          el('td', null, [a.live ? pill('Live', 'green') : pill('Ended')]),
-          el('td', null, [a.live ? el('button', { class: 'danger', on: { click: async function () { if (!confirm('Take "' + a.title + '" down now?')) return; await call('POST', '/admin/api/announcements/' + a.id + '/end'); toast('Taken down'); render(); } } }, ['End now']) : null]),
-        ]);
-      }) : [el('tr', null, [el('td', { colspan: '6', class: 'empty' }, ['No announcements yet.'])])]),
-    ])]));
+    box.appendChild(el('div', { cls: 'section-t' }, ['History']));
+    box.appendChild(tableCard([['Announcement'], ['Audience', 1], ['Shown', 1], ['Status'], ['']], r.announcements.map(function (a) {
+      return el('tr', null, [el('td', null, [el('b', null, [a.title]), a.body ? el('div', { cls: 'xs muted' }, [a.body]) : null]), el('td', { cls: 'hide-sm' }, [a.audience]), el('td', { cls: 'hide-sm sm' }, [dshort(a.startsAt) + ' → ' + (a.endsAt ? dshort(a.endsAt) : 'no end')]), el('td', null, [a.live ? pill('Live', 'green') : pill('Ended')]),
+        el('td', null, [a.live ? el('button', { cls: 'btn danger', on: { click: async function () { if (!confirm('Take “' + a.title + '” down now?')) return; await call('POST', '/admin/api/announcements/' + a.id + '/end'); toast('Taken down'); render(); } } }, ['End']) : null])]);
+    }), 'No announcements yet.'));
   }
 
-  async function activityView(box) {
+  async function signins(box) {
     var r = await call('GET', '/admin/api/logins');
-    box.appendChild(el('div', { class: 'tablewrap' }, [el('table', null, [
-      el('thead', null, [el('tr', null, ['When', 'Number', 'Name', 'Result'].map(function (h) { return el('th', null, [h]); }))]),
-      el('tbody', null, r.logins.length ? r.logins.map(function (l) {
-        var tone = l.result === 'signed in' ? 'green' : l.result.indexOf('wrong') === 0 ? 'red' : '';
-        return el('tr', { class: l.userId ? 'click' : '', on: l.userId ? { click: function () { openUser(l.userId); } } : {} }, [el('td', null, [when(l.at)]), el('td', null, [l.phone]), el('td', null, [l.name || '—']), el('td', null, [pill(l.result, tone)])]);
-      }) : [el('tr', null, [el('td', { colspan: '4', class: 'empty' }, ['No login codes in the last day.'])])]),
-    ])]));
+    box.appendChild(tableCard([['When'], ['Number'], ['Name', 1], ['Result']], r.logins.map(function (l) {
+      return el('tr', { cls: l.userId ? 'click' : null, on: l.userId ? { click: function () { openUser(l.userId); } } : null }, [el('td', { cls: 'sm' }, [when(l.at)]), el('td', null, [l.phone]), el('td', { cls: 'hide-sm' }, [l.name || '—']), el('td', null, [pill(l.result, l.result === 'signed in' ? 'green' : l.result.indexOf('wrong') === 0 ? 'red' : '')])]);
+    }), 'No login codes in the last day.'));
   }
-
-  async function auditView(box) {
+  async function audit(box) {
     var r = await call('GET', '/admin/api/audit');
-    box.appendChild(el('div', { class: 'tablewrap' }, [el('table', null, [
-      el('thead', null, [el('tr', null, ['When', 'Admin', 'Action', 'Target', 'Detail'].map(function (h) { return el('th', null, [h]); }))]),
-      el('tbody', null, r.audit.length ? r.audit.map(function (a) { return el('tr', null, [el('td', null, [when(a.at)]), el('td', null, [a.admin]), el('td', null, [pill(a.action, a.action === 'block' ? 'red' : 'blue')]), el('td', null, [a.target]), el('td', { class: 'sub' }, [a.detail])]); })
-        : [el('tr', null, [el('td', { colspan: '5', class: 'empty' }, ['Nothing yet.'])])]),
-    ])]));
+    var LABEL = { block: 'Blocked', unblock: 'Unblocked', 'sign-out': 'Signed out', 'set-plan': 'Plan changed', announce: 'Announcement', 'end-announcement': 'Announcement ended', 'retry-message': 'Message retried' };
+    var TONE = { block: 'red', unblock: 'green', 'sign-out': 'orange', 'set-plan': 'green' };
+    var isId = function (v) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v || ''); };
+    box.appendChild(tableCard([['When'], ['Admin'], ['Action'], ['Who', 1], ['Detail', 1]], r.audit.map(function (a) {
+      return el('tr', null, [el('td', { cls: 'sm' }, [when(a.at)]), el('td', null, [a.admin]), el('td', null, [pill(LABEL[a.action] || a.action, TONE[a.action] || 'blue')]), el('td', { cls: 'hide-sm' }, [a.target || '—']), el('td', { cls: 'hide-sm sm muted' }, [isId(a.detail) ? '' : a.detail || ''])]);
+    }), 'Nothing yet.'));
   }
-
-  async function systemView(box) {
+  async function system(box) {
     var h = await call('GET', '/admin/api/health');
-    function up(sec) { var d = Math.floor(sec / 86400), hh = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60); return (d ? d + 'd ' : '') + hh + 'h ' + m + 'm'; }
-    var qok = h.queue.oldestQueuedMinutes < 10 && h.queue.failed24h < 20;
-    box.appendChild(el('div', { class: 'grid g4' }, [
-      ['Server', pill('Running', 'green'), 'v' + h.server.version + ' · ' + h.server.node + ' · up ' + up(h.server.uptimeSeconds)],
-      ['Database', pill('Connected', 'green'), h.database.pingMs + ' ms · ' + h.database.sizeMb + ' MB · ' + h.database.lastMigration],
-      ['Message queue', pill(qok ? 'Healthy' : 'Check', qok ? 'green' : 'orange'), h.queue.queued + ' waiting · ' + h.queue.sending + ' sending · ' + h.queue.failed24h + ' failed (24 h)' + (h.queue.oldestQueuedMinutes ? ' · oldest ' + h.queue.oldestQueuedMinutes + ' min' : '')],
-      ['WhatsApp sender', pill(h.whatsapp.provider === 'none' ? 'Not set up' : h.whatsapp.provider, h.whatsapp.provider === 'none' ? 'red' : 'green'), h.whatsapp.templates.length + ' templates configured'],
-    ].map(function (x) { return el('div', { class: 'card' }, [el('h3', null, [x[0], x[1]]), el('div', { class: 'sub' }, [x[2]])]); })));
-    box.appendChild(el('div', { class: 'grid g2', style: { marginTop: '14px' } }, [
-      el('div', { class: 'card' }, [el('h3', null, ['Scheduled jobs (last run)'])].concat(h.jobs.length ? h.jobs.map(function (j) { return el('div', { class: 'row' }, [el('span', null, [j.job]), el('span', { class: 'sub' }, [when(j.lastRunAt) + ' · ' + ago(j.lastRunAt)])]); }) : [el('div', { class: 'empty' }, ['No job has run yet.'])])),
-      el('div', { class: 'card' }, [el('h3', null, ['WhatsApp templates'])].concat(h.whatsapp.templates.length ? h.whatsapp.templates.map(function (t) { var p = t.split(': '); return el('div', { class: 'row' }, [el('span', null, [p[0]]), el('code', { class: 'sub' }, [p[1]])]); }) : [el('div', { class: 'empty' }, ['WA_TEMPLATES is empty.'])])),
-      el('div', { class: 'card' }, [el('h3', null, ['Server']),
-        el('div', { class: 'row' }, [el('span', null, ['Public address']), el('span', { class: 'sub' }, [h.server.publicBaseUrl || 'not set'])]),
-        el('div', { class: 'row' }, [el('span', null, ['Memory']), el('span', { class: 'sub' }, [h.server.memoryMb + ' MB'])]),
-      ]),
+    function up(x) { var d = Math.floor(x / 86400), hh = Math.floor((x % 86400) / 3600), m = Math.floor((x % 3600) / 60); return (d ? d + 'd ' : '') + hh + 'h ' + m + 'm'; }
+    var qok = h.queue.oldestQueuedMinutes < 10 && h.queue.failed24h < 20, wok = h.whatsapp.provider !== 'none';
+    function stat(title, ok, okText, lines) { return card(title, null, el('div', null, lines.map(function (l) { return el('div', { cls: 'kv' }, [el('span', null, [l[0]]), el('b', { cls: 'num sm' }, [String(l[1])])]); })), pill(okText, ok ? 'green' : 'orange')); }
+    box.appendChild(el('div', { cls: 'hello' }, [el('div', null, [el('h2', null, [qok && wok ? 'All systems normal' : 'Needs a look']), el('p', null, ['Checked ' + time(new Date().toISOString())])]), el('button', { cls: 'btn', on: { click: render } }, [ic('refresh'), 'Check again'])]));
+    box.appendChild(el('div', { cls: 'grid g2' }, [
+      stat('Server', true, 'Running', [['Version', 'v' + h.server.version], ['Node', h.server.node], ['Up for', up(h.server.uptimeSeconds)], ['Memory', h.server.memoryMb + ' MB'], ['Address', h.server.publicBaseUrl || 'not set']]),
+      stat('Database', true, 'Connected', [['Response', h.database.pingMs + ' ms'], ['Size', h.database.sizeMb + ' MB'], ['Last migration', h.database.lastMigration]]),
+      stat('Message queue', qok, qok ? 'Healthy' : 'Backlog', [['Waiting', h.queue.queued], ['Sending', h.queue.sending], ['Failed (24 h)', h.queue.failed24h], ['Oldest waiting', h.queue.oldestQueuedMinutes + ' min']]),
+      stat('WhatsApp', wok, wok ? h.whatsapp.provider : 'Not set up', h.whatsapp.templates.map(function (t) { var p = t.split(': '); return [p[0], p[1]]; })),
+      card('Scheduled jobs', 'When each last ran', h.jobs.length ? el('div', null, h.jobs.map(function (j) { return el('div', { cls: 'kv' }, [el('span', null, [j.job]), el('span', { cls: 'sm' }, [ago(j.lastRunAt)])]); })) : empty('calendar', 'No job has run yet.')),
     ]));
   }
 
-  // ---------- detail panels ----------
-  function openPanel() {
-    closePanel();
-    var scrim = el('div', { class: 'scrim', on: { click: closePanel } });
-    var panel = el('div', { class: 'panel', role: 'dialog', 'aria-modal': 'true' }, [el('span', { class: 'spin' })]);
-    document.body.appendChild(scrim); document.body.appendChild(panel);
-    return panel;
-  }
-  function closePanel() { document.querySelectorAll('.panel,.scrim').forEach(function (n) { n.remove(); }); }
-  function head(panel, title, sub) {
-    panel.appendChild(el('div', { class: 'actions', style: { justifyContent: 'space-between', marginBottom: '14px' } }, [
-      el('div', null, [el('div', { style: { fontSize: '22px', fontWeight: '700' } }, [title]), sub ? el('div', { class: 'sub' }, [sub]) : null]),
-      el('button', { on: { click: closePanel } }, ['Close']),
-    ]));
-  }
-  function rows(title, pairs) {
-    return el('div', { class: 'card' }, [el('h3', null, [title])].concat(pairs.filter(Boolean).map(function (p) { return el('div', { class: 'row' }, [el('span', { class: 'muted' }, [p[0]]), el('span', { style: { textAlign: 'right' } }, [p[1]])]); })));
-  }
-  function planEditor(institute, done) {
-    var sel = el('select', null, ['trial', 'starter', 'standard', 'pro'].map(function (p) { var o = el('option', { value: p }, [p]); if (p === institute.plan) o.selected = true; return o; }));
-    var days = el('select', null, [7, 15, 30, 90, 180, 365].map(function (d) { var o = el('option', { value: String(d) }, [d + ' days']); if (d === 30) o.selected = true; return o; }));
-    var msg = el('div', { class: 'small' });
-    return el('div', { class: 'card' }, [el('h3', null, ['Plan']),
-      el('div', { class: 'row' }, [el('span', { class: 'muted' }, ['Now']), el('span', null, [(institute.plan || '—') + (institute.active || institute.planActive ? ', active until ' : ', ended ') + when(institute.expiresAt)])]),
-      el('div', { class: 'actions', style: { marginTop: '10px' } }, [sel, days, el('button', { class: 'primary', on: { click: async function () {
-        try { var r = await call('POST', '/admin/api/institutes/' + institute.id + '/plan', { plan: sel.value, days: Number(days.value) }); toast('Plan: ' + r.plan + ' until ' + day(r.expiresAt)); done(); }
-        catch (e) { msg.className = 'err small'; msg.textContent = e.message; }
-      } } }, ['Extend'])]), msg]);
-  }
-
+  /* ---------------- user drawer, menus, palette, bell ---------------- */
+  function overlay(node) { closeOverlays(); var sc = el('div', { cls: 'scrim', on: { click: closeOverlays } }); document.body.appendChild(sc); document.body.appendChild(node); return node; }
+  function closeOverlays() { document.querySelectorAll('.scrim,.drawer,.palette,.menu').forEach(function (n) { n.remove(); }); hideTip(); }
   async function openUser(id) {
-    var panel = openPanel();
+    var dr = overlay(el('div', { cls: 'drawer', role: 'dialog', 'aria-modal': 'true' }, [sk(80), el('div', { style: { height: '12px' } }), sk(220)]));
     async function draw() {
-      var d = await call('GET', '/admin/api/users/' + id), u = d.user;
-      clear(panel);
-      head(panel, u.name || '(no name)', u.phone);
-      var msg = el('div', { class: 'small' });
-      async function act(fn, ok) { try { await fn(); toast(ok); await draw(); } catch (e) { msg.className = 'err small'; msg.textContent = e.code === 'cannot_change_admin' ? 'Admin accounts cannot be changed here.' : e.message; } }
-      panel.appendChild(rows('Login', [
-        ['Status', u.blocked ? pill('Blocked', 'red') : u.isAdmin ? pill('Admin', 'blue') : u.activeSessions ? pill('Signed in', 'green') : pill('Signed out')],
-        ['Role', u.role === 'owner' ? 'Tutor (owner)' : u.role === 'staff' ? 'Helper' : 'Not set up yet'],
-        ['Joined', when(u.createdAt)], ['Last login', when(u.lastLoginAt)], ['Devices signed in', String(u.activeSessions)],
-        u.blocked ? ['Block reason', u.blockedReason || '—'] : null,
-      ]));
-      if (u.institute) panel.appendChild(el('div', { class: 'card', style: { cursor: 'pointer' }, on: { click: function () { openInstitute(u.institute.id); } } }, [el('h3', null, ['Centre', el('span', { class: 'sub' }, ['Open →'])]), el('b', null, [u.institute.name]), el('div', { class: 'sub' }, [u.institute.students + ' students · ' + (u.institute.plan || '—')])]));
-      panel.appendChild(el('div', { class: 'card' }, [el('h3', null, ['Actions']), el('div', { class: 'actions' }, [
-        el('button', { class: 'tinted', disabled: u.isAdmin || !u.activeSessions, on: { click: function () { if (confirm('Sign ' + u.phone + ' out on every phone?')) act(function () { return call('POST', '/admin/api/users/' + id + '/sign-out'); }, 'Signed out everywhere'); } } }, ['Sign out everywhere']),
-        u.blocked ? el('button', { class: 'tinted', on: { click: function () { act(function () { return call('POST', '/admin/api/users/' + id + '/unblock'); }, 'Unblocked'); } } }, ['Unblock'])
-          : el('button', { class: 'danger', disabled: u.isAdmin, on: { click: function () { var reason = prompt('Block ' + u.phone + '? They are signed out at once and cannot sign in.\nReason (optional):', ''); if (reason !== null) act(function () { return call('POST', '/admin/api/users/' + id + '/block', { reason: reason }); }, 'Blocked'); } } }, ['Block login']),
-      ]), msg]));
-      if (u.institute && u.role === 'owner') panel.appendChild(planEditor(u.institute, draw));
-      panel.appendChild(el('div', { class: 'card' }, [el('h3', null, ['Sign-ins'])].concat(d.sessions.length ? d.sessions.map(function (x) { return el('div', { class: 'row' }, [el('span', null, [when(x.startedAt)]), pill(x.status, x.status === 'active' ? 'green' : '')]); }) : [el('div', { class: 'empty' }, ['None'])])));
-      panel.appendChild(el('div', { class: 'card' }, [el('h3', null, ['Login codes (last day)'])].concat(d.codes.length ? d.codes.map(function (c) { return el('div', { class: 'row' }, [el('span', null, [when(c.at)]), el('span', { class: 'sub' }, [c.result])]); }) : [el('div', { class: 'empty' }, ['None'])])));
+      var d = await call('GET', '/admin/api/users/' + id), u = d.user, msg = el('div', { cls: 'sm' });
+      async function act(fn, ok) { try { await fn(); toast(ok); await draw(); } catch (e) { msg.className = 'sm err'; msg.textContent = e.code === 'cannot_change_admin' ? 'Admin accounts cannot be changed here.' : e.message; } }
+      clear(dr);
+      dr.appendChild(el('div', { style: { display: 'flex', gap: '14px', alignItems: 'center', marginBottom: '18px' } }, [avatar(u.name || u.phone, 'lg'), el('div', { cls: 'grow' }, [el('div', { style: { fontSize: '21px', fontWeight: 700, letterSpacing: '-0.02em' } }, [u.name || '(no name)']), el('div', { cls: 'muted' }, [u.phone])]), el('button', { cls: 'btn icon', 'aria-label': 'Close', on: { click: closeOverlays } }, [ic('x')])]));
+      var digits = u.phone.replace(/\D/g, '');
+      dr.appendChild(el('div', { style: { display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' } }, [el('a', { cls: 'btn soft', href: 'tel:' + u.phone }, [ic('phone'), 'Call']), el('a', { cls: 'btn soft', href: 'https://wa.me/' + digits, target: '_blank', rel: 'noopener noreferrer' }, [ic('chat'), 'WhatsApp']), u.institute ? el('button', { cls: 'btn', on: { click: function () { closeOverlays(); go('centre', u.institute.id); } } }, [ic('centres'), 'Open centre']) : null]));
+      dr.appendChild(card('Account', null, el('div', null, [['Status', u.blocked ? pill('Blocked', 'red') : u.isAdmin ? pill('Admin', 'blue') : u.activeSessions ? pill('Online', 'green') : pill('Offline')], ['Role', u.role === 'owner' ? 'Tutor (owner)' : u.role === 'staff' ? 'Helper' : 'Not set up yet'], ['Centre', u.institute ? u.institute.name : '—'], ['Joined', when(u.createdAt)], ['Last login', when(u.lastLoginAt)], ['Devices', String(u.activeSessions)], u.blocked ? ['Block reason', u.blockedReason || '—'] : null].filter(Boolean).map(function (k) { return el('div', { cls: 'kv' }, [el('span', null, [k[0]]), typeof k[1] === 'object' ? k[1] : el('b', { cls: 'sm' }, [k[1]])]); }))));
+      dr.appendChild(card('Actions', null, el('div', null, [el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, [
+        el('button', { cls: 'btn', disabled: u.isAdmin || !u.activeSessions, on: { click: function () { if (confirm('Sign ' + u.phone + ' out on every device?')) act(function () { return call('POST', '/admin/api/users/' + id + '/sign-out'); }, 'Signed out everywhere'); } } }, [ic('logout'), 'Sign out everywhere']),
+        u.blocked ? el('button', { cls: 'btn soft', on: { click: function () { act(function () { return call('POST', '/admin/api/users/' + id + '/unblock'); }, 'Unblocked'); } } }, ['Unblock'])
+          : el('button', { cls: 'btn danger', disabled: u.isAdmin, on: { click: function () { var reason = prompt('Block ' + u.phone + '? They are signed out at once and cannot sign in.\n\nReason (optional):', ''); if (reason !== null) act(function () { return call('POST', '/admin/api/users/' + id + '/block', { reason: reason }); }, 'Blocked'); } } }, [ic('flag'), 'Block']),
+      ]), msg])));
+      if (u.institute && u.role === 'owner') dr.appendChild(planEditor(u.institute, draw));
+      dr.appendChild(card('Devices', null, d.sessions.length ? el('div', null, d.sessions.map(function (x) { return el('div', { cls: 'kv' }, [el('span', null, ['Since ' + when(x.startedAt)]), pill(x.status, x.status === 'active' ? 'green' : '')]); })) : empty('login', 'No sign-ins.')));
+      dr.appendChild(card('Login codes · last day', null, d.codes.length ? el('div', null, d.codes.map(function (c) { return el('div', { cls: 'kv' }, [el('span', null, [when(c.at)]), el('span', { cls: 'sm muted' }, [c.result])]); })) : empty('key', 'None.')));
     }
-    try { await draw(); } catch (e) { panel.textContent = e.message; }
+    try { await draw(); } catch (e) { clear(dr).appendChild(el('div', { cls: 'err' }, [e.message])); }
   }
-
-  async function openInstitute(id) {
-    var panel = openPanel();
-    async function draw() {
-      var d = await call('GET', '/admin/api/institutes/' + id), i = d.institute;
-      clear(panel);
-      head(panel, i.name, 'Created ' + day(i.createdAt));
-      panel.appendChild(el('div', { class: 'grid', style: { gridTemplateColumns: 'repeat(3,1fr)', marginBottom: '12px' } }, [
-        ['Health', healthBadge(i.health)], ['Students', String(i.students)], ['Outstanding', rupees(d.activity.outstanding)],
-      ].map(function (x) { return el('div', { class: 'card' }, [el('h3', null, [x[0]]), el('div', { style: { fontSize: '20px', fontWeight: '700' } }, [x[1]])]); })));
-      panel.appendChild(rows('Last 30 days', [
-        ['Last active', ago(i.lastActivityAt)], ['Attendance days saved', String(d.activity.attendance30)], ['Payments recorded', d.activity.payments30 + ' · ' + rupees(i.collected30)],
-        ['WhatsApp sent', i.messages30 + (i.failed30 ? ' (' + i.failed30 + ' failed)' : '')], ['Parent messages', i.messagesOn ? 'On' : 'Off'], ['Parents can pay (UPI / link)', i.canBePaid ? 'Yes' : 'No'],
-        ['Batches · helpers', i.batches + ' · ' + i.staff],
-      ]));
-      panel.appendChild(planEditor(i, draw));
-      panel.appendChild(el('div', { class: 'card' }, [el('h3', null, ['People'])].concat(d.people.map(function (p) {
-        return el('div', { class: 'row', style: { cursor: 'pointer' }, on: { click: function () { openUser(p.id); } } }, [el('span', null, [p.name || p.phone, el('div', { class: 'sub' }, [p.phone + ' · ' + (p.role === 'owner' ? 'Tutor' : 'Helper')])]), p.blocked ? pill('Blocked', 'red') : el('span', { class: 'sub' }, [ago(p.lastLoginAt)])]);
-      }))));
-      panel.appendChild(el('div', { class: 'card' }, [el('h3', null, ['WhatsApp (30 d)']), byType(d.messages)]));
-      panel.appendChild(el('div', { class: 'card' }, [el('h3', null, ['Plan payments'])].concat(d.billing.length ? d.billing.map(function (b) { return el('div', { class: 'row' }, [el('span', null, [when(b.at)]), el('span', null, [(b.plan || '') + ' · ' + rupees(b.amount)])]); }) : [el('div', { class: 'empty' }, ['None'])])));
-    }
-    try { await draw(); } catch (e) { panel.textContent = e.message; }
+  function menu(anchor, items) {
+    var r = anchor.getBoundingClientRect();
+    var m = el('div', { cls: 'menu', role: 'menu', style: { top: r.bottom + 6 + 'px', left: Math.min(r.left, innerWidth - 240) + 'px' } }, items.map(function (it) { return it === '-' ? el('hr') : el('button', { role: 'menuitem', on: { click: function () { closeOverlays(); it[1](); } } }, [it[2] ? ic(it[2]) : null, it[0]]); }));
+    overlay(m);
   }
-
-  // ---------- ⌘K quick search ----------
   function palette() {
     if (document.querySelector('.palette')) return;
-    var scrim = el('div', { class: 'scrim' });
-    var input = el('input', { placeholder: 'Search logins, centres or jump to a page…', 'aria-label': 'Search' });
-    var list = el('div');
-    var box = el('div', { class: 'palette', role: 'dialog' }, [input, list]);
-    var items = [], sel = 0;
-    function close() { scrim.remove(); box.remove(); }
-    scrim.addEventListener('click', close);
-    function draw(groups) {
-      clear(list); items = [];
-      groups.forEach(function (g) {
-        if (!g.items.length) return;
-        list.appendChild(el('div', { class: 'grp' }, [g.name]));
-        g.items.forEach(function (it) {
-          var n = el('div', { class: 'item' }, [el('span', null, [it.title]), el('span', { class: 'sub' }, [it.sub || ''])]);
-          n.addEventListener('click', function () { close(); it.go(); });
-          list.appendChild(n); items.push({ n: n, go: it.go });
-        });
-      });
-      sel = 0; mark();
-    }
-    function mark() { items.forEach(function (it, i) { it.n.classList.toggle('sel', i === sel); }); }
-    var pages = Object.keys(VIEWS).map(function (k) { return { title: VIEWS[k][0], sub: 'page', go: function () { state.view = k; render(); } }; });
-    var t;
+    var input = el('input', { placeholder: 'Search people, centres, or jump to…', 'aria-label': 'Search' }), list = el('div', { cls: 'list' }), items = [], sel = 0, t;
+    var box = overlay(el('div', { cls: 'palette', role: 'dialog' }, [el('div', { cls: 'in' }, [ic('search', 'faint'), input, el('kbd', null, ['esc'])]), list]));
+    var pages = []; NAV.forEach(function (g) { g[1].forEach(function (i) { pages.push({ t: i[1], s: g[0], icon: i[2], go: function () { go(i[0]); } }); }); });
+    pages.push({ t: 'Switch light / dark', s: 'Action', icon: 'moon', go: toggleTheme }, { t: 'Keyboard shortcuts', s: 'Help', icon: 'keyboard', go: help });
+    function draw(groups) { clear(list); items = []; groups.forEach(function (g) { if (!g.items.length) return; list.appendChild(el('div', { cls: 'g' }, [g.name])); g.items.forEach(function (it) { var n = el('div', { cls: 'it', on: { click: function () { closeOverlays(); it.go(); }, mousemove: function () { sel = items.indexOf(ref); mark(); } } }, [it.av ? avatar(it.t, it.sq ? 'sq' : '') : ic(it.icon || 'chev'), el('span', null, [it.t]), el('small', null, [it.s || ''])]); var ref = { n: n, go: it.go }; items.push(ref); list.appendChild(n); }); }); sel = Math.min(sel, Math.max(items.length - 1, 0)); mark(); }
+    function mark() { items.forEach(function (it, i) { it.n.classList.toggle('sel', i === sel); if (i === sel) it.n.scrollIntoView({ block: 'nearest' }); }); }
     input.addEventListener('input', function () {
-      clearTimeout(t);
-      var q = input.value.trim().toLowerCase();
-      var pg = pages.filter(function (p) { return !q || p.title.toLowerCase().indexOf(q) >= 0; });
-      draw([{ name: 'Pages', items: pg }]);
+      clearTimeout(t); var q = input.value.trim().toLowerCase(); sel = 0;
+      var pg = pages.filter(function (p) { return !q || p.t.toLowerCase().indexOf(q) >= 0; });
+      draw([{ name: 'Go to', items: pg }]);
       if (q.length < 2) return;
-      t = setTimeout(async function () {
-        var r = await call('GET', '/admin/api/search?q=' + encodeURIComponent(q));
-        draw([
-          { name: 'Logins', items: r.users.map(function (u) { return { title: u.name || u.phone, sub: u.phone, go: function () { openUser(u.id); } }; }) },
-          { name: 'Centres', items: r.institutes.map(function (i) { return { title: i.name, sub: 'centre', go: function () { openInstitute(i.id); } }; }) },
-          { name: 'Pages', items: pg },
-        ]);
-      }, 200);
+      t = setTimeout(async function () { var r = await call('GET', '/admin/api/search?q=' + encodeURIComponent(q)); if (input.value.trim().toLowerCase() !== q) return; draw([{ name: 'People', items: r.users.map(function (u) { return { t: u.name || u.phone, s: u.phone, av: true, go: function () { openUser(u.id); } }; }) }, { name: 'Centres', items: r.institutes.map(function (i) { return { t: i.name, s: 'Centre', av: true, sq: true, go: function () { go('centre', i.id); } }; }) }, { name: 'Go to', items: pg }]); }, 180);
     });
     input.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') close();
       if (e.key === 'ArrowDown') { sel = Math.min(sel + 1, items.length - 1); mark(); e.preventDefault(); }
-      if (e.key === 'ArrowUp') { sel = Math.max(sel - 1, 0); mark(); e.preventDefault(); }
-      if (e.key === 'Enter' && items[sel]) { close(); items[sel].go(); }
+      else if (e.key === 'ArrowUp') { sel = Math.max(sel - 1, 0); mark(); e.preventDefault(); }
+      else if (e.key === 'Enter' && items[sel]) { var g = items[sel].go; closeOverlays(); g(); }
     });
-    document.body.appendChild(scrim); document.body.appendChild(box);
-    draw([{ name: 'Pages', items: pages }]);
-    input.focus();
+    draw([{ name: 'Go to', items: pages }]); input.focus();
+    return box;
   }
-  document.addEventListener('keydown', function (e) {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && tokens()) { e.preventDefault(); palette(); }
-    if (e.key === 'Escape') closePanel();
-  });
+  function help() {
+    var rows = [['Search anything', '⌘ K'], ['Go to Overview', 'g o'], ['Go to Analytics', 'g a'], ['Go to Centres', 'g c'], ['Go to Logins', 'g l'], ['Go to Live activity', 'g f'], ['Go to WhatsApp', 'g w'], ['Go to System health', 'g s'], ['Toggle light / dark', 't'], ['Collapse the sidebar', '['], ['Close a panel', 'esc'], ['This help', '?']];
+    overlay(el('div', { cls: 'palette', role: 'dialog', style: { padding: '22px 24px' } }, [el('h3', { style: { margin: '0 0 14px' } }, ['Keyboard shortcuts']), el('div', { cls: 'helpgrid' }, rows.reduce(function (a, r) { return a.concat([el('span', null, [r[0]]), el('span', null, r[1].split(' ').map(function (k) { return el('kbd', { style: { marginLeft: '4px' } }, [k]); }))]); }, []))]));
+  }
+  async function bell(anchor) {
+    var r = await call('GET', '/admin/api/events?limit=40'), seen = ls.getItem('adm-seen') || '';
+    ls.setItem('adm-seen', new Date().toISOString()); updateBell(0);
+    var rr = anchor.getBoundingClientRect();
+    overlay(el('div', { cls: 'menu notif', style: { top: rr.bottom + 6 + 'px', left: Math.max(10, rr.right - 380) + 'px' } }, [el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px 10px' } }, [el('b', null, ['Notifications']), el('button', { cls: 'btn ghost', on: { click: function () { closeOverlays(); go('activity'); } } }, ['Open feed'])]), el('div', { cls: 'rows' }, r.events.length ? r.events.map(function (e) { var row = evRow(e, true); if (seen && e.at > seen) row.style.background = cssv('--accent-soft'); return row; }) : [empty('bell', 'All caught up.')])]));
+  }
+  var bellCount = 0;
+  function updateBell(n) { bellCount = n; var d = document.querySelector('.bell .dot'); if (d) { d.textContent = n > 99 ? '99+' : String(n); d.style.display = n ? '' : 'none'; } }
+  async function pollBell() { try { var seen = ls.getItem('adm-seen'); if (!seen) { ls.setItem('adm-seen', new Date().toISOString()); return; } var r = await call('GET', '/admin/api/events?limit=100&kinds=signup,centre,payment,message-failed,plan'); updateBell(r.events.filter(function (e) { return e.at > seen; }).length); } catch { /* quiet */ } }
 
-  // ---------- shell ----------
-  var VIEWS = {
-    overview: ['Overview', '◉', overviewView], analytics: ['Analytics', '📈', analyticsView], institutes: ['Centres', '🏫', institutesView],
-    users: ['Logins', '👤', usersView], whatsapp: ['WhatsApp', '💬', whatsappView], announcements: ['Announcements', '📣', announcementsView],
-    activity: ['Sign-in activity', '🔑', activityView], audit: ['Audit log', '🧾', auditView], system: ['System health', '🩺', systemView],
-  };
-  function applyTheme() { var t = local.getItem('adm-theme'); if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); css = getComputedStyle(document.documentElement); }
-  applyTheme();
+  /* ---------------- shell ---------------- */
+  function toggleTheme() { var cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'; ls.setItem('adm-theme', cur); applyTheme(); render(); }
+  function applyTheme() { var t = ls.getItem('adm-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); document.documentElement.setAttribute('data-theme', t); }
+  var crumbEl = null;
+  function setCrumb(title, sub) { if (!crumbEl) return; clear(crumbEl); crumbEl.appendChild(el('small', null, [sub])); crumbEl.appendChild(el('h1', null, [title])); document.title = title + ' · Chalkpis Admin'; }
+  var VIEWS = { overview: overview, analytics: analytics, cohorts: cohortsView, centres: centres, logins: logins, leaders: leaders, activity: activity, whatsapp: whatsapp, announce: announce, signins: signins, audit: audit, system: system };
+  // The sidebar always opens a list unfiltered; a shortcut such as Overview's "Needs attention > All" may preset one.
+  function resetFilters(view) {
+    if (view === 'centres') st.inst = { q: '', sort: 'activity', filter: 'all', tag: '' };
+    if (view === 'logins') st.users = { q: '', filter: 'all', offset: 0 };
+    if (view === 'whatsapp') st.msg = { status: 'all', type: '' };
+  }
+  var seq = 0;
   async function render() {
-    var t = tokens();
-    closePanel();
-    if (timer) { clearInterval(timer); timer = null; }
-    clear(app);
-    if (!t) { app.appendChild(loginView()); return; }
-    var content = el('div', { class: 'content' }, [el('span', { class: 'spin' })]);
-    var nav = Object.keys(VIEWS).map(function (k) {
-      return el('button', { class: 'nav' + (state.view === k ? ' on' : ''), on: { click: function () { state.view = k; render(); } } }, [el('span', { class: 'ico', 'aria-hidden': 'true' }, [VIEWS[k][1]]), VIEWS[k][0]]);
+    var t = tok(); closeOverlays(); clearInterval(liveTimer);
+    if (!t) return boot();
+    var r = route(), my = ++seq;
+    var shell = el('div', { cls: 'shell' + (st.collapsed ? ' collapsed' : '') });
+    var side = el('aside', { cls: 'side', 'aria-label': 'Main' }, [el('div', { cls: 'brand' }, [logo('full'), el('img', { cls: 'mark', src: '/admin-logo/logo-mark.svg', alt: 'Chalkpis' }), el('span', { cls: 'badge' }, ['Admin'])])]);
+    NAV.forEach(function (g) {
+      side.appendChild(el('div', { cls: 'grp' }, [g[0]]));
+      g[1].forEach(function (i) { var on = r.view === i[0] || (r.view === 'centre' && i[0] === 'centres'); side.appendChild(el('button', { cls: 'navi' + (on ? ' on' : ''), title: i[1], 'aria-current': on ? 'page' : null, on: { click: function () { shell.classList.remove('open'); resetFilters(i[0]); go(i[0]); } } }, [ic(i[2]), el('span', { cls: 'label' }, [i[1]])])); });
     });
-    var side = el('aside', { class: 'side' }, [
-      el('div', { class: 'brand' }, [el('div', { class: 'logo' }, ['C']), 'Chalkpis Admin']),
-      el('button', { class: 'nav searchbtn', on: { click: palette } }, [el('span', null, ['🔍 Search']), el('kbd', null, ['⌘K'])]),
-    ].concat(nav).concat([el('div', { class: 'grow' }), el('div', { class: 'sub', style: { padding: '8px 10px' } }, ['Signed in as ' + t.phone])]));
-    var autoBtn = el('button', { class: state.auto ? 'tinted' : '', title: 'Refresh every 30 seconds', on: { click: function () { state.auto = !state.auto; render(); } } }, [state.auto ? '● Live' : '○ Live']);
-    var theme = el('button', { title: 'Light / dark', on: { click: function () { var cur = local.getItem('adm-theme'); local.setItem('adm-theme', cur === 'dark' ? 'light' : 'dark'); applyTheme(); render(); } } }, ['◐']);
-    var refresh = el('button', { on: { click: function () { render(); } } }, ['↻ Refresh']);
-    var out = el('button', { class: 'tinted', on: { click: async function () {
-      await fetch('/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: t.refreshToken }) }).catch(function () {});
-      store.removeItem('adm'); render();
-    } } }, ['Sign out']);
-    app.appendChild(el('div', { class: 'shell' }, [side, el('div', { class: 'main' }, [el('div', { class: 'top' }, [el('h1', null, [VIEWS[state.view][0]]), autoBtn, refresh, theme, out]), content])]));
+    side.appendChild(el('div', { cls: 'spacer' }));
+    side.appendChild(el('button', { cls: 'navi hide-sm', title: 'Collapse sidebar', on: { click: function () { st.collapsed = !st.collapsed; ls.setItem('adm-side', st.collapsed ? '1' : '0'); shell.classList.toggle('collapsed', st.collapsed); } } }, [ic('sidebar'), el('span', { cls: 'label' }, ['Collapse'])]));
+    side.appendChild(el('div', { cls: 'me' }, [avatar(t.name || t.phone), el('div', { style: { minWidth: 0 } }, [el('div', { cls: 'ellipsis', style: { fontWeight: 600 } }, [t.name || 'Admin']), el('div', { cls: 'xs muted' }, [t.phone])])]));
+    crumbEl = el('div', { cls: 'crumbs' });
+    var liveBtn = el('button', { cls: 'livechip' + (st.live ? ' on' : ''), title: 'Refresh every 30 seconds', on: { click: function () { st.live = !st.live; ls.setItem('adm-live', st.live ? '1' : '0'); render(); } } }, [el('i'), st.live ? 'Live' : 'Paused']);
+    var bellBtn = el('button', { cls: 'btn icon bell', 'aria-label': 'Notifications', on: { click: function (e) { bell(e.currentTarget); } } }, [ic('bell'), el('span', { cls: 'dot', style: { display: bellCount ? '' : 'none' } }, [String(bellCount)])]);
+    var top = el('header', { cls: 'topbar' }, [
+      el('button', { cls: 'btn icon only-sm', 'aria-label': 'Menu', on: { click: function () { shell.classList.toggle('open'); } } }, [ic('menu')]),
+      crumbEl,
+      el('button', { cls: 'search', on: { click: palette } }, [ic('search'), el('span', null, ['Search']), el('kbd', null, ['⌘K'])]),
+      el('span', { cls: 'hide-sm' }, [liveBtn]), bellBtn,
+      el('button', { cls: 'btn icon', 'aria-label': 'Account', on: { click: function (e) { menu(e.currentTarget, [['Light / dark', toggleTheme, document.documentElement.getAttribute('data-theme') === 'dark' ? 'sun' : 'moon'], ['Keyboard shortcuts', help, 'keyboard'], '-', ['Sign out', async function () { await fetch('/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: t.refreshToken }) }).catch(function () {}); ss.removeItem('adm'); boot(); }, 'logout']]); } } }, [avatar(t.name || t.phone)]),
+    ]);
+    var content = el('main', { cls: 'content' }, [el('div', { cls: 'grid g4' }, [sk(130), sk(130), sk(130), sk(130)]), el('div', { style: { height: '16px' } }), sk(300)]);
+    // phones: the sidebar slides over a dimmed page; tapping the page closes it
+    var backdrop = el('div', { cls: 'side-scrim', 'aria-hidden': 'true', on: { click: function () { shell.classList.remove('open'); } } });
+    shell.appendChild(side); shell.appendChild(backdrop); shell.appendChild(el('div', { cls: 'main' }, [top, content]));
+    clear(app).appendChild(shell);
+    var title = r.view === 'centre' ? ['Centre', 'Customers'] : TITLES[r.view] || TITLES.overview;
+    setCrumb(title[0], title[1]);
     try {
       var tmp = el('div');
-      await VIEWS[state.view][2](tmp);
-      clear(content);
-      while (tmp.firstChild) content.appendChild(tmp.firstChild);
+      await (r.view === 'centre' ? centre(tmp, r.id) : VIEWS[r.view](tmp));
+      if (my !== seq) return;
+      clear(content); while (tmp.firstChild) content.appendChild(tmp.firstChild);
     } catch (e) {
-      if (e.code === 'forbidden' || e.code === 'account_blocked') { store.removeItem('adm'); render(); return; }
-      clear(content); content.appendChild(el('div', { class: 'card err' }, ['Could not load: ' + e.message]));
+      if (my !== seq) return;
+      if (e.code === 'forbidden' || e.code === 'account_blocked') { ss.removeItem('adm'); return boot(); }
+      clear(content).appendChild(card('Could not load this page', e.message, el('button', { cls: 'btn', on: { click: render } }, [ic('refresh'), 'Try again'])));
     }
-    if (state.auto) timer = setInterval(function () { if (!document.querySelector('.panel,.palette')) render(); }, 30000);
+    if (st.live && r.view !== 'activity') liveTimer = setInterval(function () { if (!document.querySelector('.drawer,.palette,.menu') && document.visibilityState === 'visible') render(); }, 30000);
   }
-  render();
+  function boot() {
+    clearInterval(bellTimer); applyTheme();
+    if (!tok()) { clear(app).appendChild(loginView()); return; }
+    render(); pollBell(); bellTimer = setInterval(pollBell, 60000);
+  }
+
+  /* ---------------- keyboard ---------------- */
+  var gPending = false;
+  document.addEventListener('keydown', function (e) {
+    if (!tok()) return;
+    var typing = /input|textarea|select/i.test((e.target && e.target.tagName) || '');
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palette(); return; }
+    if (e.key === 'Escape') { closeOverlays(); return; }
+    if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (gPending) { gPending = false; var m = { o: 'overview', a: 'analytics', c: 'centres', l: 'logins', f: 'activity', w: 'whatsapp', s: 'system', r: 'cohorts', n: 'announce' }[e.key]; if (m) { e.preventDefault(); go(m); } return; }
+    if (e.key === 'g') { gPending = true; setTimeout(function () { gPending = false; }, 900); return; }
+    if (e.key === '/') { e.preventDefault(); palette(); }
+    else if (e.key === '?') help();
+    else if (e.key === 't') toggleTheme();
+    else if (e.key === '[') { st.collapsed = !st.collapsed; ls.setItem('adm-side', st.collapsed ? '1' : '0'); var sh = document.querySelector('.shell'); if (sh) sh.classList.toggle('collapsed', st.collapsed); }
+  });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { if (!ls.getItem('adm-theme')) { applyTheme(); if (tok()) render(); } });
+  boot();
 })();

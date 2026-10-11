@@ -4,9 +4,6 @@ import { MarkAttendanceScreen } from '../MarkAttendanceScreen';
 import { saveAttendance } from '../api';
 import { useAttendanceDoc, useBatches, useStudents } from '../../../data/hooks';
 
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
-}));
 jest.mock('../../../data/hooks', () => ({
   useStudents: jest.fn(),
   useBatches: jest.fn(),

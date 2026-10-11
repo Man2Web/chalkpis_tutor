@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
-import { Card, Skeleton, toast } from '../../components';
+import { Panel, Skeleton, toast } from '../../components';
 import { reportError } from '../../lib/analytics';
 import { haptic } from '../../lib/haptics';
 import { colors, radius, spacing, TAP, type } from '../../theme';
@@ -31,11 +31,11 @@ export function TasksCard({ date }: { date: string }) {
   const open = list.filter((x) => !x.done).length;
 
   return (
-    <Card style={{ gap: spacing.sm }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text style={type.heading}>{t('tasks.title')}</Text>
-        {list.length ? <Text style={type.caption}>{t('tasks.left', { count: open })}</Text> : null}
-      </View>
+    <Panel
+      title={t('tasks.title')}
+      right={list.length ? t('tasks.left', { count: open }) : undefined}
+      bodyStyle={{ gap: spacing.sm }}
+    >
       {tasks.isLoading ? <Skeleton height={44} /> : null}
       {!tasks.isLoading && list.length === 0 ? (
         <Text style={type.caption}>{t('tasks.empty')}</Text>
@@ -91,7 +91,7 @@ export function TasksCard({ date }: { date: string }) {
           <Ionicons name="add-circle" size={30} color={colors.primary} />
         </Pressable>
       </View>
-    </Card>
+    </Panel>
   );
 }
 
@@ -114,6 +114,7 @@ function TaskRow({
         onPress={onToggle}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: task.done }}
+        aria-checked={task.done}
         accessibilityLabel={task.title}
         style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
       >

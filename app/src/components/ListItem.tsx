@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, spacing, TAP, type } from '../theme';
+import { View } from 'react-native';
+import { Item } from 'panelui-native/components/item';
 
 type Props = {
   title: string;
@@ -12,45 +12,24 @@ type Props = {
   onPress?: () => void;
 };
 
+/** A list row (PanelUI Item): avatar or icon, title and subtitle, and something on the right. */
 export function ListItem({ title, subtitle, left, right, below, onPress }: Props) {
   return (
-    <Pressable
-      disabled={!onPress}
+    <Item
       onPress={onPress}
+      disabled={false}
       accessibilityRole={onPress ? 'button' : undefined}
-      android_ripple={onPress ? { color: 'rgba(0,0,0,0.08)' } : undefined}
-      style={({ pressed }) => [
-        styles.row,
-        pressed && Platform.OS !== 'android' && { backgroundColor: '#E5E5EA' },
-      ]}
+      // read as "Ananya Rao, Class 9 • Maths 10", not the avatar's initials run into the name
+      accessibilityLabel={[title, subtitle].filter(Boolean).join(', ')}
+      className="min-h-16 rounded-none bg-card px-4 py-3"
     >
-      {left}
-      <View style={styles.body}>
-        <Text style={[type.body, styles.title]} numberOfLines={1}>
-          {title}
-        </Text>
-        {!!subtitle && (
-          <Text style={type.caption} numberOfLines={1}>
-            {subtitle}
-          </Text>
-        )}
-        {below}
-      </View>
-      {right}
-    </Pressable>
+      {left ? <Item.Media>{left}</Item.Media> : null}
+      <Item.Content>
+        <Item.Title numberOfLines={1}>{title}</Item.Title>
+        {subtitle ? <Item.Description numberOfLines={1}>{subtitle}</Item.Description> : null}
+        {below ? <View className="mt-1 flex-row">{below}</View> : null}
+      </Item.Content>
+      {right ? <Item.Actions>{right}</Item.Actions> : null}
+    </Item>
   );
 }
-
-const styles = StyleSheet.create({
-  row: {
-    minHeight: TAP + 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
-  },
-  body: { flex: 1, gap: 3 },
-  title: { fontWeight: '500' },
-});

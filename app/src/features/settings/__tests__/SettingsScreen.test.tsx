@@ -8,9 +8,6 @@ const mockCall = jest.fn().mockResolvedValue({ data: { ok: true } });
 const mockLogout = jest.fn().mockResolvedValue(undefined);
 const mockBack = jest.fn();
 
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
-}));
 jest.mock('../../../api/client', () => ({
   api: jest.fn(() => mockCall()),
   uploadImage: jest.fn(),

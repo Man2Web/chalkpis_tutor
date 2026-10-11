@@ -7,9 +7,6 @@ const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate }),
 }));
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
-}));
 jest.mock('../FeesHistoryCard', () => ({ FeesHistoryCard: () => null }));
 jest.mock('../../../data/hooks', () => ({
   useInstitute: () => ({ data: { name: 'X', upiId: 'sir@upi', receiptPrefix: 'TD' } }),
@@ -76,11 +73,11 @@ it('lists overdue students first and filters to overdue', async () => {
   expect(screen.queryByText('Bala K')).toBeNull();
 });
 
-it('one due goes straight to Collect; several go to the ledger', async () => {
+it("every row opens the student's fee ledger, where all money actions live", async () => {
   setup([due('a1', 'a', '2020-01-05'), due('b1', 'b', '2020-02-05'), due('b2', 'b', '2020-03-05')]);
   await render(<FeesOverviewScreen />);
   await fireEvent.press(screen.getByText('Asha Rao'));
-  expect(mockNavigate).toHaveBeenCalledWith('CollectFee', { dueId: 'a1' });
+  expect(mockNavigate).toHaveBeenCalledWith('FeeLedger', { studentId: 'a' });
   await fireEvent.press(screen.getByText('Bala K'));
   expect(mockNavigate).toHaveBeenCalledWith('FeeLedger', { studentId: 'b' });
 });
@@ -91,9 +88,8 @@ it('shows the all-clear state', async () => {
   expect(screen.getByText('No fees pending')).toBeTruthy();
 });
 
-it('Remind opens the composer', async () => {
+it('has no separate Remind button (it is on the ledger)', async () => {
   setup([due('a1', 'a', '2020-01-05')]);
   await render(<FeesOverviewScreen />);
-  await fireEvent.press(screen.getByRole('button', { name: 'Remind' }));
-  expect(mockNavigate).toHaveBeenCalledWith('Reminder', { studentId: 'a' });
+  expect(screen.queryByRole('button', { name: 'Remind' })).toBeNull();
 });

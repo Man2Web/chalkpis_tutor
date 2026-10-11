@@ -3,16 +3,7 @@ import { FlatList, RefreshControl, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import {
-  Button,
-  Chip,
-  EmptyState,
-  InsetSeparator,
-  ListItem,
-  listCard,
-  Screen,
-  Skeleton,
-} from '../../components';
+import { Button, Chip, EmptyState, InsetSeparator, ListItem, listCard, Screen, Skeleton, TopBar } from '../../components';
 import { useAttendanceOn, useBatches } from '../../data/hooks';
 import { todayYmd, weekdayOf } from '../../lib/dates';
 import type { MainStackParams } from '../../navigation/types';
@@ -73,17 +64,17 @@ export function AttendanceHomeScreen() {
   return (
     <Screen scroll={false} padded={false}>
       <View style={{ padding: spacing.lg, gap: spacing.md }}>
-        <View
-          style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-        >
-          <Text style={type.largeTitle}>{t('tabs.attendance')}</Text>
-          <Button
-            variant="secondary"
-            size="small"
-            title={t('attendance.reports')}
-            onPress={() => nav.navigate('AttendanceReport')}
-          />
-        </View>
+        <TopBar
+          title={t('tabs.attendance')}
+          right={
+            <Button
+              variant="outline"
+              size="small"
+              title={t('attendance.reports')}
+              onPress={() => nav.navigate('AttendanceReport')}
+            />
+          }
+        />
         <DateStrip date={date} onChange={setDate} />
         <Text style={type.caption}>{t('attendance.pickBatch')}</Text>
       </View>

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { render, screen } from '@testing-library/react-native';
 import '../../../i18n';
 import { HomeScreen } from '../HomeScreen';
 import {
@@ -13,9 +13,6 @@ import {
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate }),
-}));
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
 }));
 jest.mock('../../auth/session', () => ({
   useSession: (sel: (s: { profile: { name: string } }) => unknown) =>
@@ -71,29 +68,15 @@ it('greets the tutor and shows zeroed numbers for a new institute', async () => 
   await render(<HomeScreen />);
   expect(screen.getByText(/^Good (morning|afternoon|evening), Asha$/)).toBeTruthy();
   expect(screen.getByText('No classes scheduled today')).toBeTruthy();
-  expect(screen.getByText('Chalkpis')).toBeTruthy(); // logo and name, top left
+  expect(screen.getByLabelText('Chalkpis')).toBeTruthy(); // logo, top left
 });
 
-it('quick actions navigate', async () => {
+it('has no shortcuts that repeat a tab or the menu', async () => {
   setup();
   await render(<HomeScreen />);
-  await fireEvent.press(screen.getByRole('button', { name: 'Mark attendance' }));
-  expect(mockNavigate).toHaveBeenCalledWith('Attendance');
-  await fireEvent.press(screen.getByRole('button', { name: 'Collect fee' }));
-  expect(mockNavigate).toHaveBeenCalledWith('Fees');
-  await fireEvent.press(screen.getByRole('button', { name: 'Add student' }));
-  expect(mockNavigate).toHaveBeenCalledWith('StudentForm');
-});
-
-it('Add student shows the upgrade prompt instead when the plan is full', async () => {
-  setup();
-  (useLimits as jest.Mock).mockReturnValue(
-    q({ active: true, studentLimit: 1, batchLimit: null, activeStudentCount: 1, batchCount: 0 }),
-  );
-  await render(<HomeScreen />);
-  await fireEvent.press(screen.getByRole('button', { name: 'Add student' }));
-  expect(mockNavigate).not.toHaveBeenCalledWith('StudentForm');
-  expect(screen.getByText('Plan limit reached')).toBeTruthy();
+  for (const name of ['Mark attendance', 'Collect fee', 'Add student', 'Poster'])
+    expect(screen.queryByRole('button', { name })).toBeNull();
+  expect(mockNavigate).not.toHaveBeenCalled();
 });
 
 it('shows a retry when loading fails', async () => {

@@ -10,7 +10,7 @@ import { useInstitute, useRefreshData } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
 import { cleanUpi, upiLink } from '../../lib/upi';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, spacing, type } from '../../theme';
+import { colors, spacing, type, font } from '../../theme';
 import { refreshProfile, useSession } from '../auth/session';
 import { UpiQr } from '../../components/UpiQr';
 import { cleanPrefix } from './logic';
@@ -111,7 +111,7 @@ export function SettingsScreen({
             <Ionicons name="image-outline" size={34} color={colors.gray} />
           </View>
         )}
-        <Text style={[type.subhead, { color: colors.primaryDark, fontWeight: '600' }]}>
+        <Text style={[type.subhead, { color: colors.primaryDark, ...font('600') }]}>
           {inst.logoUrl ? t('onboarding.changeLogo') : t('onboarding.addLogo')}
         </Text>
       </Pressable>

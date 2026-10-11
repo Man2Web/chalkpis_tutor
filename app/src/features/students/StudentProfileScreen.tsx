@@ -20,7 +20,7 @@ import { callUrl, open, whatsappUrl } from '../../lib/contact';
 import { formatINR } from '../../lib/money';
 import { nationalNumber } from '../../lib/phone';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, radius, spacing, type } from '../../theme';
+import { colors, radius, spacing, type, font } from '../../theme';
 
 /** A student's card, laid out like a contact in iOS Contacts: who, quick actions, then grouped details. */
 export function StudentProfileScreen({
@@ -101,7 +101,7 @@ export function StudentProfileScreen({
           <Text
             style={{
               fontSize: 13,
-              fontWeight: '600',
+              ...font('600'),
               color: !active ? colors.textMuted : owes ? colors.warning : colors.success,
             }}
           >
@@ -126,12 +126,6 @@ export function StudentProfileScreen({
           label="WhatsApp"
           onPress={() => go(whatsappUrl(s.parentPhone))}
           disabled={!s.parentPhone}
-        />
-        <ActionButton
-          icon="notifications"
-          label={t('fees.remind')}
-          onPress={() => navigation.navigate('Reminder', { studentId: s.id })}
-          disabled={!owes}
         />
       </View>
 
@@ -158,14 +152,6 @@ export function StudentProfileScreen({
           title={t('students.feesAndPayments')}
           onPress={() => navigation.navigate('FeeLedger', { studentId: s.id })}
         />
-        {s.feeCycle === 'monthly' && s.monthlyFee > 0 && active ? (
-          <Row
-            icon="calendar"
-            iconColor={colors.primary}
-            title={t('fees.advanceTitle')}
-            onPress={() => navigation.navigate('AdvancePayment', { studentId: s.id })}
-          />
-        ) : null}
         <Row title={t('onboarding.monthlyFee')} value={formatINR(s.monthlyFee)} />
         <Row title={t('students.feeCycle')} value={t(`students.cycle.${cycleKey}`)} />
         <Row title={t('students.dueDay')} value={String(s.dueDay)} />

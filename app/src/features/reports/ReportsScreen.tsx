@@ -362,11 +362,6 @@ export function ReportsScreen() {
                   />
                 ))
               )}
-              <Button
-                variant="ghost"
-                title={t('reports.fullAttendance')}
-                onPress={() => nav.navigate('AttendanceReport')}
-              />
             </Card>
           </>
         )}

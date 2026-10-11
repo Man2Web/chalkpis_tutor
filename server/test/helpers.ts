@@ -7,7 +7,7 @@ import { createInstitute } from '../src/institutes/service.js';
 import { newId } from '../src/lib/ids.js';
 import { signToken } from '../src/lib/jwt.js';
 import { runMigrations } from '../src/migrate.js';
-import { MockBillingProvider } from '../src/billing/provider.js';
+import { MockBillingProvider, type BillingProvider } from '../src/billing/provider.js';
 import { MockProvider } from '../src/messaging/provider.js';
 import { createTestDb, testConfig, type TestDb } from './db.js';
 
@@ -45,6 +45,8 @@ export interface Tenant {
 }
 
 const TABLES = [
+  'admin_notes',
+  'admin_tags',
   'login_events',
   'announcements',
   'admin_audit',
@@ -72,7 +74,10 @@ const TABLES = [
 ];
 
 /** A migrated throwaway database plus an app wired to it, with a fixed clock and a mock WhatsApp sender. */
-export async function startHarness(extra: Parameters<typeof testConfig>[0] = {}): Promise<Harness> {
+export async function startHarness(
+  extra: Parameters<typeof testConfig>[0] = {},
+  opts: { billing?: BillingProvider } = {},
+): Promise<Harness> {
   const db = await createTestDb();
   const filesDir = await fs.mkdtemp(path.join(os.tmpdir(), 'td-files-'));
   await runMigrations(db.pool, MIGRATIONS);
@@ -87,7 +92,13 @@ export async function startHarness(extra: Parameters<typeof testConfig>[0] = {})
     RAZORPAY_WEBHOOK_SECRET: WEBHOOK_SECRET,
     ...extra,
   });
-  const app = await buildApp({ config, pool: db.pool, provider, billing, clock: () => clock.now });
+  const app = await buildApp({
+    config,
+    pool: db.pool,
+    provider,
+    billing: opts.billing ?? billing,
+    clock: () => clock.now,
+  });
 
   const reset = async () => {
     await db.pool.query('SET FOREIGN_KEY_CHECKS=0');

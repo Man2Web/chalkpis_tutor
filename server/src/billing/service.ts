@@ -2,7 +2,7 @@ import { AppError } from '../errors.js';
 import { withTransaction, type Pool } from '../db.js';
 import { newId } from '../lib/ids.js';
 import { PLANS, computeSubscription, type PlanId } from './plans.js';
-import type { BillingProvider, PaidEvent } from './provider.js';
+import type { BillingProvider, PaidEvent, ProviderName } from './provider.js';
 
 export type PurchaseResult = 'applied' | 'duplicate' | 'invalid';
 
@@ -10,7 +10,14 @@ export type PurchaseResult = 'applied' | 'duplicate' | 'invalid';
 export async function createOrder(
   pool: Pool,
   provider: BillingProvider,
-  a: { instituteId: string; userId: string; planId: PlanId; ownerPhone?: string },
+  a: {
+    instituteId: string;
+    userId: string;
+    planId: PlanId;
+    ownerPhone?: string;
+    /** The page the payer returns to, given our order id. */
+    returnUrl?: (orderId: string) => string;
+  },
 ) {
   const plan = PLANS[a.planId];
   const orderId = newId();
@@ -21,6 +28,7 @@ export async function createOrder(
       description: `Chalkpis ${plan.name} plan (${plan.months} months)`,
       referenceId: orderId,
       customerPhone: a.ownerPhone,
+      returnUrl: a.returnUrl?.(orderId),
     });
   } catch {
     throw new AppError(502, 'payment_provider_error');
@@ -39,7 +47,7 @@ export async function createOrder(
  */
 export async function applyPaid(
   pool: Pool,
-  provider: 'razorpay' | 'mock',
+  provider: ProviderName,
   p: PaidEvent,
   now: Date,
 ): Promise<PurchaseResult> {
@@ -113,6 +121,59 @@ export async function applyPaid(
     if ((e as { code?: string }).code === 'ER_DUP_ENTRY') return 'duplicate';
     throw e;
   }
+}
+
+export type OrderState = 'paid' | 'pending' | 'failed';
+
+/**
+ * Asks the provider where one of OUR orders stands and, when it is paid, applies the plan (once). This is the only
+ * way a PhonePe payment is applied: the webhook, the return page and the app all just ask for it.
+ */
+export async function reconcileOrder(
+  pool: Pool,
+  provider: BillingProvider,
+  where: { orderId?: string; linkId?: string; instituteId?: string },
+  now: Date,
+): Promise<{ orderId: string; state: OrderState; result?: PurchaseResult } | null> {
+  if (!provider.checkStatus) return null;
+  const [rows] = (await pool.query(
+    `SELECT id, link_id FROM billing_orders WHERE provider = ? AND ${where.orderId ? 'id = ?' : 'link_id = ?'}${
+      where.instituteId ? ' AND institute_id = ?' : ''
+    }`,
+    [
+      provider.name,
+      where.orderId ?? where.linkId,
+      ...(where.instituteId ? [where.instituteId] : []),
+    ],
+  )) as unknown as [{ id: string; link_id: string }[]];
+  const order = rows[0];
+  if (!order) return null;
+  // Already applied (or refused) for this order: no need to ask the provider again.
+  const [done] = (await pool.query(
+    'SELECT status FROM billing_events WHERE provider = ? AND order_id = ? ORDER BY created_at DESC LIMIT 1',
+    [provider.name, order.id],
+  )) as unknown as [{ status: 'applied' | 'rejected' }[]];
+  if (done[0]?.status === 'applied')
+    return { orderId: order.id, state: 'paid', result: 'duplicate' };
+  let status;
+  try {
+    status = await provider.checkStatus(order.link_id);
+  } catch {
+    throw new AppError(502, 'payment_provider_error');
+  }
+  if (status.state === 'FAILED') return { orderId: order.id, state: 'failed' };
+  if (status.state !== 'COMPLETED') return { orderId: order.id, state: 'pending' };
+  const result = await applyPaid(
+    pool,
+    provider.name,
+    {
+      paymentId: status.paymentId ?? `${provider.name}_${order.link_id}`,
+      linkId: order.link_id,
+      amountPaise: status.amountPaise,
+    },
+    now,
+  );
+  return { orderId: order.id, state: result === 'invalid' ? 'failed' : 'paid', result };
 }
 
 export async function billingHistory(pool: Pool, instituteId: string) {

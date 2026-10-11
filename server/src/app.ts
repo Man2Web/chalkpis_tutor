@@ -61,6 +61,16 @@ export async function buildApp({
     },
   });
 
+  // A request that says JSON but sends no body (a bare DELETE or POST) means "no body", not a malformed one.
+  // Anything non-empty still goes through Fastify's own parser, with its prototype-poisoning protection.
+  const parseJson = app.getDefaultJsonParser('error', 'error');
+  app.removeContentTypeParser('application/json');
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+    const text = typeof body === 'string' ? body : body.toString('utf8');
+    if (text.trim() === '') done(null, undefined);
+    else parseJson(req, text, done);
+  });
+
   await app.register(helmet, {
     contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
   });

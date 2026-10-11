@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { Pressable } from 'react-native';
+import { Alert } from 'panelui-native/components/alert';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as SecureStore from 'expo-secure-store';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { haptic } from '../../lib/haptics';
 import { open } from '../../lib/contact';
-import { colors, radius, spacing, type } from '../../theme';
+import { colors } from '../../theme';
 
 interface Announcement {
   id: string;
@@ -17,11 +19,7 @@ interface Announcement {
 }
 
 const KEY = 'chalkpis.dismissedAnnouncements';
-const TONES = {
-  info: { bg: colors.primarySoft, fg: colors.primaryDark, icon: 'megaphone' as const },
-  success: { bg: colors.successSoft, fg: colors.success, icon: 'sparkles' as const },
-  warning: { bg: colors.warningSoft, fg: colors.warning, icon: 'warning' as const },
-};
+const VARIANT = { info: 'info', success: 'success', warning: 'warning' } as const;
 
 async function readDismissed(): Promise<string[]> {
   try {
@@ -37,9 +35,18 @@ export function AnnouncementBanner() {
     queryKey: ['announcements'],
     queryFn: async () =>
       (await api<{ announcements: Announcement[] }>('GET', '/announcements')).announcements,
-    staleTime: 5 * 60_000,
-    retry: 0,
+    // Fresh within a minute: refetched whenever Home comes into view or the app returns to the foreground, and every
+    // few minutes while it stays open, so a new announcement (or one the admin ended) shows up without a restart.
+    staleTime: 60_000,
+    refetchInterval: 3 * 60_000,
+    refetchOnWindowFocus: true,
+    retry: 1,
   });
+  useFocusEffect(
+    useCallback(() => {
+      void q.refetch();
+    }, []),
+  );
   const [dismissed, setDismissed] = useState<string[] | null>(null);
   useEffect(() => {
     void readDismissed().then(setDismissed);
@@ -47,7 +54,6 @@ export function AnnouncementBanner() {
   if (!q.data || !dismissed) return null;
   const a = q.data.find((x) => !dismissed.includes(x.id));
   if (!a) return null;
-  const tone = TONES[a.tone] ?? TONES.info;
 
   const close = () => {
     haptic.tap();
@@ -61,23 +67,23 @@ export function AnnouncementBanner() {
       onPress={a.link ? () => void open(a.link) : undefined}
       disabled={!a.link}
       accessibilityRole={a.link ? 'link' : undefined}
-      style={{
-        flexDirection: 'row',
-        gap: spacing.md,
-        padding: spacing.md,
-        borderRadius: radius.md,
-        backgroundColor: tone.bg,
-        alignItems: 'flex-start',
-      }}
     >
-      <Ionicons name={tone.icon} size={20} color={tone.fg} style={{ marginTop: 1 }} />
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={[type.label, { color: tone.fg }]}>{a.title}</Text>
-        {a.body ? <Text style={[type.footnote, { color: colors.text }]}>{a.body}</Text> : null}
-      </View>
-      <Pressable onPress={close} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
-        <Ionicons name="close" size={18} color={tone.fg} />
-      </Pressable>
+      <Alert variant={VARIANT[a.tone] ?? 'info'}>
+        <Alert.Indicator />
+        <Alert.Content>
+          <Alert.Title>{a.title}</Alert.Title>
+          {a.body ? <Alert.Description>{a.body}</Alert.Description> : null}
+        </Alert.Content>
+        <Pressable
+          onPress={close}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          className="ml-auto"
+        >
+          <Ionicons name="close" size={18} color={colors.textMuted} />
+        </Pressable>
+      </Alert>
     </Pressable>
   );
 }

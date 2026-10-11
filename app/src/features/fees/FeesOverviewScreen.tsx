@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { FlatList, RefreshControl, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Kpi } from 'panelui-native/components/kpi';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import {
@@ -14,9 +16,10 @@ import {
   ListItem,
   Screen,
   Skeleton,
+  TopBar,
 } from '../../components';
 import { useInstitute, usePaymentsThisMonth, useStudents, useUnpaidDues } from '../../data/hooks';
-import { prettyDate, todayYmd, toYmd } from '../../lib/dates';
+import { shortDate, todayYmd, toYmd } from '../../lib/dates';
 import { formatINR } from '../../lib/money';
 import type { MainStackParams } from '../../navigation/types';
 import { colors, radius, spacing, type } from '../../theme';
@@ -86,14 +89,22 @@ export function FeesOverviewScreen() {
         keyExtractor={(g) => g.studentId}
         refreshControl={<RefreshControl refreshing={dues.isRefetching} onRefresh={refetch} />}
         ItemSeparatorComponent={() => (
-          <View style={{ marginHorizontal: spacing.lg, backgroundColor: colors.surface }}>
+          <View
+            style={{
+              marginHorizontal: spacing.lg,
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderLeftWidth: 1,
+              borderRightWidth: 1,
+            }}
+          >
             <InsetSeparator />
           </View>
         )}
         contentContainerStyle={{ paddingBottom: spacing.lg }}
         ListHeaderComponent={
           <View style={{ padding: spacing.lg, gap: spacing.md }}>
-            <Text style={type.largeTitle}>{t('tabs.fees')}</Text>
+            <TopBar title={t('tabs.fees')} />
             {noWayToPay ? (
               <Card
                 style={{
@@ -116,47 +127,48 @@ export function FeesOverviewScreen() {
             {dues.isLoading ? (
               <Skeleton height={96} />
             ) : (
-              <View style={{ gap: spacing.sm }}>
-                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                  <Card style={{ flex: 1, gap: 2 }}>
-                    <Text style={type.caption}>{t('fees.pending')}</Text>
-                    <Text style={[type.heading, { fontSize: 20 }]}>
-                      {formatINR(sum.outstanding)}
-                    </Text>
-                    <Text style={type.caption}>
+              <Card style={{ padding: spacing.lg }}>
+                <Kpi.Group>
+                  <Kpi surface={false}>
+                    <Kpi.Header>
+                      <Kpi.Title>{t('fees.pending')}</Kpi.Title>
+                    </Kpi.Header>
+                    <Kpi.Content>
+                      <Kpi.Value className="text-xl">{formatINR(sum.outstanding)}</Kpi.Value>
+                    </Kpi.Content>
+                    <Text style={type.caption2}>
                       {t('fees.studentsCount', { count: sum.students })}
                     </Text>
-                  </Card>
-                  <Card
-                    style={{
-                      flex: 1,
-                      gap: 2,
-                      borderColor: sum.overdueAmount ? colors.danger : colors.border,
-                    }}
-                  >
-                    <Text style={type.caption}>{t('fees.overdue')}</Text>
-                    <Text
-                      style={[
-                        type.heading,
-                        { fontSize: 20, color: sum.overdueAmount ? colors.danger : colors.text },
-                      ]}
-                    >
-                      {formatINR(sum.overdueAmount)}
-                    </Text>
-                    <Text style={type.caption}>
+                  </Kpi>
+                  <Kpi surface={false}>
+                    <Kpi.Header>
+                      <Kpi.Title>{t('fees.overdue')}</Kpi.Title>
+                    </Kpi.Header>
+                    <Kpi.Content>
+                      <Kpi.Value
+                        className={sum.overdueAmount ? 'text-xl text-destructive' : 'text-xl'}
+                      >
+                        {formatINR(sum.overdueAmount)}
+                      </Kpi.Value>
+                    </Kpi.Content>
+                    <Text style={type.caption2}>
                       {t('fees.studentsCount', { count: sum.overdueStudents })}
                     </Text>
-                  </Card>
-                </View>
-                <Card style={{ gap: 2 }}>
-                  <Text style={type.caption}>{t('fees.collectedMonth')}</Text>
-                  <Text style={[type.heading, { fontSize: 20, color: colors.success }]}>
-                    {formatINR(netCollected(month.data ?? []))}
-                  </Text>
-                </Card>
-              </View>
+                  </Kpi>
+                  <Kpi surface={false}>
+                    <Kpi.Header>
+                      <Kpi.Title>{t('fees.collectedShort')}</Kpi.Title>
+                    </Kpi.Header>
+                    <Kpi.Content>
+                      <Kpi.Value className="text-xl text-success">
+                        {formatINR(netCollected(month.data ?? []))}
+                      </Kpi.Value>
+                    </Kpi.Content>
+                    <Text style={type.caption2}>{t('fees.collectedThisMonth')}</Text>
+                  </Kpi>
+                </Kpi.Group>
+              </Card>
             )}
-            <FeesHistoryCard />
             <SearchField
               value={search}
               onChangeText={setSearch}
@@ -170,7 +182,18 @@ export function FeesOverviewScreen() {
               value={filter}
               onChange={setFilter}
             />
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+            {/* labelled, so the sort order is not mistaken for another filter */}
+            <View
+              style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: spacing.xs,
+              }}
+              accessibilityRole="radiogroup"
+              accessibilityLabel={t('fees.sortBy')}
+            >
+              <Text style={[type.caption, { marginRight: 2 }]}>{t('fees.sortBy')}</Text>
               {(['unpaid', 'name', 'amount'] as const).map((k) => (
                 <Chip
                   key={k}
@@ -181,6 +204,12 @@ export function FeesOverviewScreen() {
                 />
               ))}
             </View>
+          </View>
+        }
+        // Chasing dues comes first; the history is background, so it sits after the list.
+        ListFooterComponent={
+          <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl }}>
+            <FeesHistoryCard />
           </View>
         }
         ListEmptyComponent={
@@ -206,14 +235,20 @@ export function FeesOverviewScreen() {
                 borderTopRightRadius: first ? radius.lg : 0,
                 borderBottomLeftRadius: last ? radius.lg : 0,
                 borderBottomRightRadius: last ? radius.lg : 0,
+                // the rows together read as one bordered card, like the Students list
+                borderColor: colors.border,
+                borderLeftWidth: 1,
+                borderRightWidth: 1,
+                borderTopWidth: first ? 1 : 0,
+                borderBottomWidth: last ? 1 : 0,
               }}
             >
               <ListItem
                 title={s?.name ?? '—'}
-                subtitle={`${item.overdue ? t('fees.overdueSince') : t('fees.dueOn')} ${prettyDate(item.oldestDueDate, locale)}`}
+                subtitle={`${item.overdue ? t('fees.overdueSince') : t('fees.dueOn')} ${shortDate(item.oldestDueDate, locale)}`}
                 left={<Avatar name={s?.name ?? '?'} uri={s?.photoUrl} />}
                 right={
-                  <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                     <Text
                       style={[
                         type.label,
@@ -222,19 +257,11 @@ export function FeesOverviewScreen() {
                     >
                       {formatINR(item.outstanding)}
                     </Text>
-                    <Chip
-                      small
-                      tone="accent"
-                      label={t('fees.remind')}
-                      onPress={() => nav.navigate('Reminder', { studentId: item.studentId })}
-                    />
+                    <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
                   </View>
                 }
-                onPress={() =>
-                  item.dueIds.length === 1
-                    ? nav.navigate('CollectFee', { dueId: item.dueIds[0] })
-                    : nav.navigate('FeeLedger', { studentId: item.studentId })
-                }
+                // One place for a student's money: collect, remind, advance and fee plan are on the ledger.
+                onPress={() => nav.navigate('FeeLedger', { studentId: item.studentId })}
               />
             </View>
           );

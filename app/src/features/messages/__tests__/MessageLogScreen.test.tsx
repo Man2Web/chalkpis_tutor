@@ -3,9 +3,6 @@ import '../../../i18n';
 import { MessageLogScreen } from '../MessageLogScreen';
 import { useMessages, useStudents } from '../../../data/hooks';
 
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
-}));
 jest.mock('../../../data/hooks', () => ({ useMessages: jest.fn(), useStudents: jest.fn() }));
 
 const ts = { toDate: () => new Date('2026-10-08T05:00:00Z') };
