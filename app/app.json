@@ -15,10 +15,14 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "permissions": [
-        "READ_CONTACTS",
-        "android.permission.READ_CONTACTS",
-        "android.permission.WRITE_CONTACTS"
+      "permissions": ["android.permission.READ_CONTACTS"],
+      "blockedPermissions": [
+        "android.permission.WRITE_CONTACTS",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     },
     "plugins": [
@@ -36,7 +40,12 @@
       ],
       "expo-localization",
       "expo-sharing",
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
       "expo-contacts",
       "expo-asset",
       "expo-font",
@@ -71,9 +80,29 @@
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "NSContactsUsageDescription": "Chalkpis reads a contact only when you choose to add a student or parent from your contacts.",
-        "NSPhotoLibraryUsageDescription": "Chalkpis uses a photo you pick as your institute logo or a student photo.",
-        "NSCameraUsageDescription": "Chalkpis uses the camera when you take a photo for your institute logo or a student."
+        "NSContactsUsageDescription": "Chalkpis shows your contacts so you can pick students to add. Only the contacts you pick are saved to your account.",
+        "NSPhotoLibraryUsageDescription": "Chalkpis uses a photo you pick as your institute logo or a student photo."
+      },
+      "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": ["C617.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+            "NSPrivacyAccessedAPITypeReasons": ["35F9.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace",
+            "NSPrivacyAccessedAPITypeReasons": ["E174.1"]
+          }
+        ]
       }
     }
   }
