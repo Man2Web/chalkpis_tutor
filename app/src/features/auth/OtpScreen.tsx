@@ -12,7 +12,7 @@ import { authErrorKey, confirmCode, RESEND_SECONDS, sendCode } from './phoneAuth
 
 export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStackParams, 'Otp'>) {
   const { t } = useTranslation();
-  const { phone } = route.params;
+  const { phone, signupToken } = route.params;
   const [code, setCode] = useState('');
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -32,10 +32,13 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
     setError(undefined);
     setBusy(true);
     try {
-      await confirmCode(phone, code); // signing in switches the navigator automatically
+      await confirmCode(phone, code, signupToken); // signing in switches the navigator automatically
     } catch (e) {
-      setError(t(`auth.errors.${authErrorKey(e)}`));
+      const key = authErrorKey(e);
+      setError(t(`auth.errors.${key}`));
       setBusy(false);
+      // the pending Google / Apple / email sign-up ran out: back to the start rather than a dead end
+      if (key === 'signupExpired') navigation.popToTop();
     }
   };
 

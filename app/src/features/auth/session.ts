@@ -25,7 +25,9 @@ export const useIsStaff = () => useSession((s) => s.profile?.role === 'staff');
 
 /** What GET /me answers. */
 export interface MeResponse {
-  user: { id: string; phone: string; name: string; language: 'en' | 'hi' };
+  user: { id: string; phone: string; email?: string | null; name: string; language: 'en' | 'hi' };
+  /** The ways this account can sign in besides WhatsApp (Google, Apple, email). */
+  signInMethods?: { provider: 'google' | 'apple' | 'email'; email: string | null; since: string }[];
   membership: { instituteId: string; role: 'owner' | 'staff'; onboardingDone: boolean } | null;
 }
 
@@ -34,6 +36,8 @@ export function applyMe(me: MeResponse) {
   const profile: UserProfile = {
     name: me.user.name,
     phone: me.user.phone,
+    ...(me.user.email ? { email: me.user.email } : {}),
+    signInMethods: (me.signInMethods ?? []).map((m) => m.provider),
     language: me.user.language,
     role: me.membership?.role ?? 'owner',
     ...(me.membership

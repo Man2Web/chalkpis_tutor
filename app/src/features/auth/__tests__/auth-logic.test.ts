@@ -19,7 +19,11 @@ describe('authErrorKey', () => {
     [429, 'too_many', 'tooMany'],
     [429, 'rate_limited', 'tooMany'],
     [0, 'network', 'network'],
-    [503, 'otp_unavailable', 'generic'],
+    [503, 'otp_unavailable', 'unavailable'],
+    [503, 'email_unavailable', 'unavailable'],
+    [400, 'invalid_email', 'invalidEmail'],
+    [410, 'signup_expired', 'signupExpired'],
+    [403, 'account_blocked', 'blocked'],
     [500, 'internal', 'generic'],
   ])('%s %s -> %s', (status, code, key) =>
     expect(authErrorKey(new ApiError(status, code))).toBe(key),

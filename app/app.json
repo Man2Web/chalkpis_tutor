@@ -47,7 +47,8 @@
           "image": "./assets/splash-blank.png",
           "imageWidth": 104
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {

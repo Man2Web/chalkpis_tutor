@@ -73,6 +73,35 @@ Tutors buy Starter / Standard / Pro in the app (Account > Plans & billing). The 
 
 When PhonePe keys are set they are used; otherwise Razorpay keys (`RAZORPAY_*`, older setup) if present. With neither, production says online payment is not set up (set `TRIAL_DAYS` long meanwhile), and local runs use a mock ("Pay (test)").
 
+## 4b. Sign-in options: Google, Apple and email (next to WhatsApp)
+
+The welcome screen shows "Continue with WhatsApp / Google / Apple / email". Each button appears only once its settings below are in Coolify, so you can switch them on one at a time. A new person who uses Google, Apple or email confirms their mobile number once (WhatsApp code); if that number already has an account, the new method joins it, so nobody ends up with two accounts.
+
+All of them need `PUBLIC_BASE_URL=https://tutor.chalkpis.com`.
+
+The compose file already carries the non-secret values (Google client ID, Apple Team ID and Services ID, Zoho server and user); in Coolify you only type the secrets.
+
+**Email (6-digit code, no password)** — uses the hello@chalkpis.com mailbox at Zoho Mail (India data centre):
+| Variable | Value |
+| --- | --- |
+| `SMTP_HOST` | `smtp.zoho.in` (preset) |
+| `SMTP_PORT` | `465` (preset) |
+| `SMTP_USER` | `hello@chalkpis.com` (preset) |
+| `SMTP_PASS` | a Zoho **app-specific password** (Zoho Accounts > Security > App passwords; type it yourself in Coolify) |
+| `MAIL_FROM` | `Chalkpis <hello@chalkpis.com>` (preset) |
+
+**Google** (Cloud project "Chalkpis Tutor", `chalkpis-tutor`)
+1. Google Auth Platform: app name Chalkpis, audience External, scopes `openid email profile`; **Publish app** on the Audience page.
+2. Clients > "Chalkpis server" (**Web application**), redirect URI `https://tutor.chalkpis.com/auth/oauth/google/callback`. Its client ID is preset.
+3. In Coolify: `GOOGLE_CLIENT_SECRET`.
+
+**Apple** (needs the paid Apple Developer account)
+1. Certificates, Identifiers & Profiles > Identifiers: an App ID with "Sign in with Apple", then a **Services ID** (for example `in.chalkpis.signin`) with Sign in with Apple enabled; domain `tutor.chalkpis.com`, return URL `https://tutor.chalkpis.com/auth/oauth/apple/callback`.
+2. Keys > a new key with "Sign in with Apple"; download the `.p8` file (only once) and note the Key ID.
+3. In Coolify: `APPLE_KEY_ID` and `APPLE_PRIVATE_KEY` (the whole `.p8` text; newlines may be written as `\n`). `APPLE_TEAM_ID` (`3G6UV3S378`) and `APPLE_SERVICES_ID` (`in.chalkpis.signin`) are preset.
+
+Restart the service after adding settings. Check with `https://tutor.chalkpis.com/auth/methods`: each method that is ready says `true`.
+
 ## 5. Build the Android app (EAS)
 
 Already prepared in the repository: `app/eas.json` (three build profiles, each pointing the app at `https://tutor.chalkpis.com`), the app name and package id (`in.chalkpis.tutors`), and the Chalkpis icons (made from the animation's mark: launcher icon, Android adaptive and themed icons). The app was checked to bundle for Android.

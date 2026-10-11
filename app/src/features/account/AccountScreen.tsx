@@ -48,6 +48,11 @@ function ProfileCard({ onEdit, plan }: { onEdit?: () => void; plan?: string }) {
       <Text style={[type.footnote, { textAlign: 'center' }]} numberOfLines={1}>
         {[inst.data?.name, profile?.phone].filter(Boolean).join(' · ')}
       </Text>
+      {profile?.email ? (
+        <Text style={[type.footnote, { textAlign: 'center' }]} numberOfLines={1}>
+          {profile.email}
+        </Text>
+      ) : null}
       {plan ? (
         <Badge variant="secondary" className="mt-1 self-center">
           {plan}
@@ -59,6 +64,34 @@ function ProfileCard({ onEdit, plan }: { onEdit?: () => void; plan?: string }) {
         </View>
       ) : null}
     </Card>
+  );
+}
+
+/** How this account can sign in: WhatsApp always; Google, Apple and email once they have been used. */
+function SignInSection() {
+  const { t } = useTranslation();
+  const profile = useSession((s) => s.profile);
+  const on = new Set(profile?.signInMethods ?? []);
+  const row = (
+    key: 'google' | 'apple' | 'email',
+    icon: 'logo-google' | 'logo-apple' | 'mail',
+    color: string,
+  ) => (
+    <Row
+      key={key}
+      icon={icon}
+      iconColor={color}
+      title={t(`account.method.${key}`)}
+      value={on.has(key) ? t('account.connected') : t('account.notConnected')}
+    />
+  );
+  return (
+    <Section title={t('account.signIn')} footer={t('account.signInFooter')}>
+      <Row icon="logo-whatsapp" iconColor="#1DA851" title="WhatsApp" value={profile?.phone ?? ''} />
+      {row('google', 'logo-google', '#4285F4')}
+      {row('apple', 'logo-apple', colors.text)}
+      {row('email', 'mail', colors.infoFill)}
+    </Section>
   );
 }
 
@@ -136,6 +169,7 @@ function AccountContent({ go, onDelete }: { go: Nav['navigate']; onDelete: () =>
   return (
     <>
       <ProfileCard onEdit={() => go('EditProfile')} plan={planLabel} />
+      <SignInSection />
 
       <Section title={t('more.business')}>
         <Row

@@ -17,7 +17,8 @@
       {
         "h": "Information we collect",
         "p": [
-          "About you: your name, mobile number, institute name, address, phone, logo, UPI id and payment link (if you add them), and your plan.",
+          "About you: your name, mobile number, email address (if you sign in with email, Google or Apple), institute name, address, phone, logo, UPI id and payment link (if you add them), and your plan.",
+          "Sign-in: if you continue with Google or Apple, we receive the account id that service gives us, your email and (once) your name. We never see your Google or Apple password. Sign-in codes sent by WhatsApp or email are stored only as one-way hashes and expire within minutes.",
           "About your students and their parents, as entered by you: names, class, batches, parent name and mobile number, optional student phone, date of birth, gender, photo and notes; attendance; fees, discounts, payments and receipts.",
           "Messages: a log of WhatsApp messages sent to parents (type, time, status and the last 4 digits of the number). The message values are deleted once a message is sent or has failed.",
           "Technical: sign-in sessions and basic server logs needed to keep the service secure. We do not use advertising trackers and we do not sell personal data."
@@ -35,6 +36,7 @@
         "h": "Who we share it with",
         "p": [
           "WhatsApp messages are sent from our business number through the WhatsApp Business Platform (Meta) and our messaging partner ValueFirst Digital Media. They receive the parent's number and the message text needed to deliver it.",
+          "Sign-in: Google and Apple confirm who you are when you choose them. Sign-in code emails are sent through our email provider.",
           "Our servers are hosted by our cloud provider. App updates are delivered through Expo (EAS).",
           "Plan payments are handled by PhonePe Payment Gateway; we never see your card, UPI or bank details.",
           "Tuition fees go straight from parents to your own UPI id or payment page. Chalkpis never receives or holds that money.",

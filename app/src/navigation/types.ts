@@ -1,8 +1,11 @@
 export type AuthStackParams = {
   Legal: { doc: 'privacy' | 'terms' };
   Language: undefined;
-  Phone: undefined;
-  Otp: { phone: string };
+  /** With a signupToken: a new Google / Apple / email person adding their mobile number once. */
+  Phone: { signupToken?: string; email?: string | null; name?: string | null } | undefined;
+  Otp: { phone: string; signupToken?: string };
+  Email: undefined;
+  EmailCode: { email: string };
 };
 
 export type OnboardingStackParams = {

@@ -91,6 +91,26 @@ const schema = z.object({
   /** How long a new institute's free trial lasts. With online payment switched off, this is how long they can write before the app turns read-only. */
   TRIAL_DAYS: z.coerce.number().int().min(1).max(3650).default(7),
   /** Razorpay (plan purchases). Without keys the server uses the local mock in development and answers 503 in production. */
+  // Sign in with Google (a "Web application" OAuth client; redirect URI {PUBLIC_BASE_URL}/auth/oauth/google/callback).
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+  // Sign in with Apple (a Services ID with return URL {PUBLIC_BASE_URL}/auth/oauth/apple/callback, and a .p8 key).
+  APPLE_SERVICES_ID: z.string().min(1).optional(),
+  APPLE_TEAM_ID: z.string().min(1).optional(),
+  APPLE_KEY_ID: z.string().min(1).optional(),
+  // The .p8 file's contents; newlines may be written as \n.
+  APPLE_PRIVATE_KEY: z.string().min(1).optional(),
+  // Sign-in codes by email (SMTP, e.g. the hello@chalkpis.com mailbox).
+  SMTP_HOST: z.string().min(1).optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(465),
+  SMTP_USER: z.string().min(1).optional(),
+  SMTP_PASS: z.string().min(1).optional(),
+  MAIL_FROM: z.string().min(3).default('Chalkpis <hello@chalkpis.com>'),
+  // Where a Google/Apple sign-in may send the person back to (the app's scheme; web origins in development).
+  APP_REDIRECT_PREFIXES: z
+    .string()
+    .default('chalkpis://,exp://')
+    .transform((v) => v.split(',').map((x) => x.trim()).filter(Boolean)),
   // PhonePe Standard Checkout (v2) for plan purchases; preferred over Razorpay when set.
   PHONEPE_CLIENT_ID: z.string().min(1).optional(),
   PHONEPE_CLIENT_SECRET: z.string().min(1).optional(),

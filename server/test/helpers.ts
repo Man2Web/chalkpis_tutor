@@ -8,6 +8,8 @@ import { newId } from '../src/lib/ids.js';
 import { signToken } from '../src/lib/jwt.js';
 import { runMigrations } from '../src/migrate.js';
 import { MockBillingProvider, type BillingProvider } from '../src/billing/provider.js';
+import type { Mailer } from '../src/auth/mailer.js';
+import type { OAuthProvider, OAuthProviderName } from '../src/auth/oauth.js';
 import { MockProvider } from '../src/messaging/provider.js';
 import { createTestDb, testConfig, type TestDb } from './db.js';
 
@@ -45,6 +47,9 @@ export interface Tenant {
 }
 
 const TABLES = [
+  'auth_tickets',
+  'auth_identities',
+  'email_codes',
   'admin_notes',
   'admin_tags',
   'login_events',
@@ -76,7 +81,11 @@ const TABLES = [
 /** A migrated throwaway database plus an app wired to it, with a fixed clock and a mock WhatsApp sender. */
 export async function startHarness(
   extra: Parameters<typeof testConfig>[0] = {},
-  opts: { billing?: BillingProvider } = {},
+  opts: {
+    billing?: BillingProvider;
+    mailer?: Mailer | null;
+    oauth?: Partial<Record<OAuthProviderName, OAuthProvider>>;
+  } = {},
 ): Promise<Harness> {
   const db = await createTestDb();
   const filesDir = await fs.mkdtemp(path.join(os.tmpdir(), 'td-files-'));
@@ -97,6 +106,8 @@ export async function startHarness(
     pool: db.pool,
     provider,
     billing: opts.billing ?? billing,
+    mailer: opts.mailer ?? null,
+    oauth: opts.oauth ?? {},
     clock: () => clock.now,
   });
 

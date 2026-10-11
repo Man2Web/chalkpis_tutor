@@ -7,6 +7,8 @@ export interface UserProfile {
   name: string;
   phone: string;
   email?: string;
+  /** Sign-in methods connected besides WhatsApp. */
+  signInMethods?: ('google' | 'apple' | 'email')[];
   language: 'en' | 'hi';
   instituteId?: string;
   role: 'owner' | 'staff';

@@ -3,6 +3,13 @@ import { fileURLToPath } from 'node:url';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createPool } from './db.js';
+import { MockMailer, SmtpMailer, type Mailer } from './auth/mailer.js';
+import {
+  AppleProvider,
+  GoogleProvider,
+  type OAuthProvider,
+  type OAuthProviderName,
+} from './auth/oauth.js';
 import {
   MockBillingProvider,
   PhonePeProvider,
@@ -72,7 +79,26 @@ async function main() {
     console.warn(
       'No payment gateway is configured: plan purchases are unavailable until PHONEPE_* (or RAZORPAY_*) settings are set.',
     );
-  const app = await buildApp({ config, pool, provider, billing });
+  // Sign-in by email code: SMTP when set up; locally a stand-in that keeps the mail (use OTP_DEV_ECHO to see codes).
+  let mailer: Mailer | null = null;
+  if (config.SMTP_HOST && config.SMTP_USER && config.SMTP_PASS)
+    mailer = new SmtpMailer(
+      { host: config.SMTP_HOST, port: config.SMTP_PORT, user: config.SMTP_USER, pass: config.SMTP_PASS },
+      config.MAIL_FROM,
+    );
+  else if (config.NODE_ENV !== 'production') mailer = new MockMailer();
+  // Sign in with Google / Apple, when their keys are set (they also need PUBLIC_BASE_URL for the callback).
+  const oauth: Partial<Record<OAuthProviderName, OAuthProvider>> = {};
+  if (config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET)
+    oauth.google = new GoogleProvider(config.GOOGLE_CLIENT_ID, config.GOOGLE_CLIENT_SECRET);
+  if (config.APPLE_SERVICES_ID && config.APPLE_TEAM_ID && config.APPLE_KEY_ID && config.APPLE_PRIVATE_KEY)
+    oauth.apple = new AppleProvider({
+      servicesId: config.APPLE_SERVICES_ID,
+      teamId: config.APPLE_TEAM_ID,
+      keyId: config.APPLE_KEY_ID,
+      privateKey: config.APPLE_PRIVATE_KEY,
+    });
+  const app = await buildApp({ config, pool, provider, billing, mailer, oauth });
 
   const stopWorker = startWorker(
     { pool, provider, templates: parseTemplates(config.WA_TEMPLATES) },

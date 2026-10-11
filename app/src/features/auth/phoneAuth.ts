@@ -24,9 +24,35 @@ interface Verified extends MeResponse {
   refreshToken: string;
 }
 
-/** Checks the code. On success the person is signed in and the navigator switches by itself. */
-export async function confirmCode(phone: string, code: string): Promise<void> {
-  const r = await apiPublic<Verified>('POST', '/auth/otp/verify', { phone, code: code.trim() });
+/** A new Google / Apple / email person who still has to verify a mobile number once. */
+export interface NeedsPhone {
+  needsPhone: true;
+  signupToken: string;
+  email: string | null;
+  name: string | null;
+}
+
+/** Every sign-in answer comes through here: either signed in (the navigator switches by itself) or "add mobile". */
+export async function complete(r: Verified | NeedsPhone): Promise<NeedsPhone | null> {
+  if ('needsPhone' in r) return r;
   await tokens.save(r.accessToken, r.refreshToken);
   applyMe(r);
+  return null;
+}
+
+/**
+ * Checks the WhatsApp code. With a signupToken it also connects the pending Google / Apple / email sign-in to this
+ * number (a new account, or the one the number already has).
+ */
+export async function confirmCode(
+  phone: string,
+  code: string,
+  signupToken?: string,
+): Promise<void> {
+  const r = await apiPublic<Verified>('POST', '/auth/otp/verify', {
+    phone,
+    code: code.trim(),
+    ...(signupToken ? { signupToken } : {}),
+  });
+  await complete(r);
 }

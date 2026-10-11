@@ -9,6 +9,8 @@ import { safeUrl } from './logging.js';
 import type { BillingProvider } from './billing/provider.js';
 import type { MessageProvider } from './messaging/provider.js';
 import { authRoutes } from './routes/auth.js';
+import type { Mailer } from './auth/mailer.js';
+import type { OAuthProvider, OAuthProviderName } from './auth/oauth.js';
 import { batchRoutes } from './routes/batches.js';
 import { studentRoutes } from './routes/students.js';
 import { attendanceRoutes } from './routes/attendance.js';
@@ -33,6 +35,10 @@ export interface AppDeps {
   provider?: MessageProvider | null;
   /** Creates plan payment links. Null means not configured: buying answers 503. */
   billing?: BillingProvider | null;
+  /** Sends sign-in codes by email. Null means not configured: email sign-in is hidden. */
+  mailer?: Mailer | null;
+  /** "Sign in with Google / Apple" providers that are configured. */
+  oauth?: Partial<Record<OAuthProviderName, OAuthProvider>>;
   /** Test hook: the current time. */
   clock?: () => Date;
 }
@@ -44,6 +50,8 @@ export async function buildApp({
   logStream,
   provider = null,
   billing = null,
+  mailer = null,
+  oauth = {},
   clock,
 }: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
@@ -99,7 +107,7 @@ export async function buildApp({
   });
 
   app.decorateRequest('auth', null);
-  authRoutes(app, { config, pool, provider, clock });
+  authRoutes(app, { config, pool, provider, clock, mailer, oauth });
   instituteRoutes(app, { config, pool, clock });
   batchRoutes(app, { config, pool, clock });
   studentRoutes(app, { config, pool, clock });
