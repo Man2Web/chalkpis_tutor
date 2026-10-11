@@ -91,13 +91,21 @@ async function main() {
   const oauth: Partial<Record<OAuthProviderName, OAuthProvider>> = {};
   if (config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET)
     oauth.google = new GoogleProvider(config.GOOGLE_CLIENT_ID, config.GOOGLE_CLIENT_SECRET);
-  if (config.APPLE_SERVICES_ID && config.APPLE_TEAM_ID && config.APPLE_KEY_ID && config.APPLE_PRIVATE_KEY)
-    oauth.apple = new AppleProvider({
-      servicesId: config.APPLE_SERVICES_ID,
-      teamId: config.APPLE_TEAM_ID,
-      keyId: config.APPLE_KEY_ID,
-      privateKey: config.APPLE_PRIVATE_KEY,
+  const appleMissing = (
+    ['APPLE_SERVICES_ID', 'APPLE_TEAM_ID', 'APPLE_KEY_ID', 'APPLE_PRIVATE_KEY'] as const
+  ).filter((k) => !config[k]);
+  if (appleMissing.length === 0) {
+    const apple = new AppleProvider({
+      servicesId: config.APPLE_SERVICES_ID!,
+      teamId: config.APPLE_TEAM_ID!,
+      keyId: config.APPLE_KEY_ID!,
+      privateKey: config.APPLE_PRIVATE_KEY!,
     });
+    // A key that does not parse would only fail at someone's sign-in; say so at startup instead.
+    if (await apple.keyWorks()) oauth.apple = apple;
+    else console.warn('Sign in with Apple is off: APPLE_PRIVATE_KEY is not a valid .p8 key.');
+  } else if (appleMissing.length < 4)
+    console.warn(`Sign in with Apple is off: missing ${appleMissing.join(', ')}.`);
   const app = await buildApp({ config, pool, provider, billing, mailer, oauth });
 
   const stopWorker = startWorker(

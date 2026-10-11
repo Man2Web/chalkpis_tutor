@@ -125,9 +125,18 @@ export class AppleProvider implements OAuthProvider {
     });
     return `https://appleid.apple.com/auth/authorize?${q}`;
   }
+  /** True when the .p8 key can sign; checked once at startup. */
+  async keyWorks() {
+    try {
+      await this.clientSecret();
+      return true;
+    } catch {
+      return false;
+    }
+  }
   /** Apple's "client secret" is a short JWT we sign with the .p8 key (ES256). */
   private async clientSecret() {
-    const key = await importPKCS8(this.opts.privateKey.replace(/\\n/g, '\n'), 'ES256');
+    const key = await importPKCS8(normalizePem(this.opts.privateKey), 'ES256');
     const iat = Math.floor(this.nowMs() / 1000);
     return new SignJWT({})
       .setProtectedHeader({ alg: 'ES256', kid: this.opts.keyId })
@@ -188,6 +197,20 @@ export class AppleProvider implements OAuthProvider {
       name,
     } satisfies Identity;
   }
+}
+
+/**
+ * The .p8 text however it was pasted (real newlines, "\n", spaces, wrapping quotes) back into a clean PEM:
+ * environment-variable boxes often mangle multi-line values.
+ */
+export function normalizePem(raw: string) {
+  const body = raw
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .replace(/\\n/g, '\n')
+    .replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '')
+    .replace(/\s+/g, '');
+  return `-----BEGIN PRIVATE KEY-----\n${(body.match(/.{1,64}/g) ?? []).join('\n')}\n-----END PRIVATE KEY-----\n`;
 }
 
 // ---------- state: what the start step hands to the callback, signed so nobody can forge it ----------

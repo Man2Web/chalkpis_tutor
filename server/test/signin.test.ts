@@ -351,4 +351,21 @@ describe('the real Google and Apple providers check every token', () => {
       aud: 'https://appleid.apple.com',
     });
   });
+
+  it('accepts the Apple key however it was pasted, and rejects one that is not a key', async () => {
+    const { privateKey } = await generateKeyPair('ES256', { extractable: true });
+    const p8 = await exportPKCS8(privateKey);
+    const body = p8.replace(/-----[A-Z ]+-----/g, '').replace(/\s+/g, '');
+    const pasted = [
+      p8, // as downloaded
+      p8.replace(/\n/g, '\\n'), // single line with \n
+      `"${p8.replace(/\n/g, '\\n')}"`, // with quotes
+      p8.replace(/\n/g, ' '), // line breaks turned into spaces
+      body, // just the base64
+    ];
+    const opts = { servicesId: 's', teamId: 't', keyId: 'k' };
+    for (const privateKey of pasted)
+      expect(await new AppleProvider({ ...opts, privateKey }).keyWorks()).toBe(true);
+    expect(await new AppleProvider({ ...opts, privateKey: 'not a key' }).keyWorks()).toBe(false);
+  });
 });
