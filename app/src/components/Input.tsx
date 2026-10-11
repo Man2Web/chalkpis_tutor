@@ -23,7 +23,9 @@ export const Input = forwardRef<TextInput, Props>(function Input(
       description={error ? undefined : hint}
       errorMessage={error}
       startContent={
-        prefix ? <Text className="text-base font-medium text-muted-foreground">{prefix}</Text> : undefined
+        prefix ? (
+          <Text className="text-base font-medium text-muted-foreground">{prefix}</Text>
+        ) : undefined
       }
       containerClassName="mb-3"
       {...rest}

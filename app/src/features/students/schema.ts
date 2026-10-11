@@ -5,16 +5,16 @@ import { parseRupeesToPaise } from '../../lib/money';
 const phone = (msg = 'phone') => z.string().refine((v) => normalizeIndianPhone(v) !== null, msg);
 
 export const studentSchema = z.object({
-  name: z.string().trim().min(2, 'required').max(80),
+  name: z.string().trim().min(2, 'required').max(80, 'tooLong'),
   phone: z.string().refine((v) => v.trim() === '' || normalizeIndianPhone(v) !== null, 'phone'),
-  parentName: z.string().trim().max(80),
+  parentName: z.string().trim().max(80, 'tooLong'),
   parentPhone: phone(),
-  class: z.string().trim().max(30),
+  class: z.string().trim().max(30, 'tooLong'),
   monthlyFee: z.string().refine((v) => parseRupeesToPaise(v) !== null, 'amount'),
   feeCycle: z.enum(['monthly', 'quarterly', 'one-time']),
   dueDay: z.number().int('dueDay').min(1, 'dueDay').max(31, 'dueDay'),
   notifyParent: z.boolean(),
-  notes: z.string().max(500).optional(),
+  notes: z.string().max(500, 'tooLong').optional(),
   /** yyyy-mm-dd or blank; never in the future. */
   dob: z
     .string()

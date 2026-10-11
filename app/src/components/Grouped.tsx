@@ -40,7 +40,9 @@ export function Section({
           </View>
         ))}
       </Card>
-      {footer ? <Text className="mx-1 mt-2 text-xs text-muted-foreground">{footer}</Text> : null}
+      {footer ? (
+        <Text className="mx-1 mt-2 font-normal text-xs text-muted-foreground">{footer}</Text>
+      ) : null}
     </View>
   );
 }
@@ -105,7 +107,8 @@ export function Row({
       onPress={onPress}
       disabled={toggle?.disabled}
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={onPress ? title : label}
+      // the value is read out with the title ("Language, English"), for buttons too
+      accessibilityLabel={label ?? (onPress ? title : undefined)}
       accessible={!toggle}
       className="min-h-12 rounded-none px-4"
     >
@@ -121,16 +124,14 @@ export function Row({
         >
           {title}
         </Item.Title>
-        {subtitle ? (
-          <Item.Description numberOfLines={2}>{subtitle}</Item.Description>
-        ) : null}
+        {subtitle ? <Item.Description numberOfLines={2}>{subtitle}</Item.Description> : null}
       </Item.Content>
       {right || value || toggle || (onPress && !destructive) ? (
         <Item.Actions>
           {right}
           {value ? (
             <Text
-              className="max-w-[50%] shrink text-base text-muted-foreground"
+              className="max-w-[50%] shrink font-normal text-base text-muted-foreground"
               numberOfLines={1}
             >
               {value}

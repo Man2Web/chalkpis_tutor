@@ -33,6 +33,15 @@ const schema = z.object({
   REFRESH_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(60),
   /** Development only: also return the login code in the response so it can be tried without WhatsApp. Ignored in production. */
   OTP_DEV_ECHO: flag('false'),
+  // App Store / Play review: this one number signs in with this fixed code and no WhatsApp message is sent.
+  // Leave unset except while a store review is running. The code must be 6 digits.
+  REVIEW_PHONE: z.string().min(10).max(16).optional(),
+  REVIEW_CODE: z
+    .string()
+    .regex(/^\d{6}$/)
+    .optional(),
+  // Most WhatsApp login codes sent per hour across everyone (each costs money); a flood beyond it waits.
+  OTP_GLOBAL_PER_HOUR: z.coerce.number().int().min(10).default(300),
 
   /** WhatsApp gateway for login codes. Optional at start; without it the login-code route answers 503. */
   WA_API_URL: z.string().url().optional(),

@@ -44,3 +44,16 @@ it('shows a friendly message when the server says too many tries', async () => {
     expect(screen.getByText('Too many attempts. Please wait a while and try again.')).toBeTruthy(),
   );
 });
+
+it('a code sent a moment ago still opens the code screen, with the wait carried over', async () => {
+  mockSend.mockRejectedValue(new ApiError(429, 'too_soon', { retryAfter: 37 }));
+  await render(<PhoneLoginScreen navigation={navigation} route={route} />);
+  await fireEvent.changeText(screen.getByLabelText('Mobile number'), '98765 43210');
+  await fireEvent.press(screen.getByRole('button', { name: 'Send code' }));
+  await waitFor(() =>
+    expect((navigation as { navigate: jest.Mock }).navigate).toHaveBeenCalledWith('Otp', {
+      phone: '+919876543210',
+      resendIn: 37,
+    }),
+  );
+});

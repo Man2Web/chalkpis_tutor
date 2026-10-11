@@ -70,3 +70,23 @@ it('steppers move by one and stop at the limits', async () => {
     expect(saveNotifySettings).toHaveBeenCalledWith('I1', { feeDueDaysBefore: 14 }),
   );
 });
+
+it('fast taps all count and are saved one after another, in order', async () => {
+  set({ enabled: true, feeDue: true, feeDueDaysBefore: 3 });
+  let release: () => void = () => undefined;
+  (saveNotifySettings as jest.Mock).mockImplementationOnce(
+    () => new Promise<void>((r) => (release = () => r())),
+  );
+  await render(<NotificationSettingsScreen />);
+  const plus = () => screen.getByRole('button', { name: 'Days before the due date +' });
+  await fireEvent.press(plus());
+  expect(screen.getByText('4')).toBeTruthy(); // shown at once
+  await fireEvent.press(plus());
+  expect(screen.getByText('5')).toBeTruthy();
+  // the second tap waits for the first save instead of racing it
+  expect(saveNotifySettings).toHaveBeenCalledTimes(1);
+  expect(saveNotifySettings).toHaveBeenLastCalledWith('I1', { feeDueDaysBefore: 4 });
+  release();
+  await waitFor(() => expect(saveNotifySettings).toHaveBeenCalledTimes(2));
+  expect(saveNotifySettings).toHaveBeenLastCalledWith('I1', { feeDueDaysBefore: 5 });
+});

@@ -48,6 +48,7 @@ export interface Tenant {
 }
 
 const TABLES = [
+  'idempotency_keys',
   'auth_tickets',
   'auth_identities',
   'email_codes',

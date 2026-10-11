@@ -7,7 +7,7 @@ import {
   Inter_800ExtraBold,
   useFonts,
 } from '@expo-google-fonts/inter';
-import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { AppState, Platform, View } from 'react-native';
@@ -18,6 +18,7 @@ import { Uniwind } from 'uniwind';
 import AnimatedSplash from './src/components/AnimatedSplash';
 import { useSession, useSessionBootstrap } from './src/features/auth/session';
 import { loadSavedLanguage } from './src/lib/language';
+import { queryClient } from './src/lib/queryClient';
 import { RootNavigator } from './src/navigation';
 
 // The app is designed in Panel light; screens use the light tokens directly, so PanelUI follows the same theme.
@@ -31,10 +32,6 @@ if (Platform.OS !== 'web') {
     return () => sub.remove();
   });
 }
-
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
-});
 
 /**
  * Ready once the saved sign-in has been checked and Inter has loaded (or failed to); never waits longer than 8 s, so a

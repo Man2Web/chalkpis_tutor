@@ -84,6 +84,9 @@ export function MarkAttendanceScreen({
         ? (savedDoc.reason ?? 'holiday')
         : null;
   const future = date > todayYmd();
+  // Without the saved day the roster would show everyone Present, and saving that would overwrite the real marks.
+  const docFailed = saved.isError;
+  const docReady = !docFailed && !saved.isLoading;
 
   // Functional update: two quick taps in a row must both count.
   const baseMark = useMemo(() => new Map(rows.map((r) => [r.student.id, r.mark])), [rows]);
@@ -97,6 +100,7 @@ export function MarkAttendanceScreen({
   };
 
   const save = async () => {
+    if (!docReady) return;
     setBusy(true);
     try {
       await saveAttendance({
@@ -126,6 +130,20 @@ export function MarkAttendanceScreen({
       </Screen>
     );
   }
+  if ((batches.isError && !batches.data) || (students.isError && !students.data))
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => {
+            if (batches.isError) void batches.refetch();
+            if (students.isError) void students.refetch();
+          }}
+        />
+      </Screen>
+    );
   if (!batch)
     return (
       <Screen>
@@ -141,7 +159,7 @@ export function MarkAttendanceScreen({
         {future ? (
           <Text style={[type.caption, { color: colors.danger }]}>{t('attendance.future')}</Text>
         ) : null}
-        {holiday ? (
+        {docFailed ? null : holiday ? (
           <Card style={{ backgroundColor: colors.primarySoft, gap: spacing.sm }}>
             <Text style={type.label}>
               {t(
@@ -190,7 +208,16 @@ export function MarkAttendanceScreen({
         )}
       </View>
 
-      {holiday ? (
+      {docFailed ? (
+        <View style={{ flex: 1, justifyContent: 'center' }}>
+          <EmptyState
+            icon="alert-circle-outline"
+            title={t('common.error')}
+            actionLabel={t('common.retry')}
+            onAction={() => void saved.refetch()}
+          />
+        </View>
+      ) : holiday ? (
         <View style={{ flex: 1 }} />
       ) : (
         <FlatList
@@ -268,7 +295,7 @@ export function MarkAttendanceScreen({
           title={t('common.save')}
           onPress={save}
           loading={busy}
-          disabled={future || (!holiday && rows.length === 0)}
+          disabled={!docReady || future || (!holiday && rows.length === 0)}
         />
       </View>
 

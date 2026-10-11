@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
+import { useIdempotencyKey } from '../../api/idempotency';
 import { Button, Card, Chip, EmptyState, Input, Screen, Skeleton, toast } from '../../components';
 import { useDue, useInstituteId, useRefreshData, useStudents } from '../../data/hooks';
 import { reportError, track } from '../../lib/analytics';
@@ -35,11 +36,27 @@ export function CollectFeeScreen({
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const idem = useIdempotencyKey();
 
   if (due.isLoading || students.isLoading)
     return (
       <Screen>
         <Skeleton height={96} />
+      </Screen>
+    );
+  // a failed load with nothing cached is not "not found": offer to try again
+  if ((due.isError && !due.data) || (students.isError && !students.data))
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => {
+            if (due.isError) void due.refetch();
+            if (students.isError) void students.refetch();
+          }}
+        />
       </Screen>
     );
   const d = due.data;
@@ -64,19 +81,24 @@ export function CollectFeeScreen({
     if (dateBad) return setError(t('validation.date'));
     setBusy(true);
     try {
-      const { paymentId } = await recordPayment({
-        instituteId,
-        uid,
-        dueId,
-        amount: paise,
-        mode,
-        paidOn: date,
-        note,
-      });
+      const { paymentId } = await recordPayment(
+        {
+          instituteId,
+          uid,
+          dueId,
+          amount: paise,
+          mode,
+          paidOn: date,
+          note,
+        },
+        { idempotencyKey: idem.key },
+      );
+      idem.reset();
       track('payment_recorded');
       await refresh();
       navigation.replace('Receipt', { paymentId });
     } catch (e) {
+      idem.settle(e);
       const key = (e as Error).message as FeeApiError;
       if (ERRORS.includes(key)) setError(t(`fees.errors.${key}`, { max: formatINR(owe) }));
       else {

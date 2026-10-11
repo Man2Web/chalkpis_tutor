@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { clientPlatform } from '../activity.js';
 import { z } from 'zod';
@@ -10,15 +11,18 @@ import {
   findAccount,
   identitiesOf,
   linkIdentity,
+  peekTicket,
+  useOnce,
   type Identity,
 } from '../auth/identity.js';
 import type { Mailer } from '../auth/mailer.js';
-
-type SignInMethod = 'whatsapp' | 'google' | 'apple' | 'email';
 import {
   allowedRedirect,
+  bindingOf,
+  newBinding,
   newNonce,
   readState,
+  redirectPrefixes,
   signState,
   type OAuthProvider,
   type OAuthProviderName,
@@ -26,6 +30,13 @@ import {
 import { requestOtp, verifyOtp } from '../auth/otp.js';
 import { endSession, refreshSession, startSession } from '../auth/sessions.js';
 import type { MessageProvider } from '../messaging/provider.js';
+
+type SignInMethod = 'whatsapp' | 'google' | 'apple' | 'email';
+/** What an OAuth ticket holds: who signed in, and the hash of the app's secret that may redeem it. */
+interface OAuthTicket {
+  identity: Identity;
+  bind: string;
+}
 
 const phoneBody = z.object({ phone: z.string().max(32) });
 const verifyBody = z.object({
@@ -36,7 +47,8 @@ const verifyBody = z.object({
 });
 const emailBody = z.object({ email: z.string().max(254) });
 const emailVerifyBody = z.object({ email: z.string().max(254), code: z.string().max(10) });
-const ticketBody = z.object({ ticket: z.string().max(100) });
+const ticketBody = z.object({ ticket: z.string().max(100), secret: z.string().min(20).max(100) });
+const beginBody = z.object({ redirect: z.string().max(300) });
 const meBody = z
   .object({ name: z.string().trim().min(2).max(80), language: z.enum(['en', 'hi']) })
   .partial()
@@ -167,14 +179,21 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
     async (req, reply) => {
       const body = verifyBody.safeParse(req.body);
       if (!body.success) return reply.code(400).send({ error: 'bad_request' });
-      // A pending Google / Apple / email sign-up must still be valid before the code is spent on it.
-      let pending: Identity | null = null;
-      if (body.data.signupToken) {
-        pending = await consumeTicket<Identity>(deps.pool, 'signup', body.data.signupToken, now());
-        if (!pending) return reply.code(410).send({ error: 'signup_expired' });
-      }
+      // A pending Google / Apple / email sign-up must still be valid; it is only looked at here, so a mistyped
+      // code does not throw the sign-up away, and is used up once the code is right.
+      const token = body.data.signupToken;
+      if (token && !(await peekTicket<Identity>(deps.pool, 'signup', token, now())))
+        return reply.code(410).send({ error: 'signup_expired' });
       const v = await verifyOtp(otpDeps, body.data.phone, body.data.code);
       if (!v.ok) return reply.code(401).send({ error: 'invalid_code' });
+      let pending: Identity | null = null;
+      if (token) {
+        pending = await consumeTicket<Identity>(deps.pool, 'signup', token, now());
+        if (!pending) return reply.code(410).send({ error: 'signup_expired' }); // used by a parallel request
+      }
+      // a blocked account gets nothing new linked to it (signIn refuses it just below)
+      if (pending && (await isBlocked(deps.pool, v.userId)))
+        return reply.code(403).send({ error: 'account_blocked' });
       // From now on that Google / Apple / email identity signs in to this mobile number's account (new or existing).
       if (pending) await linkIdentity(deps.pool, v.userId, pending, now());
       // a first Google / Apple / email sign-in finishes here, and counts as that method
@@ -239,25 +258,36 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
   const back = (redirect: string, q: Record<string, string>) =>
     `${redirect}${redirect.includes('?') ? '&' : '?'}${new URLSearchParams(q)}`;
 
-  app.get<{ Params: { provider: string }; Querystring: { redirect?: string } }>(
-    '/auth/oauth/:provider/start',
+  const prefixes = redirectPrefixes(deps.config.APP_REDIRECT_PREFIXES, deps.config.NODE_ENV);
+  /**
+   * Step 1, from the app: the provider's sign-in link, and a secret that stays in the app. Only its hash travels in
+   * the link, and the ticket at the end can be redeemed only with the secret, so a ticket that reaches anyone
+   * else (another app claiming our scheme, a copied link) is useless.
+   */
+  app.post<{ Params: { provider: string } }>(
+    '/auth/oauth/:provider/begin',
     { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
     async (req, reply) => {
       const p = req.params.provider as OAuthProviderName;
       const provider = deps.oauth?.[p];
       if (!provider || !deps.config.PUBLIC_BASE_URL)
         return reply.code(404).send({ error: 'not_found' });
-      const redirect = req.query.redirect;
-      if (!allowedRedirect(redirect, deps.config.APP_REDIRECT_PREFIXES))
+      const body = beginBody.safeParse(req.body);
+      if (!body.success || !allowedRedirect(body.data.redirect, prefixes))
         return reply.code(400).send({ error: 'bad_redirect' });
       const nonce = newNonce();
+      const { secret, bind } = newBinding();
       const state = await signState(
         deps.config.JWT_SECRET,
-        { provider: p, redirect, nonce },
+        { provider: p, redirect: body.data.redirect, nonce, bind },
         now().getTime(),
       );
-      return reply.redirect(provider.authorizeUrl({ state, nonce, redirectUri: callbackUrl(p) }));
+      return { url: provider.authorizeUrl({ state, nonce, redirectUri: callbackUrl(p) }), secret };
     },
+  );
+  // The old one-step start (no secret) is gone; an app that still uses it is asked to update.
+  app.get('/auth/oauth/:provider/start', async (_req, reply) =>
+    reply.code(410).send({ error: 'update_required' }),
   );
 
   // Both callbacks: check the signed state, exchange the code, then send the person back to the app with a
@@ -271,7 +301,9 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
     if (
       !state ||
       state.provider !== p ||
-      !allowedRedirect(state.redirect, deps.config.APP_REDIRECT_PREFIXES)
+      !allowedRedirect(state.redirect, prefixes) ||
+      // each state works once: a replayed callback (to sign someone into another account) is refused
+      !(await useOnce(deps.pool, 'state', state.nonce, now()))
     )
       return reply
         .code(400)
@@ -285,7 +317,12 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
         redirectUri: callbackUrl(p),
         extra: q.user ? { user: q.user } : undefined,
       });
-      const ticket = await createTicket(deps.pool, 'oauth', identity, now());
+      const ticket = await createTicket(
+        deps.pool,
+        'oauth',
+        { identity, bind: state.bind } satisfies OAuthTicket,
+        now(),
+      );
       return reply.redirect(back(state.redirect, { ticket }));
     } catch {
       return reply.redirect(back(state.redirect, { error: 'failed' }));
@@ -321,9 +358,13 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
     async (req, reply) => {
       const body = ticketBody.safeParse(req.body);
       if (!body.success) return reply.code(400).send({ error: 'bad_request' });
-      const identity = await consumeTicket<Identity>(deps.pool, 'oauth', body.data.ticket, now());
-      if (!identity) return reply.code(401).send({ error: 'invalid_ticket' });
-      return finish(identity, req, reply);
+      const t = await consumeTicket<OAuthTicket>(deps.pool, 'oauth', body.data.ticket, now());
+      if (!t?.identity) return reply.code(401).send({ error: 'invalid_ticket' });
+      const given = Buffer.from(bindingOf(body.data.secret));
+      const expected = Buffer.from(t.bind ?? '');
+      if (given.length !== expected.length || !timingSafeEqual(given, expected))
+        return reply.code(401).send({ error: 'bad_binding' });
+      return finish(t.identity, req, reply);
     },
   );
 

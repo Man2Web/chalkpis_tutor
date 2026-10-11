@@ -1,22 +1,32 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Svg, { Path } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Logo, Screen, toast } from '../../components';
+import { Logo, toast } from '../../components';
 import { haptic } from '../../lib/haptics';
 import { reportError } from '../../lib/analytics';
 import type { AuthStackParams } from '../../navigation/types';
-import { colors, font, radius, spacing, type } from '../../theme';
+import { colors, column, font, radius, spacing, type } from '../../theme';
+import { BrandBackdrop, BRAND_DEEP, Float, PreviewCard } from './brand';
 import { authErrorKey } from './authErrors';
 import { lastSignInMethod, type SignInMethod } from './phoneAuth';
 import { oauthSignIn, signInMethods, type Methods } from './signIn';
 
-const FEATURES = [
-  { icon: 'checkmark-circle', color: colors.successFill, key: 'attendance' },
-  { icon: 'qr-code', color: colors.infoFill, key: 'fees' },
-  { icon: 'logo-whatsapp', color: '#25D366', key: 'parents' },
+/** What a tutor's day looks like in Chalkpis, as three little cards floating in the hero. */
+const CARDS = [
+  {
+    icon: 'checkmark-circle',
+    tint: '#16A34A',
+    key: 'Attendance',
+    rotate: '-3deg',
+    align: 'flex-start',
+  },
+  { icon: 'cash-outline', tint: '#0E77BE', key: 'Fee', rotate: '2.5deg', align: 'flex-end' },
+  { icon: 'logo-whatsapp', tint: '#1DA851', key: 'Parent', rotate: '-1.5deg', align: 'center' },
 ] as const;
 
 /** Google's four-colour "G", as its sign-in branding asks for (never a one-colour icon). */
@@ -147,6 +157,8 @@ export function LanguageScreen({
   });
   const [busy, setBusy] = useState<'google' | 'apple' | null>(null);
   const [last, setLast] = useState<SignInMethod | null>(null);
+  // `busy` disables the buttons only after a render; two taps in one frame must not open two sign-in sheets
+  const opening = useRef(false);
 
   useEffect(() => {
     void signInMethods().then(setMethods);
@@ -154,6 +166,8 @@ export function LanguageScreen({
   }, []);
 
   const withProvider = async (p: 'google' | 'apple') => {
+    if (opening.current) return;
+    opening.current = true;
     setBusy(p);
     try {
       const r = await oauthSignIn(p);
@@ -170,6 +184,7 @@ export function LanguageScreen({
         'error',
       );
     } finally {
+      opening.current = false;
       setBusy(null);
     }
   };
@@ -180,91 +195,152 @@ export function LanguageScreen({
   const social: ('apple' | 'google')[] = Platform.OS === 'ios' ? ['apple', 'google'] : ['google'];
   const tag = (m: SignInMethod) => (last === m ? t('auth.lastUsed') : undefined);
 
+  const insets = useSafeAreaInsets();
+  // the cards only show when the hero has room for them (they are illustration, never needed to sign in)
+  const [heroH, setHeroH] = useState(0);
+  const cards = heroH >= 430 ? 3 : heroH >= 340 ? 2 : heroH >= 260 ? 1 : 0;
+
   return (
-    <Screen>
-      <View
-        style={{ flex: 1, justifyContent: 'center', gap: spacing.xl, paddingVertical: spacing.lg }}
+    <View style={{ flex: 1, backgroundColor: BRAND_DEEP }}>
+      <StatusBar style="light" />
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        bounces={false}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={{ alignItems: 'center', gap: spacing.md }}>
-          <Logo height={34} />
-          <Text style={[type.title1, { textAlign: 'center' }]}>{t('auth.welcomeHeadline')}</Text>
-          <Text style={[type.callout, { textAlign: 'center', color: colors.textMuted }]}>
-            {t('app.tagline')}
-          </Text>
-        </View>
-
-        <View style={{ gap: spacing.md, paddingHorizontal: spacing.sm }}>
-          {FEATURES.map((f) => (
-            <View
-              key={f.key}
-              style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}
+        {/* Hero: brand blue, the logo, the promise, and a glimpse of the app */}
+        <View
+          style={{
+            flex: 1,
+            minHeight: 230,
+            paddingTop: Math.max(insets.top, spacing.lg) + spacing.lg,
+            overflow: 'hidden',
+          }}
+          onLayout={(e) => setHeroH(e.nativeEvent.layout.height)}
+        >
+          <BrandBackdrop />
+          <View style={[column, { width: '100%', flex: 1, paddingHorizontal: spacing.xl }]}>
+            <Logo height={30} variant="full" color="#FFFFFF" markColor="#FFFFFF" />
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.8)',
+                fontSize: 13,
+                ...font('600'),
+                marginTop: spacing.xl,
+                letterSpacing: 0.3,
+              }}
             >
-              <Ionicons name={f.icon} size={26} color={f.color} />
-              <View style={{ flex: 1 }}>
-                <Text style={type.label}>{t(`welcome.${f.key}Title`)}</Text>
-                <Text style={type.footnote}>{t(`welcome.${f.key}Text`)}</Text>
-              </View>
+              {t('auth.welcomeKicker').toUpperCase()}
+            </Text>
+            <Text
+              accessibilityRole="header"
+              maxFontSizeMultiplier={1.4}
+              style={{
+                color: '#FFFFFF',
+                fontSize: 32,
+                lineHeight: 38,
+                ...font('800'),
+                marginTop: 6,
+              }}
+            >
+              {t('auth.welcomeHeadline')}
+            </Text>
+            <View
+              style={{
+                flex: 1,
+                justifyContent: 'center',
+                gap: spacing.md,
+                paddingTop: spacing.lg,
+                paddingBottom: 44,
+              }}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
+              {CARDS.slice(0, cards).map((c, i) => (
+                <View key={c.key} style={{ alignSelf: c.align }}>
+                  <Float delay={250 + i * 160} drift={5 + i} rotate={c.rotate}>
+                    <PreviewCard
+                      icon={c.icon}
+                      tint={c.tint}
+                      title={t(`welcome.card${c.key}Title`)}
+                      text={t(`welcome.card${c.key}Text`)}
+                    />
+                  </Float>
+                </View>
+              ))}
             </View>
-          ))}
+          </View>
         </View>
-      </View>
 
-      <View style={{ gap: spacing.sm }}>
-        {methods.whatsapp ? (
-          <ProviderButton
-            look="whatsapp"
-            label={t('auth.continueWhatsApp')}
-            onPress={() => navigation.navigate('Phone')}
-            disabled={!!busy}
-            lastUsed={tag('whatsapp')}
-          />
-        ) : null}
-        {social.map((p) =>
-          methods[p] ? (
-            <ProviderButton
-              key={p}
-              look={p}
-              label={t(p === 'google' ? 'auth.continueGoogle' : 'auth.continueApple')}
-              onPress={() => void withProvider(p)}
-              busy={busy === p}
-              disabled={!!busy}
-              lastUsed={tag(p)}
-            />
-          ) : null,
-        )}
-        {methods.email ? (
-          <ProviderButton
-            look="email"
-            label={t('auth.continueEmail')}
-            onPress={() => navigation.navigate('Email')}
-            disabled={!!busy}
-            lastUsed={tag('email')}
-          />
-        ) : null}
-        <Text style={[type.footnote, { textAlign: 'center', marginTop: spacing.xs }]}>
-          {t('auth.newHere')}
-        </Text>
-      </View>
-
-      <Text style={[type.caption2, { textAlign: 'center', marginTop: spacing.md }]}>
-        {t('legal.agreePrefix')}{' '}
-        <Text
-          style={{ color: colors.text, ...font('600') }}
-          onPress={() => navigation.navigate('Legal', { doc: 'terms' })}
-          accessibilityRole="link"
+        {/* Sheet: every way in, sign-up and sign-in alike */}
+        <View
+          style={{
+            backgroundColor: colors.bg,
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            marginTop: -28,
+            paddingTop: spacing.xl,
+            paddingHorizontal: spacing.lg,
+            paddingBottom: insets.bottom + spacing.md,
+          }}
         >
-          {t('legal.terms')}
-        </Text>{' '}
-        {t('legal.and')}{' '}
-        <Text
-          style={{ color: colors.text, ...font('600') }}
-          onPress={() => navigation.navigate('Legal', { doc: 'privacy' })}
-          accessibilityRole="link"
-        >
-          {t('legal.privacy')}
-        </Text>
-        .
-      </Text>
-    </Screen>
+          <View style={[column, { width: '100%', gap: spacing.sm }]}>
+            {methods.whatsapp ? (
+              <ProviderButton
+                look="whatsapp"
+                label={t('auth.continueWhatsApp')}
+                onPress={() => navigation.navigate('Phone')}
+                disabled={!!busy}
+                lastUsed={tag('whatsapp')}
+              />
+            ) : null}
+            {social.map((p) =>
+              methods[p] ? (
+                <ProviderButton
+                  key={p}
+                  look={p}
+                  label={t(p === 'google' ? 'auth.continueGoogle' : 'auth.continueApple')}
+                  onPress={() => void withProvider(p)}
+                  busy={busy === p}
+                  disabled={!!busy}
+                  lastUsed={tag(p)}
+                />
+              ) : null,
+            )}
+            {methods.email ? (
+              <ProviderButton
+                look="email"
+                label={t('auth.continueEmail')}
+                onPress={() => navigation.navigate('Email')}
+                disabled={!!busy}
+                lastUsed={tag('email')}
+              />
+            ) : null}
+            <Text style={[type.footnote, { textAlign: 'center', marginTop: spacing.xs }]}>
+              {t('auth.newHere')}
+            </Text>
+            <Text style={[type.caption2, { textAlign: 'center', marginTop: spacing.sm }]}>
+              {t('legal.agreePrefix')}{' '}
+              <Text
+                style={{ color: colors.text, ...font('600') }}
+                onPress={() => navigation.navigate('Legal', { doc: 'terms' })}
+                accessibilityRole="link"
+              >
+                {t('legal.terms')}
+              </Text>{' '}
+              {t('legal.and')}{' '}
+              <Text
+                style={{ color: colors.text, ...font('600') }}
+                onPress={() => navigation.navigate('Legal', { doc: 'privacy' })}
+                accessibilityRole="link"
+              >
+                {t('legal.privacy')}
+              </Text>
+              .
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }

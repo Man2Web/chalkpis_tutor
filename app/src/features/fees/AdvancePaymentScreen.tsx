@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../api/client';
+import { useIdempotencyKey } from '../../api/idempotency';
 import { Button, Card, Chip, EmptyState, Screen, Skeleton, toast } from '../../components';
 import { useRefreshData, useStudentDues, useStudents } from '../../data/hooks';
 import { reportError, track } from '../../lib/analytics';
@@ -27,12 +28,28 @@ export function AdvancePaymentScreen({
   const [picked, setPicked] = useState<string[]>([]);
   const [mode, setMode] = useState<PayMode>('upi');
   const [busy, setBusy] = useState(false);
+  const idem = useIdempotencyKey();
   const locale = i18n.language === 'hi' ? 'hi-IN' : 'en-IN';
 
   if (students.isLoading || dues.isLoading)
     return (
       <Screen>
         <Skeleton height={160} />
+      </Screen>
+    );
+  // a failed load with nothing cached is not "not found": offer to try again
+  if ((students.isError && !students.data) || (dues.isError && !dues.data))
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => {
+            if (students.isError) void students.refetch();
+            if (dues.isError) void dues.refetch();
+          }}
+        />
       </Screen>
     );
   const s = students.data?.find((x) => x.id === studentId);
@@ -73,7 +90,9 @@ export function AdvancePaymentScreen({
         'POST',
         '/fees/advance',
         { studentId, months: picked, mode },
+        { idempotencyKey: idem.key },
       );
+      idem.reset();
       track('payment_recorded');
       await refresh();
       toast(
@@ -82,6 +101,7 @@ export function AdvancePaymentScreen({
       );
       navigation.goBack();
     } catch (e) {
+      idem.settle(e);
       if (e instanceof ApiError && e.code === 'already_paid')
         toast(t('fees.advanceNothing'), 'error');
       else {
@@ -121,7 +141,7 @@ export function AdvancePaymentScreen({
       </View>
       <Card style={{ marginTop: spacing.md, gap: 2 }}>
         <Text style={type.caption}>{t('fees.advanceTotal', { count: picked.length })}</Text>
-        <Text style={[type.heading, { fontSize: 24 }]}>{formatINR(total)}</Text>
+        <Text style={[type.heading, { fontSize: 24, lineHeight: 30 }]}>{formatINR(total)}</Text>
         <Text style={type.caption}>{t('fees.advanceHint')}</Text>
       </Card>
       <Button

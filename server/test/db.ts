@@ -26,6 +26,7 @@ export const testConfig = (over: Partial<Config> = {}): Config => ({
   HOST: '127.0.0.1',
   LOG_LEVEL: 'silent',
   RATE_LIMIT_PER_MIN: 300,
+  OTP_GLOBAL_PER_HOUR: 300,
   TRIAL_DAYS: 7,
   CORS_ORIGINS: [],
   WA_CLOUD_API_VERSION: 'v23.0',

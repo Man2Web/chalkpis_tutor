@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { EmptyState, Row, Screen, Section, Skeleton, toast } from '../../components';
@@ -63,6 +64,42 @@ export function NotificationSettingsScreen() {
   const instituteId = useInstituteId();
   const settings = useNotifySettings();
   const refresh = useRefreshData();
+  // Choices show at once (optimistic); saves go one at a time, in order, so fast taps all count and an older
+  // save can never land after a newer one. The local layer is dropped once the server copy has caught up.
+  const [draft, setDraft] = useState<Partial<NotifySettings>>({});
+  const pending = useRef<Partial<NotifySettings> | null>(null);
+  const saving = useRef(false);
+
+  const flush = async () => {
+    if (saving.current) return; // the running loop picks up what was just queued
+    saving.current = true;
+    try {
+      do {
+        while (pending.current) {
+          const patch = pending.current;
+          pending.current = null;
+          try {
+            await saveNotifySettings(instituteId, patch);
+          } catch (e) {
+            // show what the server has again; taps queued behind a failed save are dropped with it
+            pending.current = null;
+            reportError(e);
+            toast(t('common.error'), 'error');
+          }
+        }
+        await refresh().catch(() => undefined);
+      } while (pending.current);
+    } finally {
+      saving.current = false;
+      setDraft({});
+    }
+  };
+
+  const set = (patch: Partial<NotifySettings>) => {
+    setDraft((d) => ({ ...d, ...patch }));
+    pending.current = { ...pending.current, ...patch };
+    void flush();
+  };
 
   if (settings.isLoading)
     return (
@@ -81,17 +118,7 @@ export function NotificationSettingsScreen() {
         />
       </Screen>
     );
-  const s = settings.data;
-
-  const set = async (patch: Partial<NotifySettings>) => {
-    try {
-      await saveNotifySettings(instituteId, patch);
-      await refresh();
-    } catch (e) {
-      reportError(e);
-      toast(t('common.error'), 'error');
-    }
-  };
+  const s: NotifySettings = { ...settings.data, ...draft };
   const off = !s.enabled;
 
   return (

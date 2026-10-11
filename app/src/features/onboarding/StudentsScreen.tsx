@@ -1,3 +1,4 @@
+import { useIdempotencyKey } from '../../api/idempotency';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { useForm } from 'react-hook-form';
@@ -18,6 +19,7 @@ export function StudentsScreen({
   route,
 }: NativeStackScreenProps<OnboardingStackParams, 'Students'>) {
   const { t } = useTranslation();
+  const idem = useIdempotencyKey();
   const { batchId, defaultFee } = route.params;
   const { uid, profile } = useSession();
   const instituteId = profile?.instituteId;
@@ -43,10 +45,14 @@ export function StudentsScreen({
   const add = handleSubmit(async (values) => {
     if (!instituteId) return;
     try {
-      await createStudent(instituteId, values, [batchId]);
+      await createStudent(instituteId, values, [batchId], undefined, {
+        idempotencyKey: idem.key,
+      });
+      idem.reset();
       setAdded((a) => [...a, values.name.trim()]);
       reset(blank);
     } catch (e) {
+      idem.settle(e);
       reportError(e);
       toast(t('common.error'), 'error');
     }
@@ -79,7 +85,7 @@ export function StudentsScreen({
           <Text style={type.caption}>{added.join(', ')}</Text>
         </Card>
       )}
-      <FormInput control={control} name="name" label={t('onboarding.studentName')} />
+      <FormInput control={control} name="name" label={t('onboarding.studentName')} maxLength={80} />
       <FormInput
         control={control}
         name="parentPhone"

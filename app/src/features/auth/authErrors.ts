@@ -35,7 +35,20 @@ export function authErrorKey(e: unknown): AuthErrorKey {
     case 'too_many':
     case 'rate_limited':
       return 'tooMany';
-    default:
+    // Google / Apple: the ticket came back to a different app instance, or this app is older than the server's
+    // sign-in flow; both show as "could not sign in with …"
+    case 'bad_binding':
+    case 'update_required':
       return 'generic';
+    default:
+      // any other limit (the server's general limiter answers {error: 'Too Many Requests'})
+      return e.status === 429 ? 'tooMany' : 'generic';
   }
+}
+
+/** Seconds until another code may be sent, when the server refused one because the last was too recent. */
+export function resendWaitOf(e: unknown): number | null {
+  if (!(e instanceof ApiError) || e.code !== 'too_soon') return null;
+  const s = e.extra.retryAfter;
+  return typeof s === 'number' && s > 0 ? Math.ceil(s) : null;
 }

@@ -99,16 +99,39 @@ async function parse<T>(res: Response): Promise<T> {
   return body as T;
 }
 
+export interface ApiOptions {
+  /** Makes a create or money request safe to repeat: the server answers a repeat with the first answer. See ./idempotency. */
+  idempotencyKey?: string;
+}
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /** JSON request with sign-in, automatic refresh and one retry. */
-export async function api<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
-  return parse<T>(
-    await call(path, {
-      method,
-      ...(body === undefined
-        ? {}
-        : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
-    }),
-  );
+export async function api<T = unknown>(
+  method: string,
+  path: string,
+  body?: unknown,
+  opts: ApiOptions = {},
+): Promise<T> {
+  const headers: Record<string, string> = {
+    ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    ...(opts.idempotencyKey ? { 'Idempotency-Key': opts.idempotencyKey } : {}),
+  };
+  const init: Init = {
+    method,
+    headers,
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  };
+  try {
+    return await parse<T>(await call(path, init));
+  } catch (e) {
+    // the same request (a double tap, or a retry after a lost answer) is still running on the server: its answer
+    // will be stored under this key, so wait a moment and ask once more
+    if (!opts.idempotencyKey || !(e instanceof ApiError) || e.code !== 'request_in_progress')
+      throw e;
+    await wait(1000);
+    return parse<T>(await call(path, init));
+  }
 }
 
 /** Calls that must work without being signed in (login). */

@@ -4,7 +4,21 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
-import { InsetSeparator, listCard, SearchField, Avatar, BottomSheet, Button, Chip, EmptyState, ListItem, Screen, Skeleton, UpgradePrompt, TopBar } from '../../components';
+import {
+  InsetSeparator,
+  listCard,
+  SearchField,
+  Avatar,
+  BottomSheet,
+  Button,
+  Chip,
+  EmptyState,
+  ListItem,
+  Screen,
+  Skeleton,
+  UpgradePrompt,
+  TopBar,
+} from '../../components';
 import { useAddGuard } from '../../data/guards';
 import { useBatches, usePendingStudentIds, useStudents } from '../../data/hooks';
 import type { MainStackParams } from '../../navigation/types';

@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { createRemoteJWKSet, importPKCS8, jwtVerify, SignJWT, type JWTVerifyGetKey } from 'jose';
 import type { Identity } from './identity.js';
 
@@ -221,6 +221,8 @@ export interface OAuthState {
   provider: OAuthProviderName;
   redirect: string;
   nonce: string;
+  /** SHA-256 of a secret only the app holds; the ticket is redeemed only with that secret. */
+  bind: string;
 }
 
 const secretKey = (secret: string) => new TextEncoder().encode(`oauth-state:${secret}`);
@@ -245,20 +247,37 @@ export async function readState(
       algorithms: ['HS256'],
       currentDate: new Date(nowMs),
     });
-    const { provider, redirect, nonce } = payload as unknown as OAuthState;
+    const { provider, redirect, nonce, bind } = payload as unknown as OAuthState;
     if (
       (provider !== 'google' && provider !== 'apple') ||
       typeof redirect !== 'string' ||
-      typeof nonce !== 'string'
+      typeof nonce !== 'string' ||
+      typeof bind !== 'string'
     )
       return null;
-    return { provider, redirect, nonce };
+    return { provider, redirect, nonce, bind };
   } catch {
     return null;
   }
 }
 
 export const newNonce = () => randomBytes(16).toString('base64url');
+
+/** The secret the app keeps for one sign-in, and its hash that travels inside the state. */
+export function newBinding() {
+  const secret = randomBytes(32).toString('base64url');
+  return { secret, bind: bindingOf(secret) };
+}
+export const bindingOf = (secret: string) =>
+  createHash('sha256').update(secret).digest('base64url');
+
+/**
+ * Where a sign-in may be sent: the app's own scheme. `exp://` (Expo Go during development) is accepted only
+ * outside production, where anyone could point it at their own computer and collect the ticket.
+ */
+export function redirectPrefixes(prefixes: string[], nodeEnv: string) {
+  return nodeEnv === 'production' ? prefixes.filter((x) => !x.startsWith('exp://')) : prefixes;
+}
 
 /** Only the app (and, in development, configured web origins) may receive a sign-in. */
 export const allowedRedirect = (redirect: unknown, prefixes: string[]): redirect is string =>

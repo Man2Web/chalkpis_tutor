@@ -117,7 +117,9 @@ export function AttendanceReportScreen({
             <Button variant="secondary" title={t('attendance.exportExcel')} onPress={exportExcel} />
             <Card style={{ gap: spacing.xs }}>
               <Text style={type.caption}>{t('attendance.average')}</Text>
-              <Text style={[type.title, { fontSize: 32 }]}>{data.overall.pct}%</Text>
+              <Text style={[type.title, { fontSize: 32, lineHeight: 38 }]}>
+                {data.overall.pct}%
+              </Text>
               <Text style={type.caption}>
                 {t('attendance.sessions', { count: data.overall.sessions })}
               </Text>

@@ -1,4 +1,4 @@
-import { api } from '../../api/client';
+import { api, type ApiOptions } from '../../api/client';
 
 export interface CreatedLink {
   url: string;
@@ -15,11 +15,13 @@ export async function createParentLink(
   studentId: string,
   days: number,
   sendWhatsApp = true,
+  opts?: ApiOptions,
 ): Promise<CreatedLink & { sent: boolean }> {
   const r = await api<{ url: string; expiresAt: string; sent?: boolean }>(
     'POST',
     `/students/${studentId}/parent-link`,
     { days, sendWhatsApp },
+    opts,
   );
   return { url: r.url, expiresAt: r.expiresAt, sent: !!r.sent };
 }

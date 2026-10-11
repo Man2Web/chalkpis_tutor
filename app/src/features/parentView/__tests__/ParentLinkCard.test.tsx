@@ -36,7 +36,11 @@ it('says there is no link yet, and creates one for the chosen number of days', a
   expect(await screen.findByText('No active link')).toBeTruthy();
   await fireEvent.press(screen.getByRole('button', { name: '7 days' }));
   await fireEvent.press(screen.getByRole('button', { name: 'Send link to parent on WhatsApp' }));
-  await waitFor(() => expect(createParentLink).toHaveBeenCalledWith('s1', 7));
+  await waitFor(() =>
+    expect(createParentLink).toHaveBeenCalledWith('s1', 7, true, {
+      idempotencyKey: expect.stringMatching(/-7$/),
+    }),
+  );
   expect(await screen.findByText('https://x.web.app/p/TOKEN')).toBeTruthy();
 });
 
@@ -50,7 +54,11 @@ it('the server sends the link to the parent through the WhatsApp API', async () 
   await fireEvent.press(
     await screen.findByRole('button', { name: 'Send link to parent on WhatsApp' }),
   );
-  await waitFor(() => expect(createParentLink).toHaveBeenCalledWith('s1', 30));
+  await waitFor(() =>
+    expect(createParentLink).toHaveBeenCalledWith('s1', 30, true, {
+      idempotencyKey: expect.stringMatching(/-30$/),
+    }),
+  );
   expect(await screen.findByText('https://x.web.app/p/TOKEN')).toBeTruthy();
 });
 

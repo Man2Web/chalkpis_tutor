@@ -1,6 +1,6 @@
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
-import { ApiError, apiPublic, API_URL } from '../../api/client';
+import { ApiError, apiPublic } from '../../api/client';
 import { complete, startingWith, type NeedsPhone } from './phoneAuth';
 
 export interface Methods {
@@ -43,20 +43,26 @@ WebBrowser.maybeCompleteAuthSession();
 
 /**
  * Sign in with Google or Apple: our server runs the provider's sign-in in a secure browser sheet and sends the
- * person back to the app with a one-time ticket, which is traded here for a session. Null when cancelled.
+ * person back to the app with a one-time ticket, which is traded here for a session. The server first hands this
+ * app a secret along with the sign-in address; the ticket only works together with that secret, so a ticket caught
+ * on its way back (another app claiming the link) is useless. 'cancelled' when the person backed out.
  */
 export async function oauthSignIn(
   provider: 'google' | 'apple',
 ): Promise<NeedsPhone | null | 'cancelled'> {
   startingWith(provider);
   const redirect = Linking.createURL('auth');
-  const start = `${API_URL}/auth/oauth/${provider}/start?redirect=${encodeURIComponent(redirect)}`;
-  const result = await WebBrowser.openAuthSessionAsync(start, redirect);
+  const { url, secret } = await apiPublic<{ url: string; secret: string }>(
+    'POST',
+    `/auth/oauth/${provider}/begin`,
+    { redirect },
+  );
+  const result = await WebBrowser.openAuthSessionAsync(url, redirect);
   if (result.type !== 'success') return 'cancelled';
   const params = new URL(result.url).searchParams;
   const error = params.get('error');
   if (error === 'cancelled') return 'cancelled';
   const ticket = params.get('ticket');
   if (!ticket) throw new ApiError(400, error ?? 'failed');
-  return complete(await apiPublic('POST', '/auth/ticket', { ticket }));
+  return complete(await apiPublic('POST', '/auth/ticket', { ticket, secret }));
 }

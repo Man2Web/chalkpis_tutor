@@ -66,7 +66,8 @@ export const fonts = {
  */
 export function font(weight: TextStyle['fontWeight'] = '400'): TextStyle {
   const w = weight === 'bold' ? '700' : weight === 'normal' ? '400' : String(weight);
-  const fontFamily = fonts[w as keyof typeof fonts] ?? (Number(w) > 700 ? fonts['800'] : fonts['400']);
+  const fontFamily =
+    fonts[w as keyof typeof fonts] ?? (Number(w) > 700 ? fonts['800'] : fonts['400']);
   return Platform.OS === 'android' ? { fontFamily } : { fontFamily, fontWeight: weight };
 }
 
@@ -78,21 +79,51 @@ export const fs = (size: number) => size * Math.min(PixelRatio.getFontScale(), 1
 
 /** The type scale, set in Inter with Panel's slightly tight tracking. Older names kept so every screen moves at once. */
 export const type = {
-  largeTitle: { fontSize: 30, lineHeight: 36, ...font('700'), letterSpacing: -0.6, color: colors.text },
+  largeTitle: {
+    fontSize: 30,
+    lineHeight: 36,
+    ...font('700'),
+    letterSpacing: -0.6,
+    color: colors.text,
+  },
   title1: { fontSize: 26, lineHeight: 32, ...font('700'), letterSpacing: -0.5, color: colors.text },
   title: { fontSize: 26, lineHeight: 32, ...font('700'), letterSpacing: -0.5, color: colors.text },
   title2: { fontSize: 22, lineHeight: 28, ...font('700'), letterSpacing: -0.4, color: colors.text },
   title3: { fontSize: 19, lineHeight: 24, ...font('600'), letterSpacing: -0.3, color: colors.text },
-  heading: { fontSize: 16, lineHeight: 22, ...font('600'), letterSpacing: -0.2, color: colors.text },
+  heading: {
+    fontSize: 16,
+    lineHeight: 22,
+    ...font('600'),
+    letterSpacing: -0.2,
+    color: colors.text,
+  },
   body: { fontSize: 16, lineHeight: 22, ...font('400'), letterSpacing: -0.15, color: colors.text },
-  callout: { fontSize: 15, lineHeight: 21, ...font('400'), letterSpacing: -0.1, color: colors.text },
-  subhead: { fontSize: 14, lineHeight: 20, ...font('400'), letterSpacing: -0.05, color: colors.text },
+  callout: {
+    fontSize: 15,
+    lineHeight: 21,
+    ...font('400'),
+    letterSpacing: -0.1,
+    color: colors.text,
+  },
+  subhead: {
+    fontSize: 14,
+    lineHeight: 20,
+    ...font('400'),
+    letterSpacing: -0.05,
+    color: colors.text,
+  },
   label: { fontSize: 14, lineHeight: 20, ...font('600'), letterSpacing: -0.1, color: colors.text },
   footnote: { fontSize: 13, lineHeight: 18, ...font('400'), color: colors.textMuted },
   caption: { fontSize: 13, lineHeight: 18, ...font('400'), color: colors.textMuted },
   caption2: { fontSize: 12, lineHeight: 16, ...font('400'), color: colors.textMuted },
   /** The small grey label above a field or a group of choices (same as Input's label). */
-  fieldLabel: { fontSize: 13, lineHeight: 18, ...font('500'), color: colors.textMuted, marginLeft: 2 },
+  fieldLabel: {
+    fontSize: 13,
+    lineHeight: 18,
+    ...font('500'),
+    color: colors.textMuted,
+    marginLeft: 2,
+  },
   sectionHeader: {
     fontSize: 11,
     lineHeight: 16,

@@ -8,6 +8,7 @@ import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
 import { idParam, parse } from '../lib/params.js';
 import { sendParentLinkNow } from '../messaging/sendNow.js';
 import {
+  dropParentLink,
   DEFAULT_LINK_DAYS,
   MAX_LINK_DAYS,
   buildParentView,
@@ -58,7 +59,13 @@ export function parentRoutes(app: FastifyInstance, deps: Deps) {
     const url = `${config.PUBLIC_BASE_URL ?? ''}/p/${l.token}`;
     let sent = false;
     if (sendWhatsApp) {
-      await sendParentLinkNow(pool, inst(req), sid(req), url, now());
+      try {
+        await sendParentLinkNow(pool, inst(req), sid(req), url, now());
+      } catch (e) {
+        // not sent (sent a moment ago, plan ended...): this new link reached no one, so it must not stay valid
+        await dropParentLink(pool, l.token);
+        throw e;
+      }
       sent = true;
     }
     return reply

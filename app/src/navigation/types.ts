@@ -3,9 +3,10 @@ export type AuthStackParams = {
   Language: undefined;
   /** With a signupToken: a new Google / Apple / email person adding their mobile number once. */
   Phone: { signupToken?: string; email?: string | null; name?: string | null } | undefined;
-  Otp: { phone: string; signupToken?: string };
+  /** resendIn: seconds before another code may be sent (the server said the last one was too recent). */
+  Otp: { phone: string; signupToken?: string; resendIn?: number };
   Email: undefined;
-  EmailCode: { email: string };
+  EmailCode: { email: string; resendIn?: number };
 };
 
 export type OnboardingStackParams = {

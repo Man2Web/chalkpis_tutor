@@ -2,6 +2,7 @@ import type { Pool } from '../db.js';
 import { AppError, notFound } from '../errors.js';
 import { requireActivePlan } from '../institutes/limits.js';
 import { newId } from '../lib/ids.js';
+import { withNamedLock } from '../lib/lock.js';
 import { payQrPath } from './payQr.js';
 import { periodText, rupees, varsFor, type MessageContext, type MessageType } from './templates.js';
 
@@ -35,7 +36,8 @@ async function student(pool: Pool, instituteId: string, id: string): Promise<Stu
 
 /**
  * Queues a message the tutor asked to send now. It goes out even when automatic messages are switched off.
- * A repeat within 10 minutes is refused with `recently_sent`.
+ * The same message (same kind, student and, for receipts, payment) within the last 10 minutes is refused with
+ * `recently_sent`: a true rolling window, checked under a lock, so two quick taps never both send.
  */
 async function queueManual(
   pool: Pool,
@@ -45,26 +47,35 @@ async function queueManual(
   ctx: MessageContext,
   now: Date,
   mediaUrl?: string,
+  /** What makes two sends different besides the student (a receipt's payment). */
+  ref = '',
 ): Promise<{ id: string }> {
-  const id = newId();
-  const key = `now_${type}_${s.id}_${Math.floor(now.getTime() / WINDOW_MS)}`;
-  const [res] = (await pool.query(
-    `INSERT IGNORE INTO messages (id, institute_id, student_id, type, dedupe_key, lang, manual, to_last4, vars, media_url, next_attempt_at)
-     VALUES (?, ?, ?, ?, ?, 'en', 1, ?, ?, ?, ?)`,
-    [
-      id,
-      instituteId,
-      s.id,
-      type,
-      key,
-      s.parent_phone.slice(-4),
-      JSON.stringify(varsFor(type, ctx)),
-      mediaUrl ?? null,
-      now,
-    ],
-  )) as unknown as [{ affectedRows: number }];
-  if (!res.affectedRows) throw new AppError(409, 'recently_sent');
-  return { id };
+  const prefix = `now_${type}_${s.id}_${ref ? `${ref}_` : ''}`;
+  return withNamedLock(pool, `send:${instituteId}:${prefix}`, async (c) => {
+    const [recent] = (await c.query(
+      'SELECT 1 FROM messages WHERE institute_id = ? AND dedupe_key LIKE ? AND created_at > ? LIMIT 1',
+      [instituteId, `${prefix.replace(/_/g, '\\_')}%`, new Date(now.getTime() - WINDOW_MS)],
+    )) as unknown as [unknown[]];
+    if (recent.length) throw new AppError(409, 'recently_sent');
+    const id = newId();
+    await c.query(
+      `INSERT INTO messages (id, institute_id, student_id, type, dedupe_key, lang, manual, to_last4, vars, media_url, next_attempt_at, created_at)
+       VALUES (?, ?, ?, ?, ?, 'en', 1, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        instituteId,
+        s.id,
+        type,
+        `${prefix}${now.getTime()}`,
+        s.parent_phone.slice(-4),
+        JSON.stringify(varsFor(type, ctx)),
+        mediaUrl ?? null,
+        now,
+        now,
+      ],
+    );
+    return { id };
+  });
 }
 
 async function institute(pool: Pool, id: string) {
@@ -188,5 +199,7 @@ export async function sendReceiptNow(
       balance: rupees(Number(p.balance_after ?? 0)),
     },
     now,
+    undefined,
+    paymentId,
   );
 }

@@ -1,4 +1,4 @@
-import { api } from '../../api/client';
+import { api, type ApiOptions } from '../../api/client';
 import { parseRupeesToPaise } from '../../lib/money';
 import type { BatchForm } from './schema';
 
@@ -12,8 +12,12 @@ const fields = (form: BatchForm) => ({
   defaultFee: parseRupeesToPaise(form.defaultFee) ?? 0,
 });
 
-export async function createBatch(_instituteId: string, form: BatchForm): Promise<string> {
-  return (await api<{ id: string }>('POST', '/batches', fields(form))).id;
+export async function createBatch(
+  _instituteId: string,
+  form: BatchForm,
+  opts?: ApiOptions,
+): Promise<string> {
+  return (await api<{ id: string }>('POST', '/batches', fields(form), opts)).id;
 }
 
 export async function updateBatch(_instituteId: string, id: string, form: BatchForm) {

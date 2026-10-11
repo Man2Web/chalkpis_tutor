@@ -30,7 +30,7 @@ export function HomeHero({ label, value, sub, progress, progressLabel, stats }: 
         >
           {value}
         </Text>
-        {sub ? <Text className="text-sm text-white/60">{sub}</Text> : null}
+        {sub ? <Text className="font-normal text-sm text-white/60">{sub}</Text> : null}
         {progress !== null ? (
           <View className="mt-3 gap-2">
             <Progress
@@ -39,7 +39,9 @@ export function HomeHero({ label, value, sub, progress, progressLabel, stats }: 
               size="md"
               accessibilityLabel={progressLabel}
             />
-            {progressLabel ? <Text className="text-sm text-white/60">{progressLabel}</Text> : null}
+            {progressLabel ? (
+              <Text className="font-normal text-sm text-white/60">{progressLabel}</Text>
+            ) : null}
           </View>
         ) : null}
       </Card>

@@ -5,6 +5,7 @@ import { Alert } from 'panelui-native/components/alert';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as SecureStore from 'expo-secure-store';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client';
 import { haptic } from '../../lib/haptics';
 import { open } from '../../lib/contact';
@@ -31,6 +32,7 @@ async function readDismissed(): Promise<string[]> {
 
 /** Notices from Chalkpis (new features, maintenance), posted from the admin dashboard. Closing one hides it for good. */
 export function AnnouncementBanner() {
+  const { t } = useTranslation();
   const q = useQuery({
     queryKey: ['announcements'],
     queryFn: async () =>
@@ -76,9 +78,10 @@ export function AnnouncementBanner() {
         </Alert.Content>
         <Pressable
           onPress={close}
-          hitSlop={10}
+          // 18 dp icon + 13 dp on each side: a 44 dp target
+          hitSlop={13}
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={t('common.close')}
           className="ml-auto"
         >
           <Ionicons name="close" size={18} color={colors.textMuted} />

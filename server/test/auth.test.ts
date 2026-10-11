@@ -283,7 +283,7 @@ describe('sessions', () => {
     expect((await app.inject({ url: '/me', headers: authed(s.accessToken) })).statusCode).toBe(401);
   });
 
-  it('refreshing swaps in a new pair and the old refresh token stops working', async () => {
+  it('refreshing swaps in a new pair and the old refresh token stops working after the grace window', async () => {
     const s = await login();
     advance(minute);
     const r = await post('/auth/refresh', { refreshToken: s.refreshToken });
@@ -293,6 +293,7 @@ describe('sessions', () => {
     expect((await app.inject({ url: '/me', headers: authed(next.accessToken) })).statusCode).toBe(
       200,
     );
+    advance((REUSE_GRACE_SECONDS + 1) * 1000);
     expect((await post('/auth/refresh', { refreshToken: s.refreshToken })).statusCode).toBe(401);
   });
 
@@ -309,14 +310,16 @@ describe('sessions', () => {
     ); // and now the real user must log in again
   });
 
-  it('a quick retry with the old token (lost response) fails but does not log the user out', async () => {
+  it('a quick retry with the old token (lost response) gets a new pair and logs nobody out', async () => {
     const s = await login();
     advance(minute);
     const fresh = (await post('/auth/refresh', { refreshToken: s.refreshToken })).json() as {
       refreshToken: string;
     };
     advance(3000);
-    expect((await post('/auth/refresh', { refreshToken: s.refreshToken })).statusCode).toBe(401);
+    const retry = await post('/auth/refresh', { refreshToken: s.refreshToken });
+    expect(retry.statusCode).toBe(200);
+    expect(retry.json().refreshToken).not.toBe(fresh.refreshToken);
     expect((await post('/auth/refresh', { refreshToken: fresh.refreshToken })).statusCode).toBe(
       200,
     );

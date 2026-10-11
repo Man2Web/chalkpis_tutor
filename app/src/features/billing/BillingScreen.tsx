@@ -1,3 +1,4 @@
+import { useIdempotencyKey } from '../../api/idempotency';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -56,6 +57,7 @@ function Meter({ label, used, limit }: { label: string; used: number; limit: num
 
 export function BillingScreen() {
   const { t, i18n } = useTranslation();
+  const idem = useIdempotencyKey();
   const locale = i18n.language === 'hi' ? 'hi-IN' : 'en-IN';
   const limits = useLimits();
   const history = useBillingHistory();
@@ -147,13 +149,16 @@ export function BillingScreen() {
   const choose = async (planId: PlanId) => {
     setBusyPlan(planId);
     try {
-      const data = await createPlanLink(planId);
+      // per plan: a retry after a lost answer gets the same order, while picking another plan is a new one
+      const data = await createPlanLink(planId, { idempotencyKey: `${idem.key}-${planId}` });
+      idem.reset();
       if (data.provider === 'mock') setLink({ plan: planId, data });
       else {
         setLink({ plan: planId, data });
         if (!(await open(data.url))) toast(t('students.cannotOpen'), 'error');
       }
     } catch (e) {
+      idem.settle(e);
       if (billingError(e) === 'not-configured') toast(t('billing.notConfigured'), 'error');
       else {
         reportError(e);

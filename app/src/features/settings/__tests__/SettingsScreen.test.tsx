@@ -2,13 +2,14 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import '../../../i18n';
 import { SettingsScreen, PaymentSettingsScreen } from '../SettingsScreen';
 import { DeleteAccountSheet } from '../DeleteAccountSheet';
-import { api } from '../../../api/client';
+import { api, ApiError } from '../../../api/client';
 
 const mockCall = jest.fn().mockResolvedValue({ data: { ok: true } });
 const mockLogout = jest.fn().mockResolvedValue(undefined);
 const mockBack = jest.fn();
 
 jest.mock('../../../api/client', () => ({
+  ApiError: jest.requireActual('../../../api/client').ApiError,
   api: jest.fn(() => mockCall()),
   uploadImage: jest.fn(),
 }));
@@ -63,6 +64,14 @@ describe('delete account', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Delete forever' }));
     await waitFor(() => expect(mockCall).toHaveBeenCalled());
     expect(mockLogout).not.toHaveBeenCalled();
+  });
+
+  it('signed out by the server (the delete went through, its answer was lost): finishes signing out', async () => {
+    mockCall.mockRejectedValueOnce(new ApiError(401, 'unauthorized'));
+    await openSheet();
+    await fireEvent.changeText(screen.getByLabelText('Type DELETE'), 'DELETE');
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete forever' }));
+    await waitFor(() => expect(mockLogout).toHaveBeenCalled());
   });
 });
 

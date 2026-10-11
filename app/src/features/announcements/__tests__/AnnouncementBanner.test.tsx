@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import '../../../i18n';
 import * as SecureStore from 'expo-secure-store';
 import { api } from '../../../api/client';
 import { AnnouncementBanner } from '../AnnouncementBanner';

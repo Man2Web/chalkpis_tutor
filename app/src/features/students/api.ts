@@ -1,4 +1,4 @@
-import { api, uploadImage } from '../../api/client';
+import { api, uploadImage, type ApiOptions } from '../../api/client';
 import { parseRupeesToPaise } from '../../lib/money';
 import { normalizeIndianPhone } from '../../lib/phone';
 import type { FeeCycle } from '../../lib/types';
@@ -30,14 +30,20 @@ export async function createStudent(
   form: StudentForm,
   batchIds: string[],
   photoUri?: string,
+  opts?: ApiOptions,
 ): Promise<string> {
-  const { id } = await api<{ id: string }>('POST', '/students', {
-    ...fields(form),
-    batchIds,
-    ...(form.joinedOn
-      ? { joinedAt: new Date(`${form.joinedOn}T00:00:00+05:30`).toISOString() }
-      : {}),
-  });
+  const { id } = await api<{ id: string }>(
+    'POST',
+    '/students',
+    {
+      ...fields(form),
+      batchIds,
+      ...(form.joinedOn
+        ? { joinedAt: new Date(`${form.joinedOn}T00:00:00+05:30`).toISOString() }
+        : {}),
+    },
+    opts,
+  );
   await createDuesNow();
   if (photoUri) await uploadStudentPhoto(_instituteId, id, photoUri).catch(() => undefined);
   return id;
@@ -87,24 +93,31 @@ export interface BulkStudent {
 export async function bulkCreateStudents(
   _instituteId: string,
   items: BulkStudent[],
+  opts?: ApiOptions,
 ): Promise<number> {
   const CHUNK = 200;
   let created = 0;
   for (let i = 0; i < items.length; i += CHUNK) {
     const chunk = items.slice(i, i + CHUNK);
-    const r = await api<{ ids: string[] }>('POST', '/students/bulk', {
-      students: chunk.map((s) => ({
-        name: s.name,
-        phone: s.phone,
-        parentName: s.parentName,
-        parentPhone: s.parentPhone,
-        class: s.className,
-        monthlyFee: s.monthlyFeePaise,
-        feeCycle: s.feeCycle,
-        dueDay: s.dueDay,
-        batchIds: s.batchIds,
-      })),
-    });
+    const r = await api<{ ids: string[] }>(
+      'POST',
+      '/students/bulk',
+      {
+        students: chunk.map((s) => ({
+          name: s.name,
+          phone: s.phone,
+          parentName: s.parentName,
+          parentPhone: s.parentPhone,
+          class: s.className,
+          monthlyFee: s.monthlyFeePaise,
+          feeCycle: s.feeCycle,
+          dueDay: s.dueDay,
+          batchIds: s.batchIds,
+        })),
+      },
+      // each chunk is its own request, so each gets its own key (the same one again on a retry)
+      opts?.idempotencyKey ? { idempotencyKey: `${opts.idempotencyKey}-${i / CHUNK}` } : undefined,
+    );
     created += r.ids.length;
   }
   await createDuesNow();

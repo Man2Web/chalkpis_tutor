@@ -10,7 +10,8 @@ export const OTP = { ttlMinutes: 5, cooldownSeconds: 60, maxPerHour: 5, maxAttem
 
 export interface OtpDeps {
   pool: Pool;
-  config: Pick<Config, 'OTP_PEPPER' | 'WA_TEMPLATE_OTP'>;
+  config: Pick<Config, 'OTP_PEPPER' | 'WA_TEMPLATE_OTP'> &
+    Partial<Pick<Config, 'REVIEW_PHONE' | 'REVIEW_CODE' | 'OTP_GLOBAL_PER_HOUR'>>;
   provider: MessageProvider | null;
   clock?: () => Date;
 }
@@ -32,7 +33,13 @@ const iso = (d: Date) => d;
 export async function requestOtp(deps: OtpDeps, rawPhone: unknown): Promise<OtpRequestResult> {
   const phone = normalizeIndianPhone(rawPhone);
   if (!phone) return { ok: false, error: 'invalid_phone' };
-  if (!deps.provider || !deps.config.WA_TEMPLATE_OTP) return { ok: false, error: 'unavailable' };
+  // the store-review number: a fixed code, no WhatsApp message (see REVIEW_PHONE in config)
+  const review =
+    !!deps.config.REVIEW_CODE &&
+    !!deps.config.REVIEW_PHONE &&
+    normalizeIndianPhone(deps.config.REVIEW_PHONE) === phone;
+  if (!review && (!deps.provider || !deps.config.WA_TEMPLATE_OTP))
+    return { ok: false, error: 'unavailable' };
   const now = (deps.clock ?? (() => new Date()))();
   const templateId = deps.config.WA_TEMPLATE_OTP;
 
@@ -55,7 +62,16 @@ export async function requestOtp(deps: OtpDeps, rawPhone: unknown): Promise<OtpR
       } as const;
     }
 
-    const code = newOtp();
+    if (!review) {
+      const [[all]] = (await conn.query(
+        'SELECT COUNT(*) AS n FROM otp_codes WHERE created_at > ?',
+        [iso(new Date(now.getTime() - 3_600_000))],
+      )) as unknown as [[{ n: number }]];
+      if (Number(all?.n ?? 0) >= (deps.config.OTP_GLOBAL_PER_HOUR ?? 300))
+        return { ok: false, error: 'too_many', retryAfter: 600 } as const;
+    }
+
+    const code = review ? deps.config.REVIEW_CODE! : newOtp();
     const id = newId();
     await inTransaction(conn, async (c) => {
       await c.query(
@@ -74,9 +90,10 @@ export async function requestOtp(deps: OtpDeps, rawPhone: unknown): Promise<OtpR
       );
     });
 
+    if (review) return { ok: true, resendInSeconds: OTP.cooldownSeconds, code } as const;
     const sent = await deps.provider!.send({
       to: phone,
-      templateId,
+      templateId: templateId!,
       vars: [code],
       reference: id,
       otp: true,

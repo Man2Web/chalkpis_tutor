@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../api/client';
+import { useIdempotencyKey } from '../../api/idempotency';
 import {
   BottomSheet,
   Button,
@@ -66,11 +67,32 @@ export function ReceiptScreen({
   const [sheet, setSheet] = useState(false);
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
+  const idem = useIdempotencyKey();
 
   if (payment.isLoading || students.isLoading || institute.isLoading)
     return (
       <Screen>
         <Skeleton height={160} />
+      </Screen>
+    );
+  // a failed load with nothing cached is not "not found": offer to try again
+  if (
+    (payment.isError && !payment.data) ||
+    (students.isError && !students.data) ||
+    (institute.isError && !institute.data)
+  )
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => {
+            if (payment.isError) void payment.refetch();
+            if (students.isError) void students.refetch();
+            if (institute.isError) void institute.refetch();
+          }}
+        />
       </Screen>
     );
   const student = students.data?.find((s) => s.id === p?.studentId);
@@ -121,14 +143,17 @@ export function ReceiptScreen({
   const reverse = async () => {
     setBusy(true);
     try {
-      await reversePayment({ instituteId, uid, paymentId: p.id });
+      await reversePayment({ instituteId, uid, paymentId: p.id }, { idempotencyKey: idem.key });
+      idem.reset();
       await refresh();
       toast(t('fees.reversed'), 'success');
       setSheet(false);
       navigation.goBack();
     } catch (e) {
+      idem.settle(e);
       const key = (e as Error).message as FeeApiError;
-      if (key === 'alreadyReversed') toast(t('fees.alreadyReversed'), 'error');
+      if (key === 'alreadyReversed' || key === 'notReversible')
+        toast(t(`fees.errors.${key}`), 'error');
       else {
         reportError(e);
         toast(t('common.error'), 'error');

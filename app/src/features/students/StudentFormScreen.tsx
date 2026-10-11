@@ -1,3 +1,4 @@
+import { useIdempotencyKey } from '../../api/idempotency';
 import { useMemo, useState } from 'react';
 import { Image, Switch, Text, View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
@@ -36,6 +37,7 @@ export function StudentFormScreen({
   route,
 }: NativeStackScreenProps<MainStackParams, 'StudentForm'>) {
   const { t } = useTranslation();
+  const idem = useIdempotencyKey();
   const instituteId = useInstituteId();
   const refresh = useRefreshData();
   const guard = useAddGuard();
@@ -140,11 +142,15 @@ export function StudentFormScreen({
           selected,
           photoUri,
         );
-      else await createStudent(instituteId, values, selected, photoUri);
+      else {
+        await createStudent(instituteId, values, selected, photoUri, { idempotencyKey: idem.key });
+        idem.reset();
+      }
       await refresh();
       toast(t(existing ? 'students.saved' : 'students.added'), 'success');
       navigation.goBack();
     } catch (e) {
+      idem.settle(e);
       reportError(e);
       toast(t('common.error'), 'error');
       setBusy(false);
@@ -172,7 +178,13 @@ export function StudentFormScreen({
 
   return (
     <Screen>
-      <FormInput control={control} name="name" label={t('students.name')} autoComplete="name" />
+      <FormInput
+        control={control}
+        name="name"
+        label={t('students.name')}
+        autoComplete="name"
+        maxLength={80}
+      />
       <FormInput
         control={control}
         name="phone"
@@ -180,7 +192,12 @@ export function StudentFormScreen({
         keyboardType="phone-pad"
         maxLength={16}
       />
-      <FormInput control={control} name="parentName" label={t('students.parentName')} />
+      <FormInput
+        control={control}
+        name="parentName"
+        label={t('students.parentName')}
+        maxLength={80}
+      />
       <FormInput
         control={control}
         name="parentPhone"
@@ -188,7 +205,7 @@ export function StudentFormScreen({
         keyboardType="phone-pad"
         maxLength={16}
       />
-      <FormInput control={control} name="class" label={t('onboarding.class')} />
+      <FormInput control={control} name="class" label={t('onboarding.class')} maxLength={30} />
 
       <Text style={type.fieldLabel}>{t('students.batches')}</Text>
       <View
@@ -321,6 +338,7 @@ export function StudentFormScreen({
         control={control}
         name="notes"
         label={t('students.notes')}
+        maxLength={500}
         multiline
         numberOfLines={3}
       />

@@ -1,3 +1,4 @@
+import { useIdempotencyKey } from '../../api/idempotency';
 import { useState } from 'react';
 import { Image, Text, View } from 'react-native';
 import { useForm } from 'react-hook-form';
@@ -23,6 +24,7 @@ export function ProfileScreen({
   navigation,
 }: NativeStackScreenProps<OnboardingStackParams, 'Profile'>) {
   const { t, i18n } = useTranslation();
+  const idem = useIdempotencyKey();
   const [logoUri, setLogoUri] = useState<string>();
   const { control, handleSubmit, formState } = useForm<Form>({
     resolver: zodResolver(schema),
@@ -41,10 +43,13 @@ export function ProfileScreen({
 
   const submit = handleSubmit(async (values) => {
     try {
-      await api('POST', '/institutes', {
-        ...values,
-        language: i18n.language === 'hi' ? 'hi' : 'en',
-      });
+      await api(
+        'POST',
+        '/institutes',
+        { ...values, language: i18n.language === 'hi' ? 'hi' : 'en' },
+        { idempotencyKey: idem.key },
+      );
+      idem.reset();
       if (logoUri) {
         try {
           await uploadImage('/institute/logo', logoUri);
@@ -55,6 +60,7 @@ export function ProfileScreen({
       await refreshProfile();
       navigation.navigate('Batch');
     } catch (e) {
+      idem.settle(e);
       reportError(e);
       toast(t('onboarding.setupError'), 'error');
     }

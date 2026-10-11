@@ -2,6 +2,7 @@ import { createElement, useEffect, useRef, useState, type ReactNode } from 'reac
 import { Animated, StyleSheet, View } from 'react-native';
 import lottie from 'lottie-web';
 import intro from '../../assets/chalkpis-intro.json';
+import { BrandReveal } from './BrandReveal';
 import { useSplashFade } from './splashFade';
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 
 /** Browser preview of the same intro (there is no native splash in a browser). */
 export default function AnimatedSplash({ appReady, children }: Props) {
+  const [drawn, setDrawn] = useState(false);
   const [animationDone, setAnimationDone] = useState(false);
   const { opacity, visible } = useSplashFade(appReady, animationDone);
   const box = useRef<HTMLElement | null>(null);
@@ -24,7 +26,8 @@ export default function AnimatedSplash({ appReady, children }: Props) {
       autoplay: true,
       animationData: intro,
     });
-    anim.addEventListener('complete', () => setAnimationDone(true));
+    anim.setSpeed(1.5);
+    anim.addEventListener('complete', () => setDrawn(true));
     return () => anim.destroy();
   }, [visible]);
 
@@ -39,6 +42,7 @@ export default function AnimatedSplash({ appReady, children }: Props) {
             },
             style: { width: 320, height: 320 },
           })}
+          {drawn ? <BrandReveal onDone={() => setAnimationDone(true)} /> : null}
         </Animated.View>
       )}
     </View>

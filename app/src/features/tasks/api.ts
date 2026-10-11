@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import { useIdempotencyKey } from '../../api/idempotency';
 import { useInstituteId } from '../../data/hooks';
 
 export interface Task {
@@ -23,9 +24,16 @@ export function useTaskActions(date: string) {
   const id = useInstituteId();
   const key = ['tasks', id, date];
   const refresh = () => qc.invalidateQueries({ queryKey: key });
+  // one key per new task, so a retry after a lost answer cannot add it twice
+  const idem = useIdempotencyKey();
   const add = useMutation({
-    mutationFn: (title: string) => api('POST', '/tasks', { title, dueOn: date }),
-    onSuccess: refresh,
+    mutationFn: (title: string) =>
+      api('POST', '/tasks', { title, dueOn: date }, { idempotencyKey: idem.key }),
+    onSuccess: () => {
+      idem.reset();
+      return refresh();
+    },
+    onError: idem.settle,
   });
   const toggle = useMutation({
     mutationFn: (t: Task) => api('PATCH', `/tasks/${t.id}`, { done: !t.done }),

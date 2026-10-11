@@ -1,4 +1,4 @@
-import { api, ApiError } from '../../api/client';
+import { api, ApiError, type ApiOptions } from '../../api/client';
 import type { FeeCycle, PayMode } from '../../lib/types';
 
 export type FeeApiError =
@@ -37,38 +37,57 @@ export interface RecordPayment {
 }
 
 /** Records a payment. The server takes the next receipt number and checks the balance in one step, so two phones can never clash. */
-export function recordPayment(p: RecordPayment): Promise<{ paymentId: string; receiptNo: string }> {
+export function recordPayment(
+  p: RecordPayment,
+  opts?: ApiOptions,
+): Promise<{ paymentId: string; receiptNo: string }> {
   return run(() =>
-    api<{ paymentId: string; receiptNo: string }>('POST', `/fees/dues/${p.dueId}/payments`, {
-      amount: p.amount,
-      mode: p.mode,
-      ...(p.paidOn ? { paidOn: p.paidOn } : {}),
-      note: p.note ?? '',
-    }),
+    api<{ paymentId: string; receiptNo: string }>(
+      'POST',
+      `/fees/dues/${p.dueId}/payments`,
+      {
+        amount: p.amount,
+        mode: p.mode,
+        ...(p.paidOn ? { paidOn: p.paidOn } : {}),
+        note: p.note ?? '',
+      },
+      opts,
+    ),
   );
 }
 
 /** Corrects a payment with a reversing (negative) entry; a payment can be reversed once. */
-export async function reversePayment(a: { instituteId: string; uid: string; paymentId: string }) {
-  await run(() => api('POST', `/fees/payments/${a.paymentId}/reverse`));
+export async function reversePayment(
+  a: { instituteId: string; uid: string; paymentId: string },
+  opts?: ApiOptions,
+) {
+  await run(() => api('POST', `/fees/payments/${a.paymentId}/reverse`, undefined, opts));
 }
 
 /** One-off charge (admission, books...) as its own due. */
-export async function addCharge(a: {
-  instituteId: string;
-  studentId: string;
-  description: string;
-  amount: number;
-  dueYmd: string;
-}) {
+export async function addCharge(
+  a: {
+    instituteId: string;
+    studentId: string;
+    description: string;
+    amount: number;
+    dueYmd: string;
+  },
+  opts?: ApiOptions,
+) {
   if (!Number.isInteger(a.amount) || a.amount <= 0) throw new Error('amount');
   const r = await run(() =>
-    api<{ id: string }>('POST', '/fees/charges', {
-      studentId: a.studentId,
-      description: a.description.trim(),
-      amount: a.amount,
-      dueDate: a.dueYmd,
-    }),
+    api<{ id: string }>(
+      'POST',
+      '/fees/charges',
+      {
+        studentId: a.studentId,
+        description: a.description.trim(),
+        amount: a.amount,
+        dueDate: a.dueYmd,
+      },
+      opts,
+    ),
   );
   return r.id;
 }

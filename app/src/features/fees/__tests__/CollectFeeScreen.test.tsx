@@ -64,6 +64,8 @@ it('a part payment of 1,000 leaves 500 and records exactly 1,000 in paise', asyn
       amount: 100000,
       mode: 'upi',
     }),
+    // a retry after a lost answer cannot record the money twice
+    { idempotencyKey: expect.stringMatching(/^[A-Za-z0-9_-]{24,100}$/) },
   );
   await waitFor(() => expect(replace).toHaveBeenCalledWith('Receipt', { paymentId: 'pay1' }));
 });

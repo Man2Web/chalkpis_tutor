@@ -1,3 +1,4 @@
+import { useIdempotencyKey } from '../../api/idempotency';
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +29,7 @@ import {
 /** The owner's helpers: invite by phone, choose which batches each may take attendance for, remove. */
 export function StaffScreen() {
   const { t } = useTranslation();
+  const idem = useIdempotencyKey();
   const staff = useStaff();
   const batches = useBatches();
   const refresh = useRefreshData();
@@ -68,11 +70,13 @@ export function StaffScreen() {
     setBusy(true);
     setError(undefined);
     try {
-      await addStaff({ name, phone, batchIds: picked });
+      await addStaff({ name, phone, batchIds: picked }, { idempotencyKey: idem.key });
+      idem.reset();
       await refresh();
       setAdding(false);
       toast(t('staff.added'), 'success');
     } catch (e) {
+      idem.settle(e);
       fail(e);
     } finally {
       setBusy(false);

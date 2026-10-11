@@ -21,6 +21,9 @@ export async function createInstitute(
   trialDays: number = TRIAL_DAYS,
 ) {
   return withTransaction(pool, async (c) => {
+    // the user's own row is locked first: a double tap's two requests then run one after the other, and the
+    // second finds the institute the first made (a missing membership row could not be locked)
+    await c.query('SELECT id FROM users WHERE id = ? FOR UPDATE', [userId]);
     const [existing] = (await c.query(
       'SELECT institute_id FROM memberships WHERE user_id = ? FOR UPDATE',
       [userId],

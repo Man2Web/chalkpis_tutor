@@ -106,7 +106,11 @@ it('test mode: choosing a plan opens the test sheet, and paying activates it', a
   });
   await render(<BillingScreen />);
   await fireEvent.press(screen.getByRole('button', { name: 'Choose Starter' }));
-  await waitFor(() => expect(createPlanLink).toHaveBeenCalledWith('starter'));
+  await waitFor(() =>
+    expect(createPlanLink).toHaveBeenCalledWith('starter', {
+      idempotencyKey: expect.stringMatching(/-starter$/),
+    }),
+  );
   await fireEvent.press(await screen.findByRole('button', { name: 'Pay ₹399 (test)' }));
   await waitFor(() => expect(mockCompletePayment).toHaveBeenCalledWith('ref1'));
   await waitFor(() => expect(mockRefresh).toHaveBeenCalled());

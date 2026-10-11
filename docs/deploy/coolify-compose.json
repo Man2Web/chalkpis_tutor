@@ -52,6 +52,8 @@
         "PHONEPE_ENV=${PHONEPE_ENV:-sandbox}",
         "PHONEPE_WEBHOOK_USERNAME=${PHONEPE_WEBHOOK_USERNAME}",
         "PHONEPE_WEBHOOK_PASSWORD=${PHONEPE_WEBHOOK_PASSWORD}",
+        "REVIEW_PHONE=${REVIEW_PHONE}",
+        "REVIEW_CODE=${REVIEW_CODE}",
         "TRIAL_DAYS=90"
       ],
       "volumes": ["uploads:/data/uploads", "backups:/data/backups"]

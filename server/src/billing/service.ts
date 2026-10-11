@@ -1,12 +1,17 @@
 import { AppError } from '../errors.js';
 import { withTransaction, type Pool } from '../db.js';
 import { newId } from '../lib/ids.js';
+import { withNamedLock } from '../lib/lock.js';
 import { PLANS, computeSubscription, type PlanId } from './plans.js';
 import type { BillingProvider, PaidEvent, ProviderName } from './provider.js';
 
 export type PurchaseResult = 'applied' | 'duplicate' | 'invalid';
 
-/** Asks the provider for a payment link and remembers it as our own order. Works even when the plan has expired. */
+/**
+ * Asks the provider for a payment link and remembers it as our own order. Works even when the plan has expired.
+ * Asking again for the same plan within 15 minutes, while that order is still unpaid, gives the same order and
+ * link (a double tap or a retry must never leave two payable orders); one centre's requests run one at a time.
+ */
 export async function createOrder(
   pool: Pool,
   provider: BillingProvider,
@@ -19,25 +24,50 @@ export async function createOrder(
     returnUrl?: (orderId: string) => string;
   },
 ) {
-  const plan = PLANS[a.planId];
-  const orderId = newId();
-  let link;
-  try {
-    link = await provider.createPaymentLink({
-      amountPaise: plan.pricePaise,
-      description: `Chalkpis ${plan.name} plan (${plan.months} months)`,
-      referenceId: orderId,
-      customerPhone: a.ownerPhone,
-      returnUrl: a.returnUrl?.(orderId),
-    });
-  } catch {
-    throw new AppError(502, 'payment_provider_error');
-  }
-  await pool.query(
-    'INSERT INTO billing_orders (id, institute_id, plan_id, amount, provider, link_id, url, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [orderId, a.instituteId, a.planId, plan.pricePaise, provider.name, link.id, link.url, a.userId],
-  );
-  return { orderId, url: link.url, planId: a.planId, amountPaise: plan.pricePaise };
+  return withNamedLock(pool, `billing:${a.instituteId}`, async (conn) => {
+    const plan = PLANS[a.planId];
+    const [recent] = (await conn.query(
+      `SELECT o.id, o.url FROM billing_orders o
+      WHERE o.institute_id = ? AND o.plan_id = ? AND o.provider = ? AND o.created_at > NOW(3) - INTERVAL 15 MINUTE
+        AND NOT EXISTS (SELECT 1 FROM billing_events e WHERE e.order_id = o.id)
+      ORDER BY o.created_at DESC LIMIT 1`,
+      [a.instituteId, a.planId, provider.name],
+    )) as unknown as [{ id: string; url: string }[]];
+    if (recent[0])
+      return {
+        orderId: recent[0].id,
+        url: recent[0].url,
+        planId: a.planId,
+        amountPaise: plan.pricePaise,
+      };
+    const orderId = newId();
+    let link;
+    try {
+      link = await provider.createPaymentLink({
+        amountPaise: plan.pricePaise,
+        description: `Chalkpis ${plan.name} plan (${plan.months} months)`,
+        referenceId: orderId,
+        customerPhone: a.ownerPhone,
+        returnUrl: a.returnUrl?.(orderId),
+      });
+    } catch {
+      throw new AppError(502, 'payment_provider_error');
+    }
+    await conn.query(
+      'INSERT INTO billing_orders (id, institute_id, plan_id, amount, provider, link_id, url, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        orderId,
+        a.instituteId,
+        a.planId,
+        plan.pricePaise,
+        provider.name,
+        link.id,
+        link.url,
+        a.userId,
+      ],
+    );
+    return { orderId, url: link.url, planId: a.planId, amountPaise: plan.pricePaise };
+  });
 }
 
 /**

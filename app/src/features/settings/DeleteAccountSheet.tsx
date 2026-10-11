@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { api } from '../../api/client';
+import { api, ApiError } from '../../api/client';
 import { BottomSheet, Button, Input, toast } from '../../components';
 import { reportError } from '../../lib/analytics';
 import { spacing, type } from '../../theme';
@@ -30,6 +30,12 @@ export function DeleteAccountSheet({
         // the account is already gone; the session ends on its own
       }
     } catch (e) {
+      // Signed out by the server: the delete went through but its answer was lost (the account and its sessions are
+      // gone, so this retry could not sign in). Finish here instead of saying it failed.
+      if (e instanceof ApiError && e.status === 401) {
+        await logout().catch(() => undefined);
+        return;
+      }
       reportError(e);
       toast(t('settings.deleteFailed'), 'error');
       setBusy(false);

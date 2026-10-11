@@ -1,4 +1,4 @@
-import { normalizeIndianPhone, nationalNumber } from '../phone';
+import { formatIndianPhone, normalizeIndianPhone, nationalNumber } from '../phone';
 
 describe('normalizeIndianPhone', () => {
   it.each([
@@ -16,4 +16,12 @@ describe('normalizeIndianPhone', () => {
 
   it('returns the national number', () =>
     expect(nationalNumber('+919876543210')).toBe('9876543210'));
+});
+
+describe('formatIndianPhone', () => {
+  it('groups a mobile number the way people write it', () =>
+    expect(formatIndianPhone('+919876543210')).toBe('+91 98765 43210'));
+  it.each(['+14155550100', '9876543210', ''])('leaves %s alone', (v) =>
+    expect(formatIndianPhone(v)).toBe(v),
+  );
 });

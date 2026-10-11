@@ -102,6 +102,18 @@ The compose file already carries the non-secret values (Google client ID, Apple 
 
 Restart the service after adding settings. Check with `https://tutor.chalkpis.com/auth/methods`: each method that is ready says `true`.
 
+## 4c. Store review login and account deletion page
+
+Apple and Google reviewers cannot receive a WhatsApp code. While a review runs, set in Coolify:
+| Variable | Value |
+| --- | --- |
+| `REVIEW_PHONE` | a number you own that is not used by anyone else, e.g. `9xxxxxxxxx` |
+| `REVIEW_CODE` | any 6 digits |
+
+Restart, sign in once on your phone with that number (it creates the account) and add a few demo students. Give the number and code to the reviewers: App Store Connect > App Review Information, and Play Console > App content > App access. Remove both settings after approval.
+
+For Play Console > Data safety > account deletion, use `https://tutor.chalkpis.com/delete-account`. Privacy policy: `https://tutor.chalkpis.com/privacy`.
+
 ## 5. Build the Android app (EAS)
 
 Already prepared in the repository: `app/eas.json` (three build profiles, each pointing the app at `https://tutor.chalkpis.com`), the app name and package id (`in.chalkpis.tutors`), and the Chalkpis icons (made from the animation's mark: launcher icon, Android adaptive and themed icons). The app was checked to bundle for Android.

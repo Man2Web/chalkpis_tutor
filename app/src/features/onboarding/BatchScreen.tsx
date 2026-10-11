@@ -1,3 +1,4 @@
+import { useIdempotencyKey } from '../../api/idempotency';
 import { useEffect } from 'react';
 import { Text } from 'react-native';
 import { useForm } from 'react-hook-form';
@@ -18,6 +19,7 @@ export function BatchScreen({
   navigation,
 }: NativeStackScreenProps<OnboardingStackParams, 'Batch'>) {
   const { t } = useTranslation();
+  const idem = useIdempotencyKey();
   const instituteId = useSession((s) => s.profile?.instituteId);
   const { control, handleSubmit, formState } = useForm<BatchForm>({
     resolver: zodResolver(batchSchema),
@@ -42,9 +44,11 @@ export function BatchScreen({
   const submit = handleSubmit(async (values) => {
     if (!instituteId) return;
     try {
-      const batchId = await createBatch(instituteId, values);
+      const batchId = await createBatch(instituteId, values, { idempotencyKey: idem.key });
+      idem.reset();
       navigation.navigate('Students', { batchId, defaultFee: values.defaultFee });
     } catch (e) {
+      idem.settle(e);
       reportError(e);
       toast(t('common.error'), 'error');
     }

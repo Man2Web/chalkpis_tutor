@@ -42,7 +42,7 @@ export function Panel({
             <View />
           )}
           {typeof right === 'string' ? (
-            <Text className="text-sm text-muted-foreground">{right}</Text>
+            <Text className="font-normal text-sm text-muted-foreground">{right}</Text>
           ) : (
             right
           )}

@@ -14,6 +14,7 @@ describe('public legal pages', () => {
     for (const [url, title] of [
       ['/privacy', 'Privacy Policy'],
       ['/terms', 'Terms and Conditions'],
+      ['/delete-account', 'Delete your Chalkpis account'],
     ]) {
       const r = await h.app.inject({ url });
       expect(r.statusCode).toBe(200);
@@ -25,5 +26,12 @@ describe('public legal pages', () => {
       expect(r.body).not.toContain('<script');
     }
     expect((await h.app.inject({ url: '/legal.css' })).statusCode).toBe(200);
+  });
+
+  it('explain how to delete an account with or without the app (Google Play needs this page)', async () => {
+    const r = await h.app.inject({ url: '/delete-account' });
+    expect(r.body).toContain('Account</strong>, tap <strong>Delete account');
+    expect(r.body).toContain('mailto:hello@chalkpis.com?subject=Delete%20my%20Chalkpis%20account');
+    expect(r.body).toContain('What is kept');
   });
 });

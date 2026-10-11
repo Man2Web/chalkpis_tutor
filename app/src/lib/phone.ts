@@ -13,3 +13,9 @@ export function normalizeIndianPhone(input: string): string | null {
 
 /** 10-digit national number for display / wa.me links without +. */
 export const nationalNumber = (e164: string) => e164.replace(/^\+91/, '');
+
+/** An Indian mobile number as people write it: +91 98765 43210. Anything else comes back unchanged. */
+export function formatIndianPhone(e164: string): string {
+  const m = /^\+91([6-9]\d{4})(\d{5})$/.exec(e164);
+  return m ? `+91 ${m[1]} ${m[2]}` : e164;
+}

@@ -24,7 +24,7 @@ export const normalizeEmail = (v: unknown): string | null => {
 
 // ---------- one-time tickets ----------
 
-export const TICKET_TTL = { oauth: 2 * 60_000, signup: 15 * 60_000 } as const;
+export const TICKET_TTL = { oauth: 2 * 60_000, signup: 15 * 60_000, state: 10 * 60_000 } as const;
 
 /** Stores a payload behind a random token (only its hash is kept) and returns the token. */
 export async function createTicket(
@@ -46,6 +46,38 @@ export async function createTicket(
     ],
   );
   return token;
+}
+
+/** True the first time a value (an OAuth state's nonce) is seen; false on any replay. */
+export async function useOnce(pool: Db, kind: 'state', value: string, now: Date): Promise<boolean> {
+  const [r] = (await pool.query(
+    'INSERT IGNORE INTO auth_tickets (id, token_hash, kind, payload, expires_at, used_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [
+      newId(),
+      sha(`${kind}:${value}`),
+      kind,
+      '{}',
+      new Date(now.getTime() + TICKET_TTL[kind]),
+      now,
+      now,
+    ],
+  )) as unknown as [{ affectedRows: number }];
+  return r.affectedRows === 1;
+}
+
+/** The ticket's payload if it is still valid, without using it up (see consumeTicket). */
+export async function peekTicket<T>(
+  pool: Db,
+  kind: keyof typeof TICKET_TTL,
+  token: unknown,
+  now: Date,
+): Promise<T | null> {
+  if (typeof token !== 'string' || token.length < 20 || token.length > 100) return null;
+  const [rows] = (await pool.query(
+    'SELECT payload FROM auth_tickets WHERE token_hash = ? AND kind = ? AND used_at IS NULL AND expires_at > ?',
+    [sha(token), kind, now],
+  )) as unknown as [{ payload: string }[]];
+  return rows[0] ? (JSON.parse(rows[0].payload) as T) : null;
 }
 
 /** Returns the ticket's payload and marks it used; a second use, an expired or unknown token all give null. */

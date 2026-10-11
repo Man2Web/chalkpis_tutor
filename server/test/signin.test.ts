@@ -70,14 +70,12 @@ describe('sign in with WhatsApp, email, Google and Apple', () => {
     expect((await post('/auth/email/request', { email })).statusCode).toBe(200);
     return post('/auth/email/verify', { email, code: lastEmailCode() });
   }
-  /** The whole Google/Apple round trip as the app does it: start -> provider -> callback -> ticket. */
+  /** The whole Google/Apple round trip as the app does it: begin -> provider -> callback -> ticket + secret. */
   async function oauthSignIn(p: 'google' | 'apple', code: string) {
-    const start = await h.app.inject({
-      method: 'GET',
-      url: `/auth/oauth/${p}/start?redirect=${encodeURIComponent('chalkpis://auth')}`,
-    });
-    expect(start.statusCode).toBe(302);
-    const state = new URL(start.headers.location as string).searchParams.get('state')!;
+    const begin = await post(`/auth/oauth/${p}/begin`, { redirect: 'chalkpis://auth' });
+    expect(begin.statusCode).toBe(200);
+    const { url, secret } = begin.json() as { url: string; secret: string };
+    const state = new URL(url).searchParams.get('state')!;
     const cb =
       p === 'google'
         ? await h.app.inject({
@@ -95,7 +93,7 @@ describe('sign in with WhatsApp, email, Google and Apple', () => {
     expect(back.protocol).toBe('chalkpis:');
     const ticket = back.searchParams.get('ticket');
     expect(ticket).toBeTruthy();
-    return post('/auth/ticket', { ticket });
+    return post('/auth/ticket', { ticket, secret });
   }
 
   it('records how each sign-in happened and from which phone', async () => {
@@ -130,6 +128,14 @@ describe('sign in with WhatsApp, email, Google and Apple', () => {
       { method: 'whatsapp', platform: 'ios' },
     ]);
   });
+
+  /** The state and secret for one Google sign-in, as the app's begin step gets them. */
+  async function begin(redirect = 'chalkpis://auth') {
+    const r = await post('/auth/oauth/google/begin', { redirect });
+    if (r.statusCode !== 200) return { status: r.statusCode, state: '', secret: '' };
+    const { url, secret } = r.json() as { url: string; secret: string };
+    return { status: 200, state: new URL(url).searchParams.get('state')!, secret };
+  }
 
   it('lists the methods that are switched on', async () => {
     const r = await h.app.inject({ method: 'GET', url: '/auth/methods' });
@@ -206,19 +212,15 @@ describe('sign in with WhatsApp, email, Google and Apple', () => {
       email: null,
       emailVerified: false,
     });
-    const start = await h.app.inject({
-      method: 'GET',
-      url: `/auth/oauth/google/start?redirect=${encodeURIComponent('chalkpis://auth')}`,
-    });
-    const state = new URL(start.headers.location as string).searchParams.get('state')!;
+    const { state, secret } = await begin();
     const cb = await h.app.inject({
       method: 'GET',
       url: `/auth/oauth/google/callback?code=g2&state=${encodeURIComponent(state)}`,
     });
     const ticket = new URL(cb.headers.location as string).searchParams.get('ticket');
-    const first = await post('/auth/ticket', { ticket });
+    const first = await post('/auth/ticket', { ticket, secret });
     expect(first.statusCode).toBe(200);
-    expect((await post('/auth/ticket', { ticket })).statusCode).toBe(401);
+    expect((await post('/auth/ticket', { ticket, secret })).statusCode).toBe(401);
 
     const token = first.json().signupToken;
     await phoneSignIn('9855555555', token);
@@ -234,21 +236,13 @@ describe('sign in with WhatsApp, email, Google and Apple', () => {
   });
 
   it('refuses unknown redirects and forged or expired states', async () => {
-    const bad = await h.app.inject({
-      method: 'GET',
-      url: `/auth/oauth/google/start?redirect=${encodeURIComponent('https://evil.example/steal')}`,
-    });
-    expect(bad.statusCode).toBe(400);
+    expect((await begin('https://evil.example/steal')).status).toBe(400);
     const forged = await h.app.inject({
       method: 'GET',
       url: '/auth/oauth/google/callback?code=g1&state=not-a-real-state',
     });
     expect(forged.statusCode).toBe(400);
-    const start = await h.app.inject({
-      method: 'GET',
-      url: `/auth/oauth/google/start?redirect=${encodeURIComponent('chalkpis://auth')}`,
-    });
-    const state = new URL(start.headers.location as string).searchParams.get('state')!;
+    const { state } = await begin();
     h.clock.now = new Date(h.clock.now.getTime() + 11 * 60_000); // state lasts ten minutes
     const late = await h.app.inject({
       method: 'GET',
@@ -258,21 +252,17 @@ describe('sign in with WhatsApp, email, Google and Apple', () => {
   });
 
   it('a cancelled or failed provider sign-in goes back to the app with an error, not a ticket', async () => {
-    const start = await h.app.inject({
-      method: 'GET',
-      url: `/auth/oauth/google/start?redirect=${encodeURIComponent('chalkpis://auth')}`,
-    });
-    const state = new URL(start.headers.location as string).searchParams.get('state')!;
     const cancelled = await h.app.inject({
       method: 'GET',
-      url: `/auth/oauth/google/callback?error=access_denied&state=${encodeURIComponent(state)}`,
+      url: `/auth/oauth/google/callback?error=access_denied&state=${encodeURIComponent((await begin()).state)}`,
     });
     expect(new URL(cancelled.headers.location as string).searchParams.get('error')).toBe(
       'cancelled',
     );
     const failed = await h.app.inject({
       method: 'GET',
-      url: `/auth/oauth/google/callback?code=unknown&state=${encodeURIComponent(state)}`,
+      // a new sign-in: each state works once
+      url: `/auth/oauth/google/callback?code=unknown&state=${encodeURIComponent((await begin()).state)}`,
     });
     expect(new URL(failed.headers.location as string).searchParams.get('error')).toBe('failed');
   });

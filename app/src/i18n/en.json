@@ -14,7 +14,9 @@
     "loading": "Loading…",
     "error": "Something went wrong. Please try again.",
     "offline": "No internet. Please check your connection.",
-    "edit": "Edit"
+    "edit": "Edit",
+    "reconnecting": "No connection, retrying…",
+    "close": "Close"
   },
   "validation": {
     "required": "This is required",
@@ -24,7 +26,8 @@
     "endAfterStart": "End time must be after start time",
     "days": "Pick at least one day",
     "dueDay": "Enter a day from 1 to 31",
-    "date": "Use the format YYYY-MM-DD"
+    "date": "Use the format YYYY-MM-DD",
+    "tooLong": "This is too long"
   },
   "language": {
     "title": "Choose your language",
@@ -74,7 +77,14 @@
     "addPhoneHint": "One last step. We send a code on WhatsApp to confirm it is you. Your number is used for helper invites and parent messages, and keeps your account safe.",
     "addPhoneFor": "Signing up as {{who}}",
     "signingIn": "Signing you in…",
-    "startOver": "Start again"
+    "startOver": "Start again",
+    "step": "Step {{n}} of {{total}}",
+    "openWhatsApp": "Open WhatsApp",
+    "otpPreviewFrom": "Chalkpis",
+    "otpPreviewText": "Your Chalkpis sign-in code is ●●●●●●. Do not share it with anyone.",
+    "otpCheckWhatsApp": "Check WhatsApp for a message from Chalkpis",
+    "emailSpamHint": "Not there in a minute? Look in Spam or Promotions.",
+    "welcomeKicker": "For tutors and coaching centres"
   },
   "onboarding": {
     "profileTitle": "About you",
@@ -237,7 +247,7 @@
     "emptyFile": "No student rows found in that file.",
     "readFailed": "Could not read that file.",
     "contactsTitle": "Import from contacts",
-    "contactsHelp": "Pick contacts to add as students. The contact's number is saved as the parent's number.",
+    "contactsHelp": "Chalkpis shows your phone's contacts so you can pick students to add. Only the contacts you pick are uploaded to your Chalkpis account (name and number, saved as the parent's number); nothing else leaves your phone.",
     "allowContacts": "Allow access to contacts",
     "noPermission": "Contacts permission was not given.",
     "noContacts": "No contacts with a valid mobile number",
@@ -258,7 +268,7 @@
       "batchUnknown": "Batch name does not match any batch",
       "duplicate": "Already exists (same name and parent phone)"
     },
-    "contactsWeb": "Contacts are only available in the Android app, not in the browser preview.",
+    "contactsWeb": "Contacts are only available in the phone app, not in the browser preview.",
     "done_one": "{{count}} student imported",
     "done_other": "{{count}} students imported",
     "importN_one": "Import {{count}} student",
@@ -358,7 +368,9 @@
       "exceeds": "That is more than the balance ({{max}})",
       "waived": "This due was waived",
       "notFound": "Due not found",
-      "tooBig": "Discount cannot be more than the fee or less than what is already paid"
+      "tooBig": "Discount cannot be more than the fee or less than what is already paid",
+      "alreadyReversed": "This payment was already reversed",
+      "notReversible": "This payment cannot be reversed"
     },
     "receipt": "Fee receipt",
     "receiptNo": "Receipt no.",
@@ -808,7 +820,13 @@
     "feesTitle": "Get paid on time",
     "feesText": "Fee reminders carry your own UPI QR. Parents pay you directly.",
     "parentsTitle": "Parents stay in the loop",
-    "parentsText": "Absent alerts and receipts go to parents on WhatsApp."
+    "parentsText": "Absent alerts and receipts go to parents on WhatsApp.",
+    "cardAttendanceTitle": "Attendance saved",
+    "cardAttendanceText": "Class 10 Maths · 28 of 30 present",
+    "cardFeeTitle": "₹1,500 received",
+    "cardFeeText": "Riya's parent paid by UPI",
+    "cardParentTitle": "Sent to the parent on WhatsApp",
+    "cardParentText": "Riya was absent today"
   },
   "legal": {
     "about": "About",

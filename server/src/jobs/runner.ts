@@ -59,6 +59,9 @@ async function cleanupJob(pool: Pool, now: Date) {
     ago(180),
   ]);
   await run('DELETE FROM job_runs WHERE ran_at < ?', [ago(60)]);
+  // retry answers are only replayed for 24 hours; sign-in tickets and used OAuth states last minutes
+  await run('DELETE FROM idempotency_keys WHERE created_at < ?', [ago(2)]);
+  await run('DELETE FROM auth_tickets WHERE expires_at < ?', [ago(1)]);
   return n;
 }
 

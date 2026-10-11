@@ -1,4 +1,4 @@
-import { api } from '../../api/client';
+import { api, type ApiOptions } from '../../api/client';
 import type { PlanId } from './plans';
 export { billingError, type BillingError } from './errors';
 
@@ -10,8 +10,8 @@ export interface PlanLink {
 }
 
 /** Asks the server for a payment link; the price is decided there, not here. */
-export async function createPlanLink(planId: PlanId): Promise<PlanLink> {
-  const r = await api<{ orderId: string; url: string }>('POST', '/billing/links', { planId });
+export async function createPlanLink(planId: PlanId, opts?: ApiOptions): Promise<PlanLink> {
+  const r = await api<{ orderId: string; url: string }>('POST', '/billing/links', { planId }, opts);
   return {
     url: r.url,
     referenceId: r.orderId,

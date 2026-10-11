@@ -1,3 +1,4 @@
+import { useIdempotencyKey } from '../../api/idempotency';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,6 +18,7 @@ export function BatchFormScreen({
   route,
 }: NativeStackScreenProps<MainStackParams, 'BatchForm'>) {
   const { t } = useTranslation();
+  const idem = useIdempotencyKey();
   const instituteId = useInstituteId();
   const refresh = useRefreshData();
   const guard = useAddGuard();
@@ -63,11 +65,15 @@ export function BatchFormScreen({
     setBusy(true);
     try {
       if (existing) await updateBatch(instituteId, existing.id, form);
-      else await createBatch(instituteId, form);
+      else {
+        await createBatch(instituteId, form, { idempotencyKey: idem.key });
+        idem.reset();
+      }
       await refresh();
       toast(t('batches.saved'), 'success');
       navigation.goBack();
     } catch (e) {
+      idem.settle(e);
       reportError(e);
       toast(t('common.error'), 'error');
       setBusy(false);

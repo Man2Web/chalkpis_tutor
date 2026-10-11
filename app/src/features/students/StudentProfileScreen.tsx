@@ -53,6 +53,18 @@ export function StudentProfileScreen({
         <Skeleton height={80} />
       </Screen>
     );
+  // a failed load with nothing cached is not "not found": offer to try again
+  if (students.isError && !students.data)
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => void students.refetch()}
+        />
+      </Screen>
+    );
   if (!s)
     return (
       <Screen>

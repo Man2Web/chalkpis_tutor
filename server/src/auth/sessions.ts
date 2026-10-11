@@ -56,11 +56,14 @@ type TokenRow = {
   expires_at: Date;
   rotated_at: Date | null;
   revoked_at: Date | null;
+  blocked_at: Date | null;
 };
 
 /**
  * Swaps a refresh token for a fresh pair. Each token works once. Presenting one that was already used
- * (beyond a short retry window) means it may have been stolen, so the whole login is ended.
+ * (beyond a short retry window) means it may have been stolen, so the whole login is ended. Within the window
+ * (the app retrying after a lost answer) a new pair is issued in the same login, so the person stays signed in.
+ * A blocked account gets nothing, and its login is ended.
  */
 export async function refreshSession(
   deps: SessionDeps,
@@ -71,19 +74,26 @@ export async function refreshSession(
   const now = (deps.clock ?? (() => new Date()))();
   return withTransaction(deps.pool, async (c) => {
     const [rows] = (await c.query(
-      'SELECT id, user_id, family_id, expires_at, rotated_at, revoked_at FROM refresh_tokens WHERE token_hash = ? FOR UPDATE',
+      'SELECT t.id, t.user_id, t.family_id, t.expires_at, t.rotated_at, t.revoked_at, u.blocked_at FROM refresh_tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash = ? FOR UPDATE',
       [sha256(refreshToken)],
     )) as unknown as [TokenRow[]];
     const t = rows[0];
     if (!t || t.revoked_at || t.expires_at.getTime() <= now.getTime()) return null;
+    const endLogin = () =>
+      c.query(
+        'UPDATE refresh_tokens SET revoked_at = ? WHERE family_id = ? AND revoked_at IS NULL',
+        [now, t.family_id],
+      );
+    if (t.blocked_at) {
+      await endLogin();
+      return null;
+    }
     if (t.rotated_at) {
       if (now.getTime() - t.rotated_at.getTime() > REUSE_GRACE_SECONDS * 1000) {
-        await c.query(
-          'UPDATE refresh_tokens SET revoked_at = ? WHERE family_id = ? AND revoked_at IS NULL',
-          [now, t.family_id],
-        );
+        await endLogin();
+        return null;
       }
-      return null;
+      return issue(deps, c, t.user_id, t.family_id, now); // a retry after a lost answer
     }
     await c.query('UPDATE refresh_tokens SET rotated_at = ? WHERE id = ?', [now, t.id]);
     return issue(deps, c, t.user_id, t.family_id, now);

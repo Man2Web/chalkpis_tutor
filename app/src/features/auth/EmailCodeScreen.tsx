@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { useEffect, useRef, useState } from 'react';
+import { Text, useWindowDimensions, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OtpInput } from 'panelui-native/components/otp-input';
-import { Button, Screen } from '../../components';
+import { Button } from '../../components';
 import type { AuthStackParams } from '../../navigation/types';
-import { colors, spacing, type } from '../../theme';
-import { authErrorKey } from './authErrors';
+import { type } from '../../theme';
+import { authErrorKey, resendWaitOf } from './authErrors';
+import { AuthStepLayout } from './brand';
 import { RESEND_SECONDS } from './phoneAuth';
 import { confirmEmailCode, devEmailCodeFor, sendEmailCode } from './signIn';
 
@@ -17,11 +17,16 @@ export function EmailCodeScreen({
   route,
 }: NativeStackScreenProps<AuthStackParams, 'EmailCode'>) {
   const { t } = useTranslation();
-  const { email } = route.params;
+  const { email, resendIn } = route.params;
   const [code, setCode] = useState('');
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
-  const [seconds, setSeconds] = useState(RESEND_SECONDS);
+  const [resending, setResending] = useState(false);
+  const [seconds, setSeconds] = useState(resendIn ?? RESEND_SECONDS);
+  // the last cell (auto-submit) and the Verify button can land in the same frame; one check per code
+  const inFlight = useRef(false);
+  // six 44 dp cells do not fit beside the sheet padding on the narrowest phones
+  const small = useWindowDimensions().width < 360;
   const dev = devEmailCodeFor(email);
 
   useEffect(() => {
@@ -31,10 +36,12 @@ export function EmailCodeScreen({
   }, [seconds]);
 
   const verify = async (value = code) => {
+    if (inFlight.current) return;
     if (value.trim().length !== 6) {
       setError(t('auth.errors.invalidEmailCode'));
       return;
     }
+    inFlight.current = true;
     setError(undefined);
     setBusy(true);
     try {
@@ -46,49 +53,34 @@ export function EmailCodeScreen({
       const key = authErrorKey(e);
       setError(t(key === 'invalidCode' ? 'auth.errors.invalidEmailCode' : `auth.errors.${key}`));
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
 
   const resend = async () => {
+    if (resending) return;
     setError(undefined);
+    setResending(true);
     try {
       await sendEmailCode(email);
       setSeconds(RESEND_SECONDS);
     } catch (e) {
-      setError(t(`auth.errors.${authErrorKey(e)}`));
+      const wait = resendWaitOf(e);
+      if (wait) setSeconds(wait);
+      else setError(t(`auth.errors.${authErrorKey(e)}`));
+    } finally {
+      setResending(false);
     }
   };
 
   return (
-    <Screen>
-      <View
-        style={{
-          alignItems: 'center',
-          gap: spacing.sm,
-          marginTop: spacing.xxl,
-          marginBottom: spacing.xl,
-        }}
-      >
-        <View
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: 32,
-            backgroundColor: colors.shell,
-            borderWidth: 1,
-            borderColor: colors.border,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Ionicons name="mail-open-outline" size={28} color={colors.text} />
-        </View>
-        <Text style={[type.title1, { textAlign: 'center' }]}>{t('auth.otpTitle')}</Text>
-        <Text style={[type.callout, { textAlign: 'center', color: colors.textMuted }]}>
-          {t('auth.emailSentTo', { email })}
-        </Text>
-      </View>
+    <AuthStepLayout
+      icon="mail-open"
+      title={t('auth.otpTitle')}
+      subtitle={t('auth.emailSentTo', { email })}
+      onBack={() => navigation.goBack()}
+    >
       {dev ? (
         <Button
           variant="secondary"
@@ -100,6 +92,7 @@ export function EmailCodeScreen({
       <View className="my-4 items-center">
         <OtpInput
           length={6}
+          size={small ? 'sm' : 'md'}
           value={code}
           onChangeText={(v) => {
             setError(undefined);
@@ -116,13 +109,15 @@ export function EmailCodeScreen({
         />
       </View>
       <Button title={t('auth.verify')} onPress={() => void verify()} loading={busy} />
+      <Text style={[type.footnote, { textAlign: 'center' }]}>{t('auth.emailSpamHint')}</Text>
       <Button
         variant="ghost"
         title={seconds > 0 ? t('auth.resendIn', { seconds }) : t('auth.resend')}
         onPress={resend}
         disabled={seconds > 0}
+        loading={resending}
       />
       <Button variant="ghost" title={t('auth.changeEmail')} onPress={() => navigation.goBack()} />
-    </Screen>
+    </AuthStepLayout>
   );
 }

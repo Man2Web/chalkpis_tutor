@@ -40,7 +40,7 @@ export function DateStrip({ date, onChange }: Props) {
       }}
       style={{
         width: TAP,
-        height: TAP,
+        minHeight: TAP,
         alignItems: 'center',
         justifyContent: 'center',
         opacity: disabled ? 0.3 : 1,
@@ -125,6 +125,8 @@ export function DateStrip({ date, onChange }: Props) {
               }}
               style={{
                 alignSelf: 'center',
+                minHeight: 44,
+                justifyContent: 'center',
                 paddingVertical: spacing.sm,
                 paddingHorizontal: spacing.md,
               }}

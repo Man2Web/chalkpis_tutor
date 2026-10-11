@@ -26,6 +26,7 @@ import { legalRoutes } from './routes/legal.js';
 import { adminRoutes } from './routes/admin.js';
 import { instituteRoutes } from './routes/institutes.js';
 import { activityLog } from './activity.js';
+import { idempotency } from './idempotency.js';
 
 export interface AppDeps {
   config: Config;
@@ -56,7 +57,9 @@ export async function buildApp({
   clock,
 }: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
-    trustProxy: config.TRUST_PROXY,
+    // exactly one proxy (Traefik) sits in front: trust its hop only, so a client cannot choose its own IP by
+    // sending X-Forwarded-For (that would bypass the per-IP limits on codes and emails)
+    trustProxy: config.TRUST_PROXY ? (_addr: string, hop: number) => hop < 1 : false,
     bodyLimit: 1024 * 1024,
     logger: {
       level: config.LOG_LEVEL,
@@ -87,7 +90,7 @@ export async function buildApp({
     await app.register(cors, {
       origin: config.CORS_ORIGINS,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-      allowedHeaders: ['authorization', 'content-type', 'x-client-platform'],
+      allowedHeaders: ['authorization', 'content-type', 'x-client-platform', 'idempotency-key'],
       maxAge: 600,
     });
   // Nothing from this API may be stored by a browser or a proxy unless the route says so (logos, the parent page files).
@@ -110,6 +113,8 @@ export async function buildApp({
   app.decorateRequest('auth', null);
   // every successful change inside a centre is written to its log (see activity.ts)
   activityLog(app, pool, clock);
+  // a repeated create / money request with the same Idempotency-Key gets the first answer back (see idempotency.ts)
+  idempotency(app, pool, config, clock);
   authRoutes(app, { config, pool, provider, clock, mailer, oauth });
   instituteRoutes(app, { config, pool, clock });
   batchRoutes(app, { config, pool, clock });

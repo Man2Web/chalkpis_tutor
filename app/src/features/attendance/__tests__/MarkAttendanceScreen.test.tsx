@@ -138,3 +138,21 @@ it('refuses future dates', async () => {
   expect(screen.getByText('You cannot mark attendance for a future date.')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Save' }).props.accessibilityState.disabled).toBe(true);
 });
+
+it('does not offer the default roster for saving when the saved day could not be loaded', async () => {
+  setup();
+  const refetch = jest.fn();
+  (useAttendanceDoc as jest.Mock).mockReturnValue({
+    data: undefined,
+    isLoading: false,
+    isError: true,
+    refetch,
+  });
+  await render(<MarkAttendanceScreen navigation={navigation} route={route} />);
+  expect(screen.queryByText('Present 3')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Save' }).props.accessibilityState.disabled).toBe(true);
+  await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+  expect(refetch).toHaveBeenCalled();
+  await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+  expect(saveAttendance).not.toHaveBeenCalled();
+});

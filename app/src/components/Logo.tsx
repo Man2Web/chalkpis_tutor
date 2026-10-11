@@ -30,11 +30,14 @@ export function Logo({
   height = 28,
   variant = 'full',
   color = colors.text,
+  markColor = BRAND,
 }: {
   height?: number;
   variant?: 'full' | 'mark';
   /** Colour of the wordmark letters. */
   color?: string;
+  /** Colour of the mark (white on the brand-blue launch and welcome screens). */
+  markColor?: string;
 }) {
   const full = variant === 'full';
   const w = full ? 3826 : 1001;
@@ -47,7 +50,7 @@ export function Logo({
       accessibilityLabel="Chalkpis"
     >
       {MARK.map((d) => (
-        <Path key={d.slice(0, 24)} d={d} fill={BRAND} fillRule="evenodd" clipRule="evenodd" />
+        <Path key={d.slice(0, 24)} d={d} fill={markColor} fillRule="evenodd" clipRule="evenodd" />
       ))}
       {full ? WORD.map((d) => <Path key={d.slice(0, 24)} d={d} fill={color} />) : null}
     </Svg>

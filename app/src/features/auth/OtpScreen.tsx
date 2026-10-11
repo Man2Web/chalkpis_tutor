@@ -1,22 +1,28 @@
-import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { useEffect, useRef, useState } from 'react';
+import { useWindowDimensions, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OtpInput } from 'panelui-native/components/otp-input';
-import { Button, Screen } from '../../components';
+import { Button, toast } from '../../components';
+import { formatIndianPhone } from '../../lib/phone';
 import type { AuthStackParams } from '../../navigation/types';
-import { colors, spacing, type } from '../../theme';
+import { resendWaitOf } from './authErrors';
+import { AuthStepLayout, WhatsAppPreview } from './brand';
 import { DevCodeHint } from './DevCodeHint';
 import { authErrorKey, confirmCode, RESEND_SECONDS, sendCode } from './phoneAuth';
 
 export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStackParams, 'Otp'>) {
   const { t } = useTranslation();
-  const { phone, signupToken } = route.params;
+  const { phone, signupToken, resendIn } = route.params;
   const [code, setCode] = useState('');
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
-  const [seconds, setSeconds] = useState(RESEND_SECONDS);
+  const [resending, setResending] = useState(false);
+  const [seconds, setSeconds] = useState(resendIn ?? RESEND_SECONDS);
+  // the last cell (auto-submit) and the Verify button can land in the same frame; one check per code
+  const inFlight = useRef(false);
+  // six 44 dp cells do not fit beside the sheet padding on the narrowest phones
+  const small = useWindowDimensions().width < 360;
 
   useEffect(() => {
     if (seconds <= 0) return;
@@ -24,67 +30,60 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
     return () => clearTimeout(id);
   }, [seconds]);
 
-  const verify = async () => {
-    if (code.trim().length !== 6) {
+  const verify = async (value = code) => {
+    if (inFlight.current) return;
+    if (value.trim().length !== 6) {
       setError(t('auth.errors.invalidCode'));
       return;
     }
+    inFlight.current = true;
     setError(undefined);
     setBusy(true);
     try {
-      await confirmCode(phone, code, signupToken); // signing in switches the navigator automatically
+      await confirmCode(phone, value, signupToken); // signing in switches the navigator automatically
     } catch (e) {
       const key = authErrorKey(e);
-      setError(t(`auth.errors.${key}`));
       setBusy(false);
       // the pending Google / Apple / email sign-up ran out: back to the start rather than a dead end
-      if (key === 'signupExpired') navigation.popToTop();
+      if (key === 'signupExpired') {
+        toast(t('auth.errors.signupExpired'), 'error');
+        navigation.popToTop();
+      } else setError(t(`auth.errors.${key}`));
+    } finally {
+      inFlight.current = false;
     }
   };
 
   const resend = async () => {
+    if (resending) return;
     setError(undefined);
+    setResending(true);
     try {
       await sendCode(phone);
       setSeconds(RESEND_SECONDS);
     } catch (e) {
-      setError(t(`auth.errors.${authErrorKey(e)}`));
+      const wait = resendWaitOf(e);
+      if (wait) setSeconds(wait);
+      else setError(t(`auth.errors.${authErrorKey(e)}`));
+    } finally {
+      setResending(false);
     }
   };
 
   return (
-    <Screen>
-      <View
-        style={{
-          alignItems: 'center',
-          gap: spacing.sm,
-          marginTop: spacing.xxl,
-          marginBottom: spacing.xl,
-        }}
-      >
-        <View
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: 32,
-            backgroundColor: colors.shell,
-            borderWidth: 1,
-            borderColor: colors.border,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Ionicons name="chatbubble-ellipses" size={28} color={colors.text} />
-        </View>
-        <Text style={[type.title1, { textAlign: 'center' }]}>{t('auth.otpTitle')}</Text>
-        <Text style={[type.callout, { textAlign: 'center', color: colors.textMuted }]}>
-          {t('auth.otpSentTo', { phone })}
-        </Text>
-      </View>
+    <AuthStepLayout
+      icon="chatbubble-ellipses"
+      title={t('auth.otpTitle')}
+      subtitle={t('auth.otpSentTo', { phone: formatIndianPhone(phone) })}
+      step={signupToken ? [2, 2] : undefined}
+      onBack={() => navigation.goBack()}
+    >
+      <WhatsAppPreview />
       <DevCodeHint phone={phone} onUse={setCode} />
-      <View className="mb-4 items-center">
+      <View className="my-4 items-center">
         <OtpInput
           length={6}
+          size={small ? 'sm' : 'md'}
           value={code}
           onChangeText={(v) => {
             setError(undefined);
@@ -92,6 +91,7 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
           }}
           onComplete={(v) => {
             setCode(v);
+            void verify(v);
           }}
           type="numeric"
           autoFocus
@@ -102,14 +102,15 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
           accessibilityLabel={t('auth.otpLabel')}
         />
       </View>
-      <Button title={t('auth.verify')} onPress={verify} loading={busy} />
+      <Button title={t('auth.verify')} onPress={() => void verify()} loading={busy} />
       <Button
         variant="ghost"
         title={seconds > 0 ? t('auth.resendIn', { seconds }) : t('auth.resend')}
         onPress={resend}
         disabled={seconds > 0}
+        loading={resending}
       />
       <Button variant="ghost" title={t('auth.changeNumber')} onPress={() => navigation.goBack()} />
-    </Screen>
+    </AuthStepLayout>
   );
 }

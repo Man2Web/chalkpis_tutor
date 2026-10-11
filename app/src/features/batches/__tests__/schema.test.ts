@@ -24,5 +24,10 @@ describe('batchSchema', () => {
   });
   it('end must be after start', () =>
     expect(msg({ ...ok, endTime: '17:00' })).toBe('endAfterStart'));
+  it('says "too long" for over-long text', () => {
+    expect(msg({ ...ok, name: 'a'.repeat(61) })).toBe('tooLong');
+    expect(msg({ ...ok, subject: 'a'.repeat(61) })).toBe('tooLong');
+    expect(msg({ ...ok, class: 'a'.repeat(31) })).toBe('tooLong');
+  });
   it('rejects a bad fee', () => expect(msg({ ...ok, defaultFee: 'free' })).toBe('amount'));
 });

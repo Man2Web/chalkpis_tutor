@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Panel, Skeleton, toast } from '../../components';
 import { reportError } from '../../lib/analytics';
 import { haptic } from '../../lib/haptics';
-import { colors, radius, spacing, TAP, type } from '../../theme';
+import { colors, font, radius, spacing, TAP, type } from '../../theme';
 import { useTaskActions, useTasks, type Task } from './api';
 
 /** Home card: the tutor's own list for the day, with a quick-add field. */
@@ -17,7 +17,8 @@ export function TasksCard({ date }: { date: string }) {
 
   const submit = () => {
     const title = text.trim();
-    if (!title) return;
+    // the keyboard's Done key and the + button both land here; one task per tap
+    if (!title || add.isPending) return;
     add.mutate(title, {
       onSuccess: () => setText(''),
       onError: (e) => {
@@ -50,7 +51,12 @@ export function TasksCard({ date }: { date: string }) {
             else haptic.success();
             toggle.mutate(task);
           }}
-          onRemove={() => remove.mutate(task)}
+          onRemove={() => {
+            // a second tap while the first delete is on its way would only fail with "not found"
+            if (remove.isPending && remove.variables?.id === task.id) return;
+            remove.mutate(task);
+          }}
+          removing={remove.isPending && remove.variables?.id === task.id}
           removeLabel={t('tasks.remove')}
         />
       ))}
@@ -72,7 +78,7 @@ export function TasksCard({ date }: { date: string }) {
           onSubmitEditing={submit}
           returnKeyType="done"
           maxLength={200}
-          style={{ flex: 1, minHeight: TAP, fontSize: 15, color: colors.text }}
+          style={{ flex: 1, minHeight: TAP, fontSize: 15, ...font('400'), color: colors.text }}
           accessibilityLabel={t('tasks.placeholder')}
         />
         <Pressable
@@ -100,12 +106,14 @@ function TaskRow({
   overdue,
   onToggle,
   onRemove,
+  removing,
   removeLabel,
 }: {
   task: Task;
   overdue: boolean;
   onToggle: () => void;
   onRemove: () => void;
+  removing?: boolean;
   removeLabel: string;
 }) {
   return (
@@ -135,10 +143,12 @@ function TaskRow({
       </Pressable>
       <Pressable
         onPress={onRemove}
+        disabled={removing}
         accessibilityRole="button"
         accessibilityLabel={removeLabel}
+        accessibilityState={{ disabled: !!removing }}
         hitSlop={8}
-        style={{ padding: spacing.sm }}
+        style={{ padding: spacing.sm, opacity: removing ? 0.4 : 1 }}
       >
         <Ionicons name="close" size={18} color={colors.textMuted} />
       </Pressable>

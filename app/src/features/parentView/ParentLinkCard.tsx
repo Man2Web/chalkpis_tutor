@@ -1,3 +1,4 @@
+import { useIdempotencyKey } from '../../api/idempotency';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +18,7 @@ interface Props {
 /** On a student's profile: make a private read-only link for the parents, send it, or switch every link off. */
 export function ParentLinkCard({ student }: Props) {
   const { t } = useTranslation();
+  const idem = useIdempotencyKey();
   const instituteId = useInstituteId();
   const qc = useQueryClient();
   const locale = 'en-IN';
@@ -36,11 +38,15 @@ export function ParentLinkCard({ student }: Props) {
   const create = async () => {
     setBusy(true);
     try {
-      const link = await createParentLink(student.id, days);
+      const link = await createParentLink(student.id, days, true, {
+        idempotencyKey: `${idem.key}-${days}`,
+      });
+      idem.reset();
       setCreated(link);
       await refreshStatus();
       if (link.sent) toast(t('parentLink.sentApi'), 'success');
     } catch (e) {
+      idem.settle(e);
       reportError(e);
       toast(t('parentLink.failed'), 'error');
     } finally {

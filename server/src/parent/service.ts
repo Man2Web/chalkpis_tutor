@@ -41,6 +41,11 @@ export async function createParentLink(
   return { token, expiresAt };
 }
 
+/** Removes one link that was just made (its WhatsApp send was refused, so nobody has it). */
+export async function dropParentLink(pool: Pool, token: string) {
+  await pool.query('DELETE FROM parent_links WHERE token_hash = ?', [hashToken(token)]);
+}
+
 /** Switches off every link of a student. Returns how many were active. */
 export async function revokeParentLinks(
   pool: Pool,

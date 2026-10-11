@@ -23,6 +23,12 @@ describe('studentSchema', () => {
     expect(msg({ ...ok, phone: '12' })).toBe('phone');
     expect(msg({ ...ok, phone: '98765 43211' })).toBeNull();
   });
+  it('says "too long" (not "required") for over-long text', () => {
+    expect(msg({ ...ok, name: 'a'.repeat(81) })).toBe('tooLong');
+    expect(msg({ ...ok, parentName: 'a'.repeat(81) })).toBe('tooLong');
+    expect(msg({ ...ok, class: 'a'.repeat(31) })).toBe('tooLong');
+    expect(msg({ ...ok, notes: 'a'.repeat(501) })).toBe('tooLong');
+  });
   it('needs a name and a valid fee and due day', () => {
     expect(msg({ ...ok, name: 'A' })).toBe('required');
     expect(msg({ ...ok, monthlyFee: '-1' })).toBe('amount');

@@ -1,3 +1,4 @@
+import { useIdempotencyKey } from '../../api/idempotency';
 import { useMemo, useState } from 'react';
 import { FlatList, Platform, Share, Text, View } from 'react-native';
 import * as Contacts from 'expo-contacts/legacy';
@@ -43,6 +44,7 @@ export function ImportScreen({
   route,
 }: NativeStackScreenProps<MainStackParams, 'StudentImport'>) {
   const { t } = useTranslation();
+  const idem = useIdempotencyKey();
   const { mode } = route.params;
   const instituteId = useInstituteId();
   const batches = useBatches();
@@ -169,11 +171,14 @@ export function ImportScreen({
           dueDay: r.dueDay,
           batchIds: r.batchIds,
         })),
+        { idempotencyKey: idem.key },
       );
+      idem.reset();
       await refresh();
       toast(t('import.done', { count: n }), 'success');
       navigation.goBack();
     } catch (e) {
+      idem.settle(e);
       reportError(e);
       toast(t('common.error'), 'error');
       setBusy(false);

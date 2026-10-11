@@ -21,9 +21,9 @@ export function BatchFormFields({ control }: { control: Control<BatchForm> }) {
   const { t } = useTranslation();
   return (
     <>
-      <FormInput control={control} name="name" label={t('onboarding.batchName')} />
-      <FormInput control={control} name="subject" label={t('onboarding.subject')} />
-      <FormInput control={control} name="class" label={t('onboarding.class')} />
+      <FormInput control={control} name="name" label={t('onboarding.batchName')} maxLength={60} />
+      <FormInput control={control} name="subject" label={t('onboarding.subject')} maxLength={60} />
+      <FormInput control={control} name="class" label={t('onboarding.class')} maxLength={30} />
       <Text style={type.fieldLabel}>{t('onboarding.days')}</Text>
       <Controller
         control={control}

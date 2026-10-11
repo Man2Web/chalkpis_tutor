@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { api, ApiError, setSignedOutHandler } from '../../api/client';
 import { tokens } from '../../api/tokens';
 import { reportError } from '../../lib/analytics';
+import { queryClient } from '../../lib/queryClient';
 import type { UserProfile } from '../../lib/types';
 import { statusFor, type SessionStatus } from './status';
 
@@ -54,8 +55,12 @@ export async function refreshProfile() {
   applyMe(await api<MeResponse>('GET', '/me'));
 }
 
-const signedOut = () =>
+/** Back to the sign-in screens, with nothing of the last person left in the cache (cleared after the switch, so no
+ * screen of theirs is still mounted to fetch it again). */
+const signedOut = () => {
   useSession.getState().set({ uid: null, profile: null, status: 'signedOut' });
+  queryClient.clear();
+};
 
 /** Mount once at the root: restores the saved sign-in, and signs out everywhere when the server ends the session. */
 export function useSessionBootstrap() {
@@ -84,13 +89,22 @@ export function useSessionBootstrap() {
   }, []);
 }
 
-export async function logout() {
-  const refreshToken = await tokens.getRefresh();
-  try {
-    if (refreshToken) await api('POST', '/auth/logout', { refreshToken });
-  } catch {
-    // the server forgets the session on its own; signing out locally is what matters
-  }
-  await tokens.clear();
-  signedOut();
+let loggingOut: Promise<void> | null = null;
+
+/** Signs out here and on the server. A second tap while the first is on its way joins it instead of starting again. */
+export function logout(): Promise<void> {
+  return (loggingOut ??= (async () => {
+    try {
+      const refreshToken = await tokens.getRefresh();
+      try {
+        if (refreshToken) await api('POST', '/auth/logout', { refreshToken });
+      } catch {
+        // the server forgets the session on its own; signing out locally is what matters
+      }
+      await tokens.clear();
+      signedOut();
+    } finally {
+      loggingOut = null;
+    }
+  })());
 }

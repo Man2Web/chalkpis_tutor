@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
+import { useIdempotencyKey } from '../../api/idempotency';
 import {
   ActionButton,
   Avatar,
@@ -58,11 +59,27 @@ export function FeeLedgerScreen({
   const [discount, setDiscountText] = useState('');
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string>();
+  const chargeKey = useIdempotencyKey();
 
   if (students.isLoading || dues.isLoading)
     return (
       <Screen>
         <Skeleton height={96} />
+      </Screen>
+    );
+  // a failed load with nothing cached is not "not found": offer to try again
+  if ((students.isError && !students.data) || (dues.isError && !dues.data))
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => {
+            if (students.isError) void students.refetch();
+            if (dues.isError) void dues.refetch();
+          }}
+        />
       </Screen>
     );
   if (!student)
@@ -107,13 +124,22 @@ export function FeeLedgerScreen({
     if (!/^\d{4}-\d{2}-\d{2}$/.test(chargeDate)) return setFormError(t('validation.date'));
     const ok = await run(
       () =>
-        addCharge({
-          instituteId,
-          studentId,
-          description: desc,
-          amount: paise,
-          dueYmd: chargeDate,
-        }).then(() => undefined),
+        addCharge(
+          {
+            instituteId,
+            studentId,
+            description: desc,
+            amount: paise,
+            dueYmd: chargeDate,
+          },
+          { idempotencyKey: chargeKey.key },
+        ).then(
+          () => chargeKey.reset(),
+          (e: unknown) => {
+            chargeKey.settle(e);
+            throw e;
+          },
+        ),
       t('fees.chargeAdded'),
     );
     if (ok) {

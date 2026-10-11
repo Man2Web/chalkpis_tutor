@@ -3,6 +3,7 @@ import { Animated, StyleSheet, View } from 'react-native';
 import LottieView from 'lottie-react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import intro from '../../assets/chalkpis-intro.json';
+import { BrandReveal } from './BrandReveal';
 import { useSplashFade } from './splashFade';
 
 // Keep the native splash (plain white, from app.json) up until the Lottie overlay is on screen,
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function AnimatedSplash({ appReady, children }: Props) {
+  const [drawn, setDrawn] = useState(false); // the logo has drawn itself; the blue reveal plays next
   const [animationDone, setAnimationDone] = useState(false);
   const { opacity, visible } = useSplashFade(appReady, animationDone);
   const onLayout = useCallback(() => {
@@ -31,10 +33,12 @@ export default function AnimatedSplash({ appReady, children }: Props) {
             source={intro}
             autoPlay
             loop={false}
+            speed={1.5}
             resizeMode="contain"
-            onAnimationFinish={() => setAnimationDone(true)}
+            onAnimationFinish={() => setDrawn(true)}
             style={styles.animation}
           />
+          {drawn ? <BrandReveal onDone={() => setAnimationDone(true)} /> : null}
         </Animated.View>
       )}
     </View>

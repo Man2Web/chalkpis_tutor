@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -17,7 +18,7 @@ import { BatchScreen } from '../features/onboarding/BatchScreen';
 import { ProfileScreen } from '../features/onboarding/ProfileScreen';
 import { StudentsScreen } from '../features/onboarding/StudentsScreen';
 import { haptic } from '../lib/haptics';
-import { colors, font } from '../theme';
+import { colors, font, spacing, type } from '../theme';
 import { CollectFeeScreen } from '../features/fees/CollectFeeScreen';
 import { FeeLedgerScreen } from '../features/fees/FeeLedgerScreen';
 import { FeePlanScreen } from '../features/fees/FeePlanScreen';
@@ -337,24 +338,42 @@ function MainStack() {
   );
 }
 
+/**
+ * While the saved sign-in is being checked. The check retries on its own when there is no network, so after a
+ * while say so instead of spinning silently.
+ */
+function RestoringSession() {
+  const { t } = useTranslation();
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setSlow(true), 8000);
+    return () => clearTimeout(id);
+  }, []);
+  return (
+    <View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.md,
+        backgroundColor: colors.bg,
+      }}
+    >
+      <ActivityIndicator size="large" color={colors.primary} />
+      {slow ? (
+        <Text style={[type.footnote, { textAlign: 'center' }]} accessibilityLiveRegion="polite">
+          {t('common.reconnecting')}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 export function RootNavigator() {
   const status = useSession((s) => s.status);
   const hasInstitute = useSession((s) => !!s.profile?.instituteId);
 
-  if (status === 'loading') {
-    return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.bg,
-        }}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (status === 'loading') return <RestoringSession />;
   return (
     <NavigationContainer>
       {status === 'signedOut' ? (

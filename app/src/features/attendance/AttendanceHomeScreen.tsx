@@ -3,7 +3,17 @@ import { FlatList, RefreshControl, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { Button, Chip, EmptyState, InsetSeparator, ListItem, listCard, Screen, Skeleton, TopBar } from '../../components';
+import {
+  Button,
+  Chip,
+  EmptyState,
+  InsetSeparator,
+  ListItem,
+  listCard,
+  Screen,
+  Skeleton,
+  TopBar,
+} from '../../components';
 import { useAttendanceOn, useBatches } from '../../data/hooks';
 import { todayYmd, weekdayOf } from '../../lib/dates';
 import type { MainStackParams } from '../../navigation/types';

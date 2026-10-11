@@ -41,10 +41,7 @@ export function ActionButton({
       <View style={{ height: 26, justifyContent: 'center' }}>
         <Ionicons name={icon} size={21} color={colors.text} />
       </View>
-      <Text
-        style={{ fontSize: 12, ...font('500'), color: colors.text }}
-        numberOfLines={1}
-      >
+      <Text style={{ fontSize: 12, ...font('500'), color: colors.text }} numberOfLines={1}>
         {label}
       </Text>
     </Pressable>

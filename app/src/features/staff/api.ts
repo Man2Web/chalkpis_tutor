@@ -1,4 +1,4 @@
-import { api, ApiError } from '../../api/client';
+import { api, ApiError, type ApiOptions } from '../../api/client';
 import { normalizeIndianPhone } from '../../lib/phone';
 
 export interface StaffMember {
@@ -34,8 +34,16 @@ export function staffFormError(name: string, phone: string): 'invalid' | null {
   return name.trim().length >= 2 && normalizeIndianPhone(phone) ? null : 'invalid';
 }
 
-export async function addStaff(a: { name: string; phone: string; batchIds: string[] }) {
-  await api('POST', '/staff', { name: a.name.trim(), phone: a.phone.trim(), batchIds: a.batchIds });
+export async function addStaff(
+  a: { name: string; phone: string; batchIds: string[] },
+  opts?: ApiOptions,
+) {
+  await api(
+    'POST',
+    '/staff',
+    { name: a.name.trim(), phone: a.phone.trim(), batchIds: a.batchIds },
+    opts,
+  );
 }
 
 export async function setStaffBatches(userId: string, batchIds: string[]) {

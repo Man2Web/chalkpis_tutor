@@ -61,11 +61,10 @@ it('adds a helper with the chosen batches and refreshes the lists', async () => 
   await fireEvent.press(screen.getByRole('button', { name: 'Science 10' }));
   await fireEvent.press(screen.getByRole('button', { name: 'Add helper' }));
   await waitFor(() =>
-    expect(addStaff).toHaveBeenCalledWith({
-      name: 'Sunita',
-      phone: '98765 43210',
-      batchIds: ['b2'],
-    }),
+    expect(addStaff).toHaveBeenCalledWith(
+      { name: 'Sunita', phone: '98765 43210', batchIds: ['b2'] },
+      { idempotencyKey: expect.stringMatching(/^[A-Za-z0-9_-]{24,100}$/) },
+    ),
   );
   expect(mockRefresh).toHaveBeenCalled();
 });

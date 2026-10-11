@@ -1,3 +1,4 @@
+import { useIdempotencyKey } from '../../api/idempotency';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -33,6 +34,7 @@ export function ReminderScreen({
   route,
 }: NativeStackScreenProps<MainStackParams, 'Reminder'>) {
   const { t } = useTranslation();
+  const idem = useIdempotencyKey();
   const students = useStudents();
   const dues = useStudentDues(route.params.studentId);
   const institute = useInstitute();
@@ -106,20 +108,20 @@ export function ReminderScreen({
       let last: string | undefined;
       for (const d of unpaid)
         last = (
-          await recordPayment({
-            instituteId,
-            uid,
-            dueId: d.id,
-            amount: outstanding(d),
-            mode: 'upi',
-          })
+          await recordPayment(
+            { instituteId, uid, dueId: d.id, amount: outstanding(d), mode: 'upi' },
+            // one key per due: a retry after a lost answer skips the ones already recorded
+            { idempotencyKey: `${idem.key}-${d.id}`.slice(0, 100) },
+          )
         ).paymentId;
+      idem.reset();
       track('payment_recorded');
       await refresh();
       toast(t('fees.markPaidDone'), 'success');
       if (last && unpaid.length === 1) navigation.replace('Receipt', { paymentId: last });
       else navigation.goBack();
     } catch (e) {
+      idem.settle(e);
       reportError(e);
       toast(t('fees.recordFailed'), 'error');
       setBusy(false);
