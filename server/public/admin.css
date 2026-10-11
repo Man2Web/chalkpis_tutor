@@ -332,3 +332,6 @@ svg.chart text { fill: var(--faint); font-size: 10.5px; font-family: inherit; }
   .shell .side .navi[title='Collapse sidebar'] { display: none; }
   .content { padding: 22px; }
 }
+
+/* device a log line came from */
+.dev { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; margin-left: 8px; border-radius: 5px; font-size: 11px; font-weight: 600; background: var(--fill); color: var(--text-2); vertical-align: 1px; }

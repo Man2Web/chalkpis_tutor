@@ -110,7 +110,12 @@ const schema = z.object({
   APP_REDIRECT_PREFIXES: z
     .string()
     .default('chalkpis://,exp://')
-    .transform((v) => v.split(',').map((x) => x.trim()).filter(Boolean)),
+    .transform((v) =>
+      v
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean),
+    ),
   // PhonePe Standard Checkout (v2) for plan purchases; preferred over Razorpay when set.
   PHONEPE_CLIENT_ID: z.string().min(1).optional(),
   PHONEPE_CLIENT_SECRET: z.string().min(1).optional(),

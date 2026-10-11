@@ -110,7 +110,7 @@
   async function call(method, url, body, retried) {
     var t = tok();
     // JSON header only with a body: the server refuses a request that announces JSON and sends none (DELETE, bare POSTs)
-    var res = await fetch(url, { method: method, headers: Object.assign(body ? { 'Content-Type': 'application/json' } : {}, t ? { Authorization: 'Bearer ' + t.accessToken } : {}), body: body ? JSON.stringify(body) : undefined });
+    var res = await fetch(url, { method: method, headers: Object.assign({ 'X-Client-Platform': 'web' }, body ? { 'Content-Type': 'application/json' } : {}, t ? { Authorization: 'Bearer ' + t.accessToken } : {}), body: body ? JSON.stringify(body) : undefined });
     if (res.status === 401 && t && !retried) {
       var r = await fetch('/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: t.refreshToken }) });
       if (r.ok) { var j = await r.json(); saveTok({ accessToken: j.accessToken, refreshToken: j.refreshToken, phone: t.phone }); return call(method, url, body, true); }
@@ -190,9 +190,11 @@
     for (var g = 0; g <= 4; g++) { var gv = (max * g) / 4, y = T + (H - T - B) * (1 - gv / max); svg.appendChild(s('line', { x1: L, x2: W, y1: y, y2: y, stroke: cssv('--line'), 'stroke-dasharray': g ? '3 4' : '' })); svg.appendChild(s('text', { x: L - 8, y: y + 3.5, 'text-anchor': 'end' }, [o.money ? '₹' + compact(gv / 100) : compact(gv)])); }
     values.forEach(function (v, i) {
       var h = ((H - T - B) * v) / max, r = s('rect', { x: L + i * bw + bw * 0.22, y: H - B - h, width: bw * 0.56, height: Math.max(h, 1.5), rx: 5, fill: o.color || cssv('--accent') });
-      r.addEventListener('mousemove', function (e) { showTip(e.clientX, e.clientY, labels[i], [[o.name || 'Value', o.money ? money(v) : String(v), o.color || cssv('--accent')]]); });
+      r.addEventListener('mousemove', function (e) { showTip(e.clientX, e.clientY, o.tips ? o.tips[i] : labels[i], [[o.name || 'Value', o.money ? money(v) : String(v), o.color || cssv('--accent')]]); });
       r.addEventListener('mouseleave', hideTip);
-      svg.appendChild(r); svg.appendChild(s('text', { x: L + i * bw + bw / 2, y: H - 7, 'text-anchor': 'middle' }, [labels[i]]));
+      svg.appendChild(r);
+      // with many bars, label every `every`-th one (and the last) so the axis stays readable
+      if (!o.every || i % o.every === 0 || i === values.length - 1) svg.appendChild(s('text', { x: L + i * bw + bw / 2, y: H - 7, 'text-anchor': 'middle' }, [labels[i]]));
     });
     return svg;
   }
@@ -305,6 +307,25 @@
       card('Needs attention', 'Lowest health first', risky.length ? el('div', { cls: 'rows' }, risky.slice(0, 5).map(function (i) {
         return el('div', { cls: 'r click', on: { click: function () { go('centre', i.id); } } }, [avatar(i.name, 'sq'), el('div', { cls: 'grow' }, [el('div', { cls: 'ellipsis', style: { fontWeight: 600 } }, [i.name]), el('div', { cls: 'sm muted' }, [n(i.students, 'student') + ' · active ' + ago(i.lastActivityAt)])]), score(i.health)]);
       })) : empty('check', 'Every centre looks healthy.'), el('button', { cls: 'btn ghost', on: { click: function () { st.inst.filter = 'at-risk'; go('centres'); } } }, ['All'])),
+    ]));
+    // how tutors sign in, from which phones, and which centres to celebrate or call
+    var MCOL = { whatsapp: '#1DA851', google: '#4285F4', apple: cssv('--text'), email: cssv('--purple'), unknown: cssv('--fill') };
+    var PCOL = { ios: cssv('--accent'), android: '#3DDC84', web: cssv('--teal'), unknown: cssv('--fill') };
+    function mixParts(obj, names, colors) { return Object.keys(obj).sort(function (x, y) { return obj[y] - obj[x]; }).map(function (k) { return { name: names[k] || 'Before tracking', value: obj[k], color: colors[k] || cssv('--faint') }; }); }
+    var watch = 'top', watchBox = el('div'), watchSeg = el('div');
+    function drawWatch() {
+      clear(watchSeg).appendChild(seg([['top', 'Most active'], ['quiet', 'Gone quiet']], watch, function (v) { watch = v; drawWatch(); }));
+      var list = watch === 'top' ? a.topCentres : a.quietCentres, max = list.length && watch === 'top' ? list[0].events : 1;
+      clear(watchBox).appendChild(list.length ? el('div', { cls: 'rows' }, list.map(function (c) {
+        return el('div', { cls: 'r click', on: { click: function () { go('centre', c.id); } } }, [avatar(c.name, 'sq'), el('div', { cls: 'grow' }, [el('div', { cls: 'ellipsis', style: { fontWeight: 600 } }, [c.name]), watch === 'top' ? el('div', { cls: 'bar', style: { marginTop: '6px' } }, [el('i', { style: { width: (c.events / max) * 100 + '%', background: cssv('--purple') } })]) : el('div', { cls: 'sm muted' }, ['last active ' + ago(c.lastAt)])]), watch === 'top' ? el('b', { cls: 'num' }, [String(c.events)]) : pill('Call', 'orange')]);
+      })) : empty(watch === 'top' ? 'trophy' : 'check', watch === 'top' ? 'No activity yet.' : 'No centre has gone quiet this week.'));
+    }
+    drawWatch();
+    var methods = a.signInMethods || {}, platforms = a.signInPlatforms || {};
+    box.appendChild(el('div', { cls: 'grid g3 mt' }, [
+      card('How tutors sign in', 'Last 30 days', Object.keys(methods).length ? donut(mixParts(methods, METHOD, MCOL), 'sign-ins') : empty('login', 'No sign-ins yet.')),
+      card('Their phones', 'Last 30 days', Object.keys(platforms).length ? donut(mixParts(platforms, DEVICE, PCOL), 'sign-ins') : empty('login', 'No sign-ins yet.')),
+      card('Centres to watch', watch === 'top' ? 'Changes and sign-ins, 30 days' : null, watchBox, watchSeg),
     ]));
     box.appendChild(el('div', { cls: 'mt' }, [card('Activation funnel', 'How far new centres get', funnel(a.funnel))]));
   }
@@ -428,16 +449,54 @@
       el('div', { cls: 'card kpi' }, [el('div', { cls: 'label' }, ['Plan']), el('div', { cls: 'value', style: { fontSize: '22px', textTransform: 'capitalize' } }, [i.plan || '—']), el('div', { cls: 'sm muted' }, [(i.planActive ? 'until ' : 'ended ') + dshort(i.expiresAt)])]),
     ]));
     var tabs = el('div', { cls: 'tabs mt2', role: 'tablist' });
-    var TABS = [['overview', 'Overview'], ['people', 'People'], ['messages', 'WhatsApp'], ['notes', 'Notes'], ['billing', 'Plan & billing']];
+    var TABS = [['overview', 'Overview'], ['logs', 'Logs'], ['people', 'People'], ['messages', 'WhatsApp'], ['notes', 'Notes'], ['billing', 'Plan & billing']];
+    var AREA = { student: ['Students', '--accent'], batch: ['Batches', '--purple'], attendance: ['Attendance', '--teal'], fee: ['Fees', '--green'], message: ['WhatsApp', '--teal'], settings: ['Settings', '--faint'], staff: ['Helpers', '--orange'], parent: ['Parent links', '--blue'], centre: ['Setup', '--faint'], billing: ['Plan', '--green'] };
+    var LOG = { kinds: [], q: '' };
     function drawTabs() { clear(tabs); TABS.forEach(function (t) { tabs.appendChild(el('button', { cls: t[0] === tab ? 'on' : '', role: 'tab', on: { click: function () { tab = t[0]; drawTabs(); drawBody(); } } }, [t[1]])); }); }
+    // ---- one centre's full log: filter by kind, search, download, load older ----
+    var LOG_KINDS = [['activity', 'Changes'], ['login', 'Sign-ins'], ['payment', 'Payments'], ['attendance', 'Attendance'], ['message', 'WhatsApp'], ['message-failed', 'Failures'], ['reversal', 'Corrections'], ['plan', 'Plan'], ['admin', 'Admin']];
+    async function drawLogs() {
+      var holder = el('div', { cls: 'feed' }), chipBox = el('div', { cls: 'chips swipe' }), moreBox = el('div', { style: { display: 'flex', justifyContent: 'center', marginTop: '14px' } }), oldest = null;
+      function drawChips() {
+        clear(chipBox);
+        chipBox.appendChild(el('button', { cls: 'chip' + (LOG.kinds.length ? '' : ' on'), on: { click: function () { LOG.kinds = []; drawChips(); load(); } } }, ['Everything']));
+        LOG_KINDS.forEach(function (k) { var on = LOG.kinds.indexOf(k[0]) >= 0; chipBox.appendChild(el('button', { cls: 'chip' + (on ? ' on' : ''), on: { click: function () { LOG.kinds = on ? LOG.kinds.filter(function (x) { return x !== k[0]; }) : LOG.kinds.concat([k[0]]); drawChips(); load(); } } }, [ic(KIND[k[0]][0] === 'shield' ? 'audit' : KIND[k[0]][0]), k[1]])); });
+      }
+      var run = latest(holder);
+      function q(before) { return '/admin/api/events?limit=100&institute=' + id + '&kinds=' + LOG.kinds.join(',') + '&q=' + encodeURIComponent(LOG.q) + (before ? '&before=' + encodeURIComponent(before) : ''); }
+      function after(r) {
+        clear(moreBox);
+        if (!r.events.length && !oldest) { holder.appendChild(empty('activity', LOG.q || LOG.kinds.length ? 'Nothing matches.' : 'Nothing in the last 30 days.')); return; }
+        dayFeed(holder, r.events, { inCentre: true });
+        oldest = r.events.length ? r.events[r.events.length - 1].at : oldest;
+        if (r.events.length === 100) moreBox.appendChild(el('button', { cls: 'btn', on: { click: async function () { var x = await call('GET', q(oldest)); after(x); } } }, ['Load older']));
+      }
+      function load() { oldest = null; holder.removeAttribute('data-last-day'); return run(function () { return call('GET', q()); }, after); }
+      drawChips();
+      body.appendChild(el('div', { cls: 'toolbar' }, [
+        searchField(LOG.q, 'Search this centre’s log: a student, a batch, a person', function (v) { LOG.q = v; load(); }),
+        el('button', { cls: 'btn', on: { click: function () { download('/admin/api/institutes/' + id + '/logs.csv', 'chalkpis-' + i.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-logs.csv'); } } }, [ic('download'), 'Export']),
+      ]));
+      body.appendChild(chipBox); body.appendChild(holder); body.appendChild(moreBox);
+      await load();
+    }
     async function drawBody() {
       clear(body);
-      if (tab === 'overview') body.appendChild(el('div', { cls: 'grid g2' }, [
+      if (tab === 'overview') {
+        var busy = d.trend.values.reduce(function (x, y) { return x + y; }, 0);
+        body.appendChild(el('div', { cls: 'split' }, [
+          card('Activity · last 30 days', busy ? n(busy, 'action') + ' and sign-ins' : 'Nothing recorded yet', busy ? bars(d.trend.dates.map(function (x) { return dshort(x + 'T12:00:00+05:30'); }), d.trend.values, { name: 'Actions', color: cssv('--purple'), h: 190, label: 'actions per day', every: 7, tips: d.trend.dates.map(function (x) { return dlong(x + 'T12:00:00+05:30'); }) }) : empty('activity', 'Changes and sign-ins show here from now on.'), el('button', { cls: 'btn ghost', on: { click: function () { tab = 'logs'; drawTabs(); drawBody(); } } }, ['Open logs'])),
+          card('What they use', 'Last 30 days', d.areas.length ? donut(d.areas.map(function (a) { var m = AREA[a.area] || [a.area, '--faint']; return { name: m[0], value: a.count, color: cssv(m[1]) }; }), 'actions') : empty('check', 'No changes yet.')),
+        ]));
+        body.appendChild(el('div', { cls: 'grid g2 mt' }, [
         card('Last 30 days', null, el('div', null, [['Attendance days saved', d.activity.attendance30], ['Payments recorded', d.activity.payments30 + ' · ' + money(i.collected30)], ['WhatsApp delivered', i.messages30 + (i.failed30 ? ' (' + i.failed30 + ' failed)' : '')]].map(function (k) { return el('div', { cls: 'kv' }, [el('span', null, [k[0]]), el('b', { cls: 'num' }, [String(k[1])])]); }))),
         card('Setup', 'What helps a centre succeed', el('div', null, [['Parents can pay (UPI / link)', i.canBePaid], ['Parent WhatsApp messages', i.messagesOn], ['Has students', i.students > 0], ['Has a helper', i.staff > 0]].map(function (k) { return el('div', { cls: 'kv' }, [el('span', null, [k[0]]), k[1] ? pill('Yes', 'green') : pill('No', 'orange')]); }))),
-      ]));
+        ]));
+      }
+      if (tab === 'logs') await drawLogs();
       if (tab === 'people') body.appendChild(card('People', null, el('div', { cls: 'rows' }, d.people.map(function (p) {
-        return el('div', { cls: 'r click', on: { click: function () { openUser(p.id); } } }, [avatar(p.name || p.phone), el('div', { cls: 'grow' }, [el('div', { style: { fontWeight: 600 } }, [p.name || p.phone]), el('div', { cls: 'sm muted' }, [p.phone + ' · ' + (p.role === 'owner' ? 'Tutor' : 'Helper')])]), p.blocked ? pill('Blocked', 'red') : el('span', { cls: 'sm muted' }, [ago(p.lastLoginAt)]), ic('chev', 'faint')]);
+        var how = [METHOD[p.lastMethod], DEVICE[p.lastPlatform] && 'on ' + DEVICE[p.lastPlatform]].filter(Boolean).join(' ');
+        return el('div', { cls: 'r click', on: { click: function () { openUser(p.id); } } }, [avatar(p.name || p.phone), el('div', { cls: 'grow' }, [el('div', { style: { fontWeight: 600 } }, [p.name || p.phone]), el('div', { cls: 'sm muted' }, [p.phone + ' · ' + (p.role === 'owner' ? 'Tutor' : 'Helper') + ' · ' + n(p.logins30, 'sign-in') + ' in 30 days'])]), p.blocked ? pill('Blocked', 'red') : el('div', { style: { textAlign: 'right' } }, [el('div', { cls: 'sm muted' }, [ago(p.lastLoginAt)]), how ? el('div', { cls: 'xs faint' }, [how]) : null]), ic('chev', 'faint')]);
       }))));
       if (tab === 'messages') body.appendChild(card('WhatsApp · last 30 days', null, byType(d.messages)));
       if (tab === 'billing') body.appendChild(el('div', { cls: 'grid g2' }, [planEditor(i, function () { render(); }), card('Plan payments', null, d.billing.length ? el('div', null, d.billing.map(function (b) { return el('div', { cls: 'kv' }, [el('span', null, [when(b.at)]), el('b', null, [(b.plan || '') + ' · ' + money(b.amount)])]); })) : empty('rupee', 'No plan payments yet.'))]));
@@ -509,15 +568,33 @@
   }
 
   var KIND = {
-    signup: ['sparkle', '--purple', 'Sign-ups'], login: ['login', '--accent', 'Logins'], centre: ['centres', '--teal', 'New centres'], payment: ['rupee', '--green', 'Payments'],
-    reversal: ['refresh', '--orange', 'Corrections'], attendance: ['calendar', '--accent', 'Attendance'], 'message-failed': ['alert', '--red', 'WhatsApp failures'], plan: ['trophy', '--green', 'Plans'], admin: ['shield', '--faint', 'Admin'],
+    signup: ['sparkle', '--purple', 'Sign-ups'], login: ['login', '--accent', 'Logins'], activity: ['activity', '--purple', 'Changes'], centre: ['centres', '--teal', 'New centres'], payment: ['rupee', '--green', 'Payments'],
+    reversal: ['refresh', '--orange', 'Corrections'], attendance: ['calendar', '--accent', 'Attendance'], message: ['chat', '--teal', 'WhatsApp sent'], 'message-failed': ['alert', '--red', 'WhatsApp failures'], plan: ['trophy', '--green', 'Plans'], admin: ['shield', '--faint', 'Admin'],
   };
-  function evRow(e, compactRow) {
+  // the platform feed leaves routine WhatsApp sends out (one centre's log shows them)
+  var FEED_KINDS = Object.keys(KIND).filter(function (k) { return k !== 'message'; });
+  var DEVICE = { ios: 'iPhone', android: 'Android', web: 'Web' };
+  var METHOD = { whatsapp: 'WhatsApp', google: 'Google', apple: 'Apple', email: 'Email' };
+  function device(p) { return p && DEVICE[p] ? el('span', { cls: 'dev', title: 'From ' + DEVICE[p] }, [DEVICE[p]]) : null; }
+  /** Events grouped under Today / Yesterday / the date, newest first; `more` loads the next older page. */
+  function dayFeed(holder, events, opts) {
+    opts = opts || {};
+    var lastDay = holder.getAttribute('data-last-day') || '';
+    events.forEach(function (e) {
+      var d = ymd(e.at), today = ymd(new Date().toISOString()), yest = ymd(new Date(Date.now() - 86400000).toISOString());
+      if (d !== lastDay) { lastDay = d; holder.appendChild(el('div', { cls: 'daysep' }, [el('span', null, [d === today ? 'Today' : d === yest ? 'Yesterday' : dlong(e.at)])])); }
+      holder.appendChild(evRow(e, false, opts.inCentre));
+    });
+    holder.setAttribute('data-last-day', lastDay);
+  }
+  function evRow(e, compactRow, inCentre) {
     var k = KIND[e.kind] || KIND.admin, c = cssv(k[1]);
-    var clickable = e.instituteId || e.userId;
-    var n = el('div', { cls: compactRow ? 'r' + (clickable ? ' click' : '') : 'ev', style: clickable ? { cursor: 'pointer' } : null, on: clickable ? { click: function () { if (e.instituteId) go('centre', e.instituteId); else openUser(e.userId); } } : null }, [
+    // inside a centre's own log, a line opens the person; elsewhere it opens the centre
+    var clickable = inCentre ? e.userId : e.instituteId || e.userId;
+    var open = function () { if (!inCentre && e.instituteId) go('centre', e.instituteId); else openUser(e.userId); };
+    var n = el('div', { cls: compactRow ? 'r' + (clickable ? ' click' : '') : 'ev', style: clickable ? { cursor: 'pointer' } : null, on: clickable ? { click: open } : null }, [
       el('div', { cls: 'kind', style: { width: compactRow ? '32px' : null, height: compactRow ? '32px' : null, borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, ' + c + ' 14%, transparent)', color: c, flex: 'none' } }, [ic(k[0] === 'shield' ? 'audit' : k[0])]),
-      el('div', { cls: 'grow' }, [el('div', null, [el('b', null, [e.actor]), ' ' + e.text, e.amount != null ? el('span', { cls: 'amt', style: { color: e.amount < 0 ? cssv('--orange') : cssv('--green') } }, [money(e.amount)]) : null]), compactRow ? el('div', { cls: 'xs muted' }, [ago(e.at)]) : (e.institute && e.institute !== e.actor ? el('div', { cls: 'xs muted' }, [e.institute]) : null)]),
+      el('div', { cls: 'grow' }, [el('div', null, [el('b', null, [e.actor]), ' ' + e.text, e.amount != null ? el('span', { cls: 'amt', style: { color: e.amount < 0 ? cssv('--orange') : cssv('--green') } }, [money(e.amount)]) : null, device(e.platform)]), compactRow ? el('div', { cls: 'xs muted' }, [ago(e.at)]) : (!inCentre && e.institute && e.institute !== e.actor ? el('div', { cls: 'xs muted' }, [e.institute]) : null)]),
       compactRow ? null : el('div', { cls: 'when' }, [time(e.at)]),
     ]);
     return n;
@@ -528,7 +605,7 @@
     function drawChips() {
       clear(chipBox);
       chipBox.appendChild(el('button', { cls: 'chip' + (F.kinds.length ? '' : ' on'), on: { click: function () { F.kinds = []; drawChips(); load(); } } }, ['Everything']));
-      Object.keys(KIND).forEach(function (k) { var on = F.kinds.indexOf(k) >= 0; chipBox.appendChild(el('button', { cls: 'chip' + (on ? ' on' : ''), on: { click: function () { F.kinds = on ? F.kinds.filter(function (x) { return x !== k; }) : F.kinds.concat([k]); drawChips(); load(); } } }, [ic(KIND[k][0] === 'shield' ? 'audit' : KIND[k][0]), KIND[k][2]])); });
+      FEED_KINDS.forEach(function (k) { var on = F.kinds.indexOf(k) >= 0; chipBox.appendChild(el('button', { cls: 'chip' + (on ? ' on' : ''), on: { click: function () { F.kinds = on ? F.kinds.filter(function (x) { return x !== k; }) : F.kinds.concat([k]); drawChips(); load(); } } }, [ic(KIND[k][0] === 'shield' ? 'audit' : KIND[k][0]), KIND[k][2]])); });
     }
     drawChips();
     box.appendChild(el('div', { cls: 'hello' }, [el('div', null, [el('h2', null, ['# platform-activity']), el('p', null, ['Everything happening on Chalkpis, as it happens'])]), el('button', { cls: 'btn', on: { click: function () { load(); } } }, [ic('refresh'), 'Refresh'])]));
@@ -541,14 +618,9 @@
         if (fresh && !holder.querySelector('.newpill')) holder.insertBefore(el('div', { cls: 'newpill' }, [el('button', { on: { click: function () { load(); scrollTo({ top: 0, behavior: 'smooth' }); } } }, ['↑ ' + fresh + ' new'])]), holder.firstChild);
         return;
       }
-      clear(holder); latest = r.events[0] ? r.events[0].at : null;
+      clear(holder); holder.removeAttribute('data-last-day'); latest = r.events[0] ? r.events[0].at : null;
       if (!r.events.length) { holder.appendChild(card('Nothing yet', null, empty('activity', 'Events appear here the moment tutors use Chalkpis.'))); return; }
-      var lastDay = '';
-      r.events.forEach(function (e) {
-        var d = ymd(e.at), today = ymd(new Date().toISOString()), yest = ymd(new Date(Date.now() - 86400000).toISOString());
-        if (d !== lastDay) { lastDay = d; holder.appendChild(el('div', { cls: 'daysep' }, [el('span', null, [d === today ? 'Today' : d === yest ? 'Yesterday' : dlong(e.at)])])); }
-        holder.appendChild(evRow(e));
-      });
+      dayFeed(holder, r.events);
     }
     await load();
     clearInterval(liveTimer); liveTimer = setInterval(function () { if (route().view === 'activity') load(true); }, 15000);

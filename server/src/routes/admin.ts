@@ -258,10 +258,39 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
     )(reply);
   });
 
-  // ---- activity feed, cohorts, notes and tags ----
+  // ---- activity feed (all centres or one), cohorts, notes and tags ----
   app.get('/admin/api/events', guard, async (req) =>
     events(pool, parse(eventsQuery, req.query), now()),
   );
+  // one centre's full log as a spreadsheet: the last 30 days, every kind, newest first
+  app.get('/admin/api/institutes/:id/logs.csv', guard, async (req, reply) => {
+    const instituteId = id(req);
+    const { institute } = await getInstitute(pool, instituteId, now());
+    const { events: rows } = await events(
+      pool,
+      { kinds: [], limit: 300, institute: instituteId, q: '' },
+      now(),
+    );
+    const slug =
+      institute.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') || 'centre';
+    return csv(
+      `chalkpis-${slug}-logs.csv`,
+      toCsv([
+        ['When', 'Kind', 'Who', 'What', 'Amount (Rs)', 'Device'],
+        ...rows.map((e) => [
+          e.at,
+          e.kind,
+          e.actor,
+          e.text,
+          e.amount == null ? '' : e.amount / 100,
+          e.platform ?? '',
+        ]),
+      ]),
+    )(reply);
+  });
   app.get('/admin/api/cohorts', guard, async (req) => {
     const { weeks } = parse(
       z.object({ weeks: z.coerce.number().int().min(2).max(26).default(10) }),
@@ -314,7 +343,12 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
       .send(await readFile(path.join(PUBLIC_DIR, `${name}.svg`)));
   });
   // Inter for the dashboard, served from here because the CSP allows no outside fonts. Fixed names only.
-  const FONTS = new Set(['Inter_400Regular', 'Inter_500Medium', 'Inter_600SemiBold', 'Inter_700Bold']);
+  const FONTS = new Set([
+    'Inter_400Regular',
+    'Inter_500Medium',
+    'Inter_600SemiBold',
+    'Inter_700Bold',
+  ]);
   app.get<{ Params: { name: string } }>('/admin-fonts/:name', async (req, reply) => {
     const name = req.params.name.replace(/\.ttf$/, '');
     if (!FONTS.has(name)) return reply.code(404).send({ error: 'not_found' });

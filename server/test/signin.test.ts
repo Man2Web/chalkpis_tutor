@@ -98,6 +98,39 @@ describe('sign in with WhatsApp, email, Google and Apple', () => {
     return post('/auth/ticket', { ticket });
   }
 
+  it('records how each sign-in happened and from which phone', async () => {
+    const methods = async () =>
+      (
+        (await h.db.pool.query(
+          'SELECT method, platform FROM login_events ORDER BY id',
+        )) as unknown as [{ method: string; platform: string | null }[]]
+      )[0];
+    // an email sign-up finishes with the WhatsApp code, but counts as an email sign-in
+    const first = await emailSignIn('meera@example.com');
+    await phoneSignIn('9822222222', first.json().signupToken);
+    await emailSignIn('meera@example.com');
+    // the app says which phone it is; anything else is ignored
+    h.clock.now = new Date(h.clock.now.getTime() + 61_000);
+    await post('/auth/otp/request', { phone: '9822222222' });
+    await h.app.inject({
+      method: 'POST',
+      url: '/auth/otp/verify',
+      headers: { 'x-client-platform': 'iOS' },
+      payload: { phone: '9822222222', code: lastWhatsAppCode() },
+    });
+    await h.app.inject({
+      method: 'POST',
+      url: '/auth/ticket',
+      headers: { 'x-client-platform': 'toaster' },
+      payload: { ticket: 'x'.repeat(30) },
+    });
+    expect(await methods()).toEqual([
+      { method: 'email', platform: null },
+      { method: 'email', platform: null },
+      { method: 'whatsapp', platform: 'ios' },
+    ]);
+  });
+
   it('lists the methods that are switched on', async () => {
     const r = await h.app.inject({ method: 'GET', url: '/auth/methods' });
     expect(r.json()).toEqual({ whatsapp: true, email: true, google: true, apple: true });

@@ -25,6 +25,7 @@ import { taskRoutes } from './routes/tasks.js';
 import { legalRoutes } from './routes/legal.js';
 import { adminRoutes } from './routes/admin.js';
 import { instituteRoutes } from './routes/institutes.js';
+import { activityLog } from './activity.js';
 
 export interface AppDeps {
   config: Config;
@@ -86,7 +87,7 @@ export async function buildApp({
     await app.register(cors, {
       origin: config.CORS_ORIGINS,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-      allowedHeaders: ['authorization', 'content-type'],
+      allowedHeaders: ['authorization', 'content-type', 'x-client-platform'],
       maxAge: 600,
     });
   // Nothing from this API may be stored by a browser or a proxy unless the route says so (logos, the parent page files).
@@ -107,6 +108,8 @@ export async function buildApp({
   });
 
   app.decorateRequest('auth', null);
+  // every successful change inside a centre is written to its log (see activity.ts)
+  activityLog(app, pool, clock);
   authRoutes(app, { config, pool, provider, clock, mailer, oauth });
   instituteRoutes(app, { config, pool, clock });
   batchRoutes(app, { config, pool, clock });

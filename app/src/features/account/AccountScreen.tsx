@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, Text, View } from 'react-native';
+import { Image, Platform, Text, View } from 'react-native';
 import { Badge } from 'panelui-native/components/badge';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -67,7 +67,7 @@ function ProfileCard({ onEdit, plan }: { onEdit?: () => void; plan?: string }) {
   );
 }
 
-/** How this account can sign in: WhatsApp always; Google, Apple and email once they have been used. */
+/** How this account can sign in: WhatsApp always; Google and email, and Apple on iPhone. */
 function SignInSection() {
   const { t } = useTranslation();
   const profile = useSession((s) => s.profile);
@@ -89,7 +89,8 @@ function SignInSection() {
     <Section title={t('account.signIn')} footer={t('account.signInFooter')}>
       <Row icon="logo-whatsapp" iconColor="#1DA851" title="WhatsApp" value={profile?.phone ?? ''} />
       {row('google', 'logo-google', '#4285F4')}
-      {row('apple', 'logo-apple', colors.text)}
+      {/* Apple is an iPhone sign-in; on Android it shows only if this account already uses it */}
+      {Platform.OS === 'ios' || on.has('apple') ? row('apple', 'logo-apple', colors.text) : null}
       {row('email', 'mail', colors.infoFill)}
     </Section>
   );

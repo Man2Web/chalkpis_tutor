@@ -1,4 +1,5 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { clientPlatform } from '../activity.js';
 import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { authenticate } from '../auth/guard.js';
@@ -12,6 +13,8 @@ import {
   type Identity,
 } from '../auth/identity.js';
 import type { Mailer } from '../auth/mailer.js';
+
+type SignInMethod = 'whatsapp' | 'google' | 'apple' | 'email';
 import {
   allowedRedirect,
   newNonce,
@@ -95,15 +98,21 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
   const now = () => (deps.clock ?? (() => new Date()))();
 
   /** Every sign-in method ends here: a blocked account is refused, otherwise a new session and the profile. */
-  const signIn = async (userId: string, reply: import('fastify').FastifyReply) => {
+  const signIn = async (
+    userId: string,
+    method: SignInMethod,
+    req: FastifyRequest,
+    reply: import('fastify').FastifyReply,
+  ) => {
     // Checked only after the person proved who they are, so a blocked account cannot be discovered by guessing.
     if (await isBlocked(deps.pool, userId))
       return reply.code(403).send({ error: 'account_blocked' });
     await deps.pool.query('UPDATE users SET last_login_at = ? WHERE id = ?', [now(), userId]);
-    await deps.pool.query('INSERT INTO login_events (user_id, created_at) VALUES (?, ?)', [
-      userId,
-      now(),
-    ]);
+    // how and from which phone, for the admin's sign-in mix and each centre's log
+    await deps.pool.query(
+      'INSERT INTO login_events (user_id, method, platform, created_at) VALUES (?, ?, ?, ?)',
+      [userId, method, clientPlatform(req), now()],
+    );
     const session = await startSession(sessionDeps, userId);
     return {
       accessToken: session.accessToken,
@@ -117,9 +126,13 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
    * After Google, Apple or an email code: a known person is signed in; someone new is asked to verify a mobile
    * number once (WhatsApp code), which creates the account or links to the one that number already has.
    */
-  const finish = async (identity: Identity, reply: import('fastify').FastifyReply) => {
+  const finish = async (
+    identity: Identity,
+    req: FastifyRequest,
+    reply: import('fastify').FastifyReply,
+  ) => {
     const userId = await findAccount(deps.pool, identity, now());
-    if (userId) return signIn(userId, reply);
+    if (userId) return signIn(userId, identity.provider, req, reply);
     const signupToken = await createTicket(deps.pool, 'signup', identity, now());
     return { needsPhone: true, signupToken, email: identity.email, name: identity.name ?? null };
   };
@@ -164,7 +177,8 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
       if (!v.ok) return reply.code(401).send({ error: 'invalid_code' });
       // From now on that Google / Apple / email identity signs in to this mobile number's account (new or existing).
       if (pending) await linkIdentity(deps.pool, v.userId, pending, now());
-      return signIn(v.userId, reply);
+      // a first Google / Apple / email sign-in finishes here, and counts as that method
+      return signIn(v.userId, pending?.provider ?? 'whatsapp', req, reply);
     },
   );
 
@@ -215,7 +229,7 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
       if (!body.success) return reply.code(400).send({ error: 'bad_request' });
       const email = await verifyEmailCode(emailDeps, body.data.email, body.data.code.trim());
       if (!email) return reply.code(401).send({ error: 'invalid_code' });
-      return finish({ provider: 'email', subject: email, email, emailVerified: true }, reply);
+      return finish({ provider: 'email', subject: email, email, emailVerified: true }, req, reply);
     },
   );
 
@@ -309,7 +323,7 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
       if (!body.success) return reply.code(400).send({ error: 'bad_request' });
       const identity = await consumeTicket<Identity>(deps.pool, 'oauth', body.data.ticket, now());
       if (!identity) return reply.code(401).send({ error: 'invalid_ticket' });
-      return finish(identity, reply);
+      return finish(identity, req, reply);
     },
   );
 

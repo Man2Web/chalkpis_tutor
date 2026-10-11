@@ -1,7 +1,7 @@
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { ApiError, apiPublic, API_URL } from '../../api/client';
-import { complete, type NeedsPhone } from './phoneAuth';
+import { complete, startingWith, type NeedsPhone } from './phoneAuth';
 
 export interface Methods {
   whatsapp: boolean;
@@ -26,6 +26,7 @@ export const devEmailCodeFor = (email: string) =>
 
 /** Emails a 6-digit sign-in code; returns the address as the server normalised it. */
 export async function sendEmailCode(rawEmail: string): Promise<string> {
+  startingWith('email');
   const r = await apiPublic<{ email: string; devCode?: string }>('POST', '/auth/email/request', {
     email: rawEmail.trim(),
   });
@@ -47,6 +48,7 @@ WebBrowser.maybeCompleteAuthSession();
 export async function oauthSignIn(
   provider: 'google' | 'apple',
 ): Promise<NeedsPhone | null | 'cancelled'> {
+  startingWith(provider);
   const redirect = Linking.createURL('auth');
   const start = `${API_URL}/auth/oauth/${provider}/start?redirect=${encodeURIComponent(redirect)}`;
   const result = await WebBrowser.openAuthSessionAsync(start, redirect);

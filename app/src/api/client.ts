@@ -30,7 +30,12 @@ async function send(path: string, init: Init, access: string | null) {
   try {
     return await fetch(API_URL + path, {
       ...init,
-      headers: { ...(access ? { Authorization: `Bearer ${access}` } : {}), ...init.headers },
+      headers: {
+        // which phone this is (ios / android / web), for each centre's log in the admin dashboard
+        'X-Client-Platform': Platform.OS,
+        ...(access ? { Authorization: `Bearer ${access}` } : {}),
+        ...init.headers,
+      },
     });
   } catch {
     throw new ApiError(0, 'network');

@@ -1,5 +1,5 @@
 import { ApiError, apiPublic } from '../../api/client';
-import { tokens } from '../../api/tokens';
+import { prefs, tokens } from '../../api/tokens';
 import { normalizeIndianPhone } from '../../lib/phone';
 import { applyMe, type MeResponse } from './session';
 
@@ -32,10 +32,23 @@ export interface NeedsPhone {
   name: string | null;
 }
 
+export type SignInMethod = 'whatsapp' | 'google' | 'apple' | 'email';
+const METHODS: SignInMethod[] = ['whatsapp', 'google', 'apple', 'email'];
+let starting: SignInMethod = 'whatsapp';
+/** The button the person started with; remembered once they are in, to mark it "Last used" next time. */
+export const startingWith = (m: SignInMethod) => {
+  starting = m;
+};
+export async function lastSignInMethod(): Promise<SignInMethod | null> {
+  const v = await prefs.get('lastSignIn');
+  return METHODS.includes(v as SignInMethod) ? (v as SignInMethod) : null;
+}
+
 /** Every sign-in answer comes through here: either signed in (the navigator switches by itself) or "add mobile". */
 export async function complete(r: Verified | NeedsPhone): Promise<NeedsPhone | null> {
   if ('needsPhone' in r) return r;
   await tokens.save(r.accessToken, r.refreshToken);
+  await prefs.set('lastSignIn', starting);
   applyMe(r);
   return null;
 }
@@ -49,6 +62,8 @@ export async function confirmCode(
   code: string,
   signupToken?: string,
 ): Promise<void> {
+  // finishing a Google / Apple / email sign-up keeps that method; a plain WhatsApp sign-in is WhatsApp
+  if (!signupToken) startingWith('whatsapp');
   const r = await apiPublic<Verified>('POST', '/auth/otp/verify', {
     phone,
     code: code.trim(),

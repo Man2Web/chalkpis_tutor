@@ -324,7 +324,7 @@ describe('browser access and caching headers', () => {
         headers: {
           origin,
           'access-control-request-method': 'GET',
-          'access-control-request-headers': 'authorization',
+          'access-control-request-headers': 'authorization, x-client-platform',
         },
       });
     expect(
@@ -340,6 +340,8 @@ describe('browser access and caching headers', () => {
     });
     const ok = await preflight(open, 'http://localhost:8081');
     expect(ok.headers['access-control-allow-origin']).toBe('http://localhost:8081');
+    // the app says which phone it is on every request (see activity.ts)
+    expect(ok.headers['access-control-allow-headers']).toContain('x-client-platform');
     expect(
       (await preflight(open, 'https://evil.example')).headers['access-control-allow-origin'],
     ).toBeUndefined();

@@ -43,6 +43,7 @@ export interface Tenant {
     method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     url: string,
     payload?: unknown,
+    headers?: Record<string, string>,
   ) => Promise<{ status: number; body: any }>; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
@@ -53,6 +54,7 @@ const TABLES = [
   'admin_notes',
   'admin_tags',
   'login_events',
+  'activity_log',
   'announcements',
   'admin_audit',
   'tasks',
@@ -134,11 +136,11 @@ export async function startHarness(
       clock.now,
     );
     const token = signToken(userId, config.JWT_SECRET, 900, clock.now.getTime());
-    const call: Tenant['call'] = async (method, url, payload) => {
+    const call: Tenant['call'] = async (method, url, payload, headers = {}) => {
       const r = await app.inject({
         method,
         url,
-        headers: { authorization: `Bearer ${token}` },
+        headers: { authorization: `Bearer ${token}`, ...headers },
         ...(payload === undefined ? {} : { payload: payload as object }),
       });
       let body: unknown = null;
@@ -154,11 +156,11 @@ export async function startHarness(
 
   const login: Harness['login'] = (userId, instituteId) => {
     const token = signToken(userId, config.JWT_SECRET, 900, clock.now.getTime());
-    const call: Tenant['call'] = async (method, url, payload) => {
+    const call: Tenant['call'] = async (method, url, payload, headers = {}) => {
       const r = await app.inject({
         method,
         url,
-        headers: { authorization: `Bearer ${token}` },
+        headers: { authorization: `Bearer ${token}`, ...headers },
         ...(payload === undefined ? {} : { payload: payload as object }),
       });
       let body: unknown = null;

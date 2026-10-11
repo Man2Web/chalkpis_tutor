@@ -84,7 +84,12 @@ async function main() {
   let mailer: Mailer | null = null;
   if (config.SMTP_HOST && config.SMTP_USER && config.SMTP_PASS)
     mailer = new SmtpMailer(
-      { host: config.SMTP_HOST, port: config.SMTP_PORT, user: config.SMTP_USER, pass: config.SMTP_PASS },
+      {
+        host: config.SMTP_HOST,
+        port: config.SMTP_PORT,
+        user: config.SMTP_USER,
+        pass: config.SMTP_PASS,
+      },
       config.MAIL_FROM,
     );
   else if (config.NODE_ENV !== 'production') mailer = new MockMailer();

@@ -99,7 +99,52 @@ export async function analytics(pool: Pool, days: number, now: Date) {
 
   const active7 = await distinct(new Date(now.getTime() - 7 * DAY), tomorrow);
   const active30 = await distinct(new Date(now.getTime() - 30 * DAY), tomorrow);
+
+  // how people sign in, and from which phone (rows from before this was recorded count as "unknown")
+  const [mix] = (await pool.query(
+    `SELECT COALESCE(method, 'unknown') method, COALESCE(platform, 'unknown') platform, COUNT(*) c
+       FROM login_events WHERE created_at >= ? GROUP BY method, platform`,
+    [from],
+  )) as unknown as [{ method: string; platform: string; c: number }[]];
+  const sum = (key: 'method' | 'platform') =>
+    mix.reduce<Record<string, number>>((a, r) => ((a[r[key]] = (a[r[key]] ?? 0) + n(r.c)), a), {});
+
+  // the busiest centres in this window: every change they made plus every sign-in of their people
+  const [top] = (await pool.query(
+    `SELECT i.id, i.name, COUNT(*) events, MAX(x.at) last_at FROM (
+        SELECT institute_id, created_at at FROM activity_log WHERE created_at >= ?
+        UNION ALL SELECT m.institute_id, l.created_at FROM login_events l JOIN memberships m ON m.user_id = l.user_id WHERE l.created_at >= ?
+      ) x JOIN institutes i ON i.id = x.institute_id GROUP BY i.id, i.name ORDER BY events DESC LIMIT 8`,
+    [from, from],
+  )) as unknown as [{ id: string; name: string; events: number; last_at: Date }[]];
+
+  // centres that were in use the week before last but have gone quiet this week: worth a call
+  const weekAgo = new Date(now.getTime() - 7 * DAY);
+  const twoWeeksAgo = new Date(now.getTime() - 14 * DAY);
+  const [quiet] = (await pool.query(
+    `SELECT i.id, i.name, MAX(x.at) last_at FROM (
+        SELECT institute_id, created_at at FROM activity_log WHERE created_at >= ?
+        UNION ALL SELECT institute_id, created_at FROM attendance_days WHERE created_at >= ?
+        UNION ALL SELECT institute_id, created_at FROM payments WHERE created_at >= ?
+      ) x JOIN institutes i ON i.id = x.institute_id
+      GROUP BY i.id, i.name HAVING MAX(x.at) < ? ORDER BY last_at DESC LIMIT 8`,
+    [twoWeeksAgo, twoWeeksAgo, twoWeeksAgo, weekAgo],
+  )) as unknown as [{ id: string; name: string; last_at: Date }[]];
+
   return {
+    signInMethods: sum('method'),
+    signInPlatforms: sum('platform'),
+    topCentres: top.map((t) => ({
+      id: t.id,
+      name: t.name,
+      events: n(t.events),
+      lastAt: new Date(t.last_at).toISOString(),
+    })),
+    quietCentres: quiet.map((q) => ({
+      id: q.id,
+      name: q.name,
+      lastAt: new Date(q.last_at).toISOString(),
+    })),
     days,
     dates,
     series,
@@ -272,9 +317,13 @@ export async function getInstitute(pool: Pool, id: string, now: Date) {
   ])) as unknown as [InstRow[]];
   if (!rows[0]) throw notFound();
   const [people] = (await pool.query(
-    `SELECT u.id, u.name, u.phone, m.role, u.last_login_at, u.blocked_at FROM memberships m JOIN users u ON u.id = m.user_id
+    `SELECT u.id, u.name, u.phone, m.role, u.last_login_at, u.blocked_at,
+            (SELECT l.method FROM login_events l WHERE l.user_id = u.id ORDER BY l.created_at DESC LIMIT 1) AS last_method,
+            (SELECT l.platform FROM login_events l WHERE l.user_id = u.id ORDER BY l.created_at DESC LIMIT 1) AS last_platform,
+            (SELECT COUNT(*) FROM login_events l WHERE l.user_id = u.id AND l.created_at >= ?) AS logins30
+       FROM memberships m JOIN users u ON u.id = m.user_id
       WHERE m.institute_id = ? ORDER BY m.role, u.name`,
-    [id],
+    [since, id],
   )) as unknown as [
     {
       id: string;
@@ -283,8 +332,26 @@ export async function getInstitute(pool: Pool, id: string, now: Date) {
       role: string;
       last_login_at: Date | null;
       blocked_at: Date | null;
+      last_method: string | null;
+      last_platform: string | null;
+      logins30: number;
     }[],
   ];
+  // what this centre did each day for 30 days (changes + sign-ins), and which kinds of work
+  const byDay = await perDay(
+    pool,
+    `SELECT d, COUNT(*) v FROM (
+       SELECT ${IST_DAY('created_at')} d FROM activity_log WHERE institute_id = ? AND created_at >= ?
+       UNION ALL SELECT ${IST_DAY('l.created_at')} d FROM login_events l JOIN memberships m ON m.user_id = l.user_id
+        WHERE m.institute_id = ? AND l.created_at >= ?) x GROUP BY d`,
+    [id, since, id, since],
+  );
+  const days = Array.from({ length: 30 }, (_, i) => ymd(new Date(now.getTime() - (29 - i) * DAY)));
+  const [areas] = (await pool.query(
+    `SELECT SUBSTRING_INDEX(action, '.', 1) area, COUNT(*) c FROM activity_log
+      WHERE institute_id = ? AND created_at >= ? GROUP BY area ORDER BY c DESC`,
+    [id, since],
+  )) as unknown as [{ area: string; c: number }[]];
   const [mix] = (await pool.query(
     'SELECT type, status, COUNT(*) c FROM messages WHERE institute_id = ? AND created_at >= ? GROUP BY type, status',
     [id, since],
@@ -314,8 +381,13 @@ export async function getInstitute(pool: Pool, id: string, now: Date) {
       phone: p.phone,
       role: p.role,
       lastLoginAt: p.last_login_at?.toISOString() ?? null,
+      lastMethod: p.last_method,
+      lastPlatform: p.last_platform,
+      logins30: n(p.logins30),
       blocked: !!p.blocked_at,
     })),
+    trend: { dates: days, values: days.map((d) => byDay[d] ?? 0) },
+    areas: areas.map((a) => ({ area: a.area, count: n(a.c) })),
     messages: mix.map((m) => ({ type: m.type, status: m.status, count: n(m.c) })),
     billing: billing.map((b) => ({
       plan: b.plan_id,

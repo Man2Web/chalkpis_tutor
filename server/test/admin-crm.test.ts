@@ -96,7 +96,8 @@ describe('admin customer-success tools', () => {
     expect(kinds.has('signup')).toBe(true);
     const pay = all.find((e: { kind: string }) => e.kind === 'payment');
     expect(pay).toMatchObject({
-      actor: 'Alpha Academy',
+      actor: 'Asha',
+      institute: 'Alpha Academy',
       text: 'recorded a fee from Kid',
       amount: 50000,
       instituteId: A.instituteId,
@@ -117,10 +118,12 @@ describe('admin events read as sentences', () => {
   it('names the action and the person, and never shows an internal id', async () => {
     const { adminText } = await import('../src/admin/crm.js');
     const US = String.fromCharCode(31);
-    expect(adminText(['block', '+919800000001', 'spam'].join(US))).toBe('blocked +919800000001 · spam');
-    expect(adminText(['end-announcement', '', '3c9caa72-38b9-4cf2-bc0e-d37a1b2c3d4e'].join(US))).toBe(
-      'ended an announcement',
+    expect(adminText(['block', '+919800000001', 'spam'].join(US))).toBe(
+      'blocked +919800000001 · spam',
     );
+    expect(
+      adminText(['end-announcement', '', '3c9caa72-38b9-4cf2-bc0e-d37a1b2c3d4e'].join(US)),
+    ).toBe('ended an announcement');
     expect(adminText(['announce', '', 'New: poster maker'].join(US))).toBe(
       'published an announcement · New: poster maker',
     );
