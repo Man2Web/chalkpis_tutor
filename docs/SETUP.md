@@ -98,7 +98,7 @@ The compose file already carries the non-secret values (Google client ID, Apple 
 **Apple** (needs the paid Apple Developer account)
 1. Certificates, Identifiers & Profiles > Identifiers: an App ID with "Sign in with Apple", then a **Services ID** (for example `in.chalkpis.signin`) with Sign in with Apple enabled; domain `tutor.chalkpis.com`, return URL `https://tutor.chalkpis.com/auth/oauth/apple/callback`.
 2. Keys > a new key with "Sign in with Apple"; download the `.p8` file (only once) and note the Key ID.
-3. In Coolify: `APPLE_KEY_ID` and `APPLE_PRIVATE_KEY` (the whole `.p8` text; newlines may be written as `\n`). `APPLE_TEAM_ID` (`3G6UV3S378`) and `APPLE_SERVICES_ID` (`in.chalkpis.signin`) are preset.
+3. In Coolify: `APPLE_PRIVATE_KEY` (the whole `.p8` text; newlines may be written as `\n`). `APPLE_TEAM_ID` (`3G6UV3S378`), `APPLE_SERVICES_ID` (`in.chalkpis.signin`, primary App ID `in.chalkpis.tutors`) and `APPLE_KEY_ID` (`MKBNFMVQP8`) are preset.
 
 Restart the service after adding settings. Check with `https://tutor.chalkpis.com/auth/methods`: each method that is ready says `true`.
 
