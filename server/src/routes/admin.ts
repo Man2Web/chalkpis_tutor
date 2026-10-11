@@ -82,7 +82,11 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
     config: { rateLimit: { max: 300, timeWindow: '1 minute' } },
   };
   const now = () => (deps.clock ?? (() => new Date()))();
-  const actor = (req: FastifyRequest) => ({ userId: req.auth!.userId, phone: req.auth!.phone });
+  // admins always have a number (requireAdmin checks it)
+  const actor = (req: FastifyRequest) => ({
+    userId: req.auth!.userId,
+    phone: req.auth!.phone ?? '',
+  });
   const id = (req: { params: unknown }) => idParam((req.params as { id: string }).id);
   const admins = () => config.ADMIN_PHONES;
 

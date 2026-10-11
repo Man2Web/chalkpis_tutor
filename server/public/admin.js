@@ -416,7 +416,7 @@
     var tab = 'overview', body = el('div');
     var tags = i.tags || [];
     function contact() {
-      if (!owner) return null;
+      if (!owner || !owner.phone) return null; // an Apple sign-in may have no phone yet
       var digits = owner.phone.replace(/\D/g, '');
       return el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, [
         el('a', { cls: 'btn soft', href: 'tel:' + owner.phone }, [ic('phone'), 'Call']),
@@ -441,7 +441,7 @@
     }
     drawTags();
     box.appendChild(el('button', { cls: 'btn ghost', style: { marginBottom: '12px', paddingLeft: 0 }, on: { click: function () { if (history.length > 1) history.back(); else go('centres'); } } }, [ic('back'), 'Centres']));
-    box.appendChild(el('div', { cls: 'hero' }, [avatar(i.name, 'lg'), el('div', { cls: 'grow' }, [el('h2', null, [i.name]), el('div', { cls: 'meta' }, [(owner ? owner.name + ' · ' + owner.phone + ' · ' : '') + 'joined ' + dshort(i.createdAt) + ' · last active ' + ago(i.lastActivityAt)]), el('div', { style: { marginTop: '8px' } }, [tagBox])]), contact()]));
+    box.appendChild(el('div', { cls: 'hero' }, [avatar(i.name, 'lg'), el('div', { cls: 'grow' }, [el('h2', null, [i.name]), el('div', { cls: 'meta' }, [(owner ? owner.name + ' · ' + (owner.phone || NOPHONE) + ' · ' : '') + 'joined ' + dshort(i.createdAt) + ' · last active ' + ago(i.lastActivityAt)]), el('div', { style: { marginTop: '8px' } }, [tagBox])]), contact()]));
     box.appendChild(el('div', { cls: 'grid g4' }, [
       el('div', { cls: 'card kpi' }, [el('div', { cls: 'label' }, ['Health']), el('div', { cls: 'value' }, [score(i.health)])]),
       el('div', { cls: 'card kpi' }, [el('div', { cls: 'label' }, ['Students']), el('div', { cls: 'value num' }, [String(i.students)]), el('div', { cls: 'sm muted' }, [n(i.batches, 'batch', 'batches') + ' · ' + n(i.staff, 'helper')])]),
@@ -496,7 +496,7 @@
       if (tab === 'logs') await drawLogs();
       if (tab === 'people') body.appendChild(card('People', null, el('div', { cls: 'rows' }, d.people.map(function (p) {
         var how = [METHOD[p.lastMethod], DEVICE[p.lastPlatform] && 'on ' + DEVICE[p.lastPlatform]].filter(Boolean).join(' ');
-        return el('div', { cls: 'r click', on: { click: function () { openUser(p.id); } } }, [avatar(p.name || p.phone), el('div', { cls: 'grow' }, [el('div', { style: { fontWeight: 600 } }, [p.name || p.phone]), el('div', { cls: 'sm muted' }, [p.phone + ' · ' + (p.role === 'owner' ? 'Tutor' : 'Helper') + ' · ' + n(p.logins30, 'sign-in') + ' in 30 days'])]), p.blocked ? pill('Blocked', 'red') : el('div', { style: { textAlign: 'right' } }, [el('div', { cls: 'sm muted' }, [ago(p.lastLoginAt)]), how ? el('div', { cls: 'xs faint' }, [how]) : null]), ic('chev', 'faint')]);
+        return el('div', { cls: 'r click', on: { click: function () { openUser(p.id); } } }, [avatar(p.name || p.phone || '?'), el('div', { cls: 'grow' }, [el('div', { style: { fontWeight: 600 } }, [p.name || p.phone || NOPHONE]), el('div', { cls: 'sm muted' }, [(p.phone || NOPHONE) + ' · ' + (p.role === 'owner' ? 'Tutor' : 'Helper') + ' · ' + n(p.logins30, 'sign-in') + ' in 30 days'])]), p.blocked ? pill('Blocked', 'red') : el('div', { style: { textAlign: 'right' } }, [el('div', { cls: 'sm muted' }, [ago(p.lastLoginAt)]), how ? el('div', { cls: 'xs faint' }, [how]) : null]), ic('chev', 'faint')]);
       }))));
       if (tab === 'messages') body.appendChild(card('WhatsApp · last 30 days', null, byType(d.messages)));
       if (tab === 'billing') body.appendChild(el('div', { cls: 'grid g2' }, [planEditor(i, function () { render(); }), card('Plan payments', null, d.billing.length ? el('div', null, d.billing.map(function (b) { return el('div', { cls: 'kv' }, [el('span', null, [when(b.at)]), el('b', null, [(b.plan || '') + ' · ' + money(b.amount)])]); })) : empty('rupee', 'No plan payments yet.'))]));
@@ -539,7 +539,7 @@
       list.appendChild(tableCard([['Person'], ['Role', 1], ['Centre', 1], ['Plan'], ['Last login', 1], ['Status']], r.users.map(function (u) {
         var status = u.blocked ? pill('Blocked', 'red') : u.isAdmin ? pill('Admin', 'blue') : u.activeSessions ? pill('Online', 'green') : pill('Offline');
         return el('tr', { cls: 'click', on: { click: function () { openUser(u.id); } } }, [
-          el('td', null, [el('div', { cls: 'cell-main' }, [avatar(u.name || u.phone), el('div', null, [el('b', null, [u.name || '(no name)']), el('small', null, [u.phone])])])]),
+          el('td', null, [el('div', { cls: 'cell-main' }, [avatar(u.name || u.phone || '?'), el('div', null, [el('b', null, [u.name || '(no name)']), el('small', null, [u.phone || NOPHONE])])])]),
           el('td', { cls: 'hide-sm' }, [u.role === 'owner' ? 'Tutor' : u.role === 'staff' ? 'Helper' : '—']),
           el('td', { cls: 'hide-sm' }, [u.institute ? u.institute.name : '—']),
           el('td', null, [u.institute ? pill((u.institute.plan || '—') + (u.institute.active ? '' : ' · ended'), u.institute.active ? 'green' : 'orange') : '—']),
@@ -575,6 +575,8 @@
   var FEED_KINDS = Object.keys(KIND).filter(function (k) { return k !== 'message'; });
   var DEVICE = { ios: 'iPhone', android: 'Android', web: 'Web' };
   var METHOD = { whatsapp: 'WhatsApp', google: 'Google', apple: 'Apple', email: 'Email' };
+  // an account made with Sign in with Apple may not have added a mobile yet
+  var NOPHONE = 'No phone (Apple)';
   function device(p) { return p && DEVICE[p] ? el('span', { cls: 'dev', title: 'From ' + DEVICE[p] }, [DEVICE[p]]) : null; }
   /** Events grouped under Today / Yesterday / the date, newest first; `more` loads the next older page. */
   function dayFeed(holder, events, opts) {
@@ -741,14 +743,14 @@
       var d = await call('GET', '/admin/api/users/' + id), u = d.user, msg = el('div', { cls: 'sm' });
       async function act(fn, ok) { try { await fn(); toast(ok); await draw(); } catch (e) { msg.className = 'sm err'; msg.textContent = e.code === 'cannot_change_admin' ? 'Admin accounts cannot be changed here.' : e.message; } }
       clear(dr);
-      dr.appendChild(el('div', { style: { display: 'flex', gap: '14px', alignItems: 'center', marginBottom: '18px' } }, [avatar(u.name || u.phone, 'lg'), el('div', { cls: 'grow' }, [el('div', { style: { fontSize: '21px', fontWeight: 700, letterSpacing: '-0.02em' } }, [u.name || '(no name)']), el('div', { cls: 'muted' }, [u.phone])]), el('button', { cls: 'btn icon', 'aria-label': 'Close', on: { click: closeOverlays } }, [ic('x')])]));
-      var digits = u.phone.replace(/\D/g, '');
-      dr.appendChild(el('div', { style: { display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' } }, [el('a', { cls: 'btn soft', href: 'tel:' + u.phone }, [ic('phone'), 'Call']), el('a', { cls: 'btn soft', href: 'https://wa.me/' + digits, target: '_blank', rel: 'noopener noreferrer' }, [ic('chat'), 'WhatsApp']), u.institute ? el('button', { cls: 'btn', on: { click: function () { closeOverlays(); go('centre', u.institute.id); } } }, [ic('centres'), 'Open centre']) : null]));
+      dr.appendChild(el('div', { style: { display: 'flex', gap: '14px', alignItems: 'center', marginBottom: '18px' } }, [avatar(u.name || u.phone || '?', 'lg'), el('div', { cls: 'grow' }, [el('div', { style: { fontSize: '21px', fontWeight: 700, letterSpacing: '-0.02em' } }, [u.name || '(no name)']), el('div', { cls: 'muted' }, [u.phone || NOPHONE])]), el('button', { cls: 'btn icon', 'aria-label': 'Close', on: { click: closeOverlays } }, [ic('x')])]));
+      var digits = (u.phone || '').replace(/\D/g, '');
+      dr.appendChild(el('div', { style: { display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' } }, [u.phone ? el('a', { cls: 'btn soft', href: 'tel:' + u.phone }, [ic('phone'), 'Call']) : null, u.phone ? el('a', { cls: 'btn soft', href: 'https://wa.me/' + digits, target: '_blank', rel: 'noopener noreferrer' }, [ic('chat'), 'WhatsApp']) : null, u.institute ? el('button', { cls: 'btn', on: { click: function () { closeOverlays(); go('centre', u.institute.id); } } }, [ic('centres'), 'Open centre']) : null]));
       dr.appendChild(card('Account', null, el('div', null, [['Status', u.blocked ? pill('Blocked', 'red') : u.isAdmin ? pill('Admin', 'blue') : u.activeSessions ? pill('Online', 'green') : pill('Offline')], ['Role', u.role === 'owner' ? 'Tutor (owner)' : u.role === 'staff' ? 'Helper' : 'Not set up yet'], ['Centre', u.institute ? u.institute.name : '—'], ['Joined', when(u.createdAt)], ['Last login', when(u.lastLoginAt)], ['Devices', String(u.activeSessions)], u.blocked ? ['Block reason', u.blockedReason || '—'] : null].filter(Boolean).map(function (k) { return el('div', { cls: 'kv' }, [el('span', null, [k[0]]), typeof k[1] === 'object' ? k[1] : el('b', { cls: 'sm' }, [k[1]])]); }))));
       dr.appendChild(card('Actions', null, el('div', null, [el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, [
-        el('button', { cls: 'btn', disabled: u.isAdmin || !u.activeSessions, on: { click: function () { if (confirm('Sign ' + u.phone + ' out on every device?')) act(function () { return call('POST', '/admin/api/users/' + id + '/sign-out'); }, 'Signed out everywhere'); } } }, [ic('logout'), 'Sign out everywhere']),
+        el('button', { cls: 'btn', disabled: u.isAdmin || !u.activeSessions, on: { click: function () { if (confirm('Sign ' + (u.name || u.phone || 'this person') + ' out on every device?')) act(function () { return call('POST', '/admin/api/users/' + id + '/sign-out'); }, 'Signed out everywhere'); } } }, [ic('logout'), 'Sign out everywhere']),
         u.blocked ? el('button', { cls: 'btn soft', on: { click: function () { act(function () { return call('POST', '/admin/api/users/' + id + '/unblock'); }, 'Unblocked'); } } }, ['Unblock'])
-          : el('button', { cls: 'btn danger', disabled: u.isAdmin, on: { click: function () { var reason = prompt('Block ' + u.phone + '? They are signed out at once and cannot sign in.\n\nReason (optional):', ''); if (reason !== null) act(function () { return call('POST', '/admin/api/users/' + id + '/block', { reason: reason }); }, 'Blocked'); } } }, [ic('flag'), 'Block']),
+          : el('button', { cls: 'btn danger', disabled: u.isAdmin, on: { click: function () { var reason = prompt('Block ' + (u.name || u.phone || 'this person') + '? They are signed out at once and cannot sign in.\n\nReason (optional):', ''); if (reason !== null) act(function () { return call('POST', '/admin/api/users/' + id + '/block', { reason: reason }); }, 'Blocked'); } } }, [ic('flag'), 'Block']),
       ]), msg])));
       if (u.institute && u.role === 'owner') dr.appendChild(planEditor(u.institute, draw));
       dr.appendChild(card('Devices', null, d.sessions.length ? el('div', null, d.sessions.map(function (x) { return el('div', { cls: 'kv' }, [el('span', null, ['Since ' + when(x.startedAt)]), pill(x.status, x.status === 'active' ? 'green' : '')]); })) : empty('login', 'No sign-ins.')));

@@ -37,7 +37,7 @@ export async function createInstitute(
       userId,
     ]);
     await c.query(
-      'INSERT INTO institutes (id, name, owner_user_id, phone) SELECT ?, ?, id, phone FROM users WHERE id = ?',
+      "INSERT INTO institutes (id, name, owner_user_id, phone) SELECT ?, ?, id, COALESCE(phone, '') FROM users WHERE id = ?",
       [instituteId, input.instituteName, userId],
     );
     await c.query("INSERT INTO memberships (user_id, institute_id, role) VALUES (?, ?, 'owner')", [

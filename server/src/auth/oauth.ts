@@ -215,6 +215,46 @@ export const pemBody = (raw: string) =>
     .replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '')
     .replace(/[^A-Za-z0-9+/=]/g, '');
 
+// ---------- native Sign in with Apple (iPhone) ----------
+
+/** Checks the identity token the iPhone's own Apple sheet returns. */
+export interface AppleNativeVerifier {
+  verify(identityToken: string, nonce: string): Promise<Identity>;
+}
+
+/**
+ * The token is signed by Apple, issued for our app's bundle id, unexpired, and carries the one-time nonce our
+ * server handed out (Apple may put it in as given or as its SHA-256, so both are accepted).
+ */
+export class AppleNative implements AppleNativeVerifier {
+  private keys: JWTVerifyGetKey;
+  constructor(
+    private bundleId: string,
+    keys?: JWTVerifyGetKey,
+    private nowMs: () => number = Date.now,
+  ) {
+    this.keys = keys ?? createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'));
+  }
+  async verify(identityToken: string, nonce: string): Promise<Identity> {
+    const { payload } = await jwtVerify(identityToken, this.keys, {
+      issuer: 'https://appleid.apple.com',
+      audience: this.bundleId,
+      currentDate: new Date(this.nowMs()),
+    });
+    const hashed = createHash('sha256').update(nonce).digest('hex');
+    if ((payload.nonce !== nonce && payload.nonce !== hashed) || typeof payload.sub !== 'string')
+      throw new Error('apple-native-bad-token');
+    const verified = payload.email_verified === true || payload.email_verified === 'true';
+    return {
+      provider: 'apple',
+      subject: payload.sub,
+      email: typeof payload.email === 'string' ? payload.email.toLowerCase() : null,
+      emailVerified: verified,
+      name: null,
+    };
+  }
+}
+
 // ---------- state: what the start step hands to the callback, signed so nobody can forge it ----------
 
 export interface OAuthState {

@@ -10,7 +10,7 @@ import type { BillingProvider } from './billing/provider.js';
 import type { MessageProvider } from './messaging/provider.js';
 import { authRoutes } from './routes/auth.js';
 import type { Mailer } from './auth/mailer.js';
-import type { OAuthProvider, OAuthProviderName } from './auth/oauth.js';
+import type { AppleNativeVerifier, OAuthProvider, OAuthProviderName } from './auth/oauth.js';
 import { batchRoutes } from './routes/batches.js';
 import { studentRoutes } from './routes/students.js';
 import { attendanceRoutes } from './routes/attendance.js';
@@ -41,6 +41,8 @@ export interface AppDeps {
   mailer?: Mailer | null;
   /** "Sign in with Google / Apple" providers that are configured. */
   oauth?: Partial<Record<OAuthProviderName, OAuthProvider>>;
+  /** Checks native Sign in with Apple tokens from the iPhone app; null switches it off. */
+  appleNative?: AppleNativeVerifier | null;
   /** Test hook: the current time. */
   clock?: () => Date;
 }
@@ -54,6 +56,7 @@ export async function buildApp({
   billing = null,
   mailer = null,
   oauth = {},
+  appleNative = null,
   clock,
 }: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
@@ -115,7 +118,7 @@ export async function buildApp({
   activityLog(app, pool, clock);
   // a repeated create / money request with the same Idempotency-Key gets the first answer back (see idempotency.ts)
   idempotency(app, pool, config, clock);
-  authRoutes(app, { config, pool, provider, clock, mailer, oauth });
+  authRoutes(app, { config, pool, provider, clock, mailer, oauth, appleNative });
   instituteRoutes(app, { config, pool, clock });
   batchRoutes(app, { config, pool, clock });
   studentRoutes(app, { config, pool, clock });

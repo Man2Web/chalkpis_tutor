@@ -117,6 +117,29 @@ export async function verifyOtp(
   rawPhone: unknown,
   rawCode: unknown,
 ): Promise<OtpVerifyResult> {
+  const r = await checkOtp(deps, rawPhone, rawCode, true);
+  return r.ok ? { ok: true, userId: r.userId!, isNew: r.isNew } : { ok: false };
+}
+
+/**
+ * Proves a signed-in person owns a number (adding a mobile to an account that has none): the same code rules,
+ * but no account is created. `userId` is whoever already has that number, or null.
+ */
+export async function confirmPhoneOwnership(
+  deps: OtpDeps,
+  rawPhone: unknown,
+  rawCode: unknown,
+): Promise<{ ok: true; phone: string; userId: string | null } | { ok: false }> {
+  const r = await checkOtp(deps, rawPhone, rawCode, false);
+  return r.ok ? { ok: true, phone: r.phone, userId: r.userId } : { ok: false };
+}
+
+async function checkOtp(
+  deps: OtpDeps,
+  rawPhone: unknown,
+  rawCode: unknown,
+  createUser: boolean,
+): Promise<{ ok: true; phone: string; userId: string | null; isNew: boolean } | { ok: false }> {
   const phone = normalizeIndianPhone(rawPhone);
   if (!phone || typeof rawCode !== 'string' || !/^\d{6}$/.test(rawCode)) return { ok: false };
   const now = (deps.clock ?? (() => new Date()))();
@@ -141,10 +164,11 @@ export async function verifyOtp(
       const [users] = (await c.query('SELECT id FROM users WHERE phone = ?', [
         phone,
       ])) as unknown as [{ id: string }[]];
-      if (users[0]) return { ok: true, userId: users[0].id, isNew: false } as const;
+      if (users[0]) return { ok: true, phone, userId: users[0].id, isNew: false } as const;
+      if (!createUser) return { ok: true, phone, userId: null, isNew: false } as const;
       const id = newId();
       await c.query('INSERT INTO users (id, phone) VALUES (?, ?)', [id, phone]);
-      return { ok: true, userId: id, isNew: true } as const;
+      return { ok: true, phone, userId: id, isNew: true } as const;
     }),
   );
 }

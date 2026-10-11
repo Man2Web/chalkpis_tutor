@@ -7,6 +7,7 @@ import { authenticate } from '../auth/guard.js';
 import { requestEmailCode, verifyEmailCode } from '../auth/emailOtp.js';
 import {
   consumeTicket,
+  createAccountWithoutPhone,
   createTicket,
   findAccount,
   identitiesOf,
@@ -24,10 +25,11 @@ import {
   readState,
   redirectPrefixes,
   signState,
+  type AppleNativeVerifier,
   type OAuthProvider,
   type OAuthProviderName,
 } from '../auth/oauth.js';
-import { requestOtp, verifyOtp } from '../auth/otp.js';
+import { confirmPhoneOwnership, requestOtp, verifyOtp } from '../auth/otp.js';
 import { endSession, refreshSession, startSession } from '../auth/sessions.js';
 import type { MessageProvider } from '../messaging/provider.js';
 
@@ -49,6 +51,18 @@ const emailBody = z.object({ email: z.string().max(254) });
 const emailVerifyBody = z.object({ email: z.string().max(254), code: z.string().max(10) });
 const ticketBody = z.object({ ticket: z.string().max(100), secret: z.string().min(20).max(100) });
 const beginBody = z.object({ redirect: z.string().max(300) });
+const appleNativeBody = z.object({
+  identityToken: z.string().min(20).max(5000),
+  nonce: z.string().min(20).max(100),
+  // Apple gives the name only the first time, on the phone, outside the token
+  fullName: z
+    .object({
+      givenName: z.string().max(60).nullish(),
+      familyName: z.string().max(60).nullish(),
+    })
+    .nullish(),
+});
+const addPhoneBody = z.object({ phone: z.string().max(32), code: z.string().max(10) });
 const meBody = z
   .object({ name: z.string().trim().min(2).max(80), language: z.enum(['en', 'hi']) })
   .partial()
@@ -59,6 +73,7 @@ type Deps = Pick<AppDeps, 'config' | 'pool'> & {
   provider: MessageProvider | null;
   mailer?: Mailer | null;
   oauth?: Partial<Record<OAuthProviderName, OAuthProvider>>;
+  appleNative?: AppleNativeVerifier | null;
   clock?: () => Date;
 };
 
@@ -78,7 +93,7 @@ async function profile(deps: Deps, userId: string) {
   )) as unknown as [
     {
       id: string;
-      phone: string;
+      phone: string | null;
       email: string | null;
       name: string;
       language: string;
@@ -92,7 +107,7 @@ async function profile(deps: Deps, userId: string) {
   return {
     user: { id: r.id, phone: r.phone, email: r.email, name: r.name, language: r.language },
     signInMethods: await identitiesOf(deps.pool, r.id),
-    isAdmin: deps.config.ADMIN_PHONES.includes(r.phone),
+    isAdmin: !!r.phone && deps.config.ADMIN_PHONES.includes(r.phone),
     membership: r.institute_id
       ? { instituteId: r.institute_id, role: r.role, onboardingDone: !!r.onboarding_done }
       : null,
@@ -145,6 +160,14 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
   ) => {
     const userId = await findAccount(deps.pool, identity, now());
     if (userId) return signIn(userId, identity.provider, req, reply);
+    // Sign in with Apple never asks for a mobile number (App Store rules); it can be added later from Account
+    if (identity.provider === 'apple')
+      return signIn(
+        await createAccountWithoutPhone(deps.pool, identity, now()),
+        'apple',
+        req,
+        reply,
+      );
     const signupToken = await createTicket(deps.pool, 'signup', identity, now());
     return { needsPhone: true, signupToken, email: identity.email, name: identity.name ?? null };
   };
@@ -202,11 +225,42 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
   );
 
   // ---- which sign-in methods are switched on (the app shows only these buttons) ----
+  // ---- native Sign in with Apple (iPhone): a one-time nonce, then the token from Apple's own sheet ----
+  app.post(
+    '/auth/apple/nonce',
+    { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
+    async () => ({ nonce: await createTicket(deps.pool, 'state', {}, now()) }),
+  );
+  app.post(
+    '/auth/apple/native',
+    { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
+    async (req, reply) => {
+      if (!deps.appleNative) return reply.code(404).send({ error: 'not_found' });
+      const body = appleNativeBody.safeParse(req.body);
+      if (!body.success) return reply.code(400).send({ error: 'bad_request' });
+      // the nonce must be one we handed out, and it works once
+      if (!(await consumeTicket(deps.pool, 'state', body.data.nonce, now())))
+        return reply.code(401).send({ error: 'invalid_ticket' });
+      let identity: Identity;
+      try {
+        identity = await deps.appleNative.verify(body.data.identityToken, body.data.nonce);
+      } catch {
+        return reply.code(401).send({ error: 'invalid_ticket' });
+      }
+      const name = [body.data.fullName?.givenName, body.data.fullName?.familyName]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+      return finish({ ...identity, name: name || null }, req, reply);
+    },
+  );
+
   app.get('/auth/methods', async () => ({
     whatsapp: !!deps.provider && !!deps.config.WA_TEMPLATE_OTP,
     email: !!deps.mailer,
     google: !!deps.oauth?.google && !!deps.config.PUBLIC_BASE_URL,
     apple: !!deps.oauth?.apple && !!deps.config.PUBLIC_BASE_URL,
+    appleNative: !!deps.appleNative,
   }));
 
   // ---- email: a 6-digit code to the inbox, no password ----
@@ -400,4 +454,67 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
     );
     return profile(deps, req.auth!.userId);
   });
+
+  // ---- adding a mobile number to an account that has none (made with Sign in with Apple) ----
+  app.post(
+    '/me/phone/request',
+    {
+      preHandler: authenticate(deps),
+      config: { rateLimit: { max: 10, timeWindow: '10 minutes' } },
+    },
+    async (req, reply) => {
+      if (req.auth!.phone) return reply.code(409).send({ error: 'phone_already_set' });
+      const body = phoneBody.safeParse(req.body);
+      if (!body.success) return reply.code(400).send({ error: 'bad_request' });
+      const r = await requestOtp(otpDeps, body.data.phone);
+      if (r.ok) {
+        const echo = deps.config.OTP_DEV_ECHO && deps.config.NODE_ENV !== 'production';
+        return {
+          ok: true,
+          resendInSeconds: r.resendInSeconds,
+          ...(echo ? { devCode: r.code } : {}),
+        };
+      }
+      if (r.error === 'invalid_phone') return reply.code(400).send({ error: 'invalid_phone' });
+      if (r.error === 'unavailable') return reply.code(503).send({ error: 'otp_unavailable' });
+      return reply
+        .code(429)
+        .header('Retry-After', String(r.retryAfter ?? 60))
+        .send({ error: r.error, retryAfter: r.retryAfter });
+    },
+  );
+  app.post(
+    '/me/phone/verify',
+    {
+      preHandler: authenticate(deps),
+      config: { rateLimit: { max: 20, timeWindow: '10 minutes' } },
+    },
+    async (req, reply) => {
+      const me = req.auth!;
+      if (me.phone) return reply.code(409).send({ error: 'phone_already_set' });
+      const body = addPhoneBody.safeParse(req.body);
+      if (!body.success) return reply.code(400).send({ error: 'bad_request' });
+      const v = await confirmPhoneOwnership(otpDeps, body.data.phone, body.data.code);
+      if (!v.ok) return reply.code(401).send({ error: 'invalid_code' });
+      // a number that already has its own Chalkpis account is not moved (that would be two people's data)
+      if (v.userId && v.userId !== me.userId)
+        return reply.code(409).send({ error: 'phone_in_use' });
+      try {
+        await deps.pool.query('UPDATE users SET phone = ? WHERE id = ? AND phone IS NULL', [
+          v.phone,
+          me.userId,
+        ]);
+      } catch (e) {
+        if ((e as { code?: string }).code === 'ER_DUP_ENTRY')
+          return reply.code(409).send({ error: 'phone_in_use' });
+        throw e;
+      }
+      // the centre this person owns shows the number too, if it had none
+      await deps.pool.query(
+        "UPDATE institutes SET phone = ? WHERE owner_user_id = ? AND phone = ''",
+        [v.phone, me.userId],
+      );
+      return profile(deps, me.userId);
+    },
+  );
 }

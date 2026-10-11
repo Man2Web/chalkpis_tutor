@@ -153,6 +153,17 @@ export async function linkIdentity(pool: Db, userId: string, id: Identity, now: 
     await pool.query("UPDATE users SET name = ? WHERE id = ? AND name = ''", [name, userId]);
 }
 
+/**
+ * A new account from Sign in with Apple: no mobile number (it can be added later from Account), the Apple identity
+ * linked, and the name and verified email filled in from Apple.
+ */
+export async function createAccountWithoutPhone(pool: Pool, id: Identity, now: Date) {
+  const userId = newId();
+  await pool.query('INSERT INTO users (id, phone, created_at) VALUES (?, NULL, ?)', [userId, now]);
+  await linkIdentity(pool, userId, id, now);
+  return userId;
+}
+
 /** The sign-in methods connected to an account, for the Account screen. */
 export async function identitiesOf(pool: Pool, userId: string) {
   const [rows] = (await pool.query(

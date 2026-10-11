@@ -6,7 +6,8 @@ import { verifyToken } from '../lib/jwt.js';
 /** Who is calling, read from the database on every request (never trusted from the token alone). */
 export interface AuthContext {
   userId: string;
-  phone: string;
+  /** Null for an account made with Sign in with Apple that has not added a mobile yet. */
+  phone: string | null;
   name: string;
   language: 'en' | 'hi';
   /** Null until the user creates or joins an institute. Every data query must be scoped by this. */
@@ -23,7 +24,7 @@ declare module 'fastify' {
 
 type Row = {
   id: string;
-  phone: string;
+  phone: string | null;
   name: string;
   language: 'en' | 'hi';
   institute_id: string | null;
@@ -82,7 +83,7 @@ export const requireOwner = async (req: FastifyRequest, reply: FastifyReply) => 
 /** After `authenticate`: the caller's number must be in ADMIN_PHONES (read from the database, never from the token). */
 export function requireAdmin(config: Pick<Config, 'ADMIN_PHONES'>) {
   return async (req: FastifyRequest, reply: FastifyReply) => {
-    if (!req.auth || !config.ADMIN_PHONES.includes(req.auth.phone))
+    if (!req.auth?.phone || !config.ADMIN_PHONES.includes(req.auth.phone))
       return reply.code(403).send({ error: 'forbidden' });
   };
 }

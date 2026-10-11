@@ -5,6 +5,7 @@ import { loadConfig } from './config.js';
 import { createPool } from './db.js';
 import { MockMailer, SmtpMailer, type Mailer } from './auth/mailer.js';
 import {
+  AppleNative,
   AppleProvider,
   GoogleProvider,
   pemBody,
@@ -115,7 +116,9 @@ async function main() {
       );
   } else if (appleMissing.length < 4)
     console.warn(`Sign in with Apple is off: missing ${appleMissing.join(', ')}.`);
-  const app = await buildApp({ config, pool, provider, billing, mailer, oauth });
+  // the iPhone app's own Apple sheet: only needs our bundle id and Apple's public keys
+  const appleNative = new AppleNative(config.APPLE_BUNDLE_ID);
+  const app = await buildApp({ config, pool, provider, billing, mailer, oauth, appleNative });
 
   const stopWorker = startWorker(
     { pool, provider, templates: parseTemplates(config.WA_TEMPLATES) },

@@ -139,7 +139,13 @@ describe('sign in with WhatsApp, email, Google and Apple', () => {
 
   it('lists the methods that are switched on', async () => {
     const r = await h.app.inject({ method: 'GET', url: '/auth/methods' });
-    expect(r.json()).toEqual({ whatsapp: true, email: true, google: true, apple: true });
+    expect(r.json()).toEqual({
+      whatsapp: true,
+      email: true,
+      google: true,
+      apple: true,
+      appleNative: false,
+    });
   });
 
   it('email sign-up: the code, then the mobile number once, then email alone signs in', async () => {
@@ -195,14 +201,17 @@ describe('sign in with WhatsApp, email, Google and Apple', () => {
 
   it("an unverified email never opens someone else's account", async () => {
     const em = await emailSignIn('owner@example.com');
-    await phoneSignIn('9844444444', em.json().signupToken);
+    const owner = (await phoneSignIn('9844444444', em.json().signupToken)).json().user.id as string;
     apple.identities.set('a2', {
       provider: 'apple',
       subject: 'other',
       email: 'owner@example.com',
       emailVerified: false,
     });
-    expect((await oauthSignIn('apple', 'a2')).json().needsPhone).toBe(true);
+    // Apple makes its own new account (no phone asked); it never gets into the owner's
+    const r = (await oauthSignIn('apple', 'a2')).json();
+    expect(r.user.id).not.toBe(owner);
+    expect(r.user.phone).toBeNull();
   });
 
   it('tickets and sign-up tokens work once', async () => {

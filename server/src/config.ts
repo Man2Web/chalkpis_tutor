@@ -105,6 +105,8 @@ const schema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   // Sign in with Apple (a Services ID with return URL {PUBLIC_BASE_URL}/auth/oauth/apple/callback, and a .p8 key).
   APPLE_SERVICES_ID: z.string().min(1).optional(),
+  // the iPhone app's bundle id: native Sign in with Apple tokens are issued for it
+  APPLE_BUNDLE_ID: z.string().min(1).default('in.chalkpis.tutors'),
   APPLE_TEAM_ID: z.string().min(1).optional(),
   APPLE_KEY_ID: z.string().min(1).optional(),
   // The .p8 file's contents; newlines may be written as \n.
