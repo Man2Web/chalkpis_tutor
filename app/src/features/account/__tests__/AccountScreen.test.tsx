@@ -24,7 +24,6 @@ jest.mock('../../settings/DeleteAccountSheet', () => ({ DeleteAccountSheet: () =
 const base: UserProfile = {
   name: 'Priya',
   phone: '+919876543210',
-  signInMethods: ['apple'],
   language: 'en',
   role: 'owner',
   instituteId: 'I1',
@@ -32,7 +31,7 @@ const base: UserProfile = {
 
 beforeEach(() => jest.clearAllMocks());
 
-it('an account made with Apple offers to add a mobile number, and never shows "null"', async () => {
+it('an older account without a mobile number offers to add one, and never shows "null"', async () => {
   mockProfile = { ...base, phone: null };
   await render(<AccountScreen />);
   expect(screen.getByText('Not added')).toBeTruthy();
@@ -48,4 +47,11 @@ it('an account with a number shows it, with nothing to add', async () => {
   expect(screen.getAllByText(/\+919876543210/).length).toBeGreaterThan(0);
   expect(screen.queryByText('Not added')).toBeNull();
   expect(screen.queryByText('Add your mobile number')).toBeNull();
+});
+
+it('lists WhatsApp as the only way to sign in', async () => {
+  mockProfile = base;
+  await render(<AccountScreen />);
+  expect(screen.getByText('WhatsApp')).toBeTruthy();
+  for (const other of ['Google', 'Apple', 'Email']) expect(screen.queryByText(other)).toBeNull();
 });

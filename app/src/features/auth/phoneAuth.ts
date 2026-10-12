@@ -1,5 +1,5 @@
 import { ApiError, apiPublic } from '../../api/client';
-import { prefs, tokens } from '../../api/tokens';
+import { tokens } from '../../api/tokens';
 import { normalizeIndianPhone } from '../../lib/phone';
 import { applyMe, type MeResponse } from './session';
 
@@ -24,50 +24,9 @@ interface Verified extends MeResponse {
   refreshToken: string;
 }
 
-/** A new Google / Apple / email person who still has to verify a mobile number once. */
-export interface NeedsPhone {
-  needsPhone: true;
-  signupToken: string;
-  email: string | null;
-  name: string | null;
-}
-
-export type SignInMethod = 'whatsapp' | 'google' | 'apple' | 'email';
-const METHODS: SignInMethod[] = ['whatsapp', 'google', 'apple', 'email'];
-let starting: SignInMethod = 'whatsapp';
-/** The button the person started with; remembered once they are in, to mark it "Last used" next time. */
-export const startingWith = (m: SignInMethod) => {
-  starting = m;
-};
-export async function lastSignInMethod(): Promise<SignInMethod | null> {
-  const v = await prefs.get('lastSignIn');
-  return METHODS.includes(v as SignInMethod) ? (v as SignInMethod) : null;
-}
-
-/** Every sign-in answer comes through here: either signed in (the navigator switches by itself) or "add mobile". */
-export async function complete(r: Verified | NeedsPhone): Promise<NeedsPhone | null> {
-  if ('needsPhone' in r) return r;
+/** Checks the WhatsApp code: signs in (or signs up a new number); the navigator switches by itself. */
+export async function confirmCode(phone: string, code: string): Promise<void> {
+  const r = await apiPublic<Verified>('POST', '/auth/otp/verify', { phone, code: code.trim() });
   await tokens.save(r.accessToken, r.refreshToken);
-  await prefs.set('lastSignIn', starting);
   applyMe(r);
-  return null;
-}
-
-/**
- * Checks the WhatsApp code. With a signupToken it also connects the pending Google / Apple / email sign-in to this
- * number (a new account, or the one the number already has).
- */
-export async function confirmCode(
-  phone: string,
-  code: string,
-  signupToken?: string,
-): Promise<void> {
-  // finishing a Google / Apple / email sign-up keeps that method; a plain WhatsApp sign-in is WhatsApp
-  if (!signupToken) startingWith('whatsapp');
-  const r = await apiPublic<Verified>('POST', '/auth/otp/verify', {
-    phone,
-    code: code.trim(),
-    ...(signupToken ? { signupToken } : {}),
-  });
-  await complete(r);
 }

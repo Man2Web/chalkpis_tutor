@@ -5,9 +5,6 @@
  * without one.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { Identity } from '../src/auth/identity.js';
-import { MockMailer } from '../src/auth/mailer.js';
-import type { OAuthProvider } from '../src/auth/oauth.js';
 import { newId } from '../src/lib/ids.js';
 import { startHarness, type Harness, type Tenant } from './helpers.js';
 
@@ -319,52 +316,25 @@ describe('idempotency of mutating endpoints', () => {
   });
 });
 
-class FakeProvider implements OAuthProvider {
-  constructor(public name: 'google' | 'apple') {}
-  identities = new Map<string, Identity>();
-  authorizeUrl({ state }: { state: string; nonce: string; redirectUri: string }) {
-    return `https://provider.test/auth?state=${encodeURIComponent(state)}`;
-  }
-  async exchange({ code }: { code: string }) {
-    const id = this.identities.get(code);
-    if (!id) throw new Error('bad code');
-    return id;
-  }
-}
-
 describe('sign-in edge cases', () => {
-  const mailer = new MockMailer();
-  const google = new FakeProvider('google');
   let h: Harness;
   beforeAll(async () => {
-    h = await startHarness(
-      { PUBLIC_BASE_URL: 'https://tutor.chalkpis.com' },
-      { mailer, oauth: { google } },
-    );
+    h = await startHarness();
   });
   afterAll(() => h.close());
   beforeEach(async () => {
     await h.reset();
-    mailer.sent = [];
     h.provider.sent = [];
   });
   const post = (url: string, payload: unknown, headers: Record<string, string> = {}) =>
     h.app.inject({ method: 'POST', url, payload: payload as object, headers });
   const lastWa = () => h.provider.sent[h.provider.sent.length - 1]!.vars[0]!;
-  const lastMail = () => mailer.sent[mailer.sent.length - 1]!.text.match(/\d{6}/)![0];
-  const wrong = (c: string) => (c === '000000' ? '111111' : '000000');
   const PHONE = '9876543210';
 
   async function otpLogin(phone = PHONE) {
     h.clock.now = new Date(h.clock.now.getTime() + 61_000);
     await post('/auth/otp/request', { phone });
     return post('/auth/otp/verify', { phone, code: lastWa() });
-  }
-  async function newEmailSignup(email: string) {
-    await post('/auth/email/request', { email });
-    const r = await post('/auth/email/verify', { email, code: lastMail() });
-    expect(r.json().needsPhone).toBe(true);
-    return r.json().signupToken as string;
   }
 
   it('the same OTP verified twice concurrently: exactly one session', async () => {
@@ -384,103 +354,6 @@ describe('sign-in edge cases', () => {
     expect((await post('/auth/otp/verify', { phone: PHONE, code })).statusCode).toBe(401);
   });
 
-  it('a mistyped WhatsApp code does not burn the Google/Apple/email signup ticket', async () => {
-    const token = await newEmailSignup('new@example.com');
-    await post('/auth/otp/request', { phone: PHONE });
-    const code = lastWa();
-    expect(
-      (await post('/auth/otp/verify', { phone: PHONE, code: wrong(code), signupToken: token }))
-        .statusCode,
-    ).toBe(401);
-    const ok = await post('/auth/otp/verify', { phone: PHONE, code, signupToken: token });
-    expect(ok.statusCode).toBe(200);
-  });
-
-  /** Step 1 as the app does it: the provider link (with the state inside) and the app's secret. */
-  async function begin(redirect = 'chalkpis://auth') {
-    const r = await post('/auth/oauth/google/begin', { redirect });
-    return {
-      status: r.statusCode,
-      secret: r.json().secret as string,
-      state: r.statusCode === 200 ? new URL(r.json().url).searchParams.get('state')! : '',
-    };
-  }
-  const callback = (code: string, state: string) =>
-    h.app.inject({
-      method: 'GET',
-      url: `/auth/oauth/google/callback?code=${code}&state=${encodeURIComponent(state)}`,
-    });
-  const ticketOf = (r: { headers: Record<string, unknown> }) =>
-    new URL(String(r.headers.location)).searchParams.get('ticket');
-
-  it('begin only sends a sign-in back to the app itself', async () => {
-    expect((await begin('https://evil.example.com/auth')).status).toBe(400);
-    expect((await begin('evilapp://auth')).status).toBe(400);
-    expect((await begin('chalkpis://auth')).status).toBe(200);
-  });
-
-  it('exp:// (Expo Go) is accepted only outside production', async () => {
-    const { redirectPrefixes } = await import('../src/auth/oauth.js');
-    expect(redirectPrefixes(['chalkpis://', 'exp://'], 'production')).toEqual(['chalkpis://']);
-    expect(redirectPrefixes(['chalkpis://', 'exp://'], 'development')).toEqual([
-      'chalkpis://',
-      'exp://',
-    ]);
-  });
-
-  it("a ticket is useless without the app's secret (a ticket that reaches anyone else cannot be used)", async () => {
-    google.identities.set('victim-code', {
-      provider: 'google',
-      subject: 'g-victim',
-      email: 'victim@gmail.com',
-      emailVerified: true,
-      name: 'V',
-    });
-    const b = await begin();
-    const ticket = ticketOf(await callback('victim-code', b.state));
-    expect(ticket).toBeTruthy();
-    const stolen = await post('/auth/ticket', { ticket, secret: 'x'.repeat(43) });
-    expect(stolen.statusCode).toBe(401);
-    expect(stolen.json().error).toBe('bad_binding');
-    // and the stolen attempt used the ticket up, so it cannot be tried again either
-    expect((await post('/auth/ticket', { ticket, secret: b.secret })).statusCode).toBe(401);
-
-    const b2 = await begin();
-    const t2 = ticketOf(await callback('victim-code', b2.state));
-    const ok = await post('/auth/ticket', { ticket: t2, secret: b2.secret });
-    expect(ok.statusCode).toBe(200);
-    expect(ok.json().needsPhone).toBe(true);
-  });
-
-  it('an OAuth state can be used only once', async () => {
-    google.identities.set('c1', {
-      provider: 'google',
-      subject: 'g1',
-      email: null,
-      emailVerified: false,
-    });
-    google.identities.set('c2', {
-      provider: 'google',
-      subject: 'g2',
-      email: null,
-      emailVerified: false,
-    });
-    const { state } = await begin();
-    const a = await callback('c1', state);
-    const b = await callback('c2', state);
-    expect(String(a.headers.location)).toContain('ticket=');
-    expect(b.statusCode).toBe(400);
-  });
-
-  it('the old one-step start asks the app to update', async () => {
-    const r = await h.app.inject({
-      method: 'GET',
-      url: '/auth/oauth/google/start?redirect=chalkpis://auth',
-    });
-    expect(r.statusCode).toBe(410);
-    expect(r.json().error).toBe('update_required');
-  });
-
   it('a blocked user cannot refresh their session', async () => {
     const v = await otpLogin();
     await h.db.pool.query('UPDATE users SET blocked_at = ? WHERE id = ?', [
@@ -489,20 +362,6 @@ describe('sign-in edge cases', () => {
     ]);
     const r = await post('/auth/refresh', { refreshToken: v.json().refreshToken });
     expect(r.statusCode).not.toBe(200);
-  });
-
-  it('a blocked user finishing a signup does not get the new identity linked', async () => {
-    const v = await otpLogin();
-    const userId = v.json().user.id as string;
-    await h.db.pool.query('UPDATE users SET blocked_at = ? WHERE id = ?', [h.clock.now, userId]);
-    const token = await newEmailSignup('blocked@example.com');
-    h.clock.now = new Date(h.clock.now.getTime() + 61_000);
-    await post('/auth/otp/request', { phone: PHONE });
-    const r = await post('/auth/otp/verify', { phone: PHONE, code: lastWa(), signupToken: token });
-    expect(r.statusCode).toBe(403);
-    expect(
-      await count(h, 'SELECT COUNT(*) n FROM auth_identities WHERE user_id = ?', [userId]),
-    ).toBe(0);
   });
 
   it('a refresh retried inside the grace window (lost response) keeps the person signed in', async () => {

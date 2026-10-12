@@ -10,7 +10,6 @@ import { signToken } from '../src/lib/jwt.js';
 import { runMigrations } from '../src/migrate.js';
 import { MockBillingProvider, type BillingProvider } from '../src/billing/provider.js';
 import type { Mailer } from '../src/auth/mailer.js';
-import type { AppleNativeVerifier, OAuthProvider, OAuthProviderName } from '../src/auth/oauth.js';
 import { MockProvider } from '../src/messaging/provider.js';
 import { createTestDb, testConfig, type TestDb } from './db.js';
 
@@ -96,8 +95,6 @@ export async function startHarness(
   opts: {
     billing?: BillingProvider;
     mailer?: Mailer | null;
-    oauth?: Partial<Record<OAuthProviderName, OAuthProvider>>;
-    appleNative?: AppleNativeVerifier | null;
   } = {},
 ): Promise<Harness> {
   const db = await createTestDb();
@@ -120,8 +117,6 @@ export async function startHarness(
     provider,
     billing: opts.billing ?? billing,
     mailer: opts.mailer ?? null,
-    oauth: opts.oauth ?? {},
-    appleNative: opts.appleNative ?? null,
     clock: () => clock.now,
   });
 

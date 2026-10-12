@@ -14,8 +14,8 @@ import { refreshProfile } from '../auth/session';
 import { devPhoneCodeFor, requestPhoneCode, verifyPhoneCode } from './addPhone';
 
 /**
- * Adds a mobile number to an account that has none (made with Apple): the number, then the WhatsApp code.
- * Once it is on the account the person can also sign in with WhatsApp, and parents and helpers can reach them.
+ * Adds a mobile number to an older account that has none: the number, then the WhatsApp code. Once it is on the
+ * account the person can sign in with WhatsApp again, and parents and helpers can reach them.
  */
 export function AddPhoneScreen({
   navigation,

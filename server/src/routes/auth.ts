@@ -1,67 +1,14 @@
-import { timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { clientPlatform } from '../activity.js';
 import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { authenticate } from '../auth/guard.js';
-import { requestEmailCode, verifyEmailCode } from '../auth/emailOtp.js';
-import {
-  consumeTicket,
-  createAccountWithoutPhone,
-  createTicket,
-  findAccount,
-  identitiesOf,
-  linkIdentity,
-  peekTicket,
-  useOnce,
-  type Identity,
-} from '../auth/identity.js';
-import type { Mailer } from '../auth/mailer.js';
-import {
-  allowedRedirect,
-  bindingOf,
-  newBinding,
-  newNonce,
-  readState,
-  redirectPrefixes,
-  signState,
-  type AppleNativeVerifier,
-  type OAuthProvider,
-  type OAuthProviderName,
-} from '../auth/oauth.js';
 import { confirmPhoneOwnership, requestOtp, verifyOtp } from '../auth/otp.js';
 import { endSession, refreshSession, startSession } from '../auth/sessions.js';
 import type { MessageProvider } from '../messaging/provider.js';
 
-type SignInMethod = 'whatsapp' | 'google' | 'apple' | 'email';
-/** What an OAuth ticket holds: who signed in, and the hash of the app's secret that may redeem it. */
-interface OAuthTicket {
-  identity: Identity;
-  bind: string;
-}
-
 const phoneBody = z.object({ phone: z.string().max(32) });
-const verifyBody = z.object({
-  phone: z.string().max(32),
-  code: z.string().max(10),
-  // set when a new Google / Apple / email sign-in is finishing by verifying the mobile number
-  signupToken: z.string().max(100).optional(),
-});
-const emailBody = z.object({ email: z.string().max(254) });
-const emailVerifyBody = z.object({ email: z.string().max(254), code: z.string().max(10) });
-const ticketBody = z.object({ ticket: z.string().max(100), secret: z.string().min(20).max(100) });
-const beginBody = z.object({ redirect: z.string().max(300) });
-const appleNativeBody = z.object({
-  identityToken: z.string().min(20).max(5000),
-  nonce: z.string().min(20).max(100),
-  // Apple gives the name only the first time, on the phone, outside the token
-  fullName: z
-    .object({
-      givenName: z.string().max(60).nullish(),
-      familyName: z.string().max(60).nullish(),
-    })
-    .nullish(),
-});
+const verifyBody = z.object({ phone: z.string().max(32), code: z.string().max(10) });
 const addPhoneBody = z.object({ phone: z.string().max(32), code: z.string().max(10) });
 const meBody = z
   .object({ name: z.string().trim().min(2).max(80), language: z.enum(['en', 'hi']) })
@@ -71,9 +18,6 @@ const tokenBody = z.object({ refreshToken: z.string().max(200) });
 
 type Deps = Pick<AppDeps, 'config' | 'pool'> & {
   provider: MessageProvider | null;
-  mailer?: Mailer | null;
-  oauth?: Partial<Record<OAuthProviderName, OAuthProvider>>;
-  appleNative?: AppleNativeVerifier | null;
   clock?: () => Date;
 };
 
@@ -87,14 +31,13 @@ async function isBlocked(pool: Deps['pool'], userId: string) {
 /** The profile the app needs right after login. Never includes anything about other users. */
 async function profile(deps: Deps, userId: string) {
   const [rows] = (await deps.pool.query(
-    `SELECT u.id, u.phone, u.email, u.name, u.language, m.institute_id, m.role, m.onboarding_done
+    `SELECT u.id, u.phone, u.name, u.language, m.institute_id, m.role, m.onboarding_done
        FROM users u LEFT JOIN memberships m ON m.user_id = u.id WHERE u.id = ?`,
     [userId],
   )) as unknown as [
     {
       id: string;
       phone: string | null;
-      email: string | null;
       name: string;
       language: string;
       institute_id: string | null;
@@ -105,8 +48,7 @@ async function profile(deps: Deps, userId: string) {
   const r = rows[0];
   if (!r) return null;
   return {
-    user: { id: r.id, phone: r.phone, email: r.email, name: r.name, language: r.language },
-    signInMethods: await identitiesOf(deps.pool, r.id),
+    user: { id: r.id, phone: r.phone, name: r.name, language: r.language },
     isAdmin: !!r.phone && deps.config.ADMIN_PHONES.includes(r.phone),
     membership: r.institute_id
       ? { instituteId: r.institute_id, role: r.role, onboardingDone: !!r.onboarding_done }
@@ -124,10 +66,9 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
   const sessionDeps = { pool: deps.pool, config: deps.config, clock: deps.clock };
   const now = () => (deps.clock ?? (() => new Date()))();
 
-  /** Every sign-in method ends here: a blocked account is refused, otherwise a new session and the profile. */
+  /** A verified WhatsApp code ends here: a blocked account is refused, otherwise a new session and the profile. */
   const signIn = async (
     userId: string,
-    method: SignInMethod,
     req: FastifyRequest,
     reply: import('fastify').FastifyReply,
   ) => {
@@ -135,10 +76,10 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
     if (await isBlocked(deps.pool, userId))
       return reply.code(403).send({ error: 'account_blocked' });
     await deps.pool.query('UPDATE users SET last_login_at = ? WHERE id = ?', [now(), userId]);
-    // how and from which phone, for the admin's sign-in mix and each centre's log
+    // from which phone, for the admin's sign-in mix and each centre's log
     await deps.pool.query(
-      'INSERT INTO login_events (user_id, method, platform, created_at) VALUES (?, ?, ?, ?)',
-      [userId, method, clientPlatform(req), now()],
+      "INSERT INTO login_events (user_id, method, platform, created_at) VALUES (?, 'whatsapp', ?, ?)",
+      [userId, clientPlatform(req), now()],
     );
     const session = await startSession(sessionDeps, userId);
     return {
@@ -147,29 +88,6 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
       expiresIn: session.expiresIn,
       ...(await profile(deps, userId)),
     };
-  };
-
-  /**
-   * After Google, Apple or an email code: a known person is signed in; someone new is asked to verify a mobile
-   * number once (WhatsApp code), which creates the account or links to the one that number already has.
-   */
-  const finish = async (
-    identity: Identity,
-    req: FastifyRequest,
-    reply: import('fastify').FastifyReply,
-  ) => {
-    const userId = await findAccount(deps.pool, identity, now());
-    if (userId) return signIn(userId, identity.provider, req, reply);
-    // Sign in with Apple never asks for a mobile number (App Store rules); it can be added later from Account
-    if (identity.provider === 'apple')
-      return signIn(
-        await createAccountWithoutPhone(deps.pool, identity, now()),
-        'apple',
-        req,
-        reply,
-      );
-    const signupToken = await createTicket(deps.pool, 'signup', identity, now());
-    return { needsPhone: true, signupToken, email: identity.email, name: identity.name ?? null };
   };
 
   app.post(
@@ -202,225 +120,21 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
     async (req, reply) => {
       const body = verifyBody.safeParse(req.body);
       if (!body.success) return reply.code(400).send({ error: 'bad_request' });
-      // A pending Google / Apple / email sign-up must still be valid; it is only looked at here, so a mistyped
-      // code does not throw the sign-up away, and is used up once the code is right.
-      const token = body.data.signupToken;
-      if (token && !(await peekTicket<Identity>(deps.pool, 'signup', token, now())))
-        return reply.code(410).send({ error: 'signup_expired' });
+      // a new number gets its account here: signing up and signing in are the same step
       const v = await verifyOtp(otpDeps, body.data.phone, body.data.code);
       if (!v.ok) return reply.code(401).send({ error: 'invalid_code' });
-      let pending: Identity | null = null;
-      if (token) {
-        pending = await consumeTicket<Identity>(deps.pool, 'signup', token, now());
-        if (!pending) return reply.code(410).send({ error: 'signup_expired' }); // used by a parallel request
-      }
-      // a blocked account gets nothing new linked to it (signIn refuses it just below)
-      if (pending && (await isBlocked(deps.pool, v.userId)))
-        return reply.code(403).send({ error: 'account_blocked' });
-      // From now on that Google / Apple / email identity signs in to this mobile number's account (new or existing).
-      if (pending) await linkIdentity(deps.pool, v.userId, pending, now());
-      // a first Google / Apple / email sign-in finishes here, and counts as that method
-      return signIn(v.userId, pending?.provider ?? 'whatsapp', req, reply);
+      return signIn(v.userId, req, reply);
     },
   );
 
-  // ---- which sign-in methods are switched on (the app shows only these buttons) ----
-  // ---- native Sign in with Apple (iPhone): a one-time nonce, then the token from Apple's own sheet ----
-  app.post(
-    '/auth/apple/nonce',
-    { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
-    async () => ({ nonce: await createTicket(deps.pool, 'state', {}, now()) }),
-  );
-  app.post(
-    '/auth/apple/native',
-    { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
-    async (req, reply) => {
-      if (!deps.appleNative) return reply.code(404).send({ error: 'not_found' });
-      const body = appleNativeBody.safeParse(req.body);
-      if (!body.success) return reply.code(400).send({ error: 'bad_request' });
-      // the nonce must be one we handed out, and it works once
-      if (!(await consumeTicket(deps.pool, 'state', body.data.nonce, now())))
-        return reply.code(401).send({ error: 'invalid_ticket' });
-      let identity: Identity;
-      try {
-        identity = await deps.appleNative.verify(body.data.identityToken, body.data.nonce);
-      } catch {
-        return reply.code(401).send({ error: 'invalid_ticket' });
-      }
-      const name = [body.data.fullName?.givenName, body.data.fullName?.familyName]
-        .filter(Boolean)
-        .join(' ')
-        .trim();
-      return finish({ ...identity, name: name || null }, req, reply);
-    },
-  );
-
+  // Older app builds ask which sign-in buttons to show; WhatsApp is the only way in now.
   app.get('/auth/methods', async () => ({
     whatsapp: !!deps.provider && !!deps.config.WA_TEMPLATE_OTP,
-    email: !!deps.mailer,
-    google: !!deps.oauth?.google && !!deps.config.PUBLIC_BASE_URL,
-    apple: !!deps.oauth?.apple && !!deps.config.PUBLIC_BASE_URL,
-    appleNative: !!deps.appleNative,
+    email: false,
+    google: false,
+    apple: false,
+    appleNative: false,
   }));
-
-  // ---- email: a 6-digit code to the inbox, no password ----
-  const emailDeps = {
-    pool: deps.pool,
-    config: deps.config,
-    mailer: deps.mailer ?? null,
-    clock: deps.clock,
-  };
-  app.post(
-    '/auth/email/request',
-    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
-    async (req, reply) => {
-      const body = emailBody.safeParse(req.body);
-      if (!body.success) return reply.code(400).send({ error: 'bad_request' });
-      const r = await requestEmailCode(emailDeps, body.data.email);
-      if (r.ok) {
-        const echo = deps.config.OTP_DEV_ECHO && deps.config.NODE_ENV !== 'production';
-        return {
-          ok: true,
-          email: r.email,
-          resendInSeconds: r.resendInSeconds,
-          ...(echo ? { devCode: r.code } : {}),
-        };
-      }
-      if (r.error === 'invalid_email') return reply.code(400).send({ error: 'invalid_email' });
-      if (r.error === 'unavailable') return reply.code(503).send({ error: 'email_unavailable' });
-      return reply
-        .code(429)
-        .header('Retry-After', String(r.retryAfter ?? 60))
-        .send({ error: r.error, retryAfter: r.retryAfter });
-    },
-  );
-  app.post(
-    '/auth/email/verify',
-    { config: { rateLimit: { max: 20, timeWindow: '10 minutes' } } },
-    async (req, reply) => {
-      const body = emailVerifyBody.safeParse(req.body);
-      if (!body.success) return reply.code(400).send({ error: 'bad_request' });
-      const email = await verifyEmailCode(emailDeps, body.data.email, body.data.code.trim());
-      if (!email) return reply.code(401).send({ error: 'invalid_code' });
-      return finish({ provider: 'email', subject: email, email, emailVerified: true }, req, reply);
-    },
-  );
-
-  // ---- Google and Apple: the app opens /start in a browser sheet and gets a one-time ticket back ----
-  const callbackUrl = (p: OAuthProviderName) =>
-    `${(deps.config.PUBLIC_BASE_URL ?? '').replace(/\/$/, '')}/auth/oauth/${p}/callback`;
-  const back = (redirect: string, q: Record<string, string>) =>
-    `${redirect}${redirect.includes('?') ? '&' : '?'}${new URLSearchParams(q)}`;
-
-  const prefixes = redirectPrefixes(deps.config.APP_REDIRECT_PREFIXES, deps.config.NODE_ENV);
-  /**
-   * Step 1, from the app: the provider's sign-in link, and a secret that stays in the app. Only its hash travels in
-   * the link, and the ticket at the end can be redeemed only with the secret, so a ticket that reaches anyone
-   * else (another app claiming our scheme, a copied link) is useless.
-   */
-  app.post<{ Params: { provider: string } }>(
-    '/auth/oauth/:provider/begin',
-    { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
-    async (req, reply) => {
-      const p = req.params.provider as OAuthProviderName;
-      const provider = deps.oauth?.[p];
-      if (!provider || !deps.config.PUBLIC_BASE_URL)
-        return reply.code(404).send({ error: 'not_found' });
-      const body = beginBody.safeParse(req.body);
-      if (!body.success || !allowedRedirect(body.data.redirect, prefixes))
-        return reply.code(400).send({ error: 'bad_redirect' });
-      const nonce = newNonce();
-      const { secret, bind } = newBinding();
-      const state = await signState(
-        deps.config.JWT_SECRET,
-        { provider: p, redirect: body.data.redirect, nonce, bind },
-        now().getTime(),
-      );
-      return { url: provider.authorizeUrl({ state, nonce, redirectUri: callbackUrl(p) }), secret };
-    },
-  );
-  // The old one-step start (no secret) is gone; an app that still uses it is asked to update.
-  app.get('/auth/oauth/:provider/start', async (_req, reply) =>
-    reply.code(410).send({ error: 'update_required' }),
-  );
-
-  // Both callbacks: check the signed state, exchange the code, then send the person back to the app with a
-  // short one-time ticket (never the identity itself in the URL).
-  const callback = async (
-    p: OAuthProviderName,
-    q: Record<string, string | undefined>,
-    reply: import('fastify').FastifyReply,
-  ) => {
-    const state = await readState(deps.config.JWT_SECRET, q.state, now().getTime());
-    if (
-      !state ||
-      state.provider !== p ||
-      !allowedRedirect(state.redirect, prefixes) ||
-      // each state works once: a replayed callback (to sign someone into another account) is refused
-      !(await useOnce(deps.pool, 'state', state.nonce, now()))
-    )
-      return reply
-        .code(400)
-        .type('text/plain')
-        .send('This sign-in link has expired. Go back to the app and try again.');
-    if (q.error || !q.code) return reply.redirect(back(state.redirect, { error: 'cancelled' }));
-    try {
-      const identity = await deps.oauth![p]!.exchange({
-        code: q.code,
-        nonce: state.nonce,
-        redirectUri: callbackUrl(p),
-        extra: q.user ? { user: q.user } : undefined,
-      });
-      const ticket = await createTicket(
-        deps.pool,
-        'oauth',
-        { identity, bind: state.bind } satisfies OAuthTicket,
-        now(),
-      );
-      return reply.redirect(back(state.redirect, { ticket }));
-    } catch {
-      return reply.redirect(back(state.redirect, { error: 'failed' }));
-    }
-  };
-  app.get<{ Querystring: Record<string, string> }>(
-    '/auth/oauth/google/callback',
-    async (req, reply) =>
-      deps.oauth?.google
-        ? callback('google', req.query, reply)
-        : reply.code(404).send({ error: 'not_found' }),
-  );
-  // Apple posts the result as a form.
-  void app.register(async (scope) => {
-    scope.addContentTypeParser(
-      'application/x-www-form-urlencoded',
-      { parseAs: 'string', bodyLimit: 16 * 1024 },
-      (_req, body, done) => done(null, Object.fromEntries(new URLSearchParams(String(body)))),
-    );
-    scope.post<{ Body: Record<string, string> }>(
-      '/auth/oauth/apple/callback',
-      async (req, reply) =>
-        deps.oauth?.apple
-          ? callback('apple', (req.body ?? {}) as Record<string, string>, reply)
-          : reply.code(404).send({ error: 'not_found' }),
-    );
-  });
-
-  // The app trades the one-time ticket for a session (or for "verify your mobile" if the person is new).
-  app.post(
-    '/auth/ticket',
-    { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
-    async (req, reply) => {
-      const body = ticketBody.safeParse(req.body);
-      if (!body.success) return reply.code(400).send({ error: 'bad_request' });
-      const t = await consumeTicket<OAuthTicket>(deps.pool, 'oauth', body.data.ticket, now());
-      if (!t?.identity) return reply.code(401).send({ error: 'invalid_ticket' });
-      const given = Buffer.from(bindingOf(body.data.secret));
-      const expected = Buffer.from(t.bind ?? '');
-      if (given.length !== expected.length || !timingSafeEqual(given, expected))
-        return reply.code(401).send({ error: 'bad_binding' });
-      return finish(t.identity, req, reply);
-    },
-  );
 
   app.post(
     '/auth/refresh',
@@ -455,7 +169,7 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
     return profile(deps, req.auth!.userId);
   });
 
-  // ---- adding a mobile number to an account that has none (made with Sign in with Apple) ----
+  // ---- adding a mobile number to an older account that has none (made before WhatsApp was the only sign-in) ----
   app.post(
     '/me/phone/request',
     {

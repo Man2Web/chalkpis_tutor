@@ -44,9 +44,3 @@ export const tokens = {
     await Promise.all([store.del(ACCESS), store.del(REFRESH)]);
   },
 };
-
-/** Small remembered choices that outlive a sign-out (e.g. the last way this person signed in). */
-export const prefs = {
-  get: (key: string) => store.get(`chalkpis.${key}`),
-  set: (key: string, value: string) => store.set(`chalkpis.${key}`, value).catch(() => undefined),
-};

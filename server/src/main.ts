@@ -5,14 +5,6 @@ import { loadConfig } from './config.js';
 import { createPool } from './db.js';
 import { MockMailer, SmtpMailer, type Mailer } from './auth/mailer.js';
 import {
-  AppleNative,
-  AppleProvider,
-  GoogleProvider,
-  pemBody,
-  type OAuthProvider,
-  type OAuthProviderName,
-} from './auth/oauth.js';
-import {
   MockBillingProvider,
   PhonePeProvider,
   RazorpayProvider,
@@ -81,7 +73,7 @@ async function main() {
     console.warn(
       'No payment gateway is configured: plan purchases are unavailable until PHONEPE_* (or RAZORPAY_*) settings are set.',
     );
-  // Sign-in by email code: SMTP when set up; locally a stand-in that keeps the mail (use OTP_DEV_ECHO to see codes).
+  // Admin dashboard emails: SMTP when set up; locally a stand-in that keeps the mail (use OTP_DEV_ECHO to see codes).
   let mailer: Mailer | null = null;
   if (config.SMTP_HOST && config.SMTP_USER && config.SMTP_PASS)
     mailer = new SmtpMailer(
@@ -94,31 +86,7 @@ async function main() {
       config.MAIL_FROM,
     );
   else if (config.NODE_ENV !== 'production') mailer = new MockMailer();
-  // Sign in with Google / Apple, when their keys are set (they also need PUBLIC_BASE_URL for the callback).
-  const oauth: Partial<Record<OAuthProviderName, OAuthProvider>> = {};
-  if (config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET)
-    oauth.google = new GoogleProvider(config.GOOGLE_CLIENT_ID, config.GOOGLE_CLIENT_SECRET);
-  const appleMissing = (
-    ['APPLE_SERVICES_ID', 'APPLE_TEAM_ID', 'APPLE_KEY_ID', 'APPLE_PRIVATE_KEY'] as const
-  ).filter((k) => !config[k]);
-  if (appleMissing.length === 0) {
-    const apple = new AppleProvider({
-      servicesId: config.APPLE_SERVICES_ID!,
-      teamId: config.APPLE_TEAM_ID!,
-      keyId: config.APPLE_KEY_ID!,
-      privateKey: config.APPLE_PRIVATE_KEY!,
-    });
-    // A key that does not parse would only fail at someone's sign-in; say so at startup instead.
-    if (await apple.keyWorks()) oauth.apple = apple;
-    else
-      console.warn(
-        `Sign in with Apple is off: APPLE_PRIVATE_KEY is not a valid .p8 key (${pemBody(config.APPLE_PRIVATE_KEY!).length} key characters; a Sign in with Apple .p8 has 200).`,
-      );
-  } else if (appleMissing.length < 4)
-    console.warn(`Sign in with Apple is off: missing ${appleMissing.join(', ')}.`);
-  // the iPhone app's own Apple sheet: only needs our bundle id and Apple's public keys
-  const appleNative = new AppleNative(config.APPLE_BUNDLE_ID);
-  const app = await buildApp({ config, pool, provider, billing, mailer, oauth, appleNative });
+  const app = await buildApp({ config, pool, provider, billing, mailer });
 
   const stopWorker = startWorker(
     { pool, provider, templates: parseTemplates(config.WA_TEMPLATES) },

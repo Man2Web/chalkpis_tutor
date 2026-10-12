@@ -54,30 +54,14 @@
       "tooMany": "Too many attempts. Please wait a while and try again.",
       "network": "No internet. Please check your connection.",
       "generic": "Could not sign in. Please try again.",
-      "invalidEmail": "That email address does not look right.",
-      "signupExpired": "That sign-in took too long. Please start again.",
       "blocked": "This account has been blocked. Contact hello@chalkpis.com.",
-      "unavailable": "This sign-in option is not available right now. Please try another one.",
-      "providerFailed": "Could not sign in with {{provider}}. Please try again or use another option.",
-      "invalidEmailCode": "That code is wrong. Check your email and try again.",
+      "unavailable": "WhatsApp codes cannot be sent right now. Please try again in a while.",
       "phoneInUse": "This number already has its own Chalkpis account. To use it, sign out and continue with WhatsApp.",
       "phoneAlreadySet": "This account already has a mobile number."
     },
     "welcomeHeadline": "Run your tuition from your phone",
     "continueWhatsApp": "Continue with WhatsApp",
-    "continueGoogle": "Continue with Google",
-    "continueApple": "Continue with Apple",
-    "continueEmail": "Continue with email",
-    "newHere": "New here? Pick any option and we will create your account.",
-    "lastUsed": "Last used",
-    "emailTitle": "Continue with email",
-    "emailHint": "We will email you a 6-digit code. No password needed.",
-    "emailLabel": "Email address",
-    "emailSentTo": "Sent to {{email}}. Check your inbox (and spam).",
-    "changeEmail": "Use a different email",
-    "addPhoneTitle": "Add your mobile number",
-    "addPhoneHint": "One last step. We send a code on WhatsApp to confirm it is you. Your number is used for helper invites and parent messages, and keeps your account safe.",
-    "addPhoneFor": "Signing up as {{who}}",
+    "newHere": "New here? Continue with WhatsApp and we will create your account.",
     "signingIn": "Signing you in…",
     "startOver": "Start again",
     "step": "Step {{n}} of {{total}}",
@@ -85,7 +69,6 @@
     "otpPreviewFrom": "Chalkpis",
     "otpPreviewText": "Your Chalkpis sign-in code is ●●●●●●. Do not share it with anyone.",
     "otpCheckWhatsApp": "Check WhatsApp for a message from Chalkpis",
-    "emailSpamHint": "Not there in a minute? Look in Spam or Promotions.",
     "welcomeKicker": "For tutors and coaching centres"
   },
   "onboarding": {
@@ -844,14 +827,6 @@
   },
   "account": {
     "signIn": "Sign-in",
-    "signInFooter": "To add Google, Apple or email: log out, continue with it, and confirm this mobile number. It joins this account; nothing is lost.",
-    "connected": "Connected",
-    "notConnected": "Not connected",
-    "method": {
-      "google": "Google",
-      "apple": "Apple",
-      "email": "Email"
-    },
     "notAdded": "Not added"
   },
   "addPhone": {

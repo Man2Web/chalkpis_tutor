@@ -2,7 +2,6 @@ import type { ComponentProps } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import '../../../i18n';
 import { ApiError } from '../../../api/client';
-import { toast } from '../../../components';
 import { OtpScreen } from '../OtpScreen';
 import { confirmCode, sendCode } from '../phoneAuth';
 
@@ -11,10 +10,6 @@ jest.mock('../phoneAuth', () => ({
   confirmCode: jest.fn(),
   sendCode: jest.fn(),
   devCodeFor: () => null,
-}));
-jest.mock('../../../components', () => ({
-  ...jest.requireActual('../../../components'),
-  toast: jest.fn(),
 }));
 
 const nav = { navigate: jest.fn(), goBack: jest.fn(), popToTop: jest.fn() };
@@ -38,21 +33,19 @@ it('checks the code by itself once all six digits are in, and only once', async 
   );
   await render(<OtpScreen {...props({})} />);
   await fireEvent.changeText(screen.getByLabelText('6-digit code'), '123456');
-  await waitFor(() =>
-    expect(confirmCode).toHaveBeenCalledWith('+919876543210', '123456', undefined),
-  );
+  await waitFor(() => expect(confirmCode).toHaveBeenCalledWith('+919876543210', '123456'));
   // Verify while the first check is still running does not send it again
   await fireEvent.press(screen.getByRole('button', { name: 'Verify' }));
   expect(confirmCode).toHaveBeenCalledTimes(1);
   finish();
 });
 
-it('an expired Google / Apple sign-up says so and goes back to the start', async () => {
-  (confirmCode as jest.Mock).mockRejectedValue(new ApiError(410, 'signup_expired'));
-  await render(<OtpScreen {...props({ signupToken: 'S' })} />);
+it('a wrong code shows the reason under the field and stays on the screen', async () => {
+  (confirmCode as jest.Mock).mockRejectedValue(new ApiError(401, 'invalid_code'));
+  await render(<OtpScreen {...props({})} />);
   await fireEvent.changeText(screen.getByLabelText('6-digit code'), '123456');
-  await waitFor(() => expect(nav.popToTop).toHaveBeenCalled());
-  expect(toast).toHaveBeenCalledWith('That sign-in took too long. Please start again.', 'error');
+  expect(await screen.findByText('That code is wrong. Check WhatsApp and try again.')).toBeTruthy();
+  expect(nav.popToTop).not.toHaveBeenCalled();
 });
 
 it('starts the resend countdown from what the server said', async () => {

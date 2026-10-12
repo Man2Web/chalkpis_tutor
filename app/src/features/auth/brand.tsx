@@ -211,7 +211,7 @@ export function AuthStepLayout({
   iconColor?: string;
   title: string;
   subtitle?: ReactNode;
-  /** e.g. [1, 2] shows "Step 1 of 2" (only while signing up) */
+  /** e.g. [1, 2] shows "Step 1 of 2" (while adding a mobile number) */
   step?: [number, number];
   onBack?: () => void;
   children: ReactNode;

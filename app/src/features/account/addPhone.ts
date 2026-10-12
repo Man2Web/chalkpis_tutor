@@ -8,7 +8,7 @@ let devCode: { phone: string; code: string } | null = null;
 export const devPhoneCodeFor = (phone: string) => (devCode?.phone === phone ? devCode.code : null);
 
 /**
- * Sends a WhatsApp code to the number a signed-in person (an account made with Apple) wants to add.
+ * Sends a WhatsApp code to the number a signed-in person (an older account without one) wants to add.
  * Answers the number as sent and the seconds before another code may be asked for.
  */
 export async function requestPhoneCode(

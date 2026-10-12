@@ -1,12 +1,9 @@
 export type AuthStackParams = {
   Legal: { doc: 'privacy' | 'terms' };
   Language: undefined;
-  /** With a signupToken: a new Google / Apple / email person adding their mobile number once. */
-  Phone: { signupToken?: string; email?: string | null; name?: string | null } | undefined;
+  Phone: undefined;
   /** resendIn: seconds before another code may be sent (the server said the last one was too recent). */
-  Otp: { phone: string; signupToken?: string; resendIn?: number };
-  Email: undefined;
-  EmailCode: { email: string; resendIn?: number };
+  Otp: { phone: string; resendIn?: number };
 };
 
 export type OnboardingStackParams = {
@@ -36,7 +33,7 @@ export type MainStackParams = {
   Reports: undefined;
   Settings: undefined;
   EditProfile: undefined;
-  /** Adds a mobile number to an account that has none (made with Apple). */
+  /** Adds a mobile number to an older account that has none. */
   AddPhone: undefined;
   PaymentSettings: undefined;
   Billing: undefined;

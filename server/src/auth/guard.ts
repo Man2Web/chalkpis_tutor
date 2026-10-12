@@ -6,7 +6,7 @@ import { verifyToken } from '../lib/jwt.js';
 /** Who is calling, read from the database on every request (never trusted from the token alone). */
 export interface AuthContext {
   userId: string;
-  /** Null for an account made with Sign in with Apple that has not added a mobile yet. */
+  /** Null only for an older account made without a mobile number that has not added one yet. */
   phone: string | null;
   name: string;
   language: 'en' | 'hi';

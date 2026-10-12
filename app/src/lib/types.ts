@@ -5,11 +5,8 @@ export type Timestamp = Stamp;
 
 export interface UserProfile {
   name: string;
-  /** null for an account made with Apple until its owner adds a mobile number. */
+  /** null only for an older account made without a mobile number, until its owner adds one. */
   phone: string | null;
-  email?: string;
-  /** Sign-in methods connected besides WhatsApp. */
-  signInMethods?: ('google' | 'apple' | 'email')[];
   language: 'en' | 'hi';
   instituteId?: string;
   role: 'owner' | 'staff';

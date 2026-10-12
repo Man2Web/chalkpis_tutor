@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, Platform, Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import { Badge } from 'panelui-native/components/badge';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -48,11 +48,6 @@ function ProfileCard({ onEdit, plan }: { onEdit?: () => void; plan?: string }) {
       <Text style={[type.footnote, { textAlign: 'center' }]} numberOfLines={1}>
         {[inst.data?.name, profile?.phone].filter(Boolean).join(' · ')}
       </Text>
-      {profile?.email ? (
-        <Text style={[type.footnote, { textAlign: 'center' }]} numberOfLines={1}>
-          {profile.email}
-        </Text>
-      ) : null}
       {plan ? (
         <Badge variant="secondary" className="mt-1 self-center">
           {plan}
@@ -68,30 +63,16 @@ function ProfileCard({ onEdit, plan }: { onEdit?: () => void; plan?: string }) {
 }
 
 /**
- * How this account can sign in: WhatsApp (once it has a mobile number), Google and email, and Apple on iPhone.
- * An account made with Apple has no number yet; its WhatsApp row offers to add one.
+ * How this account signs in: WhatsApp, with the mobile number. An older account made without a number offers to
+ * add one here.
  */
 function SignInSection({ onAddPhone }: { onAddPhone: () => void }) {
   const { t } = useTranslation();
-  const profile = useSession((s) => s.profile);
-  const on = new Set(profile?.signInMethods ?? []);
-  const row = (
-    key: 'google' | 'apple' | 'email',
-    icon: 'logo-google' | 'logo-apple' | 'mail',
-    color: string,
-  ) => (
-    <Row
-      key={key}
-      icon={icon}
-      iconColor={color}
-      title={t(`account.method.${key}`)}
-      value={on.has(key) ? t('account.connected') : t('account.notConnected')}
-    />
-  );
+  const phone = useSession((s) => s.profile?.phone);
   return (
-    <Section title={t('account.signIn')} footer={t('account.signInFooter')}>
-      {profile?.phone ? (
-        <Row icon="logo-whatsapp" iconColor="#1DA851" title="WhatsApp" value={profile.phone} />
+    <Section title={t('account.signIn')}>
+      {phone ? (
+        <Row icon="logo-whatsapp" iconColor="#1DA851" title="WhatsApp" value={phone} />
       ) : (
         <Row
           icon="logo-whatsapp"
@@ -102,10 +83,6 @@ function SignInSection({ onAddPhone }: { onAddPhone: () => void }) {
           onPress={onAddPhone}
         />
       )}
-      {row('google', 'logo-google', '#4285F4')}
-      {/* Apple is an iPhone sign-in; on Android it shows only if this account already uses it */}
-      {Platform.OS === 'ios' || on.has('apple') ? row('apple', 'logo-apple', colors.text) : null}
-      {row('email', 'mail', colors.infoFill)}
     </Section>
   );
 }

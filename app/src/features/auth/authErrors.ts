@@ -3,10 +3,8 @@ import { ApiError } from '../../api/client';
 /** Maps a failed call to a translation key under `auth.errors.*`. */
 export type AuthErrorKey =
   | 'invalidPhone'
-  | 'invalidEmail'
   | 'invalidCode'
   | 'codeExpired'
-  | 'signupExpired'
   | 'tooMany'
   | 'blocked'
   | 'unavailable'
@@ -21,14 +19,8 @@ export function authErrorKey(e: unknown): AuthErrorKey {
   switch (e.code) {
     case 'invalid_phone':
       return 'invalidPhone';
-    case 'invalid_email':
-      return 'invalidEmail';
-    case 'signup_expired':
-    case 'invalid_ticket':
-      return 'signupExpired';
     case 'account_blocked':
       return 'blocked';
-    case 'email_unavailable':
     case 'otp_unavailable':
       return 'unavailable';
     case 'invalid_code':
@@ -42,11 +34,6 @@ export function authErrorKey(e: unknown): AuthErrorKey {
     case 'too_many':
     case 'rate_limited':
       return 'tooMany';
-    // Google / Apple: the ticket came back to a different app instance, or this app is older than the server's
-    // sign-in flow; both show as "could not sign in with …"
-    case 'bad_binding':
-    case 'update_required':
-      return 'generic';
     default:
       // any other limit (the server's general limiter answers {error: 'Too Many Requests'})
       return e.status === 429 ? 'tooMany' : 'generic';

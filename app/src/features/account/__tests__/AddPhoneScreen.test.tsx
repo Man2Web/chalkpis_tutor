@@ -24,8 +24,7 @@ const props = {
 } as unknown as ComponentProps<typeof AddPhoneScreen>;
 
 const me = (phone: string | null) => ({
-  user: { id: 'u1', phone, email: null, name: 'Priya', language: 'en' },
-  signInMethods: [{ provider: 'apple', email: null, since: '2026-10-01' }],
+  user: { id: 'u1', phone, name: 'Priya', language: 'en' },
   isAdmin: false,
   membership: { instituteId: 'I1', role: 'owner', onboardingDone: true },
 });

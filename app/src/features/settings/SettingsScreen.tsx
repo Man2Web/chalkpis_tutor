@@ -184,7 +184,7 @@ export function EditProfileScreen({
           hint={t('settings.phoneHint')}
         />
       ) : (
-        // an account made with Apple has no number yet
+        // an older account made without a number
         <Button
           variant="outline"
           title={t('addPhone.title')}

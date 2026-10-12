@@ -8,12 +8,7 @@ import { AuthStepLayout } from './brand';
 import { resendWaitOf } from './authErrors';
 import { authErrorKey, sendCode } from './phoneAuth';
 
-export function PhoneLoginScreen({
-  navigation,
-  route,
-}: NativeStackScreenProps<AuthStackParams, 'Phone'>) {
-  // Set when a new Google / Apple / email person is adding their mobile number once.
-  const signup = route.params?.signupToken ? route.params : null;
+export function PhoneLoginScreen({ navigation }: NativeStackScreenProps<AuthStackParams, 'Phone'>) {
   const { t } = useTranslation();
   const [value, setValue] = useState('');
   const [error, setError] = useState<string>();
@@ -28,13 +23,12 @@ export function PhoneLoginScreen({
     setBusy(true);
     try {
       const phone = await sendCode(value);
-      navigation.navigate('Otp', { phone, signupToken: signup?.signupToken });
+      navigation.navigate('Otp', { phone });
     } catch (e) {
       // a code was sent to this number a moment ago (back, then Send again): it is still good, so go and enter it
       const wait = resendWaitOf(e);
       const phone = normalizeIndianPhone(value);
-      if (wait && phone)
-        navigation.navigate('Otp', { phone, signupToken: signup?.signupToken, resendIn: wait });
+      if (wait && phone) navigation.navigate('Otp', { phone, resendIn: wait });
       else setError(t(`auth.errors.${authErrorKey(e)}`));
     } finally {
       setBusy(false);
@@ -45,13 +39,8 @@ export function PhoneLoginScreen({
     <AuthStepLayout
       icon="logo-whatsapp"
       iconColor="#1DA851"
-      title={t(signup ? 'auth.addPhoneTitle' : 'auth.phoneTitle')}
-      subtitle={
-        signup && (signup.email || signup.name)
-          ? `${t('auth.addPhoneHint')} ${t('auth.addPhoneFor', { who: signup.email ?? signup.name })}`
-          : t(signup ? 'auth.addPhoneHint' : 'auth.phoneHint')
-      }
-      step={signup ? [1, 2] : undefined}
+      title={t('auth.phoneTitle')}
+      subtitle={t('auth.phoneHint')}
       onBack={() => navigation.goBack()}
     >
       <Input

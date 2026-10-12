@@ -28,14 +28,11 @@ export const useIsStaff = () => useSession((s) => s.profile?.role === 'staff');
 export interface MeResponse {
   user: {
     id: string;
-    /** null until an Apple-made account adds a mobile number */
+    /** null only for an older account made without a mobile number, until it adds one */
     phone: string | null;
-    email?: string | null;
     name: string;
     language: 'en' | 'hi';
   };
-  /** The ways this account can sign in besides WhatsApp (Google, Apple, email). */
-  signInMethods?: { provider: 'google' | 'apple' | 'email'; email: string | null; since: string }[];
   membership: { instituteId: string; role: 'owner' | 'staff'; onboardingDone: boolean } | null;
 }
 
@@ -44,8 +41,6 @@ export function applyMe(me: MeResponse) {
   const profile: UserProfile = {
     name: me.user.name,
     phone: me.user.phone ?? null,
-    ...(me.user.email ? { email: me.user.email } : {}),
-    signInMethods: (me.signInMethods ?? []).map((m) => m.provider),
     language: me.user.language,
     role: me.membership?.role ?? 'owner',
     ...(me.membership

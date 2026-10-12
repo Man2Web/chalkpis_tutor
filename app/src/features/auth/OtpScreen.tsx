@@ -3,7 +3,7 @@ import { useWindowDimensions, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OtpInput } from 'panelui-native/components/otp-input';
-import { Button, toast } from '../../components';
+import { Button } from '../../components';
 import { formatIndianPhone } from '../../lib/phone';
 import type { AuthStackParams } from '../../navigation/types';
 import { resendWaitOf } from './authErrors';
@@ -13,7 +13,7 @@ import { authErrorKey, confirmCode, RESEND_SECONDS, sendCode } from './phoneAuth
 
 export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStackParams, 'Otp'>) {
   const { t } = useTranslation();
-  const { phone, signupToken, resendIn } = route.params;
+  const { phone, resendIn } = route.params;
   const [code, setCode] = useState('');
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -40,15 +40,10 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
     setError(undefined);
     setBusy(true);
     try {
-      await confirmCode(phone, value, signupToken); // signing in switches the navigator automatically
+      await confirmCode(phone, value); // signing in switches the navigator automatically
     } catch (e) {
-      const key = authErrorKey(e);
       setBusy(false);
-      // the pending Google / Apple / email sign-up ran out: back to the start rather than a dead end
-      if (key === 'signupExpired') {
-        toast(t('auth.errors.signupExpired'), 'error');
-        navigation.popToTop();
-      } else setError(t(`auth.errors.${key}`));
+      setError(t(`auth.errors.${authErrorKey(e)}`));
     } finally {
       inFlight.current = false;
     }
@@ -75,7 +70,6 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
       icon="chatbubble-ellipses"
       title={t('auth.otpTitle')}
       subtitle={t('auth.otpSentTo', { phone: formatIndianPhone(phone) })}
-      step={signupToken ? [2, 2] : undefined}
       onBack={() => navigation.goBack()}
     >
       <WhatsAppPreview />

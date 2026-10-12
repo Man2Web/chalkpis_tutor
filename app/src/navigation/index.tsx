@@ -7,8 +7,6 @@ import { ActivityIndicator, Platform, Text, useWindowDimensions, View } from 're
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { LanguageScreen } from '../features/auth/LanguageScreen';
-import { EmailCodeScreen } from '../features/auth/EmailCodeScreen';
-import { EmailScreen } from '../features/auth/EmailScreen';
 import { OtpScreen } from '../features/auth/OtpScreen';
 import { PhoneLoginScreen } from '../features/auth/PhoneLoginScreen';
 import { useIsStaff, useSession } from '../features/auth/session';
@@ -71,12 +69,6 @@ function AuthStack() {
         options={{ title: 'Sign in · Chalkpis' }}
       />
       <Auth.Screen name="Otp" component={OtpScreen} options={{ title: 'Enter code · Chalkpis' }} />
-      <Auth.Screen name="Email" component={EmailScreen} options={{ title: 'Email · Chalkpis' }} />
-      <Auth.Screen
-        name="EmailCode"
-        component={EmailCodeScreen}
-        options={{ title: 'Enter code · Chalkpis' }}
-      />
       <Auth.Screen
         name="Legal"
         component={LegalScreen as never}
