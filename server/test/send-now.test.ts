@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { MetaCloudProvider } from '../src/messaging/provider.js';
+import { MetaCloudProvider, WhatsAppProvider } from '../src/messaging/provider.js';
 import { parseTemplates } from '../src/messaging/templates.js';
 import { processQueue } from '../src/messaging/worker.js';
 import { startHarness, type Harness, type Tenant } from './helpers.js';
@@ -127,6 +127,44 @@ describe('parent link and receipt sent now', () => {
     expect((await A.call('POST', `/fees/payments/${pay.paymentId}/send-receipt`)).body.error).toBe(
       'not_sendable',
     );
+  });
+});
+
+describe('wa.adsme.in gateway request', () => {
+  const p = new WhatsAppProvider({
+    baseUrl: 'https://gw.example/unified/v2/send',
+    clientId: 'id',
+    clientPassword: 'pw',
+    from: '916384009225',
+  });
+
+  it('marks the UPI QR as an image header (type, MIME type and public URL)', () => {
+    const msg = p.body({
+      to: '+919876500001',
+      templateId: '1815399',
+      vars: ['A', 'B', 'C'],
+      reference: 'm1',
+      imageUrl: 'https://tutor.example.in/pay-qr.png?d=x&s=y',
+    }).whatsapp.messages[0]!;
+    expect(msg).toMatchObject({
+      msgtype: '3',
+      templateinfo: '1815399~A~B~C',
+      type: 'image',
+      contenttype: 'image/png',
+      mediadata: 'https://tutor.example.in/pay-qr.png?d=x&s=y',
+    });
+  });
+
+  it('sends a text-only template without media fields', () => {
+    const msg = p.body({
+      to: '+919876500001',
+      templateId: '1815393',
+      vars: ['A', 'B', 'C'],
+      reference: 'm2',
+    }).whatsapp.messages[0]!;
+    expect(msg.type).toBe('');
+    expect(msg.mediadata).toBe('');
+    expect(msg).not.toHaveProperty('contenttype');
   });
 });
 

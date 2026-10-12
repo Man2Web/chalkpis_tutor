@@ -74,8 +74,10 @@ export class WhatsAppProvider implements MessageProvider {
             msgtype: '3',
             text: '',
             templateinfo: [m.templateId, ...m.vars].join('~'),
-            type: '',
-            // ValueFirst's field for a header picture (to confirm with ValueFirst for image templates)
+            // A header picture (the UPI QR) needs all three, as in the gateway's documentation: the media type, its
+            // MIME type and a public URL. Without `type` the gateway accepts the message but WhatsApp drops it.
+            type: m.imageUrl ? 'image' : '',
+            ...(m.imageUrl ? { contenttype: 'image/png' } : {}),
             mediadata: m.imageUrl ?? '',
             b_urlinfo: '1',
             filename: '',
