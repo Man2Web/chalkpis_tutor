@@ -1,6 +1,6 @@
 import { useIdempotencyKey } from '../../api/idempotency';
 import { useEffect, useRef, useState } from 'react';
-import { AppState, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { AppState, Platform, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
   BottomSheet,
@@ -62,8 +62,10 @@ export function BillingScreen() {
   const limits = useLimits();
   const history = useBillingHistory();
   const payments = usePaymentsAvailable();
-  // Unknown while loading counts as available; only a clear "no" from the server hides the buy buttons.
-  const canPay = payments.data !== false;
+  // Plans are never bought inside the store apps: Apple (3.1.1) and Google Play only allow their own billing for in-app
+  // purchases, so the iPhone and Android apps show the plan and its limits only. In the browser, unknown while loading
+  // counts as available; only a clear "no" from the server hides the buy buttons.
+  const canPay = Platform.OS === 'web' && payments.data !== false;
   const refresh = useRefreshData();
   const [busyPlan, setBusyPlan] = useState<PlanId | null>(null);
   const [link, setLink] = useState<{ plan: PlanId; data: PlanLink } | null>(null);

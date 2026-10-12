@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import '../../../i18n';
 import { BillingScreen } from '../BillingScreen';
@@ -47,8 +48,10 @@ const limits = (over = {}) =>
     ...over,
   });
 
+// Plans are bought only in the browser version; the store apps never show a buy button (see the iPhone test below).
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.replaceProperty(Platform, 'OS', 'web');
   (useLimits as jest.Mock).mockReturnValue(limits());
   (useBillingHistory as jest.Mock).mockReturnValue(q([]));
   (usePaymentsAvailable as jest.Mock).mockReturnValue(q(true));
@@ -168,6 +171,18 @@ it('when online payment is off, no plan can be bought and the owner is told why'
   expect(screen.queryByText('₹399')).toBeNull();
   expect(screen.getByText('Free trial')).toBeTruthy(); // the current plan is still shown
 });
+
+it.each(['ios', 'android'] as const)(
+  'the %s app never offers a plan to buy (store billing rules), even with payments on',
+  async (os) => {
+    jest.replaceProperty(Platform, 'OS', os);
+    await render(<BillingScreen />);
+    expect(screen.queryByRole('button', { name: 'Choose Starter' })).toBeNull();
+    expect(screen.queryByText('₹399')).toBeNull();
+    expect(screen.getByText('Online payment is not switched on yet')).toBeTruthy();
+    expect(screen.getByText('Free trial')).toBeTruthy();
+  },
+);
 
 it('lists past payments', async () => {
   (useBillingHistory as jest.Mock).mockReturnValue(
