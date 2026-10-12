@@ -28,6 +28,7 @@ export const testConfig = (over: Partial<Config> = {}): Config => ({
   RATE_LIMIT_PER_MIN: 300,
   OTP_GLOBAL_PER_HOUR: 300,
   APPLE_BUNDLE_ID: 'in.chalkpis.tutors',
+  ADMIN_EMAILS: ['admin@chalkpis.test'],
   TRIAL_DAYS: 7,
   CORS_ORIGINS: [],
   WA_CLOUD_API_VERSION: 'v23.0',

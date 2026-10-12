@@ -174,7 +174,7 @@ describe('Sign in with Apple on iPhone: no mobile number needed', () => {
   });
 
   it('the admin dashboard copes with people who have no phone', async () => {
-    const admin = await h.tenant(ADMIN, { institute: 'HQ' });
+    const admin = await h.admin();
     apple.people.set('tok-y-1234567890123-identity-token', {
       provider: 'apple',
       subject: 'apple-y',
@@ -196,7 +196,7 @@ describe('Sign in with Apple on iPhone: no mobile number needed', () => {
     ])
       expect((await admin.call('GET', url)).status, url).toBe(200);
     // a phone-less account is never an admin
-    expect((await h.login(s.user.id, '').call('GET', '/admin/api/overview')).status).toBe(403);
+    expect((await h.login(s.user.id, '').call('GET', '/admin/api/overview')).status).toBe(401);
   });
 });
 

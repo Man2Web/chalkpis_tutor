@@ -1,10 +1,11 @@
+import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { createInstitute } from '../src/institutes/service.js';
-import { newId } from '../src/lib/ids.js';
+import { newId, sha256 } from '../src/lib/ids.js';
 import { signToken } from '../src/lib/jwt.js';
 import { runMigrations } from '../src/migrate.js';
 import { MockBillingProvider, type BillingProvider } from '../src/billing/provider.js';
@@ -12,6 +13,9 @@ import type { Mailer } from '../src/auth/mailer.js';
 import type { AppleNativeVerifier, OAuthProvider, OAuthProviderName } from '../src/auth/oauth.js';
 import { MockProvider } from '../src/messaging/provider.js';
 import { createTestDb, testConfig, type TestDb } from './db.js';
+
+/** The admin email every test harness allows (testConfig ADMIN_EMAILS). */
+export const TEST_ADMIN_EMAIL = 'admin@chalkpis.test';
 
 export const WEBHOOK_SECRET = 'whsec_test_secret_0123456789';
 export const NOW = new Date('2026-10-08T06:00:00Z');
@@ -30,6 +34,8 @@ export interface Harness {
   clock: { now: Date };
   reset: () => Promise<void>;
   tenant: (phone: string, names?: { tutor?: string; institute?: string }) => Promise<Tenant>;
+  /** Acts as a signed-in admin of the dashboard (email + password + code done; a live admin session). */
+  admin: (email?: string) => Promise<Tenant>;
   /** Acts as an existing user (for example a helper the owner invited). */
   login: (userId: string, instituteId: string) => Tenant;
   close: () => Promise<void>;
@@ -48,6 +54,9 @@ export interface Tenant {
 }
 
 const TABLES = [
+  'admin_sessions',
+  'admin_codes',
+  'admin_accounts',
   'idempotency_keys',
   'auth_tickets',
   'auth_identities',
@@ -177,6 +186,45 @@ export async function startHarness(
     return { userId, instituteId, token, call };
   };
 
+  const admin: Harness['admin'] = async (email = TEST_ADMIN_EMAIL) => {
+    await db.pool.query('INSERT IGNORE INTO admin_accounts (id, email) VALUES (?, ?)', [
+      newId(),
+      email,
+    ]);
+    const [[a]] = (await db.pool.query('SELECT id FROM admin_accounts WHERE email = ?', [
+      email,
+    ])) as unknown as [[{ id: string }]];
+    const token = randomBytes(32).toString('base64url');
+    await db.pool.query(
+      'INSERT INTO admin_sessions (id, admin_id, token_hash, expires_at, last_seen_at, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [
+        newId(),
+        a!.id,
+        sha256(token),
+        new Date(clock.now.getTime() + 8 * 3_600_000),
+        clock.now,
+        clock.now,
+      ],
+    );
+    const s = login(a!.id, '');
+    const call: Tenant['call'] = async (method, url, payload, headers = {}) => {
+      const r = await app.inject({
+        method,
+        url,
+        headers: { authorization: `Bearer ${token}`, ...headers },
+        ...(payload === undefined ? {} : { payload: payload as object }),
+      });
+      let body: unknown = null;
+      try {
+        body = r.body ? r.json() : null;
+      } catch {
+        body = r.body;
+      }
+      return { status: r.statusCode, body };
+    };
+    return { ...s, token, call };
+  };
+
   return {
     db,
     app,
@@ -186,6 +234,7 @@ export async function startHarness(
     clock,
     reset,
     tenant,
+    admin,
     login,
     close: async () => {
       await app.close();

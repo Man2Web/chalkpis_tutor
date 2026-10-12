@@ -44,12 +44,25 @@ import {
   setTags,
   tagsBody,
 } from '../admin/crm.js';
-import { authenticate, requireAdmin } from '../auth/guard.js';
+import { authenticate } from '../auth/guard.js';
+import type { Mailer } from '../auth/mailer.js';
+import {
+  adminForgot,
+  adminLogin,
+  adminLogout,
+  adminReset,
+  adminSession,
+  adminVerify,
+  ensureAdmins,
+  type AdminIdentity,
+} from '../admin/auth.js';
 import { parseTemplates } from '../messaging/templates.js';
 import { idParam, parse } from '../lib/params.js';
 
 type Deps = Pick<AppDeps, 'config' | 'pool'> & {
   clock?: () => Date;
+  /** Sends admin sign-in and reset codes. */
+  mailer?: Mailer | null;
   /** Which WhatsApp sender is in use, for the health screen. */
   providerName?: string;
 };
@@ -71,22 +84,86 @@ const VERSION = (() => {
 const ADMIN_CSP =
   "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
+declare module 'fastify' {
+  interface FastifyRequest {
+    admin?: AdminIdentity;
+  }
+}
+
+const bearer = (req: FastifyRequest) => {
+  const h = req.headers.authorization;
+  return typeof h === 'string' && h.startsWith('Bearer ') ? h.slice(7) : null;
+};
+
 /**
  * The platform owner's dashboard. The page itself is public (it is only a sign-in screen and a script); every
- * /admin/api call needs a signed-in user whose number is in ADMIN_PHONES.
+ * /admin/api call needs an admin session from /admin/auth (email + password + emailed code, see admin/auth.ts).
+ * Tutor app tokens never reach it, whatever number they belong to.
  */
 export function adminRoutes(app: FastifyInstance, deps: Deps) {
   const { pool, config } = deps;
+  const authDeps = { pool, mailer: deps.mailer ?? null, config, clock: deps.clock };
+  // the ADMIN_EMAILS accounts exist before anyone signs in; a database hiccup at start must not stop the server,
+  // so it is tried again on the first admin sign-in or reset
+  let adminsReady = false;
+  const readyAdmins = async () => {
+    if (adminsReady) return;
+    try {
+      await ensureAdmins(pool, config.ADMIN_EMAILS);
+      adminsReady = true;
+    } catch (err) {
+      app.log.warn({ err: { message: (err as Error).message } }, 'admin accounts not ready yet');
+    }
+  };
+  app.addHook('onReady', readyAdmins);
+  const requireAdminSession = async (
+    req: FastifyRequest,
+    reply: import('fastify').FastifyReply,
+  ) => {
+    const who = await adminSession(authDeps, bearer(req));
+    if (!who) return reply.code(401).send({ error: 'unauthorized' });
+    req.admin = who;
+  };
   const guard = {
-    preHandler: [authenticate(deps), requireAdmin(config)],
+    preHandler: [requireAdminSession],
     config: { rateLimit: { max: 300, timeWindow: '1 minute' } },
   };
   const now = () => (deps.clock ?? (() => new Date()))();
-  // admins always have a number (requireAdmin checks it)
-  const actor = (req: FastifyRequest) => ({
-    userId: req.auth!.userId,
-    phone: req.auth!.phone ?? '',
+  // who did it, for the audit log: the admin account and its email
+  const actor = (req: FastifyRequest) => ({ userId: req.admin!.adminId, phone: req.admin!.email });
+  const meta = (req: FastifyRequest) => ({
+    ip: req.ip ?? '',
+    userAgent: String(req.headers['user-agent'] ?? ''),
   });
+  const authLimit = (max: number) => ({ config: { rateLimit: { max, timeWindow: '10 minutes' } } });
+  const body = (req: FastifyRequest) => (req.body ?? {}) as Record<string, unknown>;
+
+  // ---- admin sign-in: password, then an emailed code; forgot password by emailed code ----
+  app.post('/admin/auth/login', authLimit(10), async (req, reply) => {
+    await readyAdmins();
+    const r = await adminLogin(authDeps, body(req).email, body(req).password, meta(req));
+    if (r.ok) return { challenge: r.challenge, ...(r.devCode ? { devCode: r.devCode } : {}) };
+    return reply.code(r.error === 'unavailable' ? 503 : 401).send({ error: r.error });
+  });
+  app.post('/admin/auth/verify', authLimit(20), async (req, reply) => {
+    const b = body(req);
+    const r = await adminVerify(authDeps, b.email, b.challenge, b.code, meta(req));
+    return r ?? reply.code(401).send({ error: 'invalid_code' });
+  });
+  app.post('/admin/auth/forgot', authLimit(5), async (req) => {
+    await readyAdmins();
+    return { ok: true, ...(await adminForgot(authDeps, body(req).email)) };
+  });
+  app.post('/admin/auth/reset', authLimit(10), async (req, reply) => {
+    const b = body(req);
+    const r = await adminReset(authDeps, b.email, b.code, b.password);
+    return r.ok ? { ok: true } : reply.code(400).send({ error: r.error });
+  });
+  app.post('/admin/auth/logout', async (req) => {
+    await adminLogout(authDeps, bearer(req));
+    return { ok: true };
+  });
+  app.get('/admin/auth/me', guard, async (req) => ({ email: req.admin!.email }));
   const id = (req: { params: unknown }) => idParam((req.params as { id: string }).id);
   const admins = () => config.ADMIN_PHONES;
 

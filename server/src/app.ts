@@ -131,7 +131,7 @@ export async function buildApp({
   staffRoutes(app, { config, pool, clock });
   taskRoutes(app, { config, pool, clock });
   legalRoutes(app);
-  adminRoutes(app, { config, pool, clock, providerName: provider?.name ?? 'none' });
+  adminRoutes(app, { config, pool, clock, mailer, providerName: provider?.name ?? 'none' });
   billingRoutes(app, { config, pool, billing, clock });
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));

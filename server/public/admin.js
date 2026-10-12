@@ -105,16 +105,17 @@
   function ic(name, cls) { return s('svg', { 'class': 'ico ' + (cls || ''), viewBox: '0 0 24 24', 'aria-hidden': 'true' }, [s('path', { d: P[name] || P.sparkle })]); }
 
   /* ---------------- API ---------------- */
-  function tok() { try { return JSON.parse(ss.getItem('adm') || 'null'); } catch { return null; } }
+  // The admin session token lives only in this tab (sessionStorage): closing the tab signs out of it here.
+  function tok() { try { var t = JSON.parse(ss.getItem('adm') || 'null'); return t && t.token ? t : null; } catch { return null; } }
   function saveTok(t) { ss.setItem('adm', JSON.stringify(t)); }
-  async function call(method, url, body, retried) {
+  var flash = '';
+  async function call(method, url, body) {
     var t = tok();
     // JSON header only with a body: the server refuses a request that announces JSON and sends none (DELETE, bare POSTs)
-    var res = await fetch(url, { method: method, headers: Object.assign({ 'X-Client-Platform': 'web' }, body ? { 'Content-Type': 'application/json' } : {}, t ? { Authorization: 'Bearer ' + t.accessToken } : {}), body: body ? JSON.stringify(body) : undefined });
-    if (res.status === 401 && t && !retried) {
-      var r = await fetch('/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: t.refreshToken }) });
-      if (r.ok) { var j = await r.json(); saveTok({ accessToken: j.accessToken, refreshToken: j.refreshToken, phone: t.phone }); return call(method, url, body, true); }
-      ss.removeItem('adm'); boot(); throw new Error('Signed out');
+    var res = await fetch(url, { method: method, headers: Object.assign({ 'X-Client-Platform': 'web' }, body ? { 'Content-Type': 'application/json' } : {}, t ? { Authorization: 'Bearer ' + t.token } : {}), body: body ? JSON.stringify(body) : undefined });
+    // an admin session ends after 30 idle minutes or 8 hours: back to the sign-in screen
+    if (res.status === 401 && t) {
+      ss.removeItem('adm'); flash = 'Your admin session ended. Please sign in again.'; boot(); throw new Error('Signed out');
     }
     if (/\.csv$/.test(url) && res.ok) return res.blob();
     var d = await res.json().catch(function () { return {}; });
@@ -230,29 +231,59 @@
   window.addEventListener('hashchange', function () { if (tok()) render(); });
 
   /* ---------------- sign in ---------------- */
+  // Email + password, then the 6-digit code emailed for that attempt. Forgot password: a code by email, then a new
+  // password (12+ characters with upper, lower, digit and symbol). Every wrong answer reads the same.
+  var ERR = { invalid_credentials: 'Email or password is wrong.', invalid_code: 'That code is wrong or has expired.', unavailable: 'Email is not working right now. Try again later.', too_short: 'Use at least 12 characters.', too_long: 'Use at most 128 characters.', needs_mix: 'Use upper and lower case letters, a number and a symbol.', too_common: 'That password is too common. Choose another.', contains_email: 'Do not use your email name in the password.', 'Too Many Requests': 'Too many tries. Wait a few minutes.' };
   function loginView() {
-    var phone = el('input', { cls: 'field', placeholder: 'Mobile number', inputmode: 'tel', autocomplete: 'tel', 'aria-label': 'Mobile number' });
-    var code = el('input', { cls: 'field', placeholder: '6-digit code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: '6', 'aria-label': 'Code', style: { display: 'none', letterSpacing: '0.4em', textAlign: 'center', fontWeight: 700 } });
-    var err = el('div', { cls: 'err sm' }), hint = el('div', { cls: 'muted sm' }), stepN = 1;
-    var btn = el('button', { cls: 'btn primary' }, ['Continue with WhatsApp']);
-    async function submit() {
-      err.textContent = ''; btn.disabled = true;
-      try {
-        if (stepN === 1) {
-          var r = await call('POST', '/auth/otp/request', { phone: phone.value });
-          stepN = 2; code.style.display = ''; code.focus(); btn.textContent = 'Sign in';
-          hint.textContent = r.devCode ? 'Test mode code: ' + r.devCode : 'We sent a code to your WhatsApp.';
-        } else {
-          var v = await call('POST', '/auth/otp/verify', { phone: phone.value, code: code.value });
-          if (!v.isAdmin) { await fetch('/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: v.refreshToken }) }); throw new Error('This number does not have admin access.'); }
-          saveTok({ accessToken: v.accessToken, refreshToken: v.refreshToken, phone: v.user.phone, name: v.user.name }); boot();
-        }
-      } catch (e) { err.textContent = ({ invalid_code: 'That code is wrong or expired.', invalid_phone: 'Enter a valid mobile number.', too_soon: 'Please wait a minute before asking again.', account_blocked: 'This account is blocked.' })[e.code] || e.message; }
-      btn.disabled = false;
+    var mode = 'login', email = '', challenge = '';
+    var box = el('div', { cls: 'box' });
+    function field(attrs) { return el('input', Object.assign({ cls: 'field' }, attrs)); }
+    function draw(msg, ok) {
+      clear(box);
+      var err = el('div', { cls: ok ? 'muted sm' : 'err sm' }, [msg || flash || '']); flash = '';
+      var hint = el('div', { cls: 'muted sm' });
+      var btn = el('button', { cls: 'btn primary', type: 'button' });
+      var link = function (text, to) { return el('button', { cls: 'btn ghost', type: 'button', style: { justifyContent: 'center' }, on: { click: function () { mode = to; draw(); } } }, [text]); };
+      var inputs = [], go;
+      var mail = field({ type: 'email', placeholder: 'Admin email', autocomplete: 'username', 'aria-label': 'Admin email', value: email });
+      var pass = field({ type: 'password', placeholder: 'Password', autocomplete: 'current-password', 'aria-label': 'Password', maxlength: '128' });
+      var code = field({ placeholder: '6-digit code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: '6', 'aria-label': 'Code from your email', style: { letterSpacing: '0.4em', textAlign: 'center', fontWeight: 700 } });
+      var pass1 = field({ type: 'password', placeholder: 'New password', autocomplete: 'new-password', 'aria-label': 'New password', maxlength: '128' });
+      var pass2 = field({ type: 'password', placeholder: 'New password again', autocomplete: 'new-password', 'aria-label': 'New password again', maxlength: '128' });
+      var title, sub, extra = [];
+      if (mode === 'login') {
+        title = 'Admin sign in'; sub = 'Email and password, then a code we email you.'; inputs = [mail, pass]; btn.textContent = 'Continue';
+        go = async function () { email = mail.value.trim(); var r = await call('POST', '/admin/auth/login', { email: email, password: pass.value }); challenge = r.challenge; mode = 'code'; draw(r.devCode ? 'Test mode code: ' + r.devCode : 'We emailed a 6-digit code to ' + email + '.', true); };
+        extra = [link('Forgot password?', 'forgot')];
+      } else if (mode === 'code') {
+        title = 'Check your email'; sub = 'Enter the 6-digit code. It works for 10 minutes.'; inputs = [code]; btn.textContent = 'Sign in';
+        go = async function () { var r = await call('POST', '/admin/auth/verify', { email: email, challenge: challenge, code: code.value.trim() }); saveTok({ token: r.token, email: r.email }); boot(); };
+        extra = [link('Start again', 'login')];
+      } else if (mode === 'forgot') {
+        title = 'Reset password'; sub = 'We email a code to your admin address.'; inputs = [mail]; btn.textContent = 'Send code';
+        go = async function () { email = mail.value.trim(); var r = await call('POST', '/admin/auth/forgot', { email: email }); mode = 'reset'; draw(r.devCode ? 'Test mode code: ' + r.devCode : 'If ' + email + ' is an admin, a code is on its way.', true); };
+        extra = [link('Back to sign in', 'login')];
+      } else {
+        title = 'Choose a new password'; sub = 'At least 12 characters with upper and lower case, a number and a symbol.'; inputs = [code, pass1, pass2]; btn.textContent = 'Save password';
+        go = async function () {
+          if (pass1.value !== pass2.value) throw Object.assign(new Error('The two passwords are not the same.'), { code: '' });
+          await call('POST', '/admin/auth/reset', { email: email, code: code.value.trim(), password: pass1.value });
+          mode = 'login'; draw('Password saved. Every admin session was signed out. Sign in with the new password.', true);
+        };
+        extra = [link('Back to sign in', 'login')];
+      }
+      async function submit() {
+        err.className = 'err sm'; err.textContent = ''; btn.disabled = true;
+        try { await go(); } catch (e) { err.className = 'err sm'; err.textContent = ERR[e.code] || e.message; }
+        btn.disabled = false;
+      }
+      btn.addEventListener('click', submit);
+      inputs.forEach(function (i) { i.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); }); });
+      [logo('login-logo'), el('h1', null, [title]), el('div', { cls: 'muted' }, [sub])].concat(inputs, [btn], extra, [hint, err, el('div', { cls: 'faint xs', style: { marginTop: '8px' } }, ['M2W Technologies Private Limited'])]).forEach(function (n) { box.appendChild(n); });
+      (inputs[0].value ? inputs[inputs.length - 1] : inputs[0]).focus();
     }
-    btn.addEventListener('click', submit);
-    [phone, code].forEach(function (i) { i.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); }); });
-    return el('div', { cls: 'login' }, [el('div', { cls: 'box' }, [logo('login-logo'), el('h1', null, ['Admin sign in']), el('div', { cls: 'muted' }, ['Sign in with your admin mobile number.']), phone, code, btn, hint, err, el('div', { cls: 'faint xs', style: { marginTop: '8px' } }, ['M2W Technologies Private Limited'])])]);
+    draw();
+    return el('div', { cls: 'login' }, [box]);
   }
 
   /* ---------------- shared bits ---------------- */
@@ -270,10 +301,10 @@
 
   /* ---------------- views ---------------- */
   async function overview(box) {
-    var t = tok(), hr = Number(new Intl.DateTimeFormat('en-GB', Object.assign({ hour: 'numeric', hour12: false }, TZ)).format(new Date()));
+    var hr = Number(new Intl.DateTimeFormat('en-GB', Object.assign({ hour: 'numeric', hour12: false }, TZ)).format(new Date()));
     var r = await Promise.all([call('GET', '/admin/api/overview'), call('GET', '/admin/api/analytics?days=30'), call('GET', '/admin/api/institutes?filter=at-risk&sort=students'), call('GET', '/admin/api/events?limit=12')]);
     var o = r[0], a = r[1], risky = r[2].institutes, ev = r[3].events, T = a.totals, S = a.series;
-    box.appendChild(el('div', { cls: 'hello' }, [el('div', null, [el('h2', null, [(hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening') + (t.name ? ', ' + t.name.split(' ')[0] : '')]), el('p', null, [dlong(new Date().toISOString()) + ' · ' + n(o.signedIn, 'tutor') + ' signed in right now'])])]));
+    box.appendChild(el('div', { cls: 'hello' }, [el('div', null, [el('h2', null, [(hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening') + '']), el('p', null, [dlong(new Date().toISOString()) + ' · ' + n(o.signedIn, 'tutor') + ' signed in right now'])])]));
     box.appendChild(el('div', { cls: 'grid g4' }, [
       kpi('Active centres', String(T.activeInstitutes.now), T.activeInstitutes.now, T.activeInstitutes.before, S.activeInstitutes, cssv('--accent'), function () { go('analytics'); }),
       kpi('New sign-ups', String(T.signups.now), T.signups.now, T.signups.before, S.signups, cssv('--purple'), function () { go('logins'); }),
@@ -825,7 +856,7 @@
     });
     side.appendChild(el('div', { cls: 'spacer' }));
     side.appendChild(el('button', { cls: 'navi hide-sm', title: 'Collapse sidebar', on: { click: function () { st.collapsed = !st.collapsed; ls.setItem('adm-side', st.collapsed ? '1' : '0'); shell.classList.toggle('collapsed', st.collapsed); } } }, [ic('sidebar'), el('span', { cls: 'label' }, ['Collapse'])]));
-    side.appendChild(el('div', { cls: 'me' }, [avatar(t.name || t.phone), el('div', { style: { minWidth: 0 } }, [el('div', { cls: 'ellipsis', style: { fontWeight: 600 } }, [t.name || 'Admin']), el('div', { cls: 'xs muted' }, [t.phone])])]));
+    side.appendChild(el('div', { cls: 'me' }, [avatar(t.email), el('div', { style: { minWidth: 0 } }, [el('div', { cls: 'ellipsis', style: { fontWeight: 600 } }, ['Admin']), el('div', { cls: 'xs muted ellipsis' }, [t.email])])]));
     crumbEl = el('div', { cls: 'crumbs' });
     var liveBtn = el('button', { cls: 'livechip' + (st.live ? ' on' : ''), title: 'Refresh every 30 seconds', on: { click: function () { st.live = !st.live; ls.setItem('adm-live', st.live ? '1' : '0'); render(); } } }, [el('i'), st.live ? 'Live' : 'Paused']);
     var bellBtn = el('button', { cls: 'btn icon bell', 'aria-label': 'Notifications', on: { click: function (e) { bell(e.currentTarget); } } }, [ic('bell'), el('span', { cls: 'dot', style: { display: bellCount ? '' : 'none' } }, [String(bellCount)])]);
@@ -834,7 +865,7 @@
       crumbEl,
       el('button', { cls: 'search', on: { click: palette } }, [ic('search'), el('span', null, ['Search']), el('kbd', null, ['⌘K'])]),
       el('span', { cls: 'hide-sm' }, [liveBtn]), bellBtn,
-      el('button', { cls: 'btn icon', 'aria-label': 'Account', on: { click: function (e) { menu(e.currentTarget, [['Light / dark', toggleTheme, document.documentElement.getAttribute('data-theme') === 'dark' ? 'sun' : 'moon'], ['Keyboard shortcuts', help, 'keyboard'], '-', ['Sign out', async function () { await fetch('/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: t.refreshToken }) }).catch(function () {}); ss.removeItem('adm'); boot(); }, 'logout']]); } } }, [avatar(t.name || t.phone)]),
+      el('button', { cls: 'btn icon', 'aria-label': 'Account', on: { click: function (e) { menu(e.currentTarget, [['Light / dark', toggleTheme, document.documentElement.getAttribute('data-theme') === 'dark' ? 'sun' : 'moon'], ['Keyboard shortcuts', help, 'keyboard'], '-', ['Sign out', async function () { await fetch('/admin/auth/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + t.token } }).catch(function () {}); ss.removeItem('adm'); boot(); }, 'logout']]); } } }, [avatar(t.email)]),
     ]);
     var content = el('main', { cls: 'content' }, [el('div', { cls: 'grid g4' }, [sk(130), sk(130), sk(130), sk(130)]), el('div', { style: { height: '16px' } }), sk(300)]);
     // phones: the sidebar slides over a dimmed page; tapping the page closes it
@@ -850,7 +881,7 @@
       clear(content); while (tmp.firstChild) content.appendChild(tmp.firstChild);
     } catch (e) {
       if (my !== seq) return;
-      if (e.code === 'forbidden' || e.code === 'account_blocked') { ss.removeItem('adm'); return boot(); }
+      if (e.code === 'forbidden' || e.code === 'unauthorized') { ss.removeItem('adm'); return boot(); }
       clear(content).appendChild(card('Could not load this page', e.message, el('button', { cls: 'btn', on: { click: render } }, [ic('refresh'), 'Try again'])));
     }
     if (st.live && r.view !== 'activity') liveTimer = setInterval(function () { if (!document.querySelector('.drawer,.palette,.menu') && document.visibilityState === 'visible') render(); }, 30000);

@@ -69,6 +69,17 @@ const schema = z.object({
    * Mobile numbers that may open the admin dashboard (/admin), comma separated, e.g. "9876543210,+919000000001".
    * They sign in with the usual WhatsApp code; admin rights are checked against this list on every request.
    */
+  // Who may use the admin dashboard (email + password + emailed code). Comma-separated; removing an address
+  // ends that admin's access at once.
+  ADMIN_EMAILS: z
+    .string()
+    .default('')
+    .transform((v) =>
+      v
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e)),
+    ),
   ADMIN_PHONES: z
     .string()
     .default('')

@@ -18,7 +18,9 @@ afterAll(async () => {
 beforeEach(async () => {
   await h.reset();
   h.provider.sent.length = 0;
-  admin = await h.tenant(ADMIN, { institute: 'HQ' });
+  // the admin's own tutor login still exists (and cannot be blocked); the dashboard uses an admin session
+  await h.tenant(ADMIN, { institute: 'HQ' });
+  admin = await h.admin();
   A = await h.tenant('+919876543210', { tutor: 'Asha', institute: 'Alpha Academy' });
   await h.tenant('+919123456789', { tutor: 'Bala', institute: 'Beta Classes' });
 });
@@ -44,7 +46,7 @@ describe('next-level admin', () => {
       '/admin/api/export/users.csv',
       '/admin/api/export/institutes.csv',
     ]) {
-      expect((await A.call('GET', url)).status, url).toBe(403);
+      expect((await A.call('GET', url)).status, url).toBe(401); // a tutor's token is not an admin session
       expect((await admin.call('GET', url)).status, url).toBe(200);
     }
   });
@@ -118,7 +120,7 @@ describe('next-level admin', () => {
       });
       h.clock.now = new Date(h.clock.now.getTime() + 20 * 60_000);
     }
-    admin = h.login(admin.userId, admin.instituteId); // the clock moved past the old token
+    admin = await h.admin(); // the clock moved an hour: the old admin session ended when idle
     const monR = await admin.call('GET', '/admin/api/messages?status=failed');
     expect(monR.status, JSON.stringify(monR.body)).toBe(200);
     const mon = monR.body;

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { weekStart } from '../src/admin/crm.js';
-import { startHarness, type Harness, type Tenant } from './helpers.js';
+import { startHarness, TEST_ADMIN_EMAIL, type Harness, type Tenant } from './helpers.js';
 
 const ADMIN = '+919000000001';
 let h: Harness;
@@ -14,7 +14,9 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await h.reset();
-  admin = await h.tenant(ADMIN, { institute: 'HQ' });
+  // the admin's own tutor login still exists (and cannot be blocked); the dashboard uses an admin session
+  await h.tenant(ADMIN, { institute: 'HQ' });
+  admin = await h.admin();
   A = await h.tenant('+919876543210', { tutor: 'Asha', institute: 'Alpha Academy' });
 });
 
@@ -27,7 +29,7 @@ describe('admin customer-success tools', () => {
       ['POST', `/admin/api/institutes/${A.instituteId}/notes`, { body: 'x' }],
       ['PUT', `/admin/api/institutes/${A.instituteId}/tags`, { tags: ['vip'] }],
     ] as const)
-      expect((await A.call(m, url, body)).status, url).toBe(403);
+      expect((await A.call(m, url, body)).status, url).toBe(401);
   });
 
   it('notes are a timeline per centre; tags are a fixed list and show in the centre list', async () => {
@@ -44,7 +46,7 @@ describe('admin customer-success tools', () => {
       'Demo done',
       'Called, wants a demo',
     ]);
-    expect(list[0].author).toBe(ADMIN);
+    expect(list[0].author).toBe(TEST_ADMIN_EMAIL);
     await admin.call('DELETE', `/admin/api/institutes/${A.instituteId}/notes/${r.body.id}`);
     expect(
       (await admin.call('GET', `/admin/api/institutes/${A.instituteId}/notes`)).body.notes,

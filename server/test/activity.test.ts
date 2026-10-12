@@ -16,7 +16,9 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await h.reset();
-  admin = await h.tenant(ADMIN, { institute: 'HQ' });
+  // the admin's own tutor login still exists (and cannot be blocked); the dashboard uses an admin session
+  await h.tenant(ADMIN, { institute: 'HQ' });
+  admin = await h.admin();
   A = await h.tenant('+919876543210', { tutor: 'Asha', institute: 'Alpha Academy' });
   B = await h.tenant('+919876543211', { tutor: 'Bala', institute: 'Beta Classes' });
 });
@@ -137,7 +139,7 @@ describe("each centre's log", () => {
     expect(String(csv.body)).toContain('recorded a fee from Riya Sharma');
     expect(String(csv.body)).not.toContain('Beta Classes');
     expect((await A.call('GET', `/admin/api/institutes/${A.instituteId}/logs.csv`)).status).toBe(
-      403,
+      401,
     );
   });
 

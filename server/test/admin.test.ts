@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { startHarness, type Harness, type Tenant } from './helpers.js';
+import { startHarness, TEST_ADMIN_EMAIL, type Harness, type Tenant } from './helpers.js';
 
 const ADMIN = '+919000000001';
 let h: Harness;
 let admin: Tenant;
+let adminUser: Tenant;
 let A: Tenant;
 let B: Tenant;
 
@@ -15,7 +16,9 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await h.reset();
-  admin = await h.tenant(ADMIN, { institute: 'Chalkpis HQ' });
+  // the admin's own tutor login still exists (and cannot be blocked); the dashboard uses an admin session
+  adminUser = await h.tenant(ADMIN, { institute: 'Chalkpis HQ' });
+  admin = await h.admin();
   A = await h.tenant('+919876543210', { tutor: 'Asha', institute: 'Alpha' });
   B = await h.tenant('+919123456789', { tutor: 'Bala', institute: 'Beta' });
 });
@@ -30,7 +33,7 @@ async function signIn(phone: string) {
 }
 
 describe('admin access', () => {
-  it('only numbers in ADMIN_PHONES can use the admin API; the profile says who is admin', async () => {
+  it('only an admin session reaches the admin API; a tutor token, even an ADMIN_PHONES one, does not', async () => {
     expect((await admin.call('GET', '/admin/api/overview')).status).toBe(200);
     for (const url of [
       '/admin/api/overview',
@@ -38,9 +41,9 @@ describe('admin access', () => {
       '/admin/api/logins',
       '/admin/api/audit',
     ])
-      expect((await A.call('GET', url)).status, url).toBe(403);
+      expect((await A.call('GET', url)).status, url).toBe(401);
     expect((await h.app.inject({ url: '/admin/api/users' })).statusCode).toBe(401);
-    expect((await admin.call('GET', '/me')).body.isAdmin).toBe(true);
+    expect((await adminUser.call('GET', '/admin/api/overview')).status).toBe(401);
     expect((await A.call('GET', '/me')).body.isAdmin).toBe(false);
   });
 
@@ -118,7 +121,7 @@ describe('managing logins', () => {
 
   it('admins cannot block or sign out themselves or another admin', async () => {
     expect(
-      (await admin.call('POST', `/admin/api/users/${admin.userId}/block`, {})).body.error,
+      (await admin.call('POST', `/admin/api/users/${adminUser.userId}/block`, {})).body.error,
     ).toBe('cannot_change_admin');
   });
 
@@ -146,7 +149,7 @@ describe('managing logins', () => {
     await admin.call('POST', `/admin/api/users/${B.userId}/sign-out`);
     const audit = (await admin.call('GET', '/admin/api/audit')).body.audit;
     expect(audit.map((a: { action: string }) => a.action)).toEqual(['sign-out', 'set-plan']);
-    expect(audit[0]).toMatchObject({ admin: ADMIN, target: '+919123456789' });
+    expect(audit[0]).toMatchObject({ admin: TEST_ADMIN_EMAIL, target: '+919123456789' });
   });
 
   it('shows recent login-code requests and their result', async () => {
