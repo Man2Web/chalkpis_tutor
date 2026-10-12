@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 
 export interface OutgoingMessage {
   to: string; // E.164
@@ -44,9 +44,18 @@ export interface WhatsAppConfig {
   clientPassword: string;
   from: string;
   method?: 'POST' | 'GET';
+  /** Where the gateway posts delivery reports (WhatsApp's delivered / failed and its reason). */
+  dlrUrl?: string;
+  /** Receives one line per send with the gateway's answer (phone numbers masked). */
+  log?: (line: Record<string, unknown>) => void;
 }
 
 const digits = (s: string) => s.replace(/\D/g, '');
+/** Long digit runs (phone numbers) become ••••1234 so logs never hold a full number. */
+export const maskDigits = (s: string) => s.replace(/\d{8,}/g, (d) => `••••${d.slice(-4)}`);
+/** The secret part of the delivery-report address, so only the gateway (which we told) can post there. */
+export const dlrToken = (secret: string) =>
+  createHmac('sha256', secret).update('wa-dlr').digest('hex').slice(0, 32);
 const ymd = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, '');
 
 /**
@@ -66,14 +75,14 @@ export class WhatsAppProvider implements MessageProvider {
       apiver: '1.0',
       whatsapp: {
         ver: '2.0',
-        dlr: { url: '' },
+        // Delivery reports for parent and centre messages; the login code is left exactly as it has always been sent.
+        dlr: { url: !m.otp && this.cfg.dlrUrl ? this.cfg.dlrUrl : '' },
         messages: [
           {
             coding: '1',
             id,
             // The gateway's types: 1 = transactional template, 3 = template with a media header and/or buttons (the
-            // UPI QR, and the login code with its copy-code button). A plain text template sent as 3 is accepted
-            // but never reaches the phone.
+            // UPI QR, and the login code with its copy-code button).
             msgtype: m.imageUrl || m.otp ? '3' : '1',
             text: '',
             templateinfo: [m.templateId, ...m.vars].join('~'),
@@ -110,6 +119,18 @@ export class WhatsAppProvider implements MessageProvider {
         },
         body: JSON.stringify(body),
       });
+      if (this.cfg.log) {
+        // The gateway can answer 200 and still refuse the message in its body, so keep what it said.
+        const answer = await res.text().catch(() => '');
+        this.cfg.log({
+          wa: 'send',
+          ref: m.reference,
+          template: m.templateId,
+          msgtype: body.whatsapp.messages[0]?.msgtype,
+          http: res.status,
+          answer: maskDigits(answer).slice(0, 500),
+        });
+      }
       if (!res.ok) return { ok: false, error: `http-${res.status}` };
       return { ok: true, providerId: body.whatsapp.messages[0]?.id };
     } catch (e) {

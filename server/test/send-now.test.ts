@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { MetaCloudProvider, WhatsAppProvider } from '../src/messaging/provider.js';
+import { dlrToken, MetaCloudProvider, WhatsAppProvider } from '../src/messaging/provider.js';
+import { testConfig } from './db.js';
 import { parseTemplates } from '../src/messaging/templates.js';
 import { processQueue } from '../src/messaging/worker.js';
 import { startHarness, type Harness, type Tenant } from './helpers.js';
@@ -179,6 +180,74 @@ describe('wa.adsme.in gateway request', () => {
     }).whatsapp.messages[0]!;
     expect(msg.msgtype).toBe('3');
     expect(msg.templateinfo).toBe('1809804~123456');
+  });
+});
+
+describe('gateway delivery reports', () => {
+  it('asks for delivery reports on parent messages but leaves the login code as it was', () => {
+    const p = new WhatsAppProvider({
+      baseUrl: 'https://gw.example/unified/v2/send',
+      clientId: 'id',
+      clientPassword: 'pw',
+      from: '916384009225',
+      dlrUrl: 'https://tutor.example.in/webhooks/wa-dlr/abc',
+    });
+    const base = { to: '+919876500001', vars: ['A'], reference: 'r' };
+    expect(p.body({ ...base, templateId: '1815393' }).whatsapp.dlr.url).toBe(
+      'https://tutor.example.in/webhooks/wa-dlr/abc',
+    );
+    expect(p.body({ ...base, templateId: '1809804', otp: true }).whatsapp.dlr.url).toBe('');
+  });
+
+  it("logs the gateway's answer with phone numbers masked", async () => {
+    const lines: Record<string, unknown>[] = [];
+    const fake = (async () =>
+      new Response(JSON.stringify({ status: 'Failure', statustext: 'bad 919876500001' }), {
+        status: 200,
+      })) as unknown as typeof fetch;
+    const p = new WhatsAppProvider(
+      {
+        baseUrl: 'https://gw.example/unified/v2/send',
+        clientId: 'id',
+        clientPassword: 'pw',
+        from: '916384009225',
+        log: (l) => lines.push(l),
+      },
+      fake,
+    );
+    await p.send({
+      to: '+919876500001',
+      templateId: '1815389',
+      vars: ['A', 'B', 'C'],
+      reference: 'm9',
+    });
+    expect(lines[0]).toMatchObject({
+      wa: 'send',
+      ref: 'm9',
+      template: '1815389',
+      msgtype: '1',
+      http: 200,
+    });
+    expect(String(lines[0]!.answer)).toContain('••••0001');
+    expect(String(lines[0]!.answer)).not.toContain('919876500001');
+  });
+
+  it('accepts reports only on the secret address', async () => {
+    const url = `/webhooks/wa-dlr/${dlrToken(testConfig().JWT_SECRET)}`;
+    const json = await h.app.inject({ method: 'POST', url, payload: { status: 'DELIVERED' } });
+    expect(json.statusCode).toBe(200);
+    const form = await h.app.inject({
+      method: 'POST',
+      url,
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: 'status=FAILED&reason=131026',
+    });
+    expect(form.statusCode).toBe(200);
+    expect((await h.app.inject({ method: 'GET', url: `${url}?status=SENT` })).statusCode).toBe(200);
+    expect(
+      (await h.app.inject({ method: 'POST', url: '/webhooks/wa-dlr/wrong', payload: {} }))
+        .statusCode,
+    ).toBe(404);
   });
 });
 

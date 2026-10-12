@@ -22,6 +22,7 @@ import { accountRoutes } from './routes/account.js';
 import { staffRoutes } from './routes/staff.js';
 import { taskRoutes } from './routes/tasks.js';
 import { legalRoutes } from './routes/legal.js';
+import { webhookRoutes } from './routes/webhooks.js';
 import { adminRoutes } from './routes/admin.js';
 import { instituteRoutes } from './routes/institutes.js';
 import { activityLog } from './activity.js';
@@ -126,6 +127,7 @@ export async function buildApp({
   legalRoutes(app);
   adminRoutes(app, { config, pool, clock, mailer, providerName: provider?.name ?? 'none' });
   billingRoutes(app, { config, pool, billing, clock });
+  webhookRoutes(app, { config });
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));
   app.setErrorHandler((err: FastifyError | AppError, req, reply) => {

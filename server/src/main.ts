@@ -14,6 +14,7 @@ import {
   MetaCloudProvider,
   MockProvider,
   WhatsAppProvider,
+  dlrToken,
   type MessageProvider,
 } from './messaging/provider.js';
 import { startScheduler } from './jobs/runner.js';
@@ -50,6 +51,11 @@ async function main() {
       clientPassword: config.WA_CLIENT_PASSWORD,
       from: config.WA_FROM,
       method: config.WA_API_METHOD,
+      ...(config.PUBLIC_BASE_URL
+        ? { dlrUrl: `${config.PUBLIC_BASE_URL}/webhooks/wa-dlr/${dlrToken(config.JWT_SECRET)}` }
+        : {}),
+      log: (line) =>
+        console.log(JSON.stringify({ level: 30, time: Date.now(), ...line, msg: 'wa-send' })),
     });
   } else if (config.NODE_ENV !== 'production') {
     provider = new MockProvider(); // local work: codes are not sent anywhere (use OTP_DEV_ECHO to see them)
