@@ -2,6 +2,21 @@
 
 Everything to paste into Play Console and App Store Connect. Graphics are in `marketing/store/`.
 
+## Status
+
+Both submitted for review on 13 Oct 2026, free, India only.
+
+| | Google Play | App Store |
+| --- | --- | --- |
+| Account | Man2web organisation (m2wtechnologies@gmail.com) | M2W Technologies Private Limited, team 3G6UV3S378 |
+| App | Chalkpis: Class & Fee Manager, `in.chalkpis.tutors` | Chalkpis: Class & Fee Manager, Apple ID 6822059424 |
+| First build | versionCode 4 (1.0.0), production track | 1.0.0 build 3, released automatically once approved |
+
+Next builds: `eas build -p android|ios --profile production`, then `eas submit -p ios` (no Apple sign-in needed: the
+App Store app id is in `app/eas.json` and EAS holds an App Store Connect API key). Android bundles are uploaded in
+Play Console (Test and release > Production > Create new release) until a Play service account is added for
+`eas submit -p android`.
+
 ## Identity
 
 | Field | Value |
