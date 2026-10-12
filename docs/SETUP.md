@@ -49,7 +49,7 @@ The container build has not been tried yet (Docker is not installed on the devel
 ## 3. WhatsApp (login codes and parent messages)
 
 - **Login code:** an approved _authentication_ template (id `1809804`) with one value, the code. Set `WA_API_URL` (the gateway's send address, ideally a host name), `WA_FROM` (your business number, digits only), `WA_CLIENT_ID`, `WA_CLIENT_PASSWORD` and `WA_TEMPLATE_OTP`.
-- **Parent messages:** five _utility_ templates; the exact texts are in [WHATSAPP-TEMPLATES.md](WHATSAPP-TEMPLATES.md). Put the ids in `WA_TEMPLATES`. A message with no id is skipped and shown in the Message log as "No template for this message".
+- **Parent messages:** eight _utility_ templates (`cp_*`, made in wa.adsme.in); the exact texts are in [WHATSAPP-TEMPLATES.md](WHATSAPP-TEMPLATES.md). Put their template ids in `WA_TEMPLATES`. A message with no id is skipped and shown in the Message log as "No template for this message".
 - To confirm with your gateway provider: that `templateinfo` is `<templateId>~<value1>~<value2>~<value3>`, and whether it expects POST or GET (`WA_API_METHOD`). Delivery reports are not tracked yet, so "Sent" means the gateway accepted the message.
 - Test with a student whose parent number is **your own** number before switching messages on for everyone.
 

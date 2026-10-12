@@ -19,6 +19,9 @@ const settingsBody = z.object({
   feeOverdue: z.boolean(),
   overdueEveryDays: z.number().int().min(1).max(30),
   paymentReceived: z.boolean(),
+  // older app builds do not send these two; their saved value is kept
+  studentWelcome: z.boolean().optional(),
+  classCancelled: z.boolean().optional(),
   // English only now; an old app may still send 'hi', which is stored as English.
   language: z.enum(['en', 'hi']).transform(() => 'en' as const),
 });
@@ -38,7 +41,18 @@ export function messageRoutes(app: FastifyInstance, deps: Deps) {
 
   app.get('/settings/notifications', read, async (req) => getSettings(deps.pool, inst(req)));
   app.put('/settings/notifications', write, async (req) => {
-    await saveSettings(deps.pool, inst(req), parse(settingsBody, req.body), now());
+    const body = parse(settingsBody, req.body);
+    const current = await getSettings(deps.pool, inst(req));
+    await saveSettings(
+      deps.pool,
+      inst(req),
+      {
+        ...body,
+        studentWelcome: body.studentWelcome ?? current.studentWelcome,
+        classCancelled: body.classCancelled ?? current.classCancelled,
+      },
+      now(),
+    );
     return { ok: true };
   });
 

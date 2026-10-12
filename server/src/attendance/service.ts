@@ -3,7 +3,7 @@ import { inTransaction, type Pool, type PoolConnection } from '../db.js';
 import { requireActivePlan } from '../institutes/limits.js';
 import { daysBetween, todayYmd } from '../lib/ist.js';
 import { newId } from '../lib/ids.js';
-import { enqueueAttendance } from '../messaging/notify.js';
+import { enqueueAttendance, enqueueClassCancelled } from '../messaging/notify.js';
 import { withNamedLock } from '../lib/lock.js';
 import { LOW_ATTENDANCE_PERCENT, toStat } from './stats.js';
 
@@ -88,6 +88,14 @@ export async function saveDay(
         { dayId: day.id, batchId: d.batchId, date: d.date, absentNow, lateNow },
         now,
       );
+      // today's class called off: parents hear once (the same day saved again sends nothing new)
+      if (d.holiday)
+        await enqueueClassCancelled(
+          c,
+          instituteId,
+          { dayId: day.id, batchId: d.batchId, date: d.date },
+          now,
+        );
       return { id: day.id, absentNow, lateNow };
     }),
   );

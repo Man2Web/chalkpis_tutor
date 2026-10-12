@@ -1,5 +1,6 @@
 import { withTransaction, type Pool } from '../db.js';
 import { newId } from '../lib/ids.js';
+import { queueCentreWelcome } from '../messaging/centreMessages.js';
 import type { Category } from './category.js';
 
 export const TRIAL_DAYS = 7;
@@ -51,6 +52,8 @@ export async function createInstitute(
       "INSERT INTO subscriptions (institute_id, plan, status, starts_at, expires_at) VALUES (?, 'trial', 'active', ?, ?)",
       [instituteId, now, new Date(now.getTime() + trialDays * 86_400_000)],
     );
+    // the owner's WhatsApp welcome, sent by the worker once this commits
+    await queueCentreWelcome(c, instituteId, now);
     return { instituteId, created: true };
   });
 }

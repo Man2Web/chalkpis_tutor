@@ -3,6 +3,7 @@ import { inTransaction, type Pool, type PoolConnection } from '../db.js';
 import { checkLimit, requireActivePlan } from '../institutes/limits.js';
 import { newId } from '../lib/ids.js';
 import { withNamedLock } from '../lib/lock.js';
+import { enqueueStudentWelcome } from '../messaging/notify.js';
 import type { StudentInput } from './schema.js';
 
 interface StudentRow {
@@ -144,12 +145,16 @@ const insertRow = (instituteId: string, s: StudentInput, now: Date) => [
 const COLS =
   'id, institute_id, name, phone, parent_name, parent_phone, class, dob, gender, joined_at, monthly_fee, fee_cycle, due_day, discount, notify_parent, notes';
 
-/** Adds students (one or many) all-or-nothing, under the plan's student limit. Returns the new ids. */
+/**
+ * Adds students (one or many) all-or-nothing, under the plan's student limit. Returns the new ids. `welcome` queues
+ * the parent's welcome message in the same transaction (for a student added on their own, never for an import).
+ */
 export async function createStudents(
   pool: Pool,
   instituteId: string,
   students: StudentInput[],
   now: Date,
+  opts: { welcome?: boolean } = {},
 ): Promise<string[]> {
   return withNamedLock(pool, lockName(instituteId), (conn) =>
     inTransaction(conn, async (c) => {
@@ -174,6 +179,7 @@ export async function createStudents(
         await c.query('INSERT INTO student_batches (institute_id, student_id, batch_id) VALUES ?', [
           links,
         ]);
+      if (opts.welcome) for (const id of ids) await enqueueStudentWelcome(c, instituteId, id, now);
       return ids;
     }),
   );

@@ -57,6 +57,7 @@ const TABLES = [
   'admin_codes',
   'admin_accounts',
   'idempotency_keys',
+  'centre_messages',
   'auth_tickets',
   'auth_identities',
   'email_codes',

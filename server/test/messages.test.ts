@@ -71,6 +71,8 @@ const on = (t: Tenant, over = {}) =>
     feeOverdue: true,
     overdueEveryDays: 7,
     paymentReceived: true,
+    // the welcome on adding a student has its own tests (new-messages.test.ts)
+    studentWelcome: false,
     language: 'en',
     ...over,
   });
@@ -96,6 +98,8 @@ describe('settings', () => {
       feeOverdue: true,
       overdueEveryDays: 7,
       paymentReceived: true,
+      studentWelcome: true,
+      classCancelled: true,
       language: 'en',
     });
     expect((await on(A, { language: 'hi', feeDueDaysBefore: 5 })).status).toBe(200);
@@ -257,7 +261,9 @@ describe('attendance messages', () => {
       holiday: 'holiday',
       marks: { [s1]: 'A' },
     });
-    expect(await rows()).toHaveLength(0);
+    // a holiday marks nobody absent; parents only hear that the class is off
+    expect((await rows()).map((r) => r.type)).toEqual(['class_cancelled', 'class_cancelled']);
+    await h.db.pool.query('DELETE FROM messages');
     await A.call('PATCH', `/students/${s1}`, { notifyParent: false });
     await A.call('POST', `/students/${s2}/deactivate`);
     await mark(A, b, TODAY, { [s1]: 'A', [s2]: 'A' });

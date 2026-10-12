@@ -36,7 +36,15 @@ export function studentRoutes(app: FastifyInstance, deps: Deps) {
   });
 
   app.post('/students', write, async (req, reply) => {
-    const [id] = await createStudents(deps.pool, inst(req), [parse(studentInput, req.body)], now());
+    const [id] = await createStudents(
+      deps.pool,
+      inst(req),
+      [parse(studentInput, req.body)],
+      now(),
+      {
+        welcome: true,
+      },
+    );
     return reply.code(201).send({ id });
   });
   // Import: all rows or none, so a half-imported list can never happen.

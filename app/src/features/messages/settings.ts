@@ -8,6 +8,10 @@ export interface NotifySettings {
   feeOverdue: boolean;
   overdueEveryDays: number;
   paymentReceived: boolean;
+  /** A welcome to the parent when a student is added (one at a time, never on an import). */
+  studentWelcome: boolean;
+  /** Parents hear when today's class is marked as a holiday or cancelled. */
+  classCancelled: boolean;
   language: 'en' | 'hi';
 }
 
@@ -20,6 +24,8 @@ export const DEFAULT_SETTINGS: NotifySettings = {
   feeOverdue: true,
   overdueEveryDays: 7,
   paymentReceived: true,
+  studentWelcome: true,
+  classCancelled: true,
   language: 'en',
 };
 
@@ -43,6 +49,8 @@ export function normalizeSettings(raw: Record<string, unknown> | undefined): Not
     feeOverdue: flag(raw?.feeOverdue, d.feeOverdue),
     overdueEveryDays: num(raw?.overdueEveryDays, 'overdueEveryDays', d.overdueEveryDays),
     paymentReceived: flag(raw?.paymentReceived, d.paymentReceived),
+    studentWelcome: flag(raw?.studentWelcome, d.studentWelcome),
+    classCancelled: flag(raw?.classCancelled, d.classCancelled),
     language: raw?.language === 'hi' ? 'hi' : 'en',
   };
 }

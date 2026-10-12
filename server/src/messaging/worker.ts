@@ -1,6 +1,7 @@
 import type { Pool } from '../db.js';
 import { planState } from '../institutes/limits.js';
 import { newId } from '../lib/ids.js';
+import { processCentreQueue } from './centreMessages.js';
 import { getSettings } from './notify.js';
 import type { MessageProvider } from './provider.js';
 import { templateFor, type Lang, type MessageType, type TemplateMap } from './templates.js';
@@ -177,7 +178,10 @@ export async function processQueue(deps: WorkerDeps, limit = 25): Promise<Tally>
   return tally;
 }
 
-/** Runs the worker on a timer, never two runs at once. Returns a function that stops it. */
+/**
+ * Runs the worker on a timer, never two runs at once: parent messages first, then Chalkpis's own messages to centre
+ * owners and helpers. Returns a function that stops it.
+ */
 export function startWorker(
   deps: WorkerDeps,
   onError: (e: unknown) => void,
@@ -188,6 +192,7 @@ export function startWorker(
     if (running) return;
     running = true;
     processQueue(deps)
+      .then(() => processCentreQueue(deps))
       .catch(onError)
       .finally(() => {
         running = false;

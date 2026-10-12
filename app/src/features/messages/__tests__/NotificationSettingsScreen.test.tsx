@@ -52,6 +52,18 @@ it('each switch saves just its own choice', async () => {
   await waitFor(() =>
     expect(saveNotifySettings).toHaveBeenCalledWith('I1', { paymentReceived: false }),
   );
+  await fireEvent(screen.getByLabelText('A new student is added (welcome)'), 'valueChange', false);
+  await waitFor(() =>
+    expect(saveNotifySettings).toHaveBeenCalledWith('I1', { studentWelcome: false }),
+  );
+  await fireEvent(
+    screen.getByLabelText("Today's class is marked holiday or cancelled"),
+    'valueChange',
+    false,
+  );
+  await waitFor(() =>
+    expect(saveNotifySettings).toHaveBeenCalledWith('I1', { classCancelled: false }),
+  );
 });
 
 it('steppers move by one and stop at the limits', async () => {

@@ -2,6 +2,7 @@ import { AppError } from '../errors.js';
 import { withTransaction, type Pool } from '../db.js';
 import { newId } from '../lib/ids.js';
 import { withNamedLock } from '../lib/lock.js';
+import { queuePlanActive } from '../messaging/centreMessages.js';
 import { PLANS, computeSubscription, type PlanId } from './plans.js';
 import type { BillingProvider, PaidEvent, ProviderName } from './provider.js';
 
@@ -144,6 +145,12 @@ export async function applyPaid(
           next.studentLimit,
           next.batchLimit,
         ],
+      );
+      await queuePlanActive(
+        c,
+        order.institute_id,
+        { paymentId: p.paymentId, planId: order.plan_id, expiresAt: next.expiresAt },
+        now,
       );
       return 'applied' as const;
     });

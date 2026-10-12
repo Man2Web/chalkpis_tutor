@@ -6,7 +6,9 @@ export type MessageType =
   | 'payment_received'
   | 'fee_reminder'
   | 'fee_link'
-  | 'parent_link';
+  | 'parent_link'
+  | 'student_welcome'
+  | 'class_cancelled';
 /** Messages are English only. The type is kept so stored rows and settings still read. */
 export type Lang = 'en' | 'hi';
 export const MESSAGE_TYPES: MessageType[] = [
@@ -18,13 +20,26 @@ export const MESSAGE_TYPES: MessageType[] = [
   'fee_reminder',
   'fee_link',
   'parent_link',
+  'student_welcome',
+  'class_cancelled',
+];
+
+/** Messages from Chalkpis to a centre's own people (the owner, a new helper), not to parents. */
+export type CentreMessageType = 'centre_welcome' | 'trial_ending' | 'plan_active' | 'helper_invite';
+export const CENTRE_MESSAGE_TYPES: CentreMessageType[] = [
+  'centre_welcome',
+  'trial_ending',
+  'plan_active',
+  'helper_invite',
 ];
 
 /**
- * { absent: { en: "chalkpis_absent" }, ... }: the template id (ValueFirst) or template name (Meta Cloud API) per
- * message type. Set once as the WA_TEMPLATES setting.
+ * { absent: { en: "1815393" }, ... }: the template id (wa.adsme.in / ValueFirst) or template name (Meta Cloud API) per
+ * message type, parent and centre messages alike. Set once as the WA_TEMPLATES setting.
  */
-export type TemplateMap = Partial<Record<MessageType, Partial<Record<Lang, string>>>>;
+export type TemplateMap = Partial<
+  Record<MessageType | CentreMessageType, Partial<Record<Lang, string>>>
+>;
 
 /** Reads the WA_TEMPLATES JSON safely; anything malformed is ignored rather than crashing a send. */
 export function parseTemplates(json: string | undefined): TemplateMap {
@@ -32,7 +47,7 @@ export function parseTemplates(json: string | undefined): TemplateMap {
   try {
     const raw = JSON.parse(json) as Record<string, Record<string, unknown>>;
     const out: TemplateMap = {};
-    for (const type of MESSAGE_TYPES) {
+    for (const type of [...MESSAGE_TYPES, ...CENTRE_MESSAGE_TYPES]) {
       const row = raw?.[type];
       if (!row || typeof row !== 'object') continue;
       for (const lang of ['en', 'hi'] as Lang[]) {
@@ -48,7 +63,8 @@ export function parseTemplates(json: string | undefined): TemplateMap {
 }
 
 /** The template for a message. Everything is sent in English. */
-export const templateFor = (map: TemplateMap, type: MessageType) => map[type]?.en;
+export const templateFor = (map: TemplateMap, type: MessageType | CentreMessageType) =>
+  map[type]?.en;
 
 export interface MessageContext {
   parent: string;
@@ -92,7 +108,11 @@ export function varsFor(type: MessageType, c: MessageContext): string[] {
   switch (type) {
     case 'absent':
     case 'late':
+    case 'class_cancelled':
       return m(withTail(c.batch, ` class on ${cleanVar(c.date, 20)}`));
+    case 'student_welcome':
+      // the batches with their days and time, e.g. "Kids Beginners (Mon, Wed, Fri 5:00 PM)"
+      return m(c.batch || 'our classes');
     case 'fee_due':
       return m(
         `${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 20)}, due on ${cleanVar(c.dueDate, 20)}`,

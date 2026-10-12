@@ -24,6 +24,10 @@ export interface NotifySettings {
   feeOverdue: boolean;
   overdueEveryDays: number; // 1-30
   paymentReceived: boolean;
+  /** A welcome to the parent when a student is added (one at a time; never on an import). */
+  studentWelcome: boolean;
+  /** A note to parents when today's class is marked as a holiday or cancelled. */
+  classCancelled: boolean;
   language: Lang;
 }
 
@@ -36,6 +40,8 @@ export const DEFAULT_SETTINGS: NotifySettings = {
   feeOverdue: true,
   overdueEveryDays: 7,
   paymentReceived: true,
+  studentWelcome: true,
+  classCancelled: true,
   language: 'en',
 };
 
@@ -48,6 +54,8 @@ interface SettingsRow {
   fee_overdue: number;
   overdue_every_days: number;
   payment_received: number;
+  student_welcome: number;
+  class_cancelled: number;
   language: Lang;
 }
 
@@ -66,6 +74,8 @@ export async function getSettings(db: Db, instituteId: string): Promise<NotifySe
     feeOverdue: !!r.fee_overdue,
     overdueEveryDays: r.overdue_every_days,
     paymentReceived: !!r.payment_received,
+    studentWelcome: !!r.student_welcome,
+    classCancelled: !!r.class_cancelled,
     language: r.language,
   };
 }
@@ -73,11 +83,12 @@ export async function getSettings(db: Db, instituteId: string): Promise<NotifySe
 export async function saveSettings(pool: Pool, instituteId: string, s: NotifySettings, now: Date) {
   await requireActivePlan(pool, instituteId, now);
   await pool.query(
-    `INSERT INTO notify_settings (institute_id, enabled, absent, late, fee_due, fee_due_days_before, fee_overdue, overdue_every_days, payment_received, language)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO notify_settings (institute_id, enabled, absent, late, fee_due, fee_due_days_before, fee_overdue, overdue_every_days, payment_received, student_welcome, class_cancelled, language)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), absent = VALUES(absent), late = VALUES(late), fee_due = VALUES(fee_due),
        fee_due_days_before = VALUES(fee_due_days_before), fee_overdue = VALUES(fee_overdue), overdue_every_days = VALUES(overdue_every_days),
-       payment_received = VALUES(payment_received), language = VALUES(language)`,
+       payment_received = VALUES(payment_received), student_welcome = VALUES(student_welcome), class_cancelled = VALUES(class_cancelled),
+       language = VALUES(language)`,
     [
       instituteId,
       +s.enabled,
@@ -88,6 +99,8 @@ export async function saveSettings(pool: Pool, instituteId: string, s: NotifySet
       +s.feeOverdue,
       s.overdueEveryDays,
       +s.paymentReceived,
+      +s.studentWelcome,
+      +s.classCancelled,
       s.language,
     ],
   );
@@ -243,6 +256,125 @@ export async function enqueuePayment(
     ],
     now,
   );
+}
+
+const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const DAY_NAME: Record<string, string> = {
+  mon: 'Mon',
+  tue: 'Tue',
+  wed: 'Wed',
+  thu: 'Thu',
+  fri: 'Fri',
+  sat: 'Sat',
+  sun: 'Sun',
+};
+
+/** "17:30" -> "5:30 PM". */
+export function clock12(hhmm: string): string {
+  const [h = 0, m = 0] = hhmm.split(':').map(Number);
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+}
+
+/** A batch the way a parent reads it: "Kids Beginners (Mon, Wed, Fri 5:00 PM)". */
+export function batchWithSchedule(b: { name: string; days: string; start_time: string }): string {
+  const days = b.days
+    .split(',')
+    .filter((d) => DAY_NAME[d])
+    .sort((x, y) => DAY_ORDER.indexOf(x) - DAY_ORDER.indexOf(y))
+    .map((d) => DAY_NAME[d]);
+  const when = [days.join(', '), b.start_time ? clock12(b.start_time) : '']
+    .filter(Boolean)
+    .join(' ');
+  return when ? `${b.name} (${when})` : b.name;
+}
+
+/**
+ * A student was added (one at a time, not an import): welcome the parent and say which messages to expect on this
+ * number. Sent once per student.
+ */
+export async function enqueueStudentWelcome(
+  db: Db,
+  instituteId: string,
+  studentId: string,
+  now: Date,
+): Promise<number> {
+  const s = await getSettings(db, instituteId);
+  if (!s.enabled || !s.studentWelcome) return 0;
+  const st = (await eligibleStudents(db, instituteId, [studentId])).get(studentId);
+  if (!st) return 0;
+  const [batches] = (await db.query(
+    `SELECT b.name, b.days, b.start_time FROM student_batches sb JOIN batches b ON b.institute_id = sb.institute_id AND b.id = sb.batch_id
+      WHERE sb.institute_id = ? AND sb.student_id = ? AND b.status = 'active' ORDER BY b.name`,
+    [instituteId, studentId],
+  )) as unknown as [{ name: string; days: string; start_time: string }[]];
+  return queue(
+    db,
+    instituteId,
+    [
+      {
+        studentId,
+        type: 'student_welcome',
+        key: `welcome_${studentId}`,
+        lang: s.language,
+        to: st.parent_phone,
+        ctx: {
+          parent: st.parent_name,
+          institute: await instituteName(db, instituteId),
+          student: st.name,
+          batch: batches.map(batchWithSchedule).join(' and '),
+        },
+      },
+    ],
+    now,
+  );
+}
+
+/**
+ * Today's class of a batch was marked as a holiday or cancelled: tell the parents of its active students. Only for
+ * today (a holiday recorded afterwards for a past day tells nobody), and once per day and student.
+ */
+export async function enqueueClassCancelled(
+  db: Db,
+  instituteId: string,
+  d: { dayId: string; batchId: string; date: string },
+  now: Date,
+): Promise<number> {
+  if (d.date !== todayYmd(now)) return 0;
+  const s = await getSettings(db, instituteId);
+  if (!s.enabled || !s.classCancelled) return 0;
+  const [rows] = (await db.query(
+    'SELECT student_id FROM student_batches WHERE institute_id = ? AND batch_id = ?',
+    [instituteId, d.batchId],
+  )) as unknown as [{ student_id: string }[]];
+  const students = await eligibleStudents(
+    db,
+    instituteId,
+    rows.map((r) => r.student_id),
+  );
+  if (!students.size) return 0;
+  const [[batch]] = (await db.query('SELECT name FROM batches WHERE institute_id = ? AND id = ?', [
+    instituteId,
+    d.batchId,
+  ])) as unknown as [[{ name: string } | undefined]];
+  const inst = await instituteName(db, instituteId);
+  const items: Queued[] = [...students.values()].map((st) => ({
+    studentId: st.id,
+    type: 'class_cancelled',
+    key: `cancel_${d.dayId}_${st.id}`,
+    lang: s.language,
+    to: st.parent_phone,
+    ctx: {
+      parent: st.parent_name,
+      institute: inst,
+      student: st.name,
+      batch: batch?.name ?? '',
+      date: ymdText(d.date, s.language),
+    },
+  }));
+  let n = 0;
+  for (let i = 0; i < items.length; i += 500)
+    n += await queue(db, instituteId, items.slice(i, i + 500), now);
+  return n;
 }
 
 /**

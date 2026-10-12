@@ -4,6 +4,7 @@ import { requireActivePlan } from '../institutes/limits.js';
 import { newId } from '../lib/ids.js';
 import { withNamedLock } from '../lib/lock.js';
 import type { AuthContext } from '../auth/guard.js';
+import { queueHelperInvite } from '../messaging/centreMessages.js';
 
 type Db = Pool | PoolConnection;
 export const MAX_STAFF = 10;
@@ -97,6 +98,7 @@ export async function addStaff(
         await c.query('INSERT INTO staff_batches (institute_id, user_id, batch_id) VALUES ?', [
           batchIds.map((b) => [instituteId, userId, b]),
         ]);
+      await queueHelperInvite(c, instituteId, { userId, name: input.name }, now);
       return userId;
     }),
   );

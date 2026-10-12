@@ -2,6 +2,7 @@ import type { Pool } from '../db.js';
 import { generateDues } from '../fees/service.js';
 import { expireDueSubscriptions } from '../billing/service.js';
 import { currentPeriod, istHour, todayYmd } from '../lib/ist.js';
+import { queueTrialEndings } from '../messaging/centreMessages.js';
 import { enqueueAllFeeReminders } from '../messaging/notify.js';
 
 export interface JobLog {
@@ -82,6 +83,8 @@ export const JOBS: Job[] = [
     every: 'day',
     run: (pool, now) => enqueueAllFeeReminders(pool, now),
   },
+  // owners whose free trial ends within 2 days get one WhatsApp reminder
+  { name: 'trial-ending', from: 10, until: 18, every: 'day', run: queueTrialEndings },
 ];
 
 /**

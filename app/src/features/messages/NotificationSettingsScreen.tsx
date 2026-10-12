@@ -149,6 +149,22 @@ export function NotificationSettingsScreen() {
             disabled: off,
           }}
         />
+        <Row
+          title={t('messages.studentWelcome')}
+          toggle={{
+            value: s.studentWelcome,
+            onChange: (v) => set({ studentWelcome: v }),
+            disabled: off,
+          }}
+        />
+        <Row
+          title={t('messages.classCancelled')}
+          toggle={{
+            value: s.classCancelled,
+            onChange: (v) => set({ classCancelled: v }),
+            disabled: off,
+          }}
+        />
       </Section>
 
       <Section title={t('messages.feeReminders')} footer={t('messages.overdueHint')}>

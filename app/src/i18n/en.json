@@ -752,6 +752,8 @@
     "absent": "A student is marked absent",
     "late": "A student is marked late",
     "paymentReceived": "A payment is recorded",
+    "studentWelcome": "A new student is added (welcome)",
+    "classCancelled": "Today's class is marked holiday or cancelled",
     "feeReminders": "Fee reminders",
     "feeDue": "Fee is due soon",
     "daysBefore": "Days before the due date",
@@ -776,7 +778,9 @@
       "payment_received": "Payment received",
       "fee_reminder": "Fee reminder (UPI QR)",
       "fee_link": "Fee reminder (payment link)",
-      "parent_link": "Parent page link"
+      "parent_link": "Parent page link",
+      "student_welcome": "Welcome",
+      "class_cancelled": "Class cancelled"
     },
     "status": {
       "sent": "Sent",
