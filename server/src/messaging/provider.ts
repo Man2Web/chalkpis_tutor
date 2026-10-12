@@ -71,7 +71,10 @@ export class WhatsAppProvider implements MessageProvider {
           {
             coding: '1',
             id,
-            msgtype: '3',
+            // The gateway's types: 1 = transactional template, 3 = template with a media header and/or buttons (the
+            // UPI QR, and the login code with its copy-code button). A plain text template sent as 3 is accepted
+            // but never reaches the phone.
+            msgtype: m.imageUrl || m.otp ? '3' : '1',
             text: '',
             templateinfo: [m.templateId, ...m.vars].join('~'),
             // A header picture (the UPI QR) needs all three, as in the gateway's documentation: the media type, its

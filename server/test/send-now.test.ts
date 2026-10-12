@@ -155,16 +155,30 @@ describe('wa.adsme.in gateway request', () => {
     });
   });
 
-  it('sends a text-only template without media fields', () => {
+  it('sends a text-only template as a transactional message without media fields', () => {
     const msg = p.body({
       to: '+919876500001',
       templateId: '1815393',
       vars: ['A', 'B', 'C'],
       reference: 'm2',
     }).whatsapp.messages[0]!;
+    expect(msg.msgtype).toBe('1');
+    expect(msg.templateinfo).toBe('1815393~A~B~C');
     expect(msg.type).toBe('');
     expect(msg.mediadata).toBe('');
     expect(msg).not.toHaveProperty('contenttype');
+  });
+
+  it('keeps the login code on the template-with-buttons type (its copy-code button)', () => {
+    const msg = p.body({
+      to: '+919876500001',
+      templateId: '1809804',
+      vars: ['123456'],
+      reference: 'o1',
+      otp: true,
+    }).whatsapp.messages[0]!;
+    expect(msg.msgtype).toBe('3');
+    expect(msg.templateinfo).toBe('1809804~123456');
   });
 });
 
