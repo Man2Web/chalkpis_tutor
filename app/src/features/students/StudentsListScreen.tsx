@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
+import { useCategory } from '../../lib/category';
 import {
   InsetSeparator,
   listCard,
@@ -27,6 +28,7 @@ import { distinctClasses, filterStudents } from './logic';
 
 export function StudentsListScreen() {
   const { t } = useTranslation();
+  const { ct } = useCategory();
   const nav = useNavigation<NativeStackNavigationProp<MainStackParams>>();
   const students = useStudents();
   const batches = useBatches();
@@ -114,7 +116,7 @@ export function StudentsListScreen() {
           {classes.map((c) => (
             <Chip
               key={c}
-              label={t('students.classN', { n: c })}
+              label={ct('levelValue', { n: c })}
               selected={className === c}
               onPress={() => setClassName(className === c ? undefined : c)}
             />
@@ -161,7 +163,7 @@ export function StudentsListScreen() {
             <ListItem
               title={item.name}
               subtitle={[
-                item.class && t('students.classN', { n: item.class }),
+                item.class && ct('levelValue', { n: item.class }),
                 item.batchIds.map(batchName).filter(Boolean).join(', '),
               ]
                 .filter(Boolean)

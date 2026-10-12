@@ -53,7 +53,8 @@ function WhatsAppButton({ label, onPress }: { label: string; onPress: () => void
 }
 
 /**
- * First screen, for new and returning tutors alike: what Chalkpis does, then one tap to continue with WhatsApp.
+ * First screen, for new and returning teachers alike (tuition, coaching, abacus, karate, dance, yoga, sports): what
+ * Chalkpis does, then one tap to continue with WhatsApp.
  * Signing up and signing in are the same step: a WhatsApp code to the tutor's mobile number.
  */
 export function LanguageScreen({

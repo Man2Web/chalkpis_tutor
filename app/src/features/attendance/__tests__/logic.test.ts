@@ -171,4 +171,14 @@ describe('registerSheet', () => {
       ['Zoya', '9', 'L', 'H', 'P', 1, 1, 0, 100],
     ]);
   });
+
+  it('heads the class column the way the centre names it', () => {
+    const sheet = registerSheet(
+      [{ id: '1', batchId: 'b', date: '2026-10-07', marks: { z: 'P' } }],
+      [{ id: 'z', name: 'Zoya', class: 'Yellow belt' }],
+      'Belt',
+    );
+    expect(sheet[0].slice(0, 2)).toEqual(['Student', 'Belt']);
+    expect(sheet[1].slice(0, 2)).toEqual(['Zoya', 'Yellow belt']);
+  });
 });

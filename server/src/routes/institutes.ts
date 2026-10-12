@@ -4,16 +4,20 @@ import type { AppDeps } from '../app.js';
 import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
 import { logoUrl } from './files.js';
 import { activeCount } from '../institutes/limits.js';
+import { CATEGORIES } from '../institutes/category.js';
 import { createInstitute, isPlanActive } from '../institutes/service.js';
 
 const createBody = z.object({
   tutorName: z.string().trim().min(2).max(80),
   instituteName: z.string().trim().min(2).max(120),
+  // older app builds do not send it; their centres are tuition centres
+  category: z.enum(CATEGORIES).default('tuition'),
   language: z.enum(['en', 'hi']).default('en'),
 });
 const patchBody = z
   .object({
     name: z.string().trim().min(2).max(120),
+    category: z.enum(CATEGORIES),
     address: z.string().trim().max(255),
     phone: z.string().trim().max(20),
     receiptPrefix: z
@@ -59,11 +63,12 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
   // The institute is always the caller's own, taken from their membership; there is no id in the URL to tamper with.
   app.get('/institute', { preHandler: [auth, requireInstitute] }, async (req) => {
     const [rows] = (await deps.pool.query(
-      'SELECT name, address, phone, upi_id, payment_link, receipt_prefix, timezone, currency, logo_path FROM institutes WHERE id = ?',
+      'SELECT name, category, address, phone, upi_id, payment_link, receipt_prefix, timezone, currency, logo_path FROM institutes WHERE id = ?',
       [req.auth!.instituteId],
     )) as unknown as [
       {
         name: string;
+        category: string;
         address: string;
         phone: string;
         upi_id: string;
@@ -77,6 +82,7 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
     const r = rows[0]!;
     return {
       name: r.name,
+      category: r.category,
       address: r.address,
       phone: r.phone,
       upiId: r.upi_id,
@@ -95,9 +101,10 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
       return reply.code(402).send({ error: 'plan_expired' });
     const b = body.data;
     await deps.pool.query(
-      'UPDATE institutes SET name = COALESCE(?, name), address = COALESCE(?, address), phone = COALESCE(?, phone), upi_id = COALESCE(?, upi_id), payment_link = COALESCE(?, payment_link), receipt_prefix = COALESCE(?, receipt_prefix) WHERE id = ?',
+      'UPDATE institutes SET name = COALESCE(?, name), category = COALESCE(?, category), address = COALESCE(?, address), phone = COALESCE(?, phone), upi_id = COALESCE(?, upi_id), payment_link = COALESCE(?, payment_link), receipt_prefix = COALESCE(?, receipt_prefix) WHERE id = ?',
       [
         b.name ?? null,
+        b.category ?? null,
         b.address ?? null,
         b.phone ?? null,
         b.upiId ?? null,

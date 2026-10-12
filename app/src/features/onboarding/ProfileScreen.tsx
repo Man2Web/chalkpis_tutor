@@ -1,7 +1,7 @@
 import { useIdempotencyKey } from '../../api/idempotency';
 import { useState } from 'react';
 import { Image, Text, View } from 'react-native';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,12 +9,15 @@ import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Button, FormInput, Screen, toast } from '../../components';
 import { reportError } from '../../lib/analytics';
+import { CATEGORIES } from '../../lib/category';
 import { api, uploadImage } from '../../api/client';
 import { refreshProfile } from '../auth/session';
 import type { OnboardingStackParams } from '../../navigation/types';
+import { CategoryPicker } from '../settings/CategoryPicker';
 import { spacing, type } from '../../theme';
 
 const schema = z.object({
+  category: z.enum(CATEGORIES, { error: 'category' }),
   tutorName: z.string().trim().min(2, 'required').max(80),
   instituteName: z.string().trim().min(2, 'required').max(120),
 });
@@ -71,6 +74,17 @@ export function ProfileScreen({
       <Text style={[type.title, { marginVertical: spacing.lg }]}>
         {t('onboarding.profileTitle')}
       </Text>
+      <Controller
+        control={control}
+        name="category"
+        render={({ field, fieldState }) => (
+          <CategoryPicker
+            value={field.value}
+            onChange={field.onChange}
+            error={fieldState.error ? t('validation.category') : undefined}
+          />
+        )}
+      />
       <FormInput
         control={control}
         name="tutorName"

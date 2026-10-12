@@ -38,7 +38,8 @@ const HEADERS: Record<string, string[]> = {
     'guardian phone',
     'guardian mobile',
   ],
-  className: ['class', 'grade', 'standard', 'std'],
+  // the same column whatever the centre calls it: class for tuition, level for abacus, belt for karate...
+  className: ['class', 'grade', 'standard', 'std', 'level', 'belt', 'age group'],
   batch: ['batch', 'batchname', 'batch name', 'batches'],
   fee: ['fee', 'fees', 'monthlyfee', 'monthly fee'],
   cycle: ['cycle', 'feecycle', 'fee cycle'],

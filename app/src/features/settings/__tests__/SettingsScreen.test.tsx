@@ -75,6 +75,22 @@ describe('delete account', () => {
   });
 });
 
+it('changes what the centre teaches, starting from tuition for an older centre', async () => {
+  await render(<SettingsScreen navigation={nav} />);
+  expect(screen.getByRole('radio', { name: 'Tuition' }).props.accessibilityState.checked).toBe(
+    true,
+  );
+  await fireEvent.press(screen.getByRole('radio', { name: 'Karate' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() =>
+    expect(api).toHaveBeenCalledWith(
+      'PATCH',
+      '/institute',
+      expect.objectContaining({ name: 'Sunrise', category: 'karate' }),
+    ),
+  );
+});
+
 it('rejects a bad receipt prefix without saving', async () => {
   await render(<SettingsScreen navigation={nav} />);
   await fireEvent.changeText(screen.getByLabelText('Receipt prefix'), 'T-D');

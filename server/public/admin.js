@@ -429,7 +429,7 @@
       var items = r.institutes.filter(function (i) { return !I.tag || (i.tags || []).indexOf(I.tag) >= 0; });
       clear(list).appendChild(tableCard([['Centre'], ['Plan'], ['Students'], ['Last active', 1], ['Fees · 30d', 1], ['WhatsApp · 30d', 1], ['Health']], items.map(function (i) {
         return el('tr', { cls: 'click', on: { click: function () { go('centre', i.id); } } }, [
-          el('td', null, [el('div', { cls: 'cell-main' }, [avatar(i.name, 'sq'), el('div', { cls: 'grow' }, [el('b', { cls: 'ellipsis' }, [i.name]), el('small', null, [i.owner ? i.owner.name + ' · ' + i.owner.phone : '—']), (i.tags || []).length ? el('div', { cls: 'chips', style: { marginTop: '4px' } }, i.tags.map(tagEl)) : null])])]),
+          el('td', null, [el('div', { cls: 'cell-main' }, [avatar(i.name, 'sq'), el('div', { cls: 'grow' }, [el('b', { cls: 'ellipsis' }, [i.name]), el('small', null, [category(i.category) + ' · ' + (i.owner ? i.owner.name + ' · ' + i.owner.phone : '—')]), (i.tags || []).length ? el('div', { cls: 'chips', style: { marginTop: '4px' } }, i.tags.map(tagEl)) : null])])]),
           el('td', null, [pill((i.plan || '—') + (i.planActive ? '' : ' · ended'), i.planActive ? (i.plan === 'trial' ? 'blue' : 'green') : 'orange'), el('div', { cls: 'xs muted', style: { marginTop: '3px' } }, [i.expiresAt ? 'until ' + dshort(i.expiresAt) : ''])]),
           el('td', { cls: 'num' }, [el('b', null, [String(i.students)]), el('div', { cls: 'xs muted' }, [n(i.batches, 'batch', 'batches') + ' · ' + n(i.staff, 'helper')])]),
           el('td', { cls: 'hide-sm' }, [ago(i.lastActivityAt)]),
@@ -472,7 +472,7 @@
     }
     drawTags();
     box.appendChild(el('button', { cls: 'btn ghost', style: { marginBottom: '12px', paddingLeft: 0 }, on: { click: function () { if (history.length > 1) history.back(); else go('centres'); } } }, [ic('back'), 'Centres']));
-    box.appendChild(el('div', { cls: 'hero' }, [avatar(i.name, 'lg'), el('div', { cls: 'grow' }, [el('h2', null, [i.name]), el('div', { cls: 'meta' }, [(owner ? owner.name + ' · ' + (owner.phone || NOPHONE) + ' · ' : '') + 'joined ' + dshort(i.createdAt) + ' · last active ' + ago(i.lastActivityAt)]), el('div', { style: { marginTop: '8px' } }, [tagBox])]), contact()]));
+    box.appendChild(el('div', { cls: 'hero' }, [avatar(i.name, 'lg'), el('div', { cls: 'grow' }, [el('h2', null, [i.name]), el('div', { cls: 'meta' }, [category(i.category) + ' · ' + (owner ? owner.name + ' · ' + (owner.phone || NOPHONE) + ' · ' : '') + 'joined ' + dshort(i.createdAt) + ' · last active ' + ago(i.lastActivityAt)]), el('div', { style: { marginTop: '8px' } }, [tagBox])]), contact()]));
     box.appendChild(el('div', { cls: 'grid g4' }, [
       el('div', { cls: 'card kpi' }, [el('div', { cls: 'label' }, ['Health']), el('div', { cls: 'value' }, [score(i.health)])]),
       el('div', { cls: 'card kpi' }, [el('div', { cls: 'label' }, ['Students']), el('div', { cls: 'value num' }, [String(i.students)]), el('div', { cls: 'sm muted' }, [n(i.batches, 'batch', 'batches') + ' · ' + n(i.staff, 'helper')])]),
@@ -606,6 +606,9 @@
   var FEED_KINDS = Object.keys(KIND).filter(function (k) { return k !== 'message'; });
   var DEVICE = { ios: 'iPhone', android: 'Android', web: 'Web' };
   var METHOD = { whatsapp: 'WhatsApp', google: 'Google', apple: 'Apple', email: 'Email' };
+  // what a centre teaches (institutes.category)
+  var CATEGORY = { tuition: 'Tuition', coaching: 'Coaching', abacus: 'Abacus', karate: 'Karate', dance: 'Dance', yoga: 'Yoga', sports: 'Sports', other: 'Other' };
+  function category(c) { return CATEGORY[c] || 'Tuition'; }
   // an account made with Sign in with Apple may not have added a mobile yet
   var NOPHONE = 'No phone (Apple)';
   function device(p) { return p && DEVICE[p] ? el('span', { cls: 'dev', title: 'From ' + DEVICE[p] }, [DEVICE[p]]) : null; }

@@ -2,6 +2,7 @@ import { Text, View } from 'react-native';
 import { Control, Controller } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Chip, FormInput } from '../../components';
+import { useCategory } from '../../lib/category';
 import { WEEKDAYS } from '../../lib/types';
 import { colors, spacing, type } from '../../theme';
 import type { BatchForm } from './schema';
@@ -16,14 +17,36 @@ export const emptyBatchForm: BatchForm = {
   defaultFee: '',
 };
 
-/** Shared by onboarding and the batch add/edit screen. */
+/**
+ * Shared by onboarding and the batch add/edit screen. The subject and class fields are named for what the centre
+ * teaches (Subject / Class for tuition, Martial art / Belt for karate, Sport / Age group for sports, ...).
+ */
 export function BatchFormFields({ control }: { control: Control<BatchForm> }) {
   const { t } = useTranslation();
+  const { ct } = useCategory();
   return (
     <>
-      <FormInput control={control} name="name" label={t('onboarding.batchName')} maxLength={60} />
-      <FormInput control={control} name="subject" label={t('onboarding.subject')} maxLength={60} />
-      <FormInput control={control} name="class" label={t('onboarding.class')} maxLength={30} />
+      <FormInput
+        control={control}
+        name="name"
+        label={t('onboarding.batchName')}
+        placeholder={ct('batchHint')}
+        maxLength={60}
+      />
+      <FormInput
+        control={control}
+        name="subject"
+        label={ct('subject')}
+        placeholder={ct('subjectHint')}
+        maxLength={60}
+      />
+      <FormInput
+        control={control}
+        name="class"
+        label={ct('level')}
+        placeholder={ct('levelHint')}
+        maxLength={30}
+      />
       <Text style={type.fieldLabel}>{t('onboarding.days')}</Text>
       <Controller
         control={control}

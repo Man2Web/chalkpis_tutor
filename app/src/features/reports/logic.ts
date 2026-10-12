@@ -121,6 +121,8 @@ export interface ReportData {
   fees?: FeeStatusRow[];
   attendancePct: number | null;
   sessions: number;
+  /** The heading for the students' class column: "Class", or "Belt", "Level"... by what the centre teaches. */
+  levelLabel?: string;
 }
 
 const rupeesText = (paise: number) => (paise / 100).toFixed(2);
@@ -132,6 +134,7 @@ const batchName = (data: ReportData, id: string | null) =>
 export function reportCsvRows(data: ReportData, numeric = false): (string | number)[][] {
   const c = data.collection;
   const rupees = numeric ? rupeesNum : rupeesText;
+  const level = data.levelLabel ?? 'Class';
   const rows: (string | number)[][] = [
     ['Report', data.month, data.institute],
     [],
@@ -150,7 +153,7 @@ export function reportCsvRows(data: ReportData, numeric = false): (string | numb
       ? [
           [],
           ['Fees for the month'],
-          ['Student', 'Class', 'Fee', 'Billed', 'Paid', 'Pending', 'Status'],
+          ['Student', level, 'Fee', 'Billed', 'Paid', 'Pending', 'Status'],
           ...data.fees.map((f) => [
             f.student,
             f.className,
@@ -167,7 +170,7 @@ export function reportCsvRows(data: ReportData, numeric = false): (string | numb
     ['Average attendance %', data.attendancePct ?? ''],
     ['Classes held', data.sessions],
     [],
-    ['Student', 'Class', 'Present', 'Late', 'Absent', 'Attendance %'],
+    ['Student', level, 'Present', 'Late', 'Absent', 'Attendance %'],
     ...data.students.map((s) => [
       s.name,
       s.className,

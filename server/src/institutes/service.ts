@@ -1,11 +1,14 @@
 import { withTransaction, type Pool } from '../db.js';
 import { newId } from '../lib/ids.js';
+import type { Category } from './category.js';
 
 export const TRIAL_DAYS = 7;
 
 export interface CreateInstituteInput {
   tutorName: string;
   instituteName: string;
+  /** What the centre teaches; tuition when not given. */
+  category?: Category;
   language: 'en' | 'hi';
 }
 
@@ -37,8 +40,8 @@ export async function createInstitute(
       userId,
     ]);
     await c.query(
-      "INSERT INTO institutes (id, name, owner_user_id, phone) SELECT ?, ?, id, COALESCE(phone, '') FROM users WHERE id = ?",
-      [instituteId, input.instituteName, userId],
+      "INSERT INTO institutes (id, name, category, owner_user_id, phone) SELECT ?, ?, ?, id, COALESCE(phone, '') FROM users WHERE id = ?",
+      [instituteId, input.instituteName, input.category ?? 'tuition', userId],
     );
     await c.query("INSERT INTO memberships (user_id, institute_id, role) VALUES (?, ?, 'owner')", [
       userId,

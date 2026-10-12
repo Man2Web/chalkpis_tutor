@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
+import { useCategory } from '../../lib/category';
 import {
   Avatar,
   Button,
@@ -30,6 +31,7 @@ export function AttendanceReportScreen({
   navigation,
 }: NativeStackScreenProps<MainStackParams, 'AttendanceReport'>) {
   const { t } = useTranslation();
+  const { ct } = useCategory();
   const staff = useIsStaff();
   const [preset, setPreset] = useState<RangePreset>('thisMonth');
   const [batchId, setBatchId] = useState<string>();
@@ -55,7 +57,7 @@ export function AttendanceReportScreen({
 
   const exportExcel = async () => {
     try {
-      const sheet = registerSheet(docs.data ?? [], students.data ?? []);
+      const sheet = registerSheet(docs.data ?? [], students.data ?? [], ct('level'));
       await shareBinaryFile(
         `chalkpis-attendance-${from}-to-${to}.xlsx`,
         buildXlsx(sheet, 'Attendance', true),

@@ -5,6 +5,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
+import { useCategory } from '../../lib/category';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Button,
@@ -37,6 +38,7 @@ export function StudentFormScreen({
   route,
 }: NativeStackScreenProps<MainStackParams, 'StudentForm'>) {
   const { t } = useTranslation();
+  const { ct } = useCategory();
   const idem = useIdempotencyKey();
   const instituteId = useInstituteId();
   const refresh = useRefreshData();
@@ -205,7 +207,13 @@ export function StudentFormScreen({
         keyboardType="phone-pad"
         maxLength={16}
       />
-      <FormInput control={control} name="class" label={t('onboarding.class')} maxLength={30} />
+      <FormInput
+        control={control}
+        name="class"
+        label={ct('level')}
+        placeholder={ct('levelHint')}
+        maxLength={30}
+      />
 
       <Text style={type.fieldLabel}>{t('students.batches')}</Text>
       <View

@@ -5,13 +5,13 @@
   "privacy": {
     "title": "Privacy Policy",
     "updated": "12 October 2026",
-    "intro": "Chalkpis for Tutors (\"Chalkpis\", \"we\", \"us\") is built and run by M2W Technologies Private Limited (Man2Web), India. This policy explains what information the Chalkpis app and website handle, why, and the choices you have. If anything here is unclear, write to hello@chalkpis.com.",
+    "intro": "Chalkpis (\"we\", \"us\") is built and run by M2W Technologies Private Limited (Man2Web), India. This policy explains what information the Chalkpis app and website handle, why, and the choices you have. If anything here is unclear, write to hello@chalkpis.com.",
     "sections": [
       {
         "h": "Who this covers",
         "p": [
-          "Tutors and coaching centres who sign up for Chalkpis (\"you\"), the helpers they invite, and the students and parents whose details a tutor adds to the app.",
-          "For student and parent details, the tutor or centre decides what is entered and why; we process those details on the tutor's behalf to run the service."
+          "Teachers and centres who sign up for Chalkpis (\"you\"): tuition and coaching centres, abacus, karate, dance, yoga and music classes, sports academies and the like; the helpers they invite; and the students and parents whose details a centre adds to the app.",
+          "For student and parent details, the teacher or centre decides what is entered and why; we process those details on the centre's behalf to run the service."
         ]
       },
       {
@@ -52,20 +52,20 @@
       {
         "h": "Security",
         "p": [
-          "All traffic is encrypted (HTTPS). Every record belongs to one institute and the server checks that on every request, so one tutor can never see another tutor's data. Parent links are long secret links that you can switch off at any time; parent pages never show phone numbers or notes."
+          "All traffic is encrypted (HTTPS). Every record belongs to one institute and the server checks that on every request, so one centre can never see another centre's data. Parent links are long secret links that you can switch off at any time; parent pages never show phone numbers or notes."
         ]
       },
       {
         "h": "Children",
         "p": [
-          "Chalkpis is used by tutors, not by children. Tutors add student details for teaching and fee records and are responsible for having the parent's consent to do so and to message them on WhatsApp, as required by the Digital Personal Data Protection Act, 2023."
+          "Chalkpis is used by teachers and centres, not by children. Centres add student details for their classes and fee records and are responsible for having the parent's consent to do so and to message them on WhatsApp, as required by the Digital Personal Data Protection Act, 2023."
         ]
       },
       {
         "h": "Your choices and rights",
         "p": [
           "You can see, correct or delete the details you entered at any time in the app, and switch parent messages off (for everyone or for one student).",
-          "Parents and students can ask their tutor to correct or remove their details, or write to us and we will help the tutor do so.",
+          "Parents and students can ask their teacher or centre to correct or remove their details, or write to us and we will help the centre do so.",
           "You can delete your account in the app at any time."
         ]
       },
@@ -85,13 +85,13 @@
   },
   "terms": {
     "title": "Terms and Conditions",
-    "updated": "11 October 2026",
-    "intro": "These terms are an agreement between you and M2W Technologies Private Limited (Man2Web), India, who build and run Chalkpis for Tutors. By creating an account or using the app you accept them. Questions: hello@chalkpis.com.",
+    "updated": "12 October 2026",
+    "intro": "These terms are an agreement between you and M2W Technologies Private Limited (Man2Web), India, who build and run Chalkpis. By creating an account or using the app you accept them. Questions: hello@chalkpis.com.",
     "sections": [
       {
         "h": "The service",
         "p": [
-          "Chalkpis helps tutors and coaching centres keep student records, attendance and fees, send WhatsApp updates to parents, make receipts, reports and posters, and share a private parent page."
+          "Chalkpis helps tuition and coaching centres, abacus, karate, dance and yoga classes, sports academies and other teachers keep student records, attendance and fees, send WhatsApp updates to parents, make receipts, reports and posters, and share a private parent page."
         ]
       },
       {

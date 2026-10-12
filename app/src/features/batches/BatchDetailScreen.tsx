@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { FlatList, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
+import { useCategory } from '../../lib/category';
 import {
   Avatar,
   BottomSheet,
@@ -31,6 +32,7 @@ export function BatchDetailScreen({
   route,
 }: NativeStackScreenProps<MainStackParams, 'BatchDetail'>) {
   const { t } = useTranslation();
+  const { ct } = useCategory();
   const instituteId = useInstituteId();
   const refresh = useRefreshData();
   const batches = useBatches();
@@ -119,7 +121,7 @@ export function BatchDetailScreen({
             <Card style={{ gap: spacing.xs }}>
               <Text style={type.body}>
                 {batch.subject}
-                {batch.class ? ` • ${t('students.classN', { n: batch.class })}` : ''}
+                {batch.class ? ` • ${ct('levelValue', { n: batch.class })}` : ''}
               </Text>
               <Text style={type.caption}>{scheduleLabel(batch, t)}</Text>
               <Text style={type.caption}>
@@ -160,7 +162,7 @@ export function BatchDetailScreen({
         renderItem={({ item }) => (
           <ListItem
             title={item.name}
-            subtitle={item.class ? t('students.classN', { n: item.class }) : undefined}
+            subtitle={item.class ? ct('levelValue', { n: item.class }) : undefined}
             left={<Avatar name={item.name} uri={item.photoUrl} />}
             right={
               <Button

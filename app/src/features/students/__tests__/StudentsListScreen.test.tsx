@@ -12,6 +12,7 @@ jest.mock('../../../data/hooks', () => ({
   useBatches: jest.fn(),
   usePendingStudentIds: jest.fn(),
   useLimits: jest.fn(),
+  useInstitute: () => ({ data: undefined }),
 }));
 
 const student = (id: string, name: string, extra = {}) => ({

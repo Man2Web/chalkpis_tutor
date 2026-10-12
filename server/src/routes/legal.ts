@@ -29,8 +29,8 @@ export function legalHtml(l: Legal, which: 'privacy' | 'terms'): string {
     .map((s) => `<h2>${esc(s.h)}</h2>${s.p.map((p) => `<p>${esc(p)}</p>`).join('')}`)
     .join('');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(d.title)} · Chalkpis for Tutors</title><link rel="stylesheet" href="/legal.css"></head><body><main>
-<header>Chalkpis for Tutors</header>
+<title>${esc(d.title)} · Chalkpis</title><link rel="stylesheet" href="/legal.css"></head><body><main>
+<header>Chalkpis</header>
 <nav><a href="/privacy">Privacy Policy</a><a href="/terms">Terms and Conditions</a></nav>
 <h1>${esc(d.title)}</h1><p class="updated">Last updated ${esc(d.updated)}</p><p>${esc(d.intro)}</p>${body}
 <footer>© 2026 ${esc(l.company)} (${esc(l.brand)}) · <a href="mailto:${esc(l.email)}">${esc(l.email)}</a></footer>
@@ -45,11 +45,11 @@ export function deleteAccountHtml(l: Legal): string {
   const mail = esc(l.email);
   const subject = encodeURIComponent('Delete my Chalkpis account');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Delete your account · Chalkpis for Tutors</title><link rel="stylesheet" href="/legal.css"></head><body><main>
-<header>Chalkpis for Tutors</header>
+<title>Delete your account · Chalkpis</title><link rel="stylesheet" href="/legal.css"></head><body><main>
+<header>Chalkpis</header>
 <nav><a href="/privacy">Privacy Policy</a><a href="/terms">Terms and Conditions</a><a href="/delete-account">Delete your account</a></nav>
 <h1>Delete your Chalkpis account</h1>
-<p>You can delete your Chalkpis for Tutors account (made by ${esc(l.company)}) at any time, with or without the app.</p>
+<p>You can delete your Chalkpis account (made by ${esc(l.company)}) at any time, with or without the app.</p>
 <h2>In the app</h2>
 <p>Open Chalkpis, go to <strong>Account</strong>, tap <strong>Delete account</strong> and confirm. It happens at once.</p>
 <h2>Without the app</h2>

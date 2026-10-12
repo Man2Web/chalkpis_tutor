@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Button, Card, Chip, Input, Screen, toast } from '../../components';
 import { useInstitute } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
+import { useCategory } from '../../lib/category';
 import { colors, MAX_CONTENT, spacing, type } from '../../theme';
 import { exportPoster } from './exportPoster';
 import { SIZES, type PosterKind, type PosterSize } from './layout';
@@ -27,9 +28,13 @@ async function pickPhoto(): Promise<string | undefined> {
   return `data:${res.assets[0].mimeType ?? 'image/jpeg'};base64,${res.assets[0].base64}`;
 }
 
-/** Posters for WhatsApp status and Instagram: toppers, admissions, festival greetings. Free, made on the phone. */
+/**
+ * Posters for WhatsApp status and Instagram: toppers (champions, stars... by what the centre teaches), admissions,
+ * festival greetings. Free, made on the phone.
+ */
 export function PosterScreen() {
   const { t } = useTranslation();
+  const { ct } = useCategory();
   const inst = useInstitute();
   const { width } = useWindowDimensions();
   const ref = useRef<Svg>(null);
@@ -44,11 +49,21 @@ export function PosterScreen() {
   const [logo, setLogo] = useState<string>();
   const [busy, setBusy] = useState(false);
 
+  // the starting words: toppers and admissions follow what the centre teaches; festival greetings are the same for all
+  const defaults =
+    kind === 'toppers'
+      ? { headline: ct('winnersHeadline'), subline: ct('winnersSubline') }
+      : kind === 'admission'
+        ? { headline: t('poster.defaults.admission.headline'), subline: ct('admissionSubline') }
+        : {
+            headline: t('poster.defaults.festival.headline'),
+            subline: t('poster.defaults.festival.subline'),
+          };
   const data: PosterData = {
     kind,
     size,
-    headline: headline ?? t(`poster.defaults.${kind}.headline`),
-    subline: subline ?? t(`poster.defaults.${kind}.subline`),
+    headline: headline ?? defaults.headline,
+    subline: subline ?? defaults.subline,
     toppers,
     centre: centre ?? inst.data?.name ?? '',
     address: address ?? inst.data?.address ?? '',
@@ -80,7 +95,7 @@ export function PosterScreen() {
         {KINDS.map((k) => (
           <Chip
             key={k}
-            label={t(`poster.kinds.${k}`)}
+            label={k === 'toppers' ? ct('winners') : t(`poster.kinds.${k}`)}
             selected={kind === k}
             onPress={() => {
               setKind(k);
@@ -169,7 +184,7 @@ export function PosterScreen() {
                 label={t('poster.studentDetail')}
                 value={tp.detail}
                 onChangeText={(v) => setTopper(i, { detail: v })}
-                placeholder={t('poster.studentDetailHint')}
+                placeholder={ct('winnerDetailHint')}
                 maxLength={30}
               />
             </View>

@@ -200,6 +200,11 @@ describe('next-level admin', () => {
     });
     expect(csv.headers['content-type']).toContain('text/csv');
     expect(csv.body).toContain('Alpha Academy');
+    // what each centre teaches is a column (centres made before categories are tuition)
+    expect(csv.body.split('\r\n')[0]).toMatch(/^\uFEFF?Institute,Type,Owner/);
+    expect(csv.body).toMatch(/Alpha Academy,tuition,/);
+    const list = (await admin.call('GET', '/admin/api/institutes')).body.institutes;
+    expect(list.find((i: { name: string }) => i.name === 'Alpha Academy').category).toBe('tuition');
     expect(toCsv([['=HYPERLINK("x")', 'a,b', '+91']])).toBe('﻿"\'=HYPERLINK(""x"")","a,b",\'+91');
   });
 });

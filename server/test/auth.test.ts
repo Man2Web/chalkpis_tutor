@@ -411,10 +411,40 @@ describe('institutes and tenant isolation', () => {
     ).toBe('Bright Tuition');
   });
 
+  it('remembers what the centre teaches (tuition when an older app does not say), and the owner can change it', async () => {
+    const s = await login();
+    await create(s.accessToken);
+    const get = async () =>
+      (await app.inject({ url: '/institute', headers: authed(s.accessToken) })).json().category;
+    expect(await get()).toBe('tuition');
+    const patch = (category: string) =>
+      app.inject({
+        method: 'PATCH',
+        url: '/institute',
+        payload: { category },
+        headers: authed(s.accessToken),
+      });
+    expect((await patch('karate')).statusCode).toBe(200);
+    expect(await get()).toBe('karate');
+    expect((await patch('chess')).statusCode).toBe(400);
+    expect(await get()).toBe('karate');
+
+    const y = await login('9876500011');
+    await create(y.accessToken, {
+      tutorName: 'Yamini',
+      instituteName: 'Yamini Yoga',
+      category: 'yoga',
+    });
+    expect(
+      (await app.inject({ url: '/institute', headers: authed(y.accessToken) })).json().category,
+    ).toBe('yoga');
+  });
+
   it('refuses bad setup input', async () => {
     const s = await login();
     for (const b of [
       {},
+      { tutorName: 'Valid', instituteName: 'Valid Name', category: 'chess' },
       { tutorName: 'A', instituteName: 'Valid Name' },
       { tutorName: 'Valid', instituteName: 'x'.repeat(200) },
       { tutorName: 'Valid', instituteName: 'Valid Name', language: 'fr' },

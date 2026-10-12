@@ -4,6 +4,7 @@ import { stamp, stampYmd, type Stamp } from '../api/stamp';
 import type { StaffMember } from '../features/staff/api';
 import { useSession } from '../features/auth/session';
 import { normalizeSettings, type NotifySettings } from '../features/messages/settings';
+import type { Category } from '../lib/category';
 import { attendanceId, todayYmd } from '../lib/dates';
 import type { AttendanceDoc, Batch, FeeDue, Mark, Payment, PayMode, Student } from '../lib/types';
 
@@ -233,6 +234,8 @@ export function useAttendanceRange(from: string, to: string, batchId?: string) {
 
 export interface Institute {
   name: string;
+  /** What the centre teaches, as the server stored it; read it through useCategory / toCategory. */
+  category?: Category;
   logoUrl?: string | null;
   address?: string;
   phone?: string;
@@ -249,6 +252,7 @@ export function useInstitute() {
       const d = await api<Institute>('GET', '/institute');
       return {
         name: d.name,
+        category: d.category,
         logoUrl: d.logoUrl,
         address: d.address,
         phone: d.phone,

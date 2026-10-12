@@ -1,26 +1,32 @@
-# Chalkpis for Tutors
+# Chalkpis
 
-Tuition management for Indian private tutors and small coaching centres: students, batches, attendance, fees and WhatsApp updates to parents. Android-first (React Native), with an iPhone build.
+Class management for Indian teachers and centres: tuition and coaching centres, abacus institutes, karate, dance and yoga classes, and sports academies. Students, batches, attendance, fees and WhatsApp updates to parents. Android-first (React Native), with an iPhone build.
 
 ## What this app is about
 
-Most private tutors in India run their classes from a notebook and WhatsApp: who came today, who has paid, whose parent needs a reminder. Chalkpis puts that on the tutor's phone, and keeps parents informed without the tutor typing a single message.
+Most small classes in India run from a notebook and WhatsApp: who came today, who has paid, whose parent needs a reminder. Chalkpis puts that on the teacher's phone, and keeps parents informed without the teacher typing a single message.
 
-**Who it is for:** home tutors and coaching centres with one owner and, optionally, a few helpers.
+**Who it is for:** one owner (a teacher, coach or centre) and, optionally, a few helpers, at:
 
-**What a tutor does with it:**
+| Tuition centres | Coaching institutes | Abacus institutes | Karate and martial arts |
+| --- | --- | --- | --- |
+| **Dance classes** | **Yoga classes** | **Sports academies** | **Any other class** (music, art, chess...) |
 
-- **Students and batches:** a profile per student (batch, parent, monthly fee, due day), imported from contacts or a spreadsheet; one tap to call or WhatsApp the parent.
+At sign-up the owner picks what they teach, and the app speaks their language: a karate batch has a *Martial art* and a *Belt*, a sports batch a *Sport* and an *Age group*, a tuition batch a *Subject* and a *Class*. Examples, poster texts (*Toppers*, *Champions*, *Stars*) and spreadsheet columns follow the same choice, which can be changed later in Settings.
+
+**What an owner does with it:**
+
+- **Students and batches:** a profile per student (batch, class / level / belt, parent, monthly fee, due day), imported from contacts or a spreadsheet; one tap to call or WhatsApp the parent.
 - **Attendance in seconds:** everyone starts present; tap only the absent or late ones, or mark a holiday.
 - **Fees:** monthly dues are created for every student; record cash, UPI or bank payments (part payments, discounts, advances), share receipts, and see who is pending or overdue.
-- **Parents stay in the loop on WhatsApp:** absent and late alerts, fee reminders carrying the tutor's own UPI QR, and payment receipts, sent from the Chalkpis business number. Parents can also open a private, read-only page for their child.
-- **Reports and growth:** a monthly report (billed, collected, pending, attendance) with Excel, CSV and PDF export, and a poster maker for WhatsApp status and Instagram.
+- **Parents stay in the loop on WhatsApp:** absent and late alerts, fee reminders carrying the owner's own UPI QR, and payment receipts, sent from the Chalkpis business number. Parents can also open a private, read-only page for their child.
+- **Reports and growth:** a monthly report (billed, collected, pending, attendance) with Excel, CSV and PDF export, and a poster maker for WhatsApp status and Instagram (toppers or champions, admissions, festivals).
 - **Helpers:** staff accounts that can take attendance for their assigned batches only.
 
 **How it works:**
 
-- **Sign up and sign in with WhatsApp:** a 6-digit code to the tutor's mobile number. No passwords, no email.
-- **Fees go straight to the tutor:** parents pay the tutor's own UPI ID or payment link; Chalkpis never touches that money.
+- **Sign up and sign in with WhatsApp:** a 6-digit code to the owner's mobile number. No passwords, no email.
+- **Fees go straight to the centre:** parents pay the owner's own UPI ID or payment link; Chalkpis never touches that money.
 - **Plans:** a free trial, then plans by the number of students and batches, paid through PhonePe.
 
 Built and run by M2W Technologies Private Limited (Man2Web). Contact: hello@chalkpis.com.

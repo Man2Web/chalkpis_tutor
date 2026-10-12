@@ -305,6 +305,7 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
       toCsv([
         [
           'Institute',
+          'Type',
           'Owner',
           'Owner phone',
           'Plan',
@@ -321,6 +322,7 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
         ],
         ...list.map((i) => [
           i.name,
+          i.category,
           i.owner?.name ?? '',
           i.owner?.phone ?? '',
           i.plan ?? '',

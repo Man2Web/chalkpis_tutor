@@ -165,6 +165,7 @@ export async function analytics(pool: Pool, days: number, now: Date) {
 interface InstRow {
   id: string;
   name: string;
+  category: string;
   created_at: Date;
   owner_name: string | null;
   owner_phone: string | null;
@@ -208,7 +209,7 @@ export function healthScore(i: {
   return Math.min(100, s);
 }
 
-const INST_SELECT = `SELECT i.id, i.name, i.created_at, i.upi_id, i.payment_link,
+const INST_SELECT = `SELECT i.id, i.name, i.category, i.created_at, i.upi_id, i.payment_link,
     u.name AS owner_name, u.phone AS owner_phone, u.id AS owner_id,
     s.plan, s.status AS plan_status, s.expires_at, ns.enabled AS messages_on,
     (SELECT COUNT(*) FROM students st WHERE st.institute_id = i.id AND st.status = 'active') AS students,
@@ -234,6 +235,7 @@ function toInstitute(r: InstRow, now: Date) {
   return {
     id: r.id,
     name: r.name,
+    category: r.category,
     createdAt: r.created_at.toISOString(),
     owner: r.owner_id
       ? { id: r.owner_id, name: r.owner_name ?? '', phone: r.owner_phone ?? '' }

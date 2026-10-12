@@ -131,11 +131,13 @@ export function batchStats(docs: AttendanceDoc[]): Map<string, ReturnType<typeof
 
 /**
  * The register as a spreadsheet: one row per student, one column per class day (P / A / L, H for a holiday),
- * then present, late, absent and %. Days are oldest first; students by name.
+ * then present, late, absent and %. Days are oldest first; students by name. `levelLabel` heads the class column
+ * ("Belt", "Level"... by what the centre teaches).
  */
 export function registerSheet(
   docs: AttendanceDoc[],
   students: { id: string; name: string; class?: string }[],
+  levelLabel = 'Class',
 ): (string | number)[][] {
   const dates = [...new Set(docs.map((d) => d.date))].sort();
   const byStudent = new Map<string, Map<string, string>>();
@@ -147,7 +149,7 @@ export function registerSheet(
       byStudent.get(sid)!.set(d.date, m);
     }
   }
-  const header = ['Student', 'Class', ...dates, 'Present', 'Late', 'Absent', '%'];
+  const header = ['Student', levelLabel, ...dates, 'Present', 'Late', 'Absent', '%'];
   const rows = students
     .filter((s) => byStudent.has(s.id))
     .sort((a, b) => a.name.localeCompare(b.name))

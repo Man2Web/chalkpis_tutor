@@ -2,6 +2,7 @@ import { useLayoutEffect } from 'react';
 import { Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
+import { useCategory } from '../../lib/category';
 import {
   ActionButton,
   Avatar,
@@ -28,6 +29,7 @@ export function StudentProfileScreen({
   route,
 }: NativeStackScreenProps<MainStackParams, 'StudentProfile'>) {
   const { t, i18n } = useTranslation();
+  const { ct } = useCategory();
   const students = useStudents();
   const batches = useBatches();
   const pending = usePendingStudentIds();
@@ -100,7 +102,7 @@ export function StudentProfileScreen({
         <Avatar name={s.name} uri={s.photoUrl} size={96} />
         <Text style={[type.title1, { textAlign: 'center' }]}>{s.name}</Text>
         <Text style={[type.subhead, { color: colors.textMuted, textAlign: 'center' }]}>
-          {[s.class && t('students.classN', { n: s.class }), names].filter(Boolean).join(' · ')}
+          {[s.class && ct('levelValue', { n: s.class }), names].filter(Boolean).join(' · ')}
         </Text>
         <View
           style={{
@@ -170,7 +172,7 @@ export function StudentProfileScreen({
       </Section>
 
       <Section title={t('students.details')}>
-        {s.class ? <Row title={t('onboarding.class')} value={s.class} /> : null}
+        {s.class ? <Row title={ct('level')} value={s.class} /> : null}
         {names ? <Row title={t('students.batches')} value={names} /> : null}
         {dob ? <Row title={t('students.dobShort')} value={dob} /> : null}
         {s.gender ? (

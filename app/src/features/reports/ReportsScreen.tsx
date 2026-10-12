@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
+import { useCategory } from '../../lib/category';
 import {
   Button,
   Card,
@@ -52,6 +53,7 @@ const shiftMonth = (month: string, by: number) => {
 
 export function ReportsScreen() {
   const { t, i18n } = useTranslation();
+  const { ct } = useCategory();
   const nav = useNavigation<NativeStackNavigationProp<MainStackParams>>();
   const thisMonth = todayYmd().slice(0, 7);
   const [month, setMonth] = useState(thisMonth);
@@ -108,6 +110,7 @@ export function ReportsScreen() {
     fees: model.fees,
     attendancePct: model.overall.pct,
     sessions: model.overall.sessions,
+    levelLabel: ct('level'),
   };
 
   const batchName = (id: string | null) =>

@@ -8,11 +8,13 @@ import { api, uploadImage } from '../../api/client';
 import { Avatar, Button, Input, Screen, Section, Skeleton, toast } from '../../components';
 import { useInstitute, useRefreshData } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
+import { toCategory, type Category } from '../../lib/category';
 import { cleanUpi, upiLink } from '../../lib/upi';
 import type { MainStackParams } from '../../navigation/types';
 import { colors, spacing, type, font } from '../../theme';
 import { refreshProfile, useSession } from '../auth/session';
 import { UpiQr } from '../../components/UpiQr';
+import { CategoryPicker } from './CategoryPicker';
 import { cleanPrefix } from './logic';
 
 const Loading = () => (
@@ -21,7 +23,7 @@ const Loading = () => (
   </Screen>
 );
 
-/** Institute details shown on receipts: logo, name, address, phone, receipt prefix. */
+/** Institute details: logo, name, what it teaches, and the address, phone and receipt prefix shown on receipts. */
 export function SettingsScreen({
   navigation,
 }: Partial<NativeStackScreenProps<MainStackParams, 'Settings'>>) {
@@ -29,6 +31,7 @@ export function SettingsScreen({
   const refresh = useRefreshData();
   const institute = useInstitute();
   const [instName, setInstName] = useState<string>();
+  const [category, setCategory] = useState<Category>();
   const [address, setAddress] = useState<string>();
   const [phone, setPhone] = useState<string>();
   const [prefix, setPrefix] = useState<string>();
@@ -38,6 +41,7 @@ export function SettingsScreen({
   if (institute.isLoading || !institute.data) return <Loading />;
   const inst = institute.data;
   const instV = instName ?? inst.name;
+  const categoryV = category ?? toCategory(inst.category);
   const addrV = address ?? inst.address ?? '';
   const phoneV = phone ?? inst.phone ?? '';
   const prefixV = prefix ?? inst.receiptPrefix;
@@ -51,6 +55,7 @@ export function SettingsScreen({
     try {
       await api('PATCH', '/institute', {
         name: instV.trim(),
+        category: categoryV,
         address: addrV.trim(),
         phone: phoneV.trim(),
         receiptPrefix: clean,
@@ -116,6 +121,7 @@ export function SettingsScreen({
         </Text>
       </Pressable>
       <Input label={t('onboarding.instituteName')} value={instV} onChangeText={setInstName} />
+      <CategoryPicker value={categoryV} onChange={setCategory} />
       <Input label={t('settings.address')} value={addrV} onChangeText={setAddress} multiline />
       <Input
         label={t('settings.institutePhone')}

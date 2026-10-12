@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Chalkpis for Tutors",
+    "name": "Chalkpis",
     "tagline": "Students, attendance and fees in one place"
   },
   "common": {
@@ -27,7 +27,8 @@
     "days": "Pick at least one day",
     "dueDay": "Enter a day from 1 to 31",
     "date": "Use the format YYYY-MM-DD",
-    "tooLong": "This is too long"
+    "tooLong": "This is too long",
+    "category": "Pick what you teach"
   },
   "language": {
     "title": "Choose your language",
@@ -59,7 +60,7 @@
       "phoneInUse": "This number already has its own Chalkpis account. To use it, sign out and continue with WhatsApp.",
       "phoneAlreadySet": "This account already has a mobile number."
     },
-    "welcomeHeadline": "Run your tuition from your phone",
+    "welcomeHeadline": "Run your classes from your phone",
     "continueWhatsApp": "Continue with WhatsApp",
     "newHere": "New here? Continue with WhatsApp and we will create your account.",
     "signingIn": "Signing you in…",
@@ -69,19 +70,17 @@
     "otpPreviewFrom": "Chalkpis",
     "otpPreviewText": "Your Chalkpis sign-in code is ●●●●●●. Do not share it with anyone.",
     "otpCheckWhatsApp": "Check WhatsApp for a message from Chalkpis",
-    "welcomeKicker": "For tutors and coaching centres"
+    "welcomeKicker": "Tuition · Coaching · Abacus · Karate · Dance · Yoga · Sports"
   },
   "onboarding": {
     "profileTitle": "About you",
     "tutorName": "Your name",
-    "instituteName": "Institute or class name",
+    "instituteName": "Name of your class, academy or institute",
     "logo": "Logo (optional)",
     "addLogo": "Add logo",
     "changeLogo": "Change logo",
     "batchTitle": "Create your first batch",
     "batchName": "Batch name",
-    "subject": "Subject",
-    "class": "Class",
     "days": "Days",
     "startTime": "Start time",
     "endTime": "End time",
@@ -95,6 +94,121 @@
     "added": "{{count}} added",
     "finish": "Finish",
     "setupError": "Could not set up your institute."
+  },
+  "categories": {
+    "question": "What do you teach?",
+    "tuition": {
+      "name": "Tuition",
+      "subject": "Subject",
+      "subjectHint": "Maths",
+      "level": "Class",
+      "levelHint": "10",
+      "levelValue": "Class {{n}}",
+      "batchHint": "Class 10 Maths",
+      "winners": "Toppers",
+      "winnersHeadline": "Our toppers",
+      "winnersSubline": "Congratulations on your excellent results!",
+      "winnerDetailHint": "e.g. 98% • Class 10",
+      "admissionSubline": "New batches for Classes 6 to 12. Limited seats."
+    },
+    "coaching": {
+      "name": "Coaching",
+      "subject": "Course",
+      "subjectHint": "JEE Physics",
+      "level": "Class or exam",
+      "levelHint": "JEE 2027",
+      "levelValue": "{{n}}",
+      "batchHint": "JEE 2027 evening",
+      "winners": "Toppers",
+      "winnersHeadline": "Our toppers",
+      "winnersSubline": "Congratulations on your selection!",
+      "winnerDetailHint": "e.g. AIR 1520 • JEE Main",
+      "admissionSubline": "New batches for JEE, NEET and boards. Limited seats."
+    },
+    "abacus": {
+      "name": "Abacus",
+      "subject": "Course",
+      "subjectHint": "Abacus",
+      "level": "Level",
+      "levelHint": "Level 3",
+      "levelValue": "{{n}}",
+      "batchHint": "Level 3 weekend",
+      "winners": "Champions",
+      "winnersHeadline": "Our abacus champions",
+      "winnersSubline": "Congratulations on your competition results!",
+      "winnerDetailHint": "e.g. Level 5 • State champion",
+      "admissionSubline": "Abacus classes for ages 5 to 14. Limited seats."
+    },
+    "karate": {
+      "name": "Karate",
+      "subject": "Martial art",
+      "subjectHint": "Karate",
+      "level": "Belt",
+      "levelHint": "Yellow belt",
+      "levelValue": "{{n}}",
+      "batchHint": "Kids beginners",
+      "winners": "Champions",
+      "winnersHeadline": "Our champions",
+      "winnersSubline": "Congratulations on your medals and new belts!",
+      "winnerDetailHint": "e.g. Black belt • Gold medal",
+      "admissionSubline": "Karate classes for kids and adults. Join now."
+    },
+    "dance": {
+      "name": "Dance",
+      "subject": "Dance style",
+      "subjectHint": "Bharatanatyam",
+      "level": "Level",
+      "levelHint": "Beginners",
+      "levelValue": "{{n}}",
+      "batchHint": "Kids Bharatanatyam",
+      "winners": "Stars",
+      "winnersHeadline": "Our dance stars",
+      "winnersSubline": "Congratulations on a wonderful performance!",
+      "winnerDetailHint": "e.g. 1st prize • State fest",
+      "admissionSubline": "Dance classes for all ages. New batches starting."
+    },
+    "yoga": {
+      "name": "Yoga",
+      "subject": "Yoga style",
+      "subjectHint": "Hatha yoga",
+      "level": "Level",
+      "levelHint": "Beginners",
+      "levelValue": "{{n}}",
+      "batchHint": "Morning batch",
+      "winners": "Achievers",
+      "winnersHeadline": "Our achievers",
+      "winnersSubline": "Congratulations on your achievement!",
+      "winnerDetailHint": "e.g. Gold medal • State yoga meet",
+      "admissionSubline": "Morning and evening yoga batches. Join now."
+    },
+    "sports": {
+      "name": "Sports",
+      "subject": "Sport",
+      "subjectHint": "Cricket",
+      "level": "Age group or level",
+      "levelHint": "Under-14",
+      "levelValue": "{{n}}",
+      "batchHint": "Under-14 cricket",
+      "winners": "Champions",
+      "winnersHeadline": "Our champions",
+      "winnersSubline": "Congratulations on your win!",
+      "winnerDetailHint": "e.g. Under-14 • Player of the match",
+      "admissionSubline": "Coaching for all ages. New batches starting."
+    },
+    "other": {
+      "name": "Other",
+      "subject": "Activity",
+      "subjectHint": "Music",
+      "level": "Level",
+      "levelHint": "Beginners",
+      "levelValue": "{{n}}",
+      "batchHint": "Evening batch",
+      "winners": "Achievers",
+      "winnersHeadline": "Our achievers",
+      "winnersSubline": "Congratulations on your achievement!",
+      "winnerDetailHint": "e.g. 1st prize",
+      "admissionSubline": "New batches starting. Limited seats."
+    }
   },
   "days": {
     "mon": "Mon",
@@ -142,7 +256,6 @@
     "active": "Active",
     "inactive": "Inactive",
     "feesPending": "Fees pending",
-    "classN": "Class {{n}}",
     "emptyTitle": "No students yet",
     "emptyMessage": "Add your first student, or import a list.",
     "noMatch": "No students match",
@@ -759,7 +872,6 @@
     "title": "Poster maker",
     "hint": "Posters for WhatsApp status and Instagram. Free.",
     "kinds": {
-      "toppers": "Toppers",
       "admission": "Admission",
       "festival": "Festival"
     },
@@ -768,13 +880,8 @@
       "status": "Status (tall)"
     },
     "defaults": {
-      "toppers": {
-        "headline": "Our toppers",
-        "subline": "Congratulations on your excellent results!"
-      },
       "admission": {
-        "headline": "Admissions open",
-        "subline": "New batches for Classes 6 to 12. Limited seats."
+        "headline": "Admissions open"
       },
       "festival": {
         "headline": "Happy Diwali",
@@ -787,7 +894,6 @@
     "studentN": "Student {{n}}",
     "studentName": "Name",
     "studentDetail": "Marks or result",
-    "studentDetailHint": "e.g. 98% • Class 10",
     "addPhoto": "Add photo",
     "remove": "Remove",
     "addStudent": "+ Add student",
@@ -807,7 +913,7 @@
     "parentsTitle": "Parents stay in the loop",
     "parentsText": "Absent alerts and receipts go to parents on WhatsApp.",
     "cardAttendanceTitle": "Attendance saved",
-    "cardAttendanceText": "Class 10 Maths · 28 of 30 present",
+    "cardAttendanceText": "Karate Kids · 18 of 20 present",
     "cardFeeTitle": "₹1,500 received",
     "cardFeeText": "Riya's parent paid by UPI",
     "cardParentTitle": "Sent to the parent on WhatsApp",

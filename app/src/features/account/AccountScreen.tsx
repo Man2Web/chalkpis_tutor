@@ -119,7 +119,7 @@ function AccountContent({ go, onDelete }: { go: Nav['navigate']; onDelete: () =>
   );
   const footer = (
     <Text style={[type.caption2, { textAlign: 'center', marginBottom: spacing.lg }]}>
-      Chalkpis for Tutors{VERSION ? ` · ${VERSION}` : ''}
+      Chalkpis{VERSION ? ` · ${VERSION}` : ''}
       {'\n'}© 2026 M2W Technologies Private Limited
     </Text>
   );
