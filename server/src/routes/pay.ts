@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { AppDeps } from '../app.js';
 import { confirmPhoneOwnership, requestOtp } from '../auth/otp.js';
@@ -175,6 +178,14 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
       return PAY_FAILED;
     }
   };
+
+  // The banner WhatsApp shows above plan reminders (the gateway fetches it by this address).
+  const banner = readFileSync(
+    path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'public', 'plan-renew.png'),
+  );
+  app.get('/plan-renew.png', async (_req, reply) =>
+    reply.header('Cache-Control', 'public, max-age=86400').type('image/png').send(banner),
+  );
 
   app.get('/pay.css', async (_req, reply) =>
     reply

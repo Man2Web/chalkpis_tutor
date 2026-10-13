@@ -18,7 +18,7 @@ import {
   dlrToken,
   type MessageProvider,
 } from './messaging/provider.js';
-import { startScheduler } from './jobs/runner.js';
+import { makeJobs, startScheduler } from './jobs/runner.js';
 import { parseTemplates } from './messaging/templates.js';
 import { startWorker } from './messaging/worker.js';
 import { runMigrations } from './migrate.js';
@@ -104,7 +104,12 @@ async function main() {
   const app = await buildApp({ config, pool, provider, billing, mailer });
 
   const stopWorker = startWorker(
-    { pool, provider, templates: parseTemplates(config.WA_TEMPLATES) },
+    {
+      pool,
+      provider,
+      templates: parseTemplates(config.WA_TEMPLATES),
+      publicBaseUrl: config.PUBLIC_BASE_URL,
+    },
     (e) =>
       app.log.error(
         { err: { name: (e as Error).name, code: (e as { code?: string }).code } },
@@ -112,7 +117,16 @@ async function main() {
       ),
   );
 
-  const stopScheduler = startScheduler(pool, app.log);
+  const stopScheduler = startScheduler(
+    pool,
+    app.log,
+    undefined,
+    makeJobs(
+      config.PUBLIC_BASE_URL
+        ? { baseUrl: config.PUBLIC_BASE_URL, secret: config.JWT_SECRET }
+        : undefined,
+    ),
+  );
 
   const stop = async (signal: string) => {
     app.log.info({ signal }, 'shutting down');

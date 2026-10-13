@@ -2,7 +2,7 @@ import type { Pool } from '../db.js';
 import { generateDues } from '../fees/service.js';
 import { expireDueSubscriptions } from '../billing/service.js';
 import { currentPeriod, istHour, todayYmd } from '../lib/ist.js';
-import { queueTrialEndings } from '../messaging/centreMessages.js';
+import { queuePlanReminders } from '../messaging/centreMessages.js';
 import { enqueueAllFeeReminders } from '../messaging/notify.js';
 
 export interface JobLog {
@@ -66,7 +66,8 @@ async function cleanupJob(pool: Pool, now: Date) {
   return n;
 }
 
-export const JOBS: Job[] = [
+/** The jobs; plan reminders need the public address and the secret to build each centre's pay link. */
+export const makeJobs = (links?: { baseUrl: string; secret: string }): Job[] => [
   { name: 'dues', from: 2, until: 23, every: 'day', run: duesJob },
   {
     name: 'expire',
@@ -83,9 +84,20 @@ export const JOBS: Job[] = [
     every: 'day',
     run: (pool, now) => enqueueAllFeeReminders(pool, now),
   },
-  // owners whose free trial ends within 2 days get one WhatsApp reminder
-  { name: 'trial-ending', from: 10, until: 18, every: 'day', run: queueTrialEndings },
+  // owners get their pay link on WhatsApp before a trial or plan ends, and on the day it ended
+  ...(links
+    ? [
+        {
+          name: 'plan-reminders',
+          from: 10,
+          until: 18,
+          every: 'day',
+          run: (pool: Pool, now: Date) => queuePlanReminders(pool, now, links),
+        } satisfies Job,
+      ]
+    : []),
 ];
+export const JOBS: Job[] = makeJobs();
 
 /**
  * One pass of the scheduler: runs every job that is due and has not run yet for its day (or hour). Safe on several
@@ -129,12 +141,13 @@ export function startScheduler(
   pool: Pool,
   log: JobLog,
   clock: () => Date = () => new Date(),
+  jobs: Job[] = JOBS,
 ): () => void {
   let running = false;
   const timer = setInterval(() => {
     if (running) return;
     running = true;
-    runDueJobs(pool, clock(), log)
+    runDueJobs(pool, clock(), log, jobs)
       .catch((e) => log.error({ err: { name: (e as Error).name } }, 'scheduler failed'))
       .finally(() => {
         running = false;

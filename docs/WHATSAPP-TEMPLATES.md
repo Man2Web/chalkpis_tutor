@@ -58,6 +58,8 @@ Footer on all of them: "Sent via Chalkpis on behalf of your centre". ("/" marks 
 | `trial_ending` | `cp_trial_ending` | 1815391 | owner's name | centre | trial end date | daily job: a trial ends within 2 days (once per trial end) |
 | `plan_active` | `cp_plan_active` | 1815397 | owner's name | `Standard plan for Kiran Karate Academy` | end date | a plan payment is applied (once per payment) |
 | `helper_invite` | `cp_helper_invite` | (in review) | helper's name | owner's name | centre | a helper is added (once per helper) |
+| `plan_ending` | `cp_plan_ending` (**image header**) | (in review) | owner's name | `free trial for Kiran Karate Academy` / `Standard plan for …` | end date | daily job: a trial ends within 2 days, a paid plan within 3 (once per end date); `{{4}}` is the centre's pay link |
+| `plan_ended` | `cp_plan_ended` (**image header**) | (in review) | owner's name | same | end date | daily job: on the day it ended (within 2 days, not renewed; once per end date); `{{4}}` is the pay link |
 
 These are queued in `centre_messages` in the same transaction as their event and sent by the same worker as parent
 messages (with retries); the number is read from the person's account at send time.
@@ -66,6 +68,10 @@ messages (with retries); the number is read from the person's account at send ti
 - **cp_trial_ending**: Hi {{1}}, the free trial for {{2}} ends on {{3}}. / To keep using attendance, fees and parent messages without a break, choose a plan in the Chalkpis app under Account > Plan. Need help? Write to hello@chalkpis.com.
 - **cp_plan_active**: Hi {{1}}, thank you for your payment. The {{2}} is now active until {{3}}. / You can see your plan anytime in the Chalkpis app under Account > Plan.
 - **cp_helper_invite**: Hi {{1}}, {{2}} has added you as a helper at {{3}} on Chalkpis. / Install the Chalkpis app and sign in with this WhatsApp number to take attendance for your batches.
+- **cp_plan_ending** (header: image, the Chalkpis banner at `<PUBLIC_BASE_URL>/plan-renew.png`): Hi {{1}}, the {{2}} ends on {{3}}. / To keep attendance, fees and parent messages running without a break, choose a plan on this secure page: {{4}} / Need help? Write to hello@chalkpis.com.
+- **cp_plan_ended** (header: image, same banner): Hi {{1}}, the {{2}} ended on {{3}}. Your data is safe, and you can still see everything in the app. / To add students, take attendance and send fee updates again, choose a plan on this secure page: {{4}} / Need help? Write to hello@chalkpis.com.
+
+The two plan reminders replace `cp_trial_ending` (text only, never delivered): the server no longer queues `trial_ending`.
 
 Footer: "Chalkpis by M2W Technologies". Meta classed `cp_trial_ending` as **Marketing** (it asks the owner to buy).
 

@@ -10,6 +10,8 @@ export interface WorkerDeps {
   pool: Pool;
   provider: MessageProvider | null; // null = not configured: queued messages are marked skipped
   templates: TemplateMap;
+  /** The server's public address (header images of centre messages). */
+  publicBaseUrl?: string;
   clock?: () => Date;
 }
 

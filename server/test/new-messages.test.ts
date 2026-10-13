@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PLANS } from '../src/billing/plans.js';
 import { applyPaid } from '../src/billing/service.js';
+import { parsePayToken } from '../src/billing/payLink.js';
 import {
+  PLAN_REMINDER_DAYS,
   processCentreQueue,
-  queueTrialEndings,
-  TRIAL_REMINDER_DAYS,
+  queuePlanReminders,
 } from '../src/messaging/centreMessages.js';
 import { batchWithSchedule, clock12 } from '../src/messaging/notify.js';
 import { parseTemplates } from '../src/messaging/templates.js';
@@ -22,8 +23,14 @@ const TEMPLATES = parseTemplates(
     trial_ending: { en: '402' },
     plan_active: { en: '403' },
     helper_invite: { en: '404' },
+    plan_ending: { en: '405' },
+    plan_ended: { en: '406' },
   }),
 );
+const LINKS = {
+  baseUrl: 'https://tutor.chalkpis.com',
+  secret: 'test-jwt-secret-test-jwt-secret-1234',
+};
 
 beforeAll(async () => {
   h = await startHarness();
@@ -105,6 +112,7 @@ const sendCentre = (templates = TEMPLATES) =>
     pool: h.db.pool,
     provider: h.provider,
     templates,
+    publicBaseUrl: 'https://tutor.chalkpis.com',
     clock: () => h.clock.now,
   });
 
@@ -255,7 +263,7 @@ describe('messages from Chalkpis to the centre', () => {
     ]);
   });
 
-  it(`a trial ending within ${TRIAL_REMINDER_DAYS} days reminds the owner once; a paid plan or a later end does not`, async () => {
+  it(`reminds the owner with the pay link ${PLAN_REMINDER_DAYS.trial} days before a trial ends (${PLAN_REMINDER_DAYS.paid} for a paid plan), once`, async () => {
     const B = await h.tenant('+919123456789', { tutor: 'Meena', institute: 'Meena Dance' });
     await h.db.pool.query('DELETE FROM centre_messages');
     const ends = (t: Tenant, days: number, plan = 'trial') =>
@@ -265,14 +273,54 @@ describe('messages from Chalkpis to the centre', () => {
         t.instituteId,
       ]);
     await ends(A, 1.5);
-    await ends(B, 5);
-    expect(await queueTrialEndings(h.db.pool, h.clock.now)).toBe(1);
-    expect(await queueTrialEndings(h.db.pool, h.clock.now)).toBe(0);
+    await ends(B, 2.5); // a trial 2.5 days out is not yet due
+    expect(await queuePlanReminders(h.db.pool, h.clock.now, LINKS)).toBe(1);
+    expect(await queuePlanReminders(h.db.pool, h.clock.now, LINKS)).toBe(0);
     const [row] = await centreRows();
-    expect(row).toMatchObject({ type: 'trial_ending', user_id: A.userId });
-    expect(JSON.parse(row!.vars!)).toEqual(['Kiran', 'Kiran Karate Academy', '9 Oct 2026']);
-    await ends(B, 1, 'standard');
-    expect(await queueTrialEndings(h.db.pool, h.clock.now)).toBe(0);
+    expect(row).toMatchObject({ type: 'plan_ending', user_id: A.userId });
+    const vars = JSON.parse(row!.vars!) as string[];
+    expect(vars.slice(0, 3)).toEqual([
+      'Kiran',
+      'free trial for Kiran Karate Academy',
+      '9 Oct 2026',
+    ]);
+    const link = vars[3]!;
+    expect(link).toMatch(/^https:\/\/tutor\.chalkpis\.com\/pay\/[A-Za-z0-9_-]{38}$/);
+    expect(parsePayToken(LINKS.secret, link.split('/').pop()!)).toBe(A.instituteId);
+
+    // a paid plan is reminded 3 days ahead
+    await ends(B, 2.5, 'standard');
+    expect(await queuePlanReminders(h.db.pool, h.clock.now, LINKS)).toBe(1);
+    const meena = (await centreRows()).find((r) => r.user_id === B.userId)!;
+    expect(JSON.parse(meena.vars!).slice(1, 2)).toEqual(['Standard plan for Meena Dance']);
+
+    // sent with the banner as the header image
+    expect(await sendCentre()).toMatchObject({ sent: 2 });
+    expect(h.provider.sent.find((m) => m.templateId === '405')).toMatchObject({
+      imageUrl: 'https://tutor.chalkpis.com/plan-renew.png',
+    });
+  });
+
+  it('on the day a plan ended, the owner gets the pay link once; long-ended plans are left alone', async () => {
+    const B = await h.tenant('+919123456789', { tutor: 'Meena', institute: 'Meena Dance' });
+    await h.db.pool.query('DELETE FROM centre_messages');
+    const ended = (t: Tenant, daysAgo: number) =>
+      h.db.pool.query(
+        "UPDATE subscriptions SET plan = 'trial', status = 'expired', expires_at = ? WHERE institute_id = ?",
+        [new Date(h.clock.now.getTime() - daysAgo * 86_400_000), t.instituteId],
+      );
+    await ended(A, 0.5);
+    await ended(B, 30);
+    expect(await queuePlanReminders(h.db.pool, h.clock.now, LINKS)).toBe(1);
+    expect(await queuePlanReminders(h.db.pool, h.clock.now, LINKS)).toBe(0);
+    const rows = await centreRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ type: 'plan_ended', user_id: A.userId });
+    expect(await sendCentre()).toMatchObject({ sent: 1 });
+    expect(h.provider.sent.at(-1)).toMatchObject({
+      templateId: '406',
+      imageUrl: 'https://tutor.chalkpis.com/plan-renew.png',
+    });
   });
 
   it('skips with a reason when no template is set, and retries a failed send', async () => {

@@ -1,8 +1,15 @@
 import type { Pool, PoolConnection } from '../db.js';
+import { payUrl } from '../billing/payLink.js';
 import { PLANS, type PlanId } from '../billing/plans.js';
 import { newId } from '../lib/ids.js';
 import type { MessageProvider } from './provider.js';
-import { cleanVar, templateFor, type CentreMessageType, type TemplateMap } from './templates.js';
+import {
+  CENTRE_IMAGE_TYPES,
+  cleanVar,
+  templateFor,
+  type CentreMessageType,
+  type TemplateMap,
+} from './templates.js';
 
 type Db = Pool | PoolConnection;
 
@@ -12,8 +19,15 @@ const RETRY_MINUTES = [2, 15];
 /** A message stuck in "sending" this long (the server stopped mid-send) goes back in the queue. */
 const STALE_MINUTES = 10;
 const E164 = /^\+[1-9]\d{9,14}$/;
-/** How long before a free trial ends its owner is reminded. */
-export const TRIAL_REMINDER_DAYS = 2;
+/** How many days before a free trial (and a paid plan) ends its owner is reminded, with the pay link. */
+export const PLAN_REMINDER_DAYS = { trial: 2, paid: 3 } as const;
+/**
+ * An ended plan is reminded about only if it ended this recently, so the reminder starts with the next plan to end
+ * instead of waking up every centre whose plan ended long ago.
+ */
+const ENDED_WITHIN_DAYS = 2;
+/** The banner sent as the image header of plan reminders. */
+export const PLAN_IMAGE_PATH = '/plan-renew.png';
 
 const day = (d: Date) =>
   d.toLocaleDateString('en-IN', {
@@ -143,27 +157,50 @@ export async function queueHelperInvite(
 }
 
 /**
- * Daily: every free trial ending within the next TRIAL_REMINDER_DAYS gets one reminder to its owner (the trial's end
- * date is the ref, so a trial that is extended and ends again later is reminded again). Returns how many were queued.
+ * Daily: the owner of every centre whose free trial ends within PLAN_REMINDER_DAYS.trial days (a paid plan: .paid days)
+ * gets "the … ends on …" with the centre's pay link, and on the day it ended (if it was not renewed), "the … ended on
+ * …". The end date is the ref, so each end date is reminded about once, and a renewed plan is reminded again when its
+ * new end comes. Needs the public address to build the link. Returns how many were queued.
  */
-export async function queueTrialEndings(pool: Pool, now: Date): Promise<number> {
+export async function queuePlanReminders(
+  pool: Pool,
+  now: Date,
+  links: { baseUrl: string; secret: string },
+): Promise<number> {
+  const DAY = 86_400_000;
   const [rows] = (await pool.query(
-    `SELECT institute_id, expires_at FROM subscriptions
-      WHERE plan = 'trial' AND status = 'active' AND expires_at > ? AND expires_at <= ?`,
-    [now, new Date(now.getTime() + TRIAL_REMINDER_DAYS * 86_400_000)],
-  )) as unknown as [{ institute_id: string; expires_at: Date }[]];
+    `SELECT institute_id, plan, expires_at FROM subscriptions
+      WHERE (expires_at > ? AND expires_at <= IF(plan = 'trial', ?, ?))
+         OR (expires_at <= ? AND expires_at > ?)`,
+    [
+      now,
+      new Date(now.getTime() + PLAN_REMINDER_DAYS.trial * DAY),
+      new Date(now.getTime() + PLAN_REMINDER_DAYS.paid * DAY),
+      now,
+      new Date(now.getTime() - ENDED_WITHIN_DAYS * DAY),
+    ],
+  )) as unknown as [{ institute_id: string; plan: string; expires_at: Date }[]];
   let n = 0;
   for (const r of rows) {
     const c = await centre(pool, r.institute_id);
     if (!c) continue;
+    const what =
+      r.plan === 'trial'
+        ? `free trial for ${c.name}`
+        : `${PLANS[r.plan as PlanId]?.name ?? 'Chalkpis'} plan for ${c.name}`;
     const queued = await queueCentre(
       pool,
       {
         instituteId: r.institute_id,
-        type: 'trial_ending',
+        type: r.expires_at.getTime() <= now.getTime() ? 'plan_ended' : 'plan_ending',
         ref: r.expires_at.toISOString().slice(0, 10),
         userId: c.owner_id,
-        vars: [ownerName(c), cleanVar(c.name), day(r.expires_at)],
+        vars: [
+          ownerName(c),
+          cleanVar(what, 90),
+          day(r.expires_at),
+          cleanVar(payUrl(links.baseUrl, links.secret, r.institute_id), 120),
+        ],
       },
       now,
     );
@@ -176,6 +213,8 @@ export interface CentreQueueDeps {
   pool: Pool;
   provider: MessageProvider | null;
   templates: TemplateMap;
+  /** The server's public address, for the header image of plan reminders. */
+  publicBaseUrl?: string;
   clock?: () => Date;
 }
 
@@ -254,11 +293,16 @@ export async function processCentreQueue(deps: CentreQueueDeps, limit = 25) {
     } catch {
       /* a damaged row is sent with no values rather than blocking the queue */
     }
+    const imageUrl =
+      CENTRE_IMAGE_TYPES.has(r.type) && deps.publicBaseUrl
+        ? `${deps.publicBaseUrl.replace(/\/$/, '')}${PLAN_IMAGE_PATH}`
+        : undefined;
     const result = await deps.provider.send({
       to: r.phone,
       templateId,
       vars,
       reference: `cm_${newId()}`,
+      ...(imageUrl ? { imageUrl } : {}),
     });
     if (result.ok) {
       await settle(r, 'sent', { providerId: result.providerId });

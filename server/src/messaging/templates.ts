@@ -25,13 +25,26 @@ export const MESSAGE_TYPES: MessageType[] = [
 ];
 
 /** Messages from Chalkpis to a centre's own people (the owner, a new helper), not to parents. */
-export type CentreMessageType = 'centre_welcome' | 'trial_ending' | 'plan_active' | 'helper_invite';
+export type CentreMessageType =
+  | 'centre_welcome'
+  | 'trial_ending'
+  | 'plan_active'
+  | 'helper_invite'
+  | 'plan_ending'
+  | 'plan_ended';
 export const CENTRE_MESSAGE_TYPES: CentreMessageType[] = [
   'centre_welcome',
   'trial_ending',
   'plan_active',
   'helper_invite',
+  'plan_ending',
+  'plan_ended',
 ];
+/** Centre messages whose template has an image header (the Chalkpis banner, served at /plan-renew.png). */
+export const CENTRE_IMAGE_TYPES: ReadonlySet<CentreMessageType> = new Set([
+  'plan_ending',
+  'plan_ended',
+]);
 
 /**
  * { absent: { en: "1815393" }, ... }: the template id (wa.adsme.in / ValueFirst) or template name (Meta Cloud API) per

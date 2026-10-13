@@ -104,6 +104,12 @@ export const MESSAGE_TYPES: Record<string, string> = {
   parent_link: 'Parent link',
   student_welcome: 'Welcome',
   class_cancelled: 'Class cancelled',
+  centre_welcome: 'Owner · welcome',
+  trial_ending: 'Owner · trial ending',
+  plan_active: 'Owner · plan active',
+  helper_invite: 'Helper invite',
+  plan_ending: 'Owner · plan ending',
+  plan_ended: 'Owner · plan ended',
 };
 export const msgType = (t: string) => MESSAGE_TYPES[t] ?? t.replace(/_/g, ' ');
 
