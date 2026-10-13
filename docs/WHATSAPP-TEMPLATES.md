@@ -27,7 +27,7 @@ The set below replaced every older template on 12 Oct 2026 (only the login-code 
 | `late` | `cp_late_alert` | 1815389 | student | same as absent | centre | marked late |
 | `fee_due` | `cp_fee_due_soon` | 1815388 | student | `₹1,500 for Oct 2026, due on 15 Oct 2026` | centre | N days before the due date |
 | `fee_overdue` | `cp_fee_overdue` | 1815387 | student | `₹1,500 for Oct 2026, pending since Oct 2026` | centre | day 1, then every N days |
-| `payment_received` | `cp_payment_receipt` | 1815390 | student | `₹1,500 (receipt KKA-00012, balance due ₹0)` | centre | a payment is recorded |
+| `payment_received` | `cp_payment_receipt_nf` (no footer; `cp_payment_receipt` 1815390 is the original) | 1815826 | student | `₹1,500 (receipt KKA-00012, balance due ₹0)` | centre | a payment is recorded |
 | `fee_reminder` | `cp_fee_qr` (**image header**: the UPI QR) | 1815399 | student | `₹1,500 for Oct 2026` | centre | the teacher taps Send reminder (UPI) |
 | `fee_link` | `cp_fee_link` | 1815392 | student | `₹1,500 for Oct 2026` | the centre's payment link | the teacher taps Send reminder (link) |
 | `parent_link` | `cp_parent_page` | 1815395 | student | the private parent page link | centre | the teacher shares the parent page |
@@ -69,6 +69,19 @@ messages (with retries); the number is read from the person's account at send ti
 
 Footer: "Chalkpis by M2W Technologies". Meta classed `cp_trial_ending` as **Marketing** (it asks the owner to buy).
 
+## Open problem: text templates are not delivered (13 Oct 2026)
+
+Templates with an image header (`cp_fee_qr`) and the login code (`tutor_desk`) reach the phone. Every template with
+only a text body is accepted by the gateway (`{"status":"Success"}` with a guid) and then never delivered, to the same
+number that does receive the QR reminder. Ruled out: template approval (all approved), variables (they match), the
+footer (`cp_payment_receipt_nf` has none and also fails), and the request format (msgtype 1; msgtype 3 with an empty
+`type`; msgtype 3 with `type: "text"` and `templateid` as in the gateway's sample, which is what the server sends now).
+The gateway's delivery reports reach `/webhooks/wa-dlr/<secret>` as GET requests without any parameters, so WhatsApp's
+reason is not visible to us. Waiting on wa.adsme.in support for the error code and the right payload for a text-only
+Utility template.
+
+Every send is logged with the gateway's answer (`wa-send` in Coolify > Chalkpis > Runtime Logs, phone numbers masked).
+
 ## Login code
 
 `tutor_desk` (Authentication), template id **1809804**: `WA_TEMPLATE_OTP=1809804`.
@@ -79,7 +92,7 @@ The server reads the template per app message type from `WA_TEMPLATES` (JSON), p
 Through wa.adsme.in use the **Template Id numbers** above (add `helper_invite` once it is approved):
 
 ```
-{"absent":{"en":"1815393"},"late":{"en":"1815389"},"fee_due":{"en":"1815388"},"fee_overdue":{"en":"1815387"},"payment_received":{"en":"1815390"},"fee_reminder":{"en":"1815399"},"fee_link":{"en":"1815392"},"parent_link":{"en":"1815395"},"student_welcome":{"en":"1815398"},"class_cancelled":{"en":"1815394"},"centre_welcome":{"en":"1815396"},"trial_ending":{"en":"1815391"},"plan_active":{"en":"1815397"}}
+{"absent":{"en":"1815393"},"late":{"en":"1815389"},"fee_due":{"en":"1815388"},"fee_overdue":{"en":"1815387"},"payment_received":{"en":"1815826"},"fee_reminder":{"en":"1815399"},"fee_link":{"en":"1815392"},"parent_link":{"en":"1815395"},"student_welcome":{"en":"1815398"},"class_cancelled":{"en":"1815394"},"centre_welcome":{"en":"1815396"},"trial_ending":{"en":"1815391"},"plan_active":{"en":"1815397"}}
 ```
 
 A message type with no template is skipped and shows in the Message log as "No template for this message".
