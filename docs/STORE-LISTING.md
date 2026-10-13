@@ -12,10 +12,14 @@ Both submitted for review on 13 Oct 2026, free, India only.
 | App | Chalkpis: Class & Fee Manager, `in.chalkpis.tutors` | Chalkpis: Class & Fee Manager, Apple ID 6822059424 |
 | First build | versionCode 4 (1.0.0), production track | 1.0.0 build 3, released automatically once approved |
 
-Next builds: `eas build -p android|ios --profile production`, then `eas submit -p ios` (no Apple sign-in needed: the
-App Store app id is in `app/eas.json` and EAS holds an App Store Connect API key). Android bundles are uploaded in
-Play Console (Test and release > Production > Create new release) until a Play service account is added for
-`eas submit -p android`.
+Next builds: `eas build -p android|ios --profile production`, then `eas submit -p ios --asc-app-id 6822059424` (no
+Apple sign-in needed: EAS holds an App Store Connect API key). Android bundles are uploaded in Play Console (Test and
+release > Production > Create new release) until a Play service account is added for `eas submit -p android`.
+
+**Over-the-air updates** (`eas update --channel production`) only reach builds with the same fingerprint, and any
+change to `app/eas.json` counts as a native change. Keep the app id out of `eas.json` (pass `--asc-app-id`), and check
+with `eas fingerprint:compare --build-id <id>` before publishing. Publish with the live API address, not the local
+`.env` one: `EXPO_PUBLIC_API_URL=https://tutor.chalkpis.com eas update --channel production -m "..."`.
 
 ## Identity
 

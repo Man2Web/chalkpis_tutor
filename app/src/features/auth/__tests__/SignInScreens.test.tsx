@@ -29,3 +29,11 @@ describe('welcome', () => {
     expect(nav.navigate).toHaveBeenCalledWith('Phone');
   });
 });
+
+describe('welcome number field', () => {
+  it('the number field on the welcome sheet opens the mobile number step', async () => {
+    await render(<LanguageScreen {...welcomeProps} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Enter mobile number' }));
+    expect(nav.navigate).toHaveBeenCalledWith('Phone');
+  });
+});

@@ -1,15 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
-import { useWindowDimensions, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { OtpInput } from 'panelui-native/components/otp-input';
-import { Button } from '../../components';
+import { BRAND } from '../../components';
 import { formatIndianPhone } from '../../lib/phone';
 import type { AuthStackParams } from '../../navigation/types';
+import { font, spacing } from '../../theme';
 import { resendWaitOf } from './authErrors';
-import { AuthStepLayout, WhatsAppPreview } from './brand';
 import { DevCodeHint } from './DevCodeHint';
 import { authErrorKey, confirmCode, RESEND_SECONDS, sendCode } from './phoneAuth';
+import {
+  CodeBoxes,
+  ErrorText,
+  INK,
+  PrimaryButton,
+  SignInLayout,
+  SIGNIN,
+  Subtle,
+  TextButton,
+  WhatsAppCodeCard,
+} from './signin';
 
 export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStackParams, 'Otp'>) {
   const { t } = useTranslation();
@@ -19,10 +29,8 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
   const [seconds, setSeconds] = useState(resendIn ?? RESEND_SECONDS);
-  // the last cell (auto-submit) and the Verify button can land in the same frame; one check per code
+  // the last box (auto-submit) and the Verify button can land in the same frame; one check per code
   const inFlight = useRef(false);
-  // six 44 dp cells do not fit beside the sheet padding on the narrowest phones
-  const small = useWindowDimensions().width < 360;
 
   useEffect(() => {
     if (seconds <= 0) return;
@@ -52,6 +60,7 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
   const resend = async () => {
     if (resending) return;
     setError(undefined);
+    setCode('');
     setResending(true);
     try {
       await sendCode(phone);
@@ -66,45 +75,59 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
   };
 
   return (
-    <AuthStepLayout
-      icon="chatbubble-ellipses"
+    <SignInLayout
       title={t('auth.otpTitle')}
-      subtitle={t('auth.otpSentTo', { phone: formatIndianPhone(phone) })}
+      subtitle={
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+          <Subtle>{t('auth.otpSentTo', { phone: formatIndianPhone(phone) })}</Subtle>
+          <Text
+            accessibilityRole="link"
+            onPress={() => navigation.goBack()}
+            style={{ fontSize: 15, ...font('700'), color: BRAND }}
+          >
+            {t('auth.edit')}
+          </Text>
+        </View>
+      }
       onBack={() => navigation.goBack()}
+      footer={
+        <PrimaryButton title={t('auth.verify')} onPress={() => void verify()} loading={busy} />
+      }
     >
-      <WhatsAppPreview />
       <DevCodeHint phone={phone} onUse={setCode} />
-      <View className="my-4 items-center">
-        <OtpInput
-          length={6}
-          size={small ? 'sm' : 'md'}
-          value={code}
-          onChangeText={(v) => {
-            setError(undefined);
-            setCode(v);
-          }}
-          onComplete={(v) => {
-            setCode(v);
-            void verify(v);
-          }}
-          type="numeric"
-          autoFocus
-          autoComplete="sms-otp"
-          textContentType="oneTimeCode"
-          isInvalid={!!error}
-          errorMessage={error}
-          accessibilityLabel={t('auth.otpLabel')}
+      <CodeBoxes
+        value={code}
+        onChange={(v) => {
+          setError(undefined);
+          setCode(v);
+        }}
+        onComplete={(v) => void verify(v)}
+        error={!!error}
+        label={t('auth.otpLabel')}
+        autoFocus
+      />
+      {error ? <ErrorText>{error}</ErrorText> : null}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: spacing.sm,
+        }}
+      >
+        <Text style={{ fontSize: 14, ...font('500'), color: SIGNIN.muted }}>
+          {t('auth.didntGet')}
+        </Text>
+        <TextButton
+          title={seconds > 0 ? t('auth.resendIn', { seconds }) : t('auth.resend')}
+          onPress={() => void resend()}
+          disabled={seconds > 0}
+          loading={resending}
+          color={BRAND}
         />
       </View>
-      <Button title={t('auth.verify')} onPress={() => void verify()} loading={busy} />
-      <Button
-        variant="ghost"
-        title={seconds > 0 ? t('auth.resendIn', { seconds }) : t('auth.resend')}
-        onPress={resend}
-        disabled={seconds > 0}
-        loading={resending}
-      />
-      <Button variant="ghost" title={t('auth.changeNumber')} onPress={() => navigation.goBack()} />
-    </AuthStepLayout>
+      <WhatsAppCodeCard />
+      <TextButton title={t('auth.changeNumber')} onPress={() => navigation.goBack()} color={INK} />
+    </SignInLayout>
   );
 }

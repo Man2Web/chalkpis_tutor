@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Logo } from '../../components';
 import { haptic } from '../../lib/haptics';
 import type { AuthStackParams } from '../../navigation/types';
-import { colors, column, font, radius, spacing, type } from '../../theme';
+import { colors, column, font, spacing, type } from '../../theme';
 import { BrandBackdrop, BRAND_DEEP, Float, PreviewCard } from './brand';
+import { CountryChip, PrimaryButton, SIGNIN } from './signin';
 
 /** What a tutor's day looks like in Chalkpis, as three little cards floating in the hero. */
 const CARDS = [
@@ -23,34 +23,6 @@ const CARDS = [
   { icon: 'cash-outline', tint: '#0E77BE', key: 'Fee', rotate: '2.5deg', align: 'flex-end' },
   { icon: 'logo-whatsapp', tint: '#1DA851', key: 'Parent', rotate: '-1.5deg', align: 'center' },
 ] as const;
-
-/** The full-width "Continue with WhatsApp" button, in WhatsApp green. */
-function WhatsAppButton({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={() => {
-        haptic.tap();
-        onPress();
-      }}
-      style={({ pressed }) => ({
-        minHeight: 52,
-        borderRadius: radius.md + 2,
-        backgroundColor: '#1DA851',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: spacing.sm,
-        opacity: pressed ? 0.85 : 1,
-        transform: [{ scale: pressed ? 0.98 : 1 }],
-      })}
-    >
-      <Ionicons name="logo-whatsapp" size={20} color="#FFFFFF" />
-      <Text style={{ fontSize: 16, ...font('600'), color: '#FFFFFF' }}>{label}</Text>
-    </Pressable>
-  );
-}
 
 /**
  * First screen, for new and returning teachers alike (tuition, coaching, abacus, karate, dance, yoga, sports): what
@@ -146,18 +118,53 @@ export function LanguageScreen({
             borderTopRightRadius: 28,
             marginTop: -28,
             paddingTop: spacing.xl,
-            paddingHorizontal: spacing.lg,
+            paddingHorizontal: spacing.lg + 4,
             paddingBottom: insets.bottom + spacing.md,
           }}
         >
-          <View style={[column, { width: '100%', gap: spacing.sm }]}>
-            <WhatsAppButton
-              label={t('auth.continueWhatsApp')}
+          <View style={[column, { width: '100%', gap: spacing.md }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: SIGNIN.line }} />
+              <Text
+                accessibilityRole="header"
+                style={{ fontSize: 15, ...font('700'), color: SIGNIN.muted }}
+              >
+                {t('auth.loginOrSignup')}
+              </Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: SIGNIN.line }} />
+            </View>
+            {/* looks like the number field; the real one opens on the next screen with the keyboard up */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('auth.enterMobile')}
+              onPress={() => {
+                haptic.tap();
+                navigation.navigate('Phone');
+              }}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                minHeight: 60,
+                borderRadius: 14,
+                borderWidth: 1.5,
+                borderColor: SIGNIN.line,
+                backgroundColor: pressed ? SIGNIN.field : '#FFFFFF',
+              })}
+            >
+              <CountryChip />
+              <View
+                style={{ width: 1.5, height: 26, backgroundColor: SIGNIN.line, marginHorizontal: 12 }}
+              />
+              <Text style={{ flex: 1, fontSize: 17, ...font('500'), color: '#9CA3AF' }}>
+                {t('auth.enterMobile')}
+              </Text>
+            </Pressable>
+            <PrimaryButton
+              title={t('auth.continueWhatsApp')}
+              icon="logo-whatsapp"
               onPress={() => navigation.navigate('Phone')}
             />
-            <Text style={[type.footnote, { textAlign: 'center', marginTop: spacing.xs }]}>
-              {t('auth.newHere')}
-            </Text>
+            <Text style={[type.footnote, { textAlign: 'center' }]}>{t('auth.newHere')}</Text>
             <Text style={[type.caption2, { textAlign: 'center', marginTop: spacing.sm }]}>
               {t('legal.agreePrefix')}{' '}
               <Text

@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Button, Input } from '../../components';
 import { normalizeIndianPhone } from '../../lib/phone';
 import type { AuthStackParams } from '../../navigation/types';
-import { AuthStepLayout } from './brand';
 import { resendWaitOf } from './authErrors';
 import { authErrorKey, sendCode } from './phoneAuth';
+import { PhoneField, PrimaryButton, SignInLayout, Subtle, WhatsAppNote } from './signin';
 
 export function PhoneLoginScreen({ navigation }: NativeStackScreenProps<AuthStackParams, 'Phone'>) {
   const { t } = useTranslation();
@@ -36,29 +35,24 @@ export function PhoneLoginScreen({ navigation }: NativeStackScreenProps<AuthStac
   };
 
   return (
-    <AuthStepLayout
-      icon="logo-whatsapp"
-      iconColor="#1DA851"
+    <SignInLayout
       title={t('auth.phoneTitle')}
-      subtitle={t('auth.phoneHint')}
+      subtitle={<Subtle>{t('auth.phoneHint')}</Subtle>}
       onBack={() => navigation.goBack()}
+      footer={<PrimaryButton title={t('auth.sendCode')} onPress={submit} loading={busy} />}
     >
-      <Input
+      <PhoneField
         label={t('auth.phoneLabel')}
         value={value}
-        onChangeText={setValue}
-        keyboardType="phone-pad"
-        autoComplete="tel"
-        textContentType="telephoneNumber"
-        maxLength={16}
-        placeholder="98765 43210"
-        prefix="+91"
+        onChangeText={(v) => {
+          setError(undefined);
+          setValue(v);
+        }}
         error={error}
         autoFocus
-        returnKeyType="send"
-        onSubmitEditing={() => void submit()}
+        onSubmit={() => void submit()}
       />
-      <Button title={t('auth.sendCode')} onPress={submit} loading={busy} />
-    </AuthStepLayout>
+      <WhatsAppNote text={t('auth.otpCheckWhatsApp')} />
+    </SignInLayout>
   );
 }

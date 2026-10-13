@@ -41,7 +41,7 @@
     "phoneHint": "We will send you a 6-digit code on WhatsApp.",
     "phoneLabel": "Mobile number",
     "sendCode": "Send code",
-    "otpTitle": "Enter the code",
+    "otpTitle": "Enter verification code",
     "otpSentTo": "Sent to {{phone}}",
     "otpLabel": "6-digit code",
     "verify": "Verify",
@@ -69,8 +69,12 @@
     "openWhatsApp": "Open WhatsApp",
     "otpPreviewFrom": "Chalkpis",
     "otpPreviewText": "Your Chalkpis sign-in code is ●●●●●●. Do not share it with anyone.",
-    "otpCheckWhatsApp": "Check WhatsApp for a message from Chalkpis",
-    "welcomeKicker": "Tuition · Coaching · Abacus · Karate · Dance · Yoga · Sports"
+    "otpCheckWhatsApp": "The code comes on WhatsApp from Chalkpis",
+    "welcomeKicker": "Tuition · Coaching · Abacus · Karate · Dance · Yoga · Sports",
+    "loginOrSignup": "Log in or sign up",
+    "enterMobile": "Enter mobile number",
+    "edit": "Edit",
+    "didntGet": "Didn't get the code?"
   },
   "onboarding": {
     "profileTitle": "About you",
