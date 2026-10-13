@@ -156,17 +156,20 @@ describe('wa.adsme.in gateway request', () => {
     });
   });
 
-  it('sends a text-only template as a transactional message without media fields', () => {
+  it('sends a text-only template as a text template (type 3, type text, templateid)', () => {
     const msg = p.body({
       to: '+919876500001',
       templateId: '1815393',
       vars: ['A', 'B', 'C'],
       reference: 'm2',
     }).whatsapp.messages[0]!;
-    expect(msg.msgtype).toBe('1');
-    expect(msg.templateinfo).toBe('1815393~A~B~C');
-    expect(msg.type).toBe('');
-    expect(msg.mediadata).toBe('');
+    expect(msg).toMatchObject({
+      msgtype: '3',
+      type: 'text',
+      templateid: '1815393',
+      templateinfo: '1815393~A~B~C',
+      mediadata: '',
+    });
     expect(msg).not.toHaveProperty('contenttype');
   });
 
@@ -179,6 +182,8 @@ describe('wa.adsme.in gateway request', () => {
       otp: true,
     }).whatsapp.messages[0]!;
     expect(msg.msgtype).toBe('3');
+    expect(msg.type).toBe('');
+    expect(msg).not.toHaveProperty('templateid');
     expect(msg.templateinfo).toBe('1809804~123456');
   });
 });
@@ -225,7 +230,7 @@ describe('gateway delivery reports', () => {
       wa: 'send',
       ref: 'm9',
       template: '1815389',
-      msgtype: '1',
+      msgtype: '3',
       http: 200,
     });
     expect(String(lines[0]!.answer)).toContain('••••0001');

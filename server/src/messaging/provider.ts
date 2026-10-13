@@ -81,14 +81,16 @@ export class WhatsAppProvider implements MessageProvider {
           {
             coding: '1',
             id,
-            // The gateway's types: 1 = transactional template, 3 = template with a media header and/or buttons (the
-            // UPI QR, and the login code with its copy-code button).
-            msgtype: m.imageUrl || m.otp ? '3' : '1',
+            // Every template goes as type 3, as in the gateway's documented template sample. Plain text templates
+            // sent as type 1, or as type 3 without `type: "text"` and `templateid`, were accepted but never delivered.
+            msgtype: '3',
             text: '',
+            ...(m.imageUrl || m.otp ? {} : { templateid: m.templateId }),
             templateinfo: [m.templateId, ...m.vars].join('~'),
             // A header picture (the UPI QR) needs all three, as in the gateway's documentation: the media type, its
             // MIME type and a public URL. Without `type` the gateway accepts the message but WhatsApp drops it.
-            type: m.imageUrl ? 'image' : '',
+            // The login code keeps the empty type it has always worked with.
+            type: m.imageUrl ? 'image' : m.otp ? '' : 'text',
             ...(m.imageUrl ? { contenttype: 'image/png' } : {}),
             mediadata: m.imageUrl ?? '',
             b_urlinfo: '1',
