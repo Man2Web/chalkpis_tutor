@@ -4,7 +4,7 @@ import { parsePayToken, payToken } from '../src/billing/payLink.js';
 import { PLANS } from '../src/billing/plans.js';
 import {
   CashfreeProvider,
-  cashfreeLinkId,
+  cashfreeOrderId,
   istIso,
   verifyCashfreeSignature,
   type BillingProvider,
@@ -32,53 +32,52 @@ function fakeFetch(answers: Record<string, unknown>) {
 }
 
 describe('CashfreeProvider', () => {
-  const opts = { appId: 'app_1', secretKey: 'sk_1', env: 'sandbox' as const };
+  const opts = {
+    appId: 'app_1',
+    secretKey: 'sk_1',
+    env: 'sandbox' as const,
+    checkoutUrl: (id: string) => `https://tutor.chalkpis.com/billing/checkout/${id}`,
+  };
   const nowMs = () => Date.parse('2026-10-13T10:00:00Z');
+  const ID = '0b6f3c1e-1111-4222-8333-944445555666';
 
-  it('creates a payment link with our order id, the price in rupees and no Cashfree SMS or email', async () => {
-    const f = fakeFetch({ '/links': { link_url: 'https://payments-test.cashfree.com/links/abc' } });
+  it('creates an order with our order id and the price in rupees, and sends the payer to our checkout page', async () => {
+    const f = fakeFetch({ '/orders': { order_id: ID, payment_session_id: 'session_abc' } });
     const p = new CashfreeProvider(opts, f.fn, nowMs);
     const link = await p.createPaymentLink({
       amountPaise: 69900,
       description: 'Chalkpis Standard plan (6 months)',
-      referenceId: '0b6f3c1e-1111-4222-8333-944445555666',
+      referenceId: ID,
       customerPhone: '+919800000001',
       returnUrl: 'https://tutor.chalkpis.com/billing/return?order=x',
       notifyUrl: 'https://tutor.chalkpis.com/billing/webhooks/cashfree',
     });
-    expect(link).toEqual({
-      id: '0b6f3c1e-1111-4222-8333-944445555666',
-      url: 'https://payments-test.cashfree.com/links/abc',
-    });
+    expect(link).toEqual({ id: ID, url: `https://tutor.chalkpis.com/billing/checkout/${ID}` });
     const call = f.calls[0]!;
-    expect(call.url).toBe('https://sandbox.cashfree.com/pg/links');
+    expect(call.url).toBe('https://sandbox.cashfree.com/pg/orders');
     const headers = call.init.headers as Record<string, string>;
     expect(headers['x-client-id']).toBe('app_1');
     expect(headers['x-client-secret']).toBe('sk_1');
     expect(headers['x-api-version']).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(JSON.parse(call.init.body as string)).toMatchObject({
-      link_id: '0b6f3c1e-1111-4222-8333-944445555666',
-      link_amount: 699,
-      link_currency: 'INR',
-      link_partial_payments: false,
-      customer_details: { customer_phone: '9800000001' },
-      link_expiry_time: '2026-10-13T16:30:00+05:30',
-      link_meta: {
+      order_id: ID,
+      order_amount: 699,
+      order_currency: 'INR',
+      order_note: 'Chalkpis Standard plan (6 months)',
+      customer_details: { customer_id: 'p9800000001', customer_phone: '9800000001' },
+      order_expiry_time: '2026-10-13T16:30:00+05:30',
+      order_meta: {
         return_url: 'https://tutor.chalkpis.com/billing/return?order=x',
         notify_url: 'https://tutor.chalkpis.com/billing/webhooks/cashfree',
       },
-      link_notify: { send_sms: false, send_email: false },
     });
   });
 
-  it("keeps Cashfree's reason when it refuses a link", async () => {
+  it("keeps Cashfree's reason when it refuses an order", async () => {
     const fn = (async () =>
-      new Response(
-        JSON.stringify({ code: 'request_failed', message: 'link_meta.return_url : invalid' }),
-        {
-          status: 400,
-        },
-      )) as unknown as typeof fetch;
+      new Response(JSON.stringify({ code: 'request_failed', message: 'authentication Failed' }), {
+        status: 401,
+      })) as unknown as typeof fetch;
     const p = new CashfreeProvider(opts, fn, nowMs);
     await expect(
       p.createPaymentLink({
@@ -87,40 +86,52 @@ describe('CashfreeProvider', () => {
         referenceId: 'r',
         customerPhone: '9800000001',
       }),
-    ).rejects.toThrow('cashfree-400: request_failed link_meta.return_url : invalid');
+    ).rejects.toThrow('cashfree-401: request_failed authentication Failed');
   });
 
-  it('refuses to create a link without a mobile number (Cashfree needs one)', async () => {
+  it('refuses to create an order without a mobile number (Cashfree needs one)', async () => {
     const p = new CashfreeProvider(opts, fakeFetch({}).fn, nowMs);
     await expect(
       p.createPaymentLink({ amountPaise: 100, description: 'x', referenceId: 'r' }),
     ).rejects.toThrow('cashfree-no-phone');
   });
 
-  it('reads a paid link as COMPLETED with the paid order as the payment id', async () => {
+  it('reads a paid order as COMPLETED with the successful payment as the payment id', async () => {
     const f = fakeFetch({
-      '/links/L1': { link_status: 'PAID', link_amount_paid: 699 },
-      '/links/L1/orders?status=PAID': [
-        { order_id: 'CFPay_b', order_status: 'PAID' },
-        { order_id: 'CFPay_a', order_status: 'PAID' },
+      [`/orders/${ID}`]: { order_status: 'PAID' },
+      [`/orders/${ID}/payments`]: [
+        { cf_payment_id: 111, payment_status: 'FAILED', payment_amount: 699 },
+        { cf_payment_id: 222, payment_status: 'SUCCESS', payment_amount: 699 },
       ],
     });
     const p = new CashfreeProvider({ ...opts, env: 'production' }, f.fn, nowMs);
-    expect(await p.checkStatus('L1')).toEqual({
+    expect(await p.checkStatus(ID)).toEqual({
       state: 'COMPLETED',
       amountPaise: 69900,
-      paymentId: 'CFPay_a',
+      paymentId: 'cf_222',
     });
-    expect(f.calls[0]!.url).toBe('https://api.cashfree.com/pg/links/L1');
+    expect(f.calls[0]!.url).toBe(`https://api.cashfree.com/pg/orders/${ID}`);
   });
 
-  it('reads active links as PENDING and expired or cancelled ones as FAILED', async () => {
-    const status = async (link_status: string) =>
-      new CashfreeProvider(opts, fakeFetch({ '/links/L': { link_status } }).fn).checkStatus('L');
+  it('reads active orders as PENDING and expired or terminated ones as FAILED', async () => {
+    const status = async (order_status: string) =>
+      new CashfreeProvider(opts, fakeFetch({ '/orders/O1': { order_status } }).fn).checkStatus(
+        'O1',
+      );
     expect((await status('ACTIVE')).state).toBe('PENDING');
-    expect((await status('PARTIALLY_PAID')).state).toBe('PENDING');
     expect((await status('EXPIRED')).state).toBe('FAILED');
-    expect((await status('CANCELLED')).state).toBe('FAILED');
+    expect((await status('TERMINATED')).state).toBe('FAILED');
+    expect((await status('TERMINATION_REQUESTED')).state).toBe('FAILED');
+  });
+
+  it('hands the checkout page a payment session only while the order can be paid', async () => {
+    const session = async (order: unknown) =>
+      new CashfreeProvider(opts, fakeFetch({ '/orders/O1': order }).fn).checkoutSession('O1');
+    expect(await session({ order_status: 'ACTIVE', payment_session_id: 'session_x' })).toEqual({
+      sessionId: 'session_x',
+      mode: 'sandbox',
+    });
+    expect(await session({ order_status: 'PAID', payment_session_id: 'session_x' })).toBeNull();
   });
 
   it('writes Cashfree times in IST without milliseconds', () => {
@@ -130,7 +141,7 @@ describe('CashfreeProvider', () => {
 
 describe('Cashfree webhook helpers', () => {
   it('checks the signature over timestamp + the exact body', () => {
-    const raw = '{"type":"PAYMENT_LINK_EVENT","data":{"link_id":"L1"}}';
+    const raw = '{"type":"PAYMENT_SUCCESS_WEBHOOK","data":{"order":{"order_id":"O1"}}}';
     expect(verifyCashfreeSignature(raw, '1760000000', sign('1760000000', raw), SECRET)).toBe(true);
     expect(verifyCashfreeSignature(`${raw} `, '1760000000', sign('1760000000', raw), SECRET)).toBe(
       false,
@@ -140,13 +151,17 @@ describe('Cashfree webhook helpers', () => {
     expect(verifyCashfreeSignature(raw, '1', 'x', undefined)).toBe(false);
   });
 
-  it('finds the link id in JSON or form bodies, and ignores other events', () => {
-    expect(cashfreeLinkId('{"type":"PAYMENT_LINK_EVENT","data":{"link_id":"abc-1"}}')).toBe(
-      'abc-1',
-    );
-    expect(cashfreeLinkId('link_id=abc-2&link_status=PAID')).toBe('abc-2');
-    expect(cashfreeLinkId('{"type":"PAYMENT_SUCCESS_WEBHOOK","data":{}}')).toBeNull();
-    expect(cashfreeLinkId('{"type":"PAYMENT_LINK_EVENT","data":{"link_id":"<x>"}}')).toBeNull();
+  it('finds the order id in payment webhooks, and ignores other events', () => {
+    const body = (type: string, order_id: string) =>
+      JSON.stringify({
+        type,
+        data: { order: { order_id }, payment: { payment_status: 'SUCCESS' } },
+      });
+    expect(cashfreeOrderId(body('PAYMENT_SUCCESS_WEBHOOK', 'abc-1'))).toBe('abc-1');
+    expect(cashfreeOrderId(body('PAYMENT_FAILED_WEBHOOK', 'abc-2'))).toBe('abc-2');
+    expect(cashfreeOrderId(body('REFUND_STATUS_WEBHOOK', 'abc-3'))).toBeNull();
+    expect(cashfreeOrderId(body('PAYMENT_SUCCESS_WEBHOOK', '<x>'))).toBeNull();
+    expect(cashfreeOrderId('order_id=abc')).toBeNull();
   });
 });
 
@@ -162,22 +177,27 @@ describe('pay page tokens', () => {
   });
 });
 
-/** Stands in for Cashfree: hands out link URLs and answers status questions from a table we control. */
+/** Stands in for Cashfree: hands out checkout pages and answers status questions from tables we control. */
 class FakeCashfree implements BillingProvider {
   name = 'cashfree' as const;
   created: LinkRequest[] = [];
   status = new Map<string, OrderStatus>();
+  sessions = new Map<string, string | null>();
   async createPaymentLink(req: LinkRequest) {
     this.created.push(req);
     return {
       id: req.referenceId,
-      url: `https://payments-test.cashfree.com/links/${req.referenceId}`,
+      url: `https://tutor.chalkpis.com/billing/checkout/${req.referenceId}`,
     };
   }
   async checkStatus(linkId: string) {
     return (
       this.status.get(linkId) ?? { state: 'PENDING' as const, amountPaise: 0, paymentId: null }
     );
+  }
+  async checkoutSession(linkId: string) {
+    const s = this.sessions.get(linkId);
+    return s ? { sessionId: s, mode: 'sandbox' as const } : null;
   }
 }
 
@@ -195,6 +215,7 @@ describe('Cashfree plan purchases', () => {
     await h.reset();
     fake.created = [];
     fake.status.clear();
+    fake.sessions.clear();
   });
 
   const hook = (raw: string, sig?: string, ts = '1760000000') =>
@@ -235,8 +256,8 @@ describe('Cashfree plan purchases', () => {
     const t = await h.tenant('+919800000001');
     const orderId = (await t.call('POST', '/billing/links', { planId: 'standard' })).body.orderId;
     const raw = JSON.stringify({
-      type: 'PAYMENT_LINK_EVENT',
-      data: { link_id: orderId, link_status: 'PAID' },
+      type: 'PAYMENT_SUCCESS_WEBHOOK',
+      data: { order: { order_id: orderId }, payment: { payment_status: 'SUCCESS' } },
     });
 
     expect((await hook(raw)).json()).toMatchObject({ state: 'pending' }); // Cashfree has not confirmed yet
@@ -245,21 +266,24 @@ describe('Cashfree plan purchases', () => {
     fake.status.set(orderId, {
       state: 'COMPLETED',
       amountPaise: PLANS.standard.pricePaise,
-      paymentId: 'CFPay_1',
+      paymentId: 'cf_1',
     });
     expect((await hook(raw)).json()).toMatchObject({ state: 'paid' });
     expect((await hook(raw)).json()).toMatchObject({ state: 'paid' }); // replay
     const history = (await t.call('GET', '/billing')).body.history;
     expect(history).toHaveLength(1);
     expect(history[0]).toMatchObject({
-      paymentId: 'CFPay_1',
+      paymentId: 'cf_1',
       provider: 'cashfree',
       planId: 'standard',
     });
   });
 
   it('refuses a webhook with a bad signature and acknowledges other events', async () => {
-    const raw = JSON.stringify({ type: 'PAYMENT_LINK_EVENT', data: { link_id: 'x' } });
+    const raw = JSON.stringify({
+      type: 'PAYMENT_SUCCESS_WEBHOOK',
+      data: { order: { order_id: 'x1' } },
+    });
     expect((await hook(raw, 'bad')).statusCode).toBe(401);
     const other = JSON.stringify({ type: 'REFUND_STATUS_WEBHOOK', data: {} });
     expect((await hook(other)).json()).toMatchObject({ ignored: true });
@@ -289,7 +313,9 @@ describe('Cashfree plan purchases', () => {
       amountPaise: PLANS.pro.pricePaise,
       customerPhone: '+919800000001',
     });
-    expect(r.body).toContain(`url=https://payments-test.cashfree.com/links/${order.referenceId}`);
+    expect(r.body).toContain(
+      `url=https://tutor.chalkpis.com/billing/checkout/${order.referenceId}`,
+    );
     const [rows] = (await h.db.pool.query(
       'SELECT institute_id, plan_id, provider FROM billing_orders WHERE id = ?',
       [order.referenceId],
@@ -298,6 +324,37 @@ describe('Cashfree plan purchases', () => {
 
     expect((await post(payPage(t), 'plan=gold')).statusCode).toBe(400);
     expect(fake.created).toHaveLength(1);
+  });
+
+  it("the checkout page opens Cashfree with the order's session, and sends a finished order to the return page", async () => {
+    const t = await h.tenant('+919800000001', { institute: 'Sunrise Dance' });
+    await post(payPage(t), 'plan=starter');
+    const orderId = fake.created[0]!.referenceId;
+    fake.sessions.set(orderId, 'session_"abc"');
+    const r = await h.app.inject({ method: 'GET', url: `/billing/checkout/${orderId}` });
+    expect(r.statusCode).toBe(200);
+    expect(r.headers['content-security-policy']).toContain(
+      "script-src 'self' https://sdk.cashfree.com",
+    );
+    expect(r.body).toContain('data-session="session_&quot;abc&quot;"');
+    expect(r.body).toContain('data-mode="sandbox"');
+    expect(r.body).toContain('https://sdk.cashfree.com/js/v3/cashfree.js');
+    expect(r.body).toContain('Sunrise Dance');
+    expect(r.body).toContain('₹399');
+
+    fake.sessions.set(orderId, null); // paid or expired: no session any more
+    const done = await h.app.inject({ method: 'GET', url: `/billing/checkout/${orderId}` });
+    expect(done.statusCode).toBe(303);
+    expect(done.headers.location).toBe(`/billing/return?order=${orderId}`);
+
+    const unknown = await h.app.inject({
+      method: 'GET',
+      url: '/billing/checkout/0b6f3c1e-1111-4222-8333-944445555666',
+    });
+    expect(unknown.statusCode).toBe(404);
+    expect((await h.app.inject({ method: 'GET', url: '/billing/checkout.js' })).statusCode).toBe(
+      200,
+    );
   });
 
   it('the admin sees the pay page link for a centre', async () => {

@@ -71,6 +71,8 @@ async function main() {
       appId: config.CASHFREE_APP_ID,
       secretKey: config.CASHFREE_SECRET_KEY,
       env: config.CASHFREE_ENV,
+      checkoutUrl: (id) =>
+        `${(config.PUBLIC_BASE_URL ?? '').replace(/\/$/, '')}/billing/checkout/${id}`,
     });
   else if (config.PHONEPE_CLIENT_ID && config.PHONEPE_CLIENT_SECRET)
     billing = new PhonePeProvider({

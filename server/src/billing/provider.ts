@@ -31,6 +31,10 @@ export interface BillingProvider {
   createPaymentLink(req: LinkRequest): Promise<PaymentLink>;
   /** Providers that can be asked about an order (PhonePe, Cashfree) confirm payments this way rather than trusting a webhook. */
   checkStatus?(linkId: string): Promise<OrderStatus>;
+  /** Cashfree: what our checkout page needs to open the provider's payment window; null once it cannot be paid. */
+  checkoutSession?(
+    linkId: string,
+  ): Promise<{ sessionId: string; mode: 'sandbox' | 'production' } | null>;
 }
 
 /** Razorpay Payment Links: the owner pays in the browser, so the app needs no payment SDK. */
@@ -261,7 +265,7 @@ const CASHFREE_HOSTS = {
 } as const;
 const CASHFREE_API_VERSION = '2026-01-01';
 
-/** Cashfree wants the expiry as a local ISO time without milliseconds: 2026-10-13T21:30:00+05:30. */
+/** Cashfree wants times as a local ISO time without milliseconds: 2026-10-13T21:30:00+05:30. */
 export function istIso(d: Date): string {
   return `${new Date(d.getTime() + 330 * 60_000).toISOString().slice(0, 19)}+05:30`;
 }
@@ -277,14 +281,21 @@ async function cashfreeReason(res: Response): Promise<string> {
 }
 
 /**
- * Cashfree Payment Links: the owner pays on Cashfree's hosted page (UPI, cards, net banking), so neither the app nor
- * the pay page needs a payment SDK. Our order id is the link_id, so a link can only ever be created once per order.
- * A plan is applied only from what Cashfree says when asked (checkStatus), never from a webhook body.
+ * Cashfree Payment Gateway, standard checkout (Orders API). Our order id is Cashfree's order_id, so an order can only
+ * be created once. The payer goes to our checkout page (checkoutUrl), which opens Cashfree's hosted payment page with
+ * the order's payment session (cashfree.js); nothing about the card or UPI ever touches our server. A plan is applied
+ * only from what Cashfree says when asked (checkStatus), never from a webhook body.
  */
 export class CashfreeProvider implements BillingProvider {
   name = 'cashfree' as const;
   constructor(
-    private opts: { appId: string; secretKey: string; env: 'sandbox' | 'production' },
+    private opts: {
+      appId: string;
+      secretKey: string;
+      env: 'sandbox' | 'production';
+      /** Our page that opens Cashfree's checkout for one order. */
+      checkoutUrl: (orderId: string) => string;
+    },
     private fetchFn: typeof fetch = fetch,
     private nowMs: () => number = Date.now,
   ) {}
@@ -301,56 +312,69 @@ export class CashfreeProvider implements BillingProvider {
     });
   }
 
+  private async order(orderId: string) {
+    const res = await this.call(`/orders/${encodeURIComponent(orderId)}`, { method: 'GET' });
+    if (!res.ok) throw new Error(`cashfree-order-${res.status}${await cashfreeReason(res)}`);
+    return (await res.json()) as { order_status?: string; payment_session_id?: string };
+  }
+
   async createPaymentLink(req: LinkRequest): Promise<PaymentLink> {
-    // Cashfree requires a phone; it is only used to prefill its page (no SMS or email is sent).
+    // Cashfree requires a phone; it only prefills its page (Cashfree sends no SMS or email for an order).
     const phone = (req.customerPhone ?? '').replace(/\D/g, '').slice(-10);
     if (!/^[6-9]\d{9}$/.test(phone)) throw new Error('cashfree-no-phone');
-    const res = await this.call('/links', {
+    const res = await this.call('/orders', {
       method: 'POST',
       body: JSON.stringify({
-        link_id: req.referenceId,
-        link_amount: req.amountPaise / 100,
-        link_currency: 'INR',
-        link_purpose: req.description,
-        customer_details: { customer_phone: phone },
-        link_partial_payments: false,
+        order_id: req.referenceId,
+        order_amount: req.amountPaise / 100,
+        order_currency: 'INR',
+        order_note: req.description.slice(0, 200),
+        customer_details: { customer_id: `p${phone}`, customer_phone: phone },
         // a little longer than the 15 minutes an unpaid order is reused for
-        link_expiry_time: istIso(new Date(this.nowMs() + 60 * 60_000)),
-        link_meta: {
+        order_expiry_time: istIso(new Date(this.nowMs() + 60 * 60_000)),
+        order_meta: {
           ...(req.returnUrl ? { return_url: req.returnUrl } : {}),
           ...(req.notifyUrl ? { notify_url: req.notifyUrl } : {}),
         },
-        link_notify: { send_sms: false, send_email: false },
       }),
     });
     if (!res.ok) throw new Error(`cashfree-${res.status}${await cashfreeReason(res)}`);
-    const body = (await res.json()) as { link_url?: string };
-    if (!body.link_url) throw new Error('cashfree-bad-response');
-    return { id: req.referenceId, url: body.link_url };
+    const body = (await res.json()) as { payment_session_id?: string };
+    if (!body.payment_session_id) throw new Error('cashfree-bad-response');
+    return { id: req.referenceId, url: this.opts.checkoutUrl(req.referenceId) };
   }
 
-  async checkStatus(linkId: string): Promise<OrderStatus> {
-    const id = encodeURIComponent(linkId);
-    const res = await this.call(`/links/${id}`, { method: 'GET' });
-    if (!res.ok) throw new Error(`cashfree-status-${res.status}${await cashfreeReason(res)}`);
-    const link = (await res.json()) as { link_status?: string; link_amount_paid?: number | string };
-    if (link.link_status === 'EXPIRED' || link.link_status === 'CANCELLED')
+  /** What our checkout page needs to open Cashfree's window; null once the order can no longer be paid. */
+  async checkoutSession(orderId: string) {
+    const o = await this.order(orderId);
+    if (o.order_status !== 'ACTIVE' || !o.payment_session_id) return null;
+    return { sessionId: o.payment_session_id, mode: this.opts.env };
+  }
+
+  async checkStatus(orderId: string): Promise<OrderStatus> {
+    const o = await this.order(orderId);
+    if (o.order_status === 'EXPIRED' || o.order_status?.startsWith('TERMINAT'))
       return { state: 'FAILED', amountPaise: 0, paymentId: null };
-    if (link.link_status !== 'PAID') return { state: 'PENDING', amountPaise: 0, paymentId: null };
-    // The paid order's id is the payment id we record: the same answer every time we ask, so two checks running at
-    // once can still only apply the plan once.
-    const ores = await this.call(`/links/${id}/orders?status=PAID`, { method: 'GET' });
-    if (!ores.ok) throw new Error(`cashfree-orders-${ores.status}`);
-    const orders = (await ores.json()) as { order_id?: string; order_status?: string }[];
-    const paid = (Array.isArray(orders) ? orders : [])
-      .filter((o) => o.order_status === 'PAID' && typeof o.order_id === 'string')
-      .map((o) => o.order_id as string)
-      .sort()[0];
+    if (o.order_status !== 'PAID') return { state: 'PENDING', amountPaise: 0, paymentId: null };
+    // The successful payment's Cashfree id is the payment id we record: an order has exactly one, so two checks
+    // running at once still apply the plan only once.
+    const res = await this.call(`/orders/${encodeURIComponent(orderId)}/payments`, {
+      method: 'GET',
+    });
+    if (!res.ok) throw new Error(`cashfree-payments-${res.status}${await cashfreeReason(res)}`);
+    const list = (await res.json()) as {
+      cf_payment_id?: string | number;
+      payment_status?: string;
+      payment_amount?: number | string;
+    }[];
+    const paid = (Array.isArray(list) ? list : []).find(
+      (p) => p.payment_status === 'SUCCESS' && p.cf_payment_id !== undefined,
+    );
     if (!paid) return { state: 'PENDING', amountPaise: 0, paymentId: null };
     return {
       state: 'COMPLETED',
-      amountPaise: Math.round(Number(link.link_amount_paid ?? 0) * 100),
-      paymentId: paid.slice(0, 80),
+      amountPaise: Math.round(Number(paid.payment_amount ?? 0) * 100),
+      paymentId: `cf_${String(paid.cf_payment_id)}`.slice(0, 80),
     };
   }
 }
@@ -374,15 +398,15 @@ export function verifyCashfreeSignature(
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** The link_id a Cashfree payment link webhook is about (JSON or form-encoded); null for anything else. */
-export function cashfreeLinkId(rawBody: string): string | null {
+/** The order a Cashfree payment webhook is about (data.order.order_id); null for anything else. */
+export function cashfreeOrderId(rawBody: string): string | null {
   let id: unknown;
   try {
-    const b = JSON.parse(rawBody) as { type?: string; data?: { link_id?: unknown } };
-    if (b?.type !== 'PAYMENT_LINK_EVENT') return null;
-    id = b.data?.link_id;
+    const b = JSON.parse(rawBody) as { type?: string; data?: { order?: { order_id?: unknown } } };
+    if (typeof b?.type !== 'string' || !b.type.startsWith('PAYMENT_')) return null;
+    id = b.data?.order?.order_id;
   } catch {
-    id = new URLSearchParams(rawBody).get('link_id');
+    return null;
   }
-  return typeof id === 'string' && /^[A-Za-z0-9_-]{1,50}$/.test(id) ? id : null;
+  return typeof id === 'string' && /^[A-Za-z0-9_-]{3,50}$/.test(id) ? id : null;
 }

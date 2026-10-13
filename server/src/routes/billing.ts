@@ -1,10 +1,13 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
-import { PLANS, isPlanId } from '../billing/plans.js';
+import { PLANS, isPlanId, type PlanId } from '../billing/plans.js';
 import {
-  cashfreeLinkId,
+  cashfreeOrderId,
   parsePaymentLinkPaid,
   phonePeOrderId,
   verifyCashfreeSignature,
@@ -28,6 +31,13 @@ type Deps = Pick<AppDeps, 'config' | 'pool'> & {
 };
 
 const linkBody = z.object({ planId: z.string().refine(isPlanId, { message: 'plan' }) });
+
+const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'public');
+// The checkout page runs Cashfree's own script, which opens Cashfree's payment page; nothing else may load.
+const CHECKOUT_CSP =
+  "default-src 'none'; script-src 'self' https://sdk.cashfree.com; connect-src https://*.cashfree.com; frame-src https://*.cashfree.com; form-action https://*.cashfree.com; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'";
+const esc = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /** The return page and (for Cashfree) the webhook address for a new order; none without a public https address. */
 export function orderUrls(
@@ -139,6 +149,69 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
       );
   });
 
+  // Our checkout page for a Cashfree order: it opens Cashfree's hosted payment page with the order's payment session.
+  // Public (the payer comes from the pay page or the web app, without an app token); the order id is a random UUID.
+  const checkoutJs = readFileSync(path.join(PUBLIC_DIR, 'checkout.js'), 'utf8');
+  app.get('/billing/checkout.js', async (_req, reply) =>
+    reply
+      .header('Cache-Control', 'public, max-age=300')
+      .type('text/javascript; charset=utf-8')
+      .send(checkoutJs),
+  );
+  app.get('/billing/checkout/:id', async (req, reply) => {
+    const send = (code: number, title: string, body: string, scripts = '') =>
+      reply
+        .code(code)
+        .header('Content-Security-Policy', CHECKOUT_CSP)
+        .header('Referrer-Policy', 'no-referrer')
+        .header('X-Robots-Tag', 'noindex, nofollow')
+        .header('Cache-Control', 'no-store')
+        .type('text/html; charset=utf-8')
+        .send(
+          `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)} · Chalkpis</title><link rel="stylesheet" href="/pay.css"></head><body><main><header><picture><source srcset="/admin-logo/logo-dark.svg" media="(prefers-color-scheme: dark)"><img src="/admin-logo/logo.svg" alt="Chalkpis" width="132" height="32"></picture></header>${body}<footer>Payments are processed securely by Cashfree Payments. <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></footer></main>${scripts}</body></html>`,
+        );
+    const q = z.object({ id: z.string().uuid() }).safeParse(req.params);
+    const provider = deps.billing;
+    if (!q.success || !provider?.checkoutSession)
+      return send(
+        404,
+        'Order not found',
+        '<h1>Order not found</h1><p>Open your Chalkpis payment link again to start a new payment.</p>',
+      );
+    const [rows] = (await deps.pool.query(
+      `SELECT o.link_id, o.plan_id, o.amount, i.name FROM billing_orders o JOIN institutes i ON i.id = o.institute_id
+        WHERE o.id = ? AND o.provider = ?`,
+      [q.data.id, provider.name],
+    )) as unknown as [{ link_id: string; plan_id: PlanId; amount: number; name: string }[]];
+    const order = rows[0];
+    if (!order)
+      return send(
+        404,
+        'Order not found',
+        '<h1>Order not found</h1><p>Open your Chalkpis payment link again to start a new payment.</p>',
+      );
+    let session;
+    try {
+      session = await provider.checkoutSession(order.link_id);
+    } catch (e) {
+      req.log.warn({ err: e }, 'checkout: payment session failed');
+      return send(
+        502,
+        'Payment page unavailable',
+        '<h1>The payment page did not open</h1><p>Please try again in a minute, or write to <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a>.</p>',
+      );
+    }
+    // Paid, expired or cancelled: the return page asks Cashfree and says which.
+    if (!session) return reply.redirect(`/billing/return?order=${q.data.id}`, 303);
+    const plan = PLANS[order.plan_id];
+    return send(
+      200,
+      'Opening payment',
+      `<h1>Opening the secure payment page…</h1><p class="centre">${esc(order.name)}</p><p>${esc(plan.name)} plan: ₹${(Number(order.amount) / 100).toLocaleString('en-IN')} for ${plan.months} months.</p><p><button type="button" id="pay" data-session="${esc(session.sessionId)}" data-mode="${session.mode}">Continue to payment</button></p><p class="note error" id="fail" hidden>The payment page did not open. Check your internet connection and press the button again.</p><noscript><p class="note error">Turn on JavaScript in your browser to open the payment page.</p></noscript>`,
+      '<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script><script src="/billing/checkout.js"></script>',
+    );
+  });
+
   // Local try-out only: pretends the owner paid. It exists only when the mock provider is in use.
   if (deps.billing?.name === 'mock') {
     app.post('/billing/mock/complete', owner, async (req) => {
@@ -213,7 +286,7 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
     });
 
     // Cashfree: the same idea. The signature (timestamp + raw body, keyed with our secret key) keeps strangers from
-    // making us call Cashfree; the plan itself is applied only from Cashfree's own answer about the link.
+    // making us call Cashfree; the plan itself is applied only from Cashfree's own answer about the order.
     hook.post('/billing/webhooks/cashfree', async (req, reply) => {
       const secret = deps.config.CASHFREE_SECRET_KEY;
       if (!secret || deps.billing?.name !== 'cashfree')
@@ -230,7 +303,7 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
         )
       )
         return reply.code(401).send({ error: 'bad_signature' });
-      const linkId = cashfreeLinkId(raw);
+      const linkId = cashfreeOrderId(raw);
       if (!linkId) return { ok: true, ignored: true }; // other events: acknowledge so they are not retried
       const r = await reconcileOrder(deps.pool, deps.billing, { linkId }, now());
       return { ok: true, state: r?.state ?? 'unknown' };

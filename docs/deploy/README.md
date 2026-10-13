@@ -37,15 +37,20 @@ Do this after the newest code is pushed: the code on GitHub must be the version 
 
 ## Online payment
 
-Plans are paid through **Cashfree Payment Links** (M2W's Cashfree account). Set in Coolify, then "Restart current version":
+Plans are paid through **Cashfree Payment Gateway, standard checkout** (M2W's Cashfree account). Set in Coolify, then
+"Restart current version":
 
-- `CASHFREE_APP_ID` and `CASHFREE_SECRET_KEY`: merchant.cashfree.com > Developers > API Keys (the live pair; the
-  "Switch to Test" pair is for trying it out).
+- `CASHFREE_APP_ID` and `CASHFREE_SECRET_KEY`: merchant.cashfree.com > Payment Gateway > Developers > API Keys (not the
+  Secure ID keys; the live pair, or the "Switch to Test" pair for trying it out).
 - `CASHFREE_ENV`: `production` for the live pair, `sandbox` for the test pair.
+- Cashfree > Developers > Whitelisting must list `tutor.chalkpis.com` (approved): Cashfree's checkout only opens from
+  whitelisted websites.
 
-Nothing else is set in the Cashfree dashboard: every link carries its own return page (`/billing/return`) and webhook
-address (`/billing/webhooks/cashfree`, checked with the secret key). A plan is switched on only after the server asks
-Cashfree about the link and it says PAID for the exact plan price.
+How a payment runs: the pay page creates a Cashfree order (our order id is Cashfree's `order_id`), the payer lands on
+`/billing/checkout/<order>`, which opens Cashfree's hosted payment page with Cashfree's own script, and Cashfree sends
+them back to `/billing/return`. Each order carries its own webhook address (`/billing/webhooks/cashfree`, checked with
+the secret key). A plan is switched on only after the server asks Cashfree about the order and it says PAID, with a
+successful payment of the exact plan price.
 
 Where tutors pay: each centre has its own page, `/pay/<token>` (admin dashboard > centre > Plan & billing > Payment
 link: copy it or send it on WhatsApp). The store apps never sell or link to plans (Apple and Google rules); in-app
