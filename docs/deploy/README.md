@@ -55,7 +55,11 @@ Where to look: Coolify -> the service -> **Runtime Logs** -> **Backup**. Any lin
 
 ## Admin dashboard
 
-`https://tutor.chalkpis.com/admin`: sign in with an `ADMIN_EMAILS` address, its password, then a code sent to that email
+`https://tutor.chalkpis.com/admin` is a small React app built with shadcn/ui (`server/admin-ui`). Its build lives in
+`server/public/admin` and is committed: after changing the dashboard run `npm run admin:build` and commit both, then
+redeploy. (`npm run admin:dev` runs it at http://localhost:5174/admin/ against the local server.)
+
+Sign in with an `ADMIN_EMAILS` address, its password, then a code sent to that email
 (the first time, use **Forgot password** to set the password). Press **⌘K / Ctrl+K**
 anywhere to search logins and centres or jump to a page; **● Live** refreshes every 30 s; **◐** switches light/dark.
 

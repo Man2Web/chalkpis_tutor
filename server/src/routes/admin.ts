@@ -411,9 +411,34 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
         .header('Cache-Control', 'no-store')
         .type(type)
         .send(await readFile(path.join(PUBLIC_DIR, name)));
-  app.get('/admin', file('admin.html', 'text/html; charset=utf-8'));
-  app.get('/admin.js', file('admin.js', 'text/javascript; charset=utf-8'));
-  app.get('/admin.css', file('admin.css', 'text/css; charset=utf-8'));
+  // The dashboard is a small React app (server/admin-ui, shadcn/ui) built into public/admin: one page plus hashed
+  // script, style and font files. Same origin only, under the same strict policy.
+  const page = file(path.join('admin', 'index.html'), 'text/html; charset=utf-8');
+  app.get('/admin', page);
+  app.get('/admin/', page);
+  const ASSET_TYPES: Record<string, string> = {
+    '.js': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.woff2': 'font/woff2',
+    '.woff': 'font/woff',
+    '.svg': 'image/svg+xml',
+    '.png': 'image/png',
+  };
+  app.get<{ Params: { name: string } }>('/admin/assets/:name', async (req, reply) => {
+    const name = req.params.name;
+    const type = ASSET_TYPES[path.extname(name)];
+    // built file names only: letters, digits, dash, underscore and one extension (no paths)
+    if (!type || !/^[\w-]+\.[a-z0-9]+$/i.test(name))
+      return reply.code(404).send({ error: 'not_found' });
+    const body = await readFile(path.join(PUBLIC_DIR, 'admin', 'assets', name)).catch(() => null);
+    if (!body) return reply.code(404).send({ error: 'not_found' });
+    return reply
+      .header('Content-Security-Policy', ADMIN_CSP)
+      .header('X-Robots-Tag', 'noindex, nofollow')
+      .header('Cache-Control', 'public, max-age=31536000, immutable') // names carry a content hash
+      .type(type)
+      .send(body);
+  });
   // The Chalkpis logo for the dashboard: full (light and dark letters) and the mark alone. Fixed names only.
   const LOGOS = new Set(['logo', 'logo-dark', 'logo-mark']);
   app.get<{ Params: { name: string } }>('/admin-logo/:name', async (req, reply) => {

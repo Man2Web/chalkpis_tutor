@@ -10,7 +10,9 @@
     "prepare": "husky",
     "web": "npm --prefix app run web",
     "server": "npm --prefix server run dev",
-    "loadtest": "npm --prefix server run loadtest"
+    "loadtest": "npm --prefix server run loadtest",
+    "admin:build": "npm --prefix server/admin-ui run build",
+    "admin:dev": "npm --prefix server/admin-ui run dev"
   },
   "devDependencies": {
     "husky": "^9.1.0"

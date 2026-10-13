@@ -1,0 +1,37 @@
+export type Totals = Record<string, { now: number; before: number }>;
+export type Analytics = {
+  days: number;
+  dates: string[];
+  series: Record<string, number[]>;
+  totals: Totals;
+  funnel: Record<string, number>;
+  retention: { active7: number; active30: number; rate7: number; rate30: number };
+  conversion: number;
+  plans: { plan: string; active: number; ended: number }[];
+  revenueByMonth: { month: string; amount: number }[];
+  signInMethods: Record<string, number>;
+  signInPlatforms: Record<string, number>;
+  topCentres: { id: string; name: string; events: number; lastAt: string }[];
+  quietCentres: { id: string; name: string; lastAt: string }[];
+};
+export type CentreRow = {
+  id: string;
+  name: string;
+  category: string;
+  createdAt: string;
+  owner: { id: string; name: string | null; phone: string | null } | null;
+  plan: string | null;
+  planActive: boolean;
+  expiresAt: string | null;
+  students: number;
+  batches: number;
+  staff: number;
+  lastActivityAt: string | null;
+  messages30: number;
+  failed30: number;
+  collected30: number;
+  canBePaid: boolean;
+  messagesOn: boolean;
+  health: number;
+  tags: string[];
+};

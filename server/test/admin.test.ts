@@ -52,7 +52,17 @@ describe('admin access', () => {
     expect(r.statusCode).toBe(200);
     expect(r.headers['content-security-policy']).toContain("script-src 'self'");
     expect(r.headers['x-robots-tag']).toContain('noindex');
-    expect((await h.app.inject({ url: '/admin.js' })).statusCode).toBe(200);
+    // the built React app: its script and stylesheet come from /admin/assets under the same policy
+    const assets = [...r.body.matchAll(/\/admin\/assets\/([\w-]+\.(?:js|css))/g)].map((m) => m[0]);
+    expect(assets.some((a) => a.endsWith('.js'))).toBe(true);
+    expect(assets.some((a) => a.endsWith('.css'))).toBe(true);
+    for (const a of assets) {
+      const f = await h.app.inject({ url: a });
+      expect(f.statusCode).toBe(200);
+      expect(f.headers['content-security-policy']).toContain("script-src 'self'");
+    }
+    expect((await h.app.inject({ url: '/admin/assets/..%2Fapp.ts' })).statusCode).toBe(404);
+    expect((await h.app.inject({ url: '/admin/assets/nothing.js' })).statusCode).toBe(404);
   });
 });
 
