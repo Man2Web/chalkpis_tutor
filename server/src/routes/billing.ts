@@ -24,6 +24,7 @@ import {
 } from '../billing/service.js';
 import { AppError } from '../errors.js';
 import { parse } from '../lib/params.js';
+import { PAY_CSS_HREF } from './payCss.js';
 
 type Deps = Pick<AppDeps, 'config' | 'pool'> & {
   billing: BillingProvider | null;
@@ -168,7 +169,7 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
         .header('Cache-Control', 'no-store')
         .type('text/html; charset=utf-8')
         .send(
-          `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)} · Chalkpis</title><link rel="stylesheet" href="/pay.css"></head><body><main><header><picture><source srcset="/admin-logo/logo-dark.svg" media="(prefers-color-scheme: dark)"><img src="/admin-logo/logo.svg" alt="Chalkpis" width="132" height="32"></picture></header>${body}<footer>Payments are processed securely by Cashfree Payments. <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></footer></main>${scripts}</body></html>`,
+          `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)} · Chalkpis</title><link rel="stylesheet" href="${PAY_CSS_HREF}"></head><body><main><header><picture><source srcset="/admin-logo/logo-dark.svg" media="(prefers-color-scheme: dark)"><img src="/admin-logo/logo.svg" alt="Chalkpis" width="132" height="32"></picture></header>${body}<footer>Payments are processed securely by Cashfree Payments. <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></footer></main>${scripts}</body></html>`,
         );
     const q = z.object({ id: z.string().uuid() }).safeParse(req.params);
     const provider = deps.billing;

@@ -52,10 +52,15 @@ them back to `/billing/return`. Each order carries its own webhook address (`/bi
 the secret key). A plan is switched on only after the server asks Cashfree about the order and it says PAID, with a
 successful payment of the exact plan price.
 
-Where tutors pay: each centre has its own page, `/pay/<token>` (admin dashboard > centre > Plan & billing > Payment
-link: copy it or send it on WhatsApp). The store apps never sell or link to plans (Apple and Google rules); in-app
-purchase through the stores is the planned way to pay inside the apps. Without any payment settings the pay page says
-online payment is not switched on. `TRIAL_DAYS` (90) is how long a new tutor can work before the app becomes read-only.
+Where tutors pay (never inside the store apps, which only show the plan):
+
+- **`/plan`, the billing page.** The owner signs in with their mobile number and a WhatsApp code (it never creates an
+  account), sees the plan, usage and past payments with printable receipts, and pays. The session is a signed,
+  HttpOnly cookie for 12 hours.
+- **`/pay/<token>`, one centre's pay page without signing in**, for links sent on WhatsApp (admin dashboard > centre >
+  Plan & billing > Payment link).
+
+Without any payment settings both pages say online payment is not switched on. `TRIAL_DAYS` (90) is how long a new tutor can work before the app becomes read-only.
 
 ## Backups (running)
 

@@ -128,7 +128,7 @@ export async function buildApp({
   legalRoutes(app);
   adminRoutes(app, { config, pool, clock, mailer, providerName: provider?.name ?? 'none' });
   billingRoutes(app, { config, pool, billing, clock });
-  payRoutes(app, { config, pool, billing, clock });
+  payRoutes(app, { config, pool, billing, provider, clock });
   webhookRoutes(app, { config });
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));

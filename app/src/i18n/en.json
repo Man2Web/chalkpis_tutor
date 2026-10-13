@@ -730,7 +730,7 @@
     "seePlans": "See plans",
     "testMode": "Test mode: no real money moves. Tap below to pretend the payment went through.",
     "simulatePay": "Pay {{amount}} (test)",
-    "completeInBrowser": "Pay on the secure PhonePe page (UPI, card or net banking). Your plan switches on here by itself as soon as the payment is confirmed.",
+    "completeInBrowser": "Pay on the secure payment page (UPI, card or net banking). Your plan switches on here by itself as soon as the payment is confirmed.",
     "paidRefresh": "I have paid, check now",
     "openAgain": "Open payment page again",
     "banner": {
@@ -742,9 +742,9 @@
       "trial_one": "Free trial: {{count}} day left",
       "trial_other": "Free trial: {{count}} days left"
     },
-    "paymentsOffTitle": "Online payment is not switched on yet",
-    "paymentsOffMessage": "Plans cannot be bought in the app for now. Your trial and plan details are shown above. If your plan ends, your data stays safe and you can still read everything.",
-    "stillPending": "Still waiting for PhonePe to confirm. This usually takes a few seconds.",
+    "paymentsOffTitle": "About your plan",
+    "paymentsOffMessage": "Your plan and its limits are shown above. If a plan ends, your data stays safe and you can still see everything.",
+    "stillPending": "Still waiting for the payment to be confirmed. This usually takes a few seconds.",
     "paymentFailed": "The payment did not go through. No money was taken; you can try again."
   },
   "messages": {
