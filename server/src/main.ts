@@ -5,6 +5,7 @@ import { loadConfig } from './config.js';
 import { createPool } from './db.js';
 import { MockMailer, SmtpMailer, type Mailer } from './auth/mailer.js';
 import {
+  CashfreeProvider,
   MockBillingProvider,
   PhonePeProvider,
   RazorpayProvider,
@@ -65,7 +66,13 @@ async function main() {
     );
   }
   let billing: BillingProvider | null = null;
-  if (config.PHONEPE_CLIENT_ID && config.PHONEPE_CLIENT_SECRET)
+  if (config.CASHFREE_APP_ID && config.CASHFREE_SECRET_KEY)
+    billing = new CashfreeProvider({
+      appId: config.CASHFREE_APP_ID,
+      secretKey: config.CASHFREE_SECRET_KEY,
+      env: config.CASHFREE_ENV,
+    });
+  else if (config.PHONEPE_CLIENT_ID && config.PHONEPE_CLIENT_SECRET)
     billing = new PhonePeProvider({
       clientId: config.PHONEPE_CLIENT_ID,
       clientSecret: config.PHONEPE_CLIENT_SECRET,
@@ -77,7 +84,7 @@ async function main() {
   else if (config.NODE_ENV !== 'production') billing = new MockBillingProvider();
   else
     console.warn(
-      'No payment gateway is configured: plan purchases are unavailable until PHONEPE_* (or RAZORPAY_*) settings are set.',
+      'No payment gateway is configured: plan purchases are unavailable until CASHFREE_* (or PHONEPE_*, RAZORPAY_*) settings are set.',
     );
   // Admin dashboard emails: SMTP when set up; locally a stand-in that keeps the mail (use OTP_DEV_ECHO to see codes).
   let mailer: Mailer | null = null;

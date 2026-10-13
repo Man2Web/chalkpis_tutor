@@ -117,6 +117,11 @@ const schema = z.object({
   SMTP_USER: z.string().min(1).optional(),
   SMTP_PASS: z.string().min(1).optional(),
   MAIL_FROM: z.string().min(3).default('Chalkpis <hello@chalkpis.com>'),
+  // Cashfree Payment Links for plan purchases (App ID and Secret Key from Developers > API Keys); preferred over
+  // PhonePe and Razorpay when set. The secret key also checks Cashfree's webhook signatures.
+  CASHFREE_APP_ID: z.string().min(1).optional(),
+  CASHFREE_SECRET_KEY: z.string().min(1).optional(),
+  CASHFREE_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
   // PhonePe Standard Checkout (v2) for plan purchases; preferred over Razorpay when set.
   PHONEPE_CLIENT_ID: z.string().min(1).optional(),
   PHONEPE_CLIENT_SECRET: z.string().min(1).optional(),

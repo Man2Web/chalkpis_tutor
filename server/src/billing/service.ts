@@ -23,6 +23,8 @@ export async function createOrder(
     ownerPhone?: string;
     /** The page the payer returns to, given our order id. */
     returnUrl?: (orderId: string) => string;
+    /** Where the provider sends its webhook, for providers that take it per order (Cashfree). */
+    notifyUrl?: string;
   },
 ) {
   return withNamedLock(pool, `billing:${a.instituteId}`, async (conn) => {
@@ -50,6 +52,7 @@ export async function createOrder(
         referenceId: orderId,
         customerPhone: a.ownerPhone,
         returnUrl: a.returnUrl?.(orderId),
+        notifyUrl: a.notifyUrl,
       });
     } catch {
       throw new AppError(502, 'payment_provider_error');
@@ -164,7 +167,7 @@ export type OrderState = 'paid' | 'pending' | 'failed';
 
 /**
  * Asks the provider where one of OUR orders stands and, when it is paid, applies the plan (once). This is the only
- * way a PhonePe payment is applied: the webhook, the return page and the app all just ask for it.
+ * way a PhonePe or Cashfree payment is applied: the webhook, the return page and the app all just ask for it.
  */
 export async function reconcileOrder(
   pool: Pool,

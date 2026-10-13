@@ -33,6 +33,7 @@ export const testConfig = (over: Partial<Config> = {}): Config => ({
   WA_CLOUD_API_VERSION: 'v23.0',
   PHONEPE_CLIENT_VERSION: '1',
   PHONEPE_ENV: 'sandbox',
+  CASHFREE_ENV: 'sandbox',
   SMTP_PORT: 465,
   MAIL_FROM: 'Chalkpis <hello@chalkpis.com>',
   ADMIN_PHONES: [],

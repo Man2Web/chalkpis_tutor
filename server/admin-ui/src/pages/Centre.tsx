@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Check, Copy, Download, MessageCircle, Phone, Search, Tags, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, Copy, Download, ExternalLink, MessageCircle, Phone, Search, Tags, Trash2 } from 'lucide-react';
 import { Empty, ErrorBox, Health, Kpi, Loading, PersonAvatar } from '@/components/app/bits';
 import { Bars, C, Donut } from '@/components/app/charts';
 import { confirmDialog } from '@/components/app/dialogs';
@@ -47,6 +47,7 @@ type Detail = {
   areas: { area: string; count: number }[];
   messages: { type: string; status: string; count: number }[];
   billing: { plan: string; amount: number; at: string }[];
+  payUrl: string;
 };
 
 const digits = (p: string) => p.replace(/\D/g, '');
@@ -278,6 +279,7 @@ export function Centre({ id, onName }: { id: string; onName: (n: string) => void
         </TabsContent>
 
         <TabsContent value="billing" className="mt-4 grid gap-4 lg:grid-cols-2">
+          <PayLink url={new URL(data.payUrl, location.origin).href} centre={c.name} ownerName={owner?.name ?? null} ownerPhone={owner?.phone ?? null} />
           <PlanEditor instituteId={id} plan={c.plan} active={c.planActive} expiresAt={c.expiresAt} onDone={reload} />
           <Card>
             <CardHeader><CardTitle>Plan payments</CardTitle></CardHeader>
@@ -297,6 +299,39 @@ export function Centre({ id, onName }: { id: string; onName: (n: string) => void
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+/** The centre's own pay page: copy it, open it, or send it to the owner on WhatsApp with a short note. */
+function PayLink({ url, centre, ownerName, ownerPhone }: { url: string; centre: string; ownerName: string | null; ownerPhone: string | null }) {
+  const text = `Hi${ownerName ? ` ${ownerName.split(' ')[0]}` : ''}, here is the link to choose and pay for your Chalkpis plan for ${centre}: ${url}`;
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader>
+        <CardTitle>Payment link</CardTitle>
+        <CardDescription>
+          The centre's own page to choose a plan and pay online. The plan switches on by itself once the payment is confirmed.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        <Input readOnly value={url} onFocus={(e) => e.currentTarget.select()} className="font-mono text-xs" aria-label="Payment link" />
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" onClick={() => void navigator.clipboard.writeText(url).then(() => toast('Payment link copied'))}>
+            <Copy /> Copy link
+          </Button>
+          {ownerPhone ? (
+            <Button size="sm" variant="outline" asChild>
+              <a href={`https://wa.me/${digits(ownerPhone)}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">
+                <MessageCircle /> Send on WhatsApp
+              </a>
+            </Button>
+          ) : null}
+          <Button size="sm" variant="outline" asChild>
+            <a href={url} target="_blank" rel="noreferrer"><ExternalLink /> Open</a>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

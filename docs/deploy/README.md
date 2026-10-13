@@ -37,7 +37,20 @@ Do this after the newest code is pushed: the code on GitHub must be the version 
 
 ## Online payment
 
-Switched off for now (no `RAZORPAY_*` settings). The app hides plan purchase. `TRIAL_DAYS` (90) is how long a new tutor can work before the app becomes read-only.
+Plans are paid through **Cashfree Payment Links** (M2W's Cashfree account). Set in Coolify, then "Restart current version":
+
+- `CASHFREE_APP_ID` and `CASHFREE_SECRET_KEY`: merchant.cashfree.com > Developers > API Keys (the live pair; the
+  "Switch to Test" pair is for trying it out).
+- `CASHFREE_ENV`: `production` for the live pair, `sandbox` for the test pair.
+
+Nothing else is set in the Cashfree dashboard: every link carries its own return page (`/billing/return`) and webhook
+address (`/billing/webhooks/cashfree`, checked with the secret key). A plan is switched on only after the server asks
+Cashfree about the link and it says PAID for the exact plan price.
+
+Where tutors pay: each centre has its own page, `/pay/<token>` (admin dashboard > centre > Plan & billing > Payment
+link: copy it or send it on WhatsApp). The store apps never sell or link to plans (Apple and Google rules); in-app
+purchase through the stores is the planned way to pay inside the apps. Without any payment settings the pay page says
+online payment is not switched on. `TRIAL_DAYS` (90) is how long a new tutor can work before the app becomes read-only.
 
 ## Backups (running)
 

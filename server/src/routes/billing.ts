@@ -4,8 +4,10 @@ import type { AppDeps } from '../app.js';
 import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
 import { PLANS, isPlanId } from '../billing/plans.js';
 import {
+  cashfreeLinkId,
   parsePaymentLinkPaid,
   phonePeOrderId,
+  verifyCashfreeSignature,
   verifyPhonePeAuth,
   verifyWebhookSignature,
   type BillingProvider,
@@ -26,6 +28,21 @@ type Deps = Pick<AppDeps, 'config' | 'pool'> & {
 };
 
 const linkBody = z.object({ planId: z.string().refine(isPlanId, { message: 'plan' }) });
+
+/** The return page and (for Cashfree) the webhook address for a new order; none without a public https address. */
+export function orderUrls(
+  config: AppDeps['config'],
+  billing: BillingProvider,
+): { returnUrl?: (orderId: string) => string; notifyUrl?: string } {
+  const base = config.PUBLIC_BASE_URL?.replace(/\/$/, '');
+  if (!base) return {};
+  return {
+    returnUrl: (id) => `${base}/billing/return?order=${id}`,
+    ...(billing.name === 'cashfree' && base.startsWith('https://')
+      ? { notifyUrl: `${base}/billing/webhooks/cashfree` }
+      : {}),
+  };
+}
 const mockBody = z.object({ orderId: z.string().uuid() });
 
 export function billingRoutes(app: FastifyInstance, deps: Deps) {
@@ -65,9 +82,7 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
         userId: req.auth!.userId,
         planId,
         ownerPhone: u[0]?.phone,
-        returnUrl: deps.config.PUBLIC_BASE_URL
-          ? (id) => `${deps.config.PUBLIC_BASE_URL!.replace(/\/$/, '')}/billing/return?order=${id}`
-          : undefined,
+        ...orderUrls(deps.config, deps.billing),
       });
       return reply.code(201).send(order);
     },
@@ -87,8 +102,8 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
     return { orderId: r.orderId, state: r.state };
   });
 
-  // Where PhonePe sends the payer back. Public (the browser has no app token), so it only reports and confirms:
-  // whatever it shows comes from asking PhonePe, never from the URL.
+  // Where PhonePe or Cashfree sends the payer back. Public (the browser has no app token), so it only reports and
+  // confirms: whatever it shows comes from asking the provider, never from the URL.
   app.get('/billing/return', async (req, reply) => {
     const q = z.object({ order: z.string().uuid() }).safeParse(req.query);
     let state: OrderState | 'unknown' = 'unknown';
@@ -108,19 +123,19 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
       ],
       pending: [
         'Payment in progress',
-        'We are waiting for PhonePe to confirm. Go back to the app; it updates on its own.',
+        'We are waiting for the bank to confirm. This page and the app update on their own once it does; it usually takes a few seconds.',
       ],
       failed: [
         'Payment did not go through',
-        'No money was taken for this plan. Go back to the app to try again.',
+        'No money was taken for this plan. Open your payment link again to try once more.',
       ],
-      unknown: ['Order not found', 'Go back to the Chalkpis app and start the purchase again.'],
+      unknown: ['Order not found', 'Open your Chalkpis payment link again to start a new payment.'],
     }[state];
     return reply
       .header('Cache-Control', 'no-store')
       .type('text/html; charset=utf-8')
       .send(
-        `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${text[0]} · Chalkpis</title><link rel="stylesheet" href="/legal.css"></head><body><main><h1>${text[0]}</h1><p>${text[1]}</p></main></body></html>`,
+        `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">${state === 'pending' ? '<meta http-equiv="refresh" content="5">' : ''}<title>${text[0]} · Chalkpis</title><link rel="stylesheet" href="/legal.css"></head><body><main><h1>${text[0]}</h1><p>${text[1]}</p></main></body></html>`,
       );
   });
 
@@ -152,6 +167,11 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
     hook.removeContentTypeParser('application/json'); // this scope keeps the raw text
     hook.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) =>
       done(null, body),
+    );
+    hook.addContentTypeParser(
+      'application/x-www-form-urlencoded',
+      { parseAs: 'string' },
+      (_req, body, done) => done(null, body),
     );
     hook.post('/billing/webhooks/razorpay', async (req, reply) => {
       const secret = deps.config.RAZORPAY_WEBHOOK_SECRET;
@@ -188,6 +208,30 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
       }
       const linkId = phonePeOrderId(json);
       if (!linkId) return { ok: true, ignored: true }; // refunds and other events: acknowledge
+      const r = await reconcileOrder(deps.pool, deps.billing, { linkId }, now());
+      return { ok: true, state: r?.state ?? 'unknown' };
+    });
+
+    // Cashfree: the same idea. The signature (timestamp + raw body, keyed with our secret key) keeps strangers from
+    // making us call Cashfree; the plan itself is applied only from Cashfree's own answer about the link.
+    hook.post('/billing/webhooks/cashfree', async (req, reply) => {
+      const secret = deps.config.CASHFREE_SECRET_KEY;
+      if (!secret || deps.billing?.name !== 'cashfree')
+        return reply.code(503).send({ error: 'webhook_unavailable' });
+      const raw = typeof req.body === 'string' ? req.body : '';
+      const ts = req.headers['x-webhook-timestamp'];
+      const sig = req.headers['x-webhook-signature'];
+      if (
+        !verifyCashfreeSignature(
+          raw,
+          typeof ts === 'string' ? ts : undefined,
+          typeof sig === 'string' ? sig : undefined,
+          secret,
+        )
+      )
+        return reply.code(401).send({ error: 'bad_signature' });
+      const linkId = cashfreeLinkId(raw);
+      if (!linkId) return { ok: true, ignored: true }; // other events: acknowledge so they are not retried
       const r = await reconcileOrder(deps.pool, deps.billing, { linkId }, now());
       return { ok: true, state: r?.state ?? 'unknown' };
     });
