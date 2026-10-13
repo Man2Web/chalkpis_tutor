@@ -27,7 +27,7 @@ The set below replaced every older template on 12 Oct 2026 (only the login-code 
 | `late` | `cp_late_alert` | 1815389 | student | same as absent | centre | marked late |
 | `fee_due` | `cp_fee_due_soon` | 1815388 | student | `₹1,500 for Oct 2026, due on 15 Oct 2026` | centre | N days before the due date |
 | `fee_overdue` | `cp_fee_overdue` | 1815387 | student | `₹1,500 for Oct 2026, pending since Oct 2026` | centre | day 1, then every N days |
-| `payment_received` | `cp_payment_receipt_nf` (no footer; `cp_payment_receipt` 1815390 is the original) | 1815826 | student | `₹1,500 (receipt KKA-00012, balance due ₹0)` | centre | a payment is recorded |
+| `payment_received` | `cp_payment_receipt_nf` (no footer; the original `cp_payment_receipt` was deleted on 14 Oct 2026) | 1815826 | student | `₹1,500 (receipt KKA-00012, balance due ₹0)` | centre | a payment is recorded |
 | `fee_reminder` | `cp_fee_qr` (**image header**: the UPI QR) | 1815399 | student | `₹1,500 for Oct 2026` | centre | the teacher taps Send reminder (UPI) |
 | `fee_link` | `cp_fee_link` | 1815392 | student | `₹1,500 for Oct 2026` | the centre's payment link | the teacher taps Send reminder (link) |
 | `parent_link` | `cp_parent_page` | 1815395 | student | the private parent page link | centre | the teacher shares the parent page |
@@ -55,25 +55,25 @@ Footer on all of them: "Sent via Chalkpis on behalf of your centre". ("/" marks 
 | App message type | Template | Id | `{{1}}` | `{{2}}` | `{{3}}` | Sent when |
 | --- | --- | --- | --- | --- | --- | --- |
 | `centre_welcome` | `cp_centre_welcome` | 1815396 | owner's name | centre | trial end date | a centre is set up |
-| `trial_ending` | `cp_trial_ending` | 1815391 | owner's name | centre | trial end date | daily job: a trial ends within 2 days (once per trial end) |
 | `plan_active` | `cp_plan_active` | 1815397 | owner's name | `Standard plan for Kiran Karate Academy` | end date | a plan payment is applied (once per payment) |
 | `helper_invite` | `cp_helper_invite` | (in review) | helper's name | owner's name | centre | a helper is added (once per helper) |
-| `plan_ending` | `cp_plan_ending` (**image header**) | (in review) | owner's name | `free trial for Kiran Karate Academy` / `Standard plan for …` | end date | daily job: a trial ends within 2 days, a paid plan within 3 (once per end date); `{{4}}` is the centre's pay link |
-| `plan_ended` | `cp_plan_ended` (**image header**) | (in review) | owner's name | same | end date | daily job: on the day it ended (within 2 days, not renewed; once per end date); `{{4}}` is the pay link |
+| `plan_ending` | `cp_plan_ending` (**image header**, Meta classed it Marketing) | (in review) | owner's name | `free trial for Kiran Karate Academy` / `Standard plan for …` | end date | daily job: a trial ends within 2 days, a paid plan within 3 (once per end date); `{{4}}` is the centre's pay link |
+| `plan_ended` | `cp_plan_ended` (**image header**, Meta classed it Marketing) | (in review) | owner's name | same | end date | daily job: on the day it ended (within 2 days, not renewed; once per end date); `{{4}}` is the pay link |
 
 These are queued in `centre_messages` in the same transaction as their event and sent by the same worker as parent
 messages (with retries); the number is read from the person's account at send time.
 
 - **cp_centre_welcome**: Hi {{1}}, your Chalkpis account for {{2}} is ready. / Your free trial runs until {{3}}. Add your students, take attendance in seconds and send fee reminders to parents on WhatsApp. Need help? Write to hello@chalkpis.com.
-- **cp_trial_ending**: Hi {{1}}, the free trial for {{2}} ends on {{3}}. / To keep using attendance, fees and parent messages without a break, choose a plan in the Chalkpis app under Account > Plan. Need help? Write to hello@chalkpis.com.
 - **cp_plan_active**: Hi {{1}}, thank you for your payment. The {{2}} is now active until {{3}}. / You can see your plan anytime in the Chalkpis app under Account > Plan.
 - **cp_helper_invite**: Hi {{1}}, {{2}} has added you as a helper at {{3}} on Chalkpis. / Install the Chalkpis app and sign in with this WhatsApp number to take attendance for your batches.
 - **cp_plan_ending** (header: image, the Chalkpis banner at `<PUBLIC_BASE_URL>/plan-renew.png`): Hi {{1}}, the {{2}} ends on {{3}}. / To keep attendance, fees and parent messages running without a break, choose a plan on this secure page: {{4}} / Need help? Write to hello@chalkpis.com.
 - **cp_plan_ended** (header: image, same banner): Hi {{1}}, the {{2}} ended on {{3}}. Your data is safe, and you can still see everything in the app. / To add students, take attendance and send fee updates again, choose a plan on this secure page: {{4}} / Need help? Write to hello@chalkpis.com.
 
-The two plan reminders replace `cp_trial_ending` (text only, never delivered): the server no longer queues `trial_ending`.
+The two plan reminders replace `cp_trial_ending` (text only; deleted on 14 Oct 2026): the server no longer queues
+`trial_ending`.
 
-Footer: "Chalkpis by M2W Technologies". Meta classed `cp_trial_ending` as **Marketing** (it asks the owner to buy).
+Footer: "Chalkpis by M2W Technologies". Meta classes the plan reminders as **Marketing** (they ask the owner to buy): they
+still send, but WhatsApp limits how many marketing messages one person receives.
 
 ## Open problem: text templates are not delivered (13 Oct 2026)
 
@@ -85,6 +85,13 @@ footer (`cp_payment_receipt_nf` has none and also fails), and the request format
 The gateway's delivery reports reach `/webhooks/wa-dlr/<secret>` as GET requests without any parameters, so WhatsApp's
 reason is not visible to us. Waiting on wa.adsme.in support for the error code and the right payload for a text-only
 Utility template.
+
+**14 Oct 2026:** WhatsApp Manager's insights now show text templates delivered and read (`cp_payment_receipt` 5,
+`cp_payment_receipt_nf` 2, `cp_late_alert` 1, besides `cp_fee_qr` 5), so the problem may be fixed or intermittent; a
+fresh test (mark a student late, record a payment) will tell.
+
+The same WhatsApp account also has `erp_otp` (Authentication, from 6 Oct), which is not Chalkpis's: another system sends
+it, so it stays.
 
 Every send is logged with the gateway's answer (`wa-send` in Coolify > Chalkpis > Runtime Logs, phone numbers masked).
 
@@ -98,7 +105,7 @@ The server reads the template per app message type from `WA_TEMPLATES` (JSON), p
 Through wa.adsme.in use the **Template Id numbers** above (add `helper_invite` once it is approved):
 
 ```
-{"absent":{"en":"1815393"},"late":{"en":"1815389"},"fee_due":{"en":"1815388"},"fee_overdue":{"en":"1815387"},"payment_received":{"en":"1815826"},"fee_reminder":{"en":"1815399"},"fee_link":{"en":"1815392"},"parent_link":{"en":"1815395"},"student_welcome":{"en":"1815398"},"class_cancelled":{"en":"1815394"},"centre_welcome":{"en":"1815396"},"trial_ending":{"en":"1815391"},"plan_active":{"en":"1815397"}}
+{"absent":{"en":"1815393"},"late":{"en":"1815389"},"fee_due":{"en":"1815388"},"fee_overdue":{"en":"1815387"},"payment_received":{"en":"1815826"},"fee_reminder":{"en":"1815399"},"fee_link":{"en":"1815392"},"parent_link":{"en":"1815395"},"student_welcome":{"en":"1815398"},"class_cancelled":{"en":"1815394"},"centre_welcome":{"en":"1815396"},"plan_active":{"en":"1815397"}}
 ```
 
 A message type with no template is skipped and shows in the Message log as "No template for this message".
