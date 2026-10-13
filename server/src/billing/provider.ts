@@ -266,6 +266,16 @@ export function istIso(d: Date): string {
   return `${new Date(d.getTime() + 330 * 60_000).toISOString().slice(0, 19)}+05:30`;
 }
 
+/** Cashfree's own words for a refused call (code and message only, for the server log). */
+async function cashfreeReason(res: Response): Promise<string> {
+  try {
+    const b = (await res.json()) as { code?: unknown; message?: unknown };
+    return `: ${String(b.code ?? '')} ${String(b.message ?? '')}`.slice(0, 200);
+  } catch {
+    return '';
+  }
+}
+
 /**
  * Cashfree Payment Links: the owner pays on Cashfree's hosted page (UPI, cards, net banking), so neither the app nor
  * the pay page needs a payment SDK. Our order id is the link_id, so a link can only ever be created once per order.
@@ -313,7 +323,7 @@ export class CashfreeProvider implements BillingProvider {
         link_notify: { send_sms: false, send_email: false },
       }),
     });
-    if (!res.ok) throw new Error(`cashfree-${res.status}`);
+    if (!res.ok) throw new Error(`cashfree-${res.status}${await cashfreeReason(res)}`);
     const body = (await res.json()) as { link_url?: string };
     if (!body.link_url) throw new Error('cashfree-bad-response');
     return { id: req.referenceId, url: body.link_url };
@@ -322,7 +332,7 @@ export class CashfreeProvider implements BillingProvider {
   async checkStatus(linkId: string): Promise<OrderStatus> {
     const id = encodeURIComponent(linkId);
     const res = await this.call(`/links/${id}`, { method: 'GET' });
-    if (!res.ok) throw new Error(`cashfree-status-${res.status}`);
+    if (!res.ok) throw new Error(`cashfree-status-${res.status}${await cashfreeReason(res)}`);
     const link = (await res.json()) as { link_status?: string; link_amount_paid?: number | string };
     if (link.link_status === 'EXPIRED' || link.link_status === 'CANCELLED')
       return { state: 'FAILED', amountPaise: 0, paymentId: null };

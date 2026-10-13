@@ -71,6 +71,25 @@ describe('CashfreeProvider', () => {
     });
   });
 
+  it("keeps Cashfree's reason when it refuses a link", async () => {
+    const fn = (async () =>
+      new Response(
+        JSON.stringify({ code: 'request_failed', message: 'link_meta.return_url : invalid' }),
+        {
+          status: 400,
+        },
+      )) as unknown as typeof fetch;
+    const p = new CashfreeProvider(opts, fn, nowMs);
+    await expect(
+      p.createPaymentLink({
+        amountPaise: 100,
+        description: 'x',
+        referenceId: 'r',
+        customerPhone: '9800000001',
+      }),
+    ).rejects.toThrow('cashfree-400: request_failed link_meta.return_url : invalid');
+  });
+
   it('refuses to create a link without a mobile number (Cashfree needs one)', async () => {
     const p = new CashfreeProvider(opts, fakeFetch({}).fn, nowMs);
     await expect(
