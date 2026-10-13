@@ -123,7 +123,11 @@ async function main() {
     undefined,
     makeJobs(
       config.PUBLIC_BASE_URL
-        ? { baseUrl: config.PUBLIC_BASE_URL, secret: config.JWT_SECRET }
+        ? {
+            baseUrl: config.PUBLIC_BASE_URL,
+            secret: config.JWT_SECRET,
+            templates: parseTemplates(config.WA_TEMPLATES),
+          }
         : undefined,
     ),
   );

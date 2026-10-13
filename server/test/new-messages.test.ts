@@ -301,6 +301,20 @@ describe('messages from Chalkpis to the centre', () => {
     });
   });
 
+  it('a reminder whose template is not set yet is not queued, and goes out once it is', async () => {
+    await h.db.pool.query('DELETE FROM centre_messages');
+    await h.db.pool.query('UPDATE subscriptions SET expires_at = ? WHERE institute_id = ?', [
+      new Date(h.clock.now.getTime() + 86_400_000),
+      A.instituteId,
+    ]);
+    const none = { ...LINKS, templates: parseTemplates('{"plan_ended":{"en":"406"}}') };
+    expect(await queuePlanReminders(h.db.pool, h.clock.now, none)).toBe(0);
+    expect(await centreRows()).toHaveLength(0);
+    expect(
+      await queuePlanReminders(h.db.pool, h.clock.now, { ...LINKS, templates: TEMPLATES }),
+    ).toBe(1);
+  });
+
   it('on the day a plan ended, the owner gets the pay link once; long-ended plans are left alone', async () => {
     const B = await h.tenant('+919123456789', { tutor: 'Meena', institute: 'Meena Dance' });
     await h.db.pool.query('DELETE FROM centre_messages');

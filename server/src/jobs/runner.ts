@@ -67,7 +67,7 @@ async function cleanupJob(pool: Pool, now: Date) {
 }
 
 /** The jobs; plan reminders need the public address and the secret to build each centre's pay link. */
-export const makeJobs = (links?: { baseUrl: string; secret: string }): Job[] => [
+export const makeJobs = (links?: Parameters<typeof queuePlanReminders>[2]): Job[] => [
   { name: 'dues', from: 2, until: 23, every: 'day', run: duesJob },
   {
     name: 'expire',

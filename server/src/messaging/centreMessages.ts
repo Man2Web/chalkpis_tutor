@@ -160,12 +160,14 @@ export async function queueHelperInvite(
  * Daily: the owner of every centre whose free trial ends within PLAN_REMINDER_DAYS.trial days (a paid plan: .paid days)
  * gets "the … ends on …" with the centre's pay link, and on the day it ended (if it was not renewed), "the … ended on
  * …". The end date is the ref, so each end date is reminded about once, and a renewed plan is reminded again when its
- * new end comes. Needs the public address to build the link. Returns how many were queued.
+ * new end comes. Needs the public address to build the link. With `templates` given, a reminder whose template is not
+ * set yet is not queued at all (rather than queued and skipped for good): it goes out on the first daily run after the
+ * template is added, while the plan is still within the window. Returns how many were queued.
  */
 export async function queuePlanReminders(
   pool: Pool,
   now: Date,
-  links: { baseUrl: string; secret: string },
+  links: { baseUrl: string; secret: string; templates?: TemplateMap },
 ): Promise<number> {
   const DAY = 86_400_000;
   const [rows] = (await pool.query(
@@ -184,6 +186,8 @@ export async function queuePlanReminders(
   for (const r of rows) {
     const c = await centre(pool, r.institute_id);
     if (!c) continue;
+    const type = r.expires_at.getTime() <= now.getTime() ? 'plan_ended' : 'plan_ending';
+    if (links.templates && !templateFor(links.templates, type)) continue;
     const what =
       r.plan === 'trial'
         ? `free trial for ${c.name}`
@@ -192,7 +196,7 @@ export async function queuePlanReminders(
       pool,
       {
         instituteId: r.institute_id,
-        type: r.expires_at.getTime() <= now.getTime() ? 'plan_ended' : 'plan_ending',
+        type,
         ref: r.expires_at.toISOString().slice(0, 10),
         userId: c.owner_id,
         vars: [
