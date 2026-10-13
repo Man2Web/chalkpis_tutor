@@ -398,6 +398,32 @@ describe('sign-in edge cases', () => {
         payload: { phone: '9999900001', code: '424242' },
       });
       expect(ok.statusCode).toBe(200);
+      // reviewers share the number, wait and retry: later, after many tries and without asking for a code again,
+      // the fixed code still works
+      R.clock.now = new Date(R.clock.now.getTime() + 3 * 3_600_000);
+      for (let i = 0; i < 6; i++)
+        await R.app.inject({
+          method: 'POST',
+          url: '/auth/otp/verify',
+          payload: { phone: '9999900001', code: '111111' },
+        });
+      for (let i = 0; i < 7; i++)
+        expect(
+          (
+            await R.app.inject({
+              method: 'POST',
+              url: '/auth/otp/request',
+              payload: { phone: '9999900001' },
+            })
+          ).statusCode,
+        ).toBe(200);
+      const later = await R.app.inject({
+        method: 'POST',
+        url: '/auth/otp/verify',
+        payload: { phone: '+91 99999 00001', code: '424242' },
+      });
+      expect(later.statusCode).toBe(200);
+      expect(R.provider.sent).toHaveLength(0);
       // any other number still gets a real, random code by WhatsApp
       await R.app.inject({
         method: 'POST',

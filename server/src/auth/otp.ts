@@ -27,19 +27,28 @@ export type OtpRequestResult =
 const iso = (d: Date) => d;
 
 /**
+ * The store-review number (REVIEW_PHONE in config): it always signs in with its fixed code and no WhatsApp message
+ * is sent. Store reviewers share the number, take their time and retry, so none of the per-number rules apply to it
+ * (no expiry, no request needed first, no try or hourly limits).
+ */
+const isReview = (deps: OtpDeps, phone: string) =>
+  !!deps.config.REVIEW_CODE &&
+  !!deps.config.REVIEW_PHONE &&
+  normalizeIndianPhone(deps.config.REVIEW_PHONE) === phone;
+
+const sameCode = (a: string, b: string) =>
+  a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+
+/**
  * Sends a login code. The answer is the same whether or not the number already has an account, so nobody can
  * use this to find out who is registered. At most one code per minute and five per hour per number.
  */
 export async function requestOtp(deps: OtpDeps, rawPhone: unknown): Promise<OtpRequestResult> {
   const phone = normalizeIndianPhone(rawPhone);
   if (!phone) return { ok: false, error: 'invalid_phone' };
-  // the store-review number: a fixed code, no WhatsApp message (see REVIEW_PHONE in config)
-  const review =
-    !!deps.config.REVIEW_CODE &&
-    !!deps.config.REVIEW_PHONE &&
-    normalizeIndianPhone(deps.config.REVIEW_PHONE) === phone;
-  if (!review && (!deps.provider || !deps.config.WA_TEMPLATE_OTP))
-    return { ok: false, error: 'unavailable' };
+  if (isReview(deps, phone))
+    return { ok: true, resendInSeconds: OTP.cooldownSeconds, code: deps.config.REVIEW_CODE! };
+  if (!deps.provider || !deps.config.WA_TEMPLATE_OTP) return { ok: false, error: 'unavailable' };
   const now = (deps.clock ?? (() => new Date()))();
   const templateId = deps.config.WA_TEMPLATE_OTP;
 
@@ -62,16 +71,13 @@ export async function requestOtp(deps: OtpDeps, rawPhone: unknown): Promise<OtpR
       } as const;
     }
 
-    if (!review) {
-      const [[all]] = (await conn.query(
-        'SELECT COUNT(*) AS n FROM otp_codes WHERE created_at > ?',
-        [iso(new Date(now.getTime() - 3_600_000))],
-      )) as unknown as [[{ n: number }]];
-      if (Number(all?.n ?? 0) >= (deps.config.OTP_GLOBAL_PER_HOUR ?? 300))
-        return { ok: false, error: 'too_many', retryAfter: 600 } as const;
-    }
+    const [[all]] = (await conn.query('SELECT COUNT(*) AS n FROM otp_codes WHERE created_at > ?', [
+      iso(new Date(now.getTime() - 3_600_000)),
+    ])) as unknown as [[{ n: number }]];
+    if (Number(all?.n ?? 0) >= (deps.config.OTP_GLOBAL_PER_HOUR ?? 300))
+      return { ok: false, error: 'too_many', retryAfter: 600 } as const;
 
-    const code = review ? deps.config.REVIEW_CODE! : newOtp();
+    const code = newOtp();
     const id = newId();
     await inTransaction(conn, async (c) => {
       await c.query(
@@ -90,7 +96,6 @@ export async function requestOtp(deps: OtpDeps, rawPhone: unknown): Promise<OtpR
       );
     });
 
-    if (review) return { ok: true, resendInSeconds: OTP.cooldownSeconds, code } as const;
     const sent = await deps.provider!.send({
       to: phone,
       templateId: templateId!,
@@ -146,21 +151,25 @@ async function checkOtp(
 
   return withNamedLock(deps.pool, `otp:${phone}`, (conn) =>
     inTransaction(conn, async (c) => {
-      const [rows] = (await c.query(
-        'SELECT id, code_hash, attempts FROM otp_codes WHERE phone = ? AND consumed_at IS NULL AND expires_at > ? ORDER BY created_at DESC LIMIT 1 FOR UPDATE',
-        [phone, iso(now)],
-      )) as unknown as [{ id: string; code_hash: string; attempts: number }[]];
-      const row = rows[0];
-      if (!row || row.attempts >= OTP.maxAttempts) return { ok: false } as const;
+      if (isReview(deps, phone)) {
+        if (!sameCode(rawCode, deps.config.REVIEW_CODE!)) return { ok: false } as const;
+      } else {
+        const [rows] = (await c.query(
+          'SELECT id, code_hash, attempts FROM otp_codes WHERE phone = ? AND consumed_at IS NULL AND expires_at > ? ORDER BY created_at DESC LIMIT 1 FOR UPDATE',
+          [phone, iso(now)],
+        )) as unknown as [{ id: string; code_hash: string; attempts: number }[]];
+        const row = rows[0];
+        if (!row || row.attempts >= OTP.maxAttempts) return { ok: false } as const;
 
-      const given = Buffer.from(hashOtp(deps.config.OTP_PEPPER, phone, rawCode));
-      const stored = Buffer.from(row.code_hash);
-      if (given.length !== stored.length || !timingSafeEqual(given, stored)) {
-        await c.query('UPDATE otp_codes SET attempts = attempts + 1 WHERE id = ?', [row.id]);
-        return { ok: false } as const;
+        const given = Buffer.from(hashOtp(deps.config.OTP_PEPPER, phone, rawCode));
+        const stored = Buffer.from(row.code_hash);
+        if (given.length !== stored.length || !timingSafeEqual(given, stored)) {
+          await c.query('UPDATE otp_codes SET attempts = attempts + 1 WHERE id = ?', [row.id]);
+          return { ok: false } as const;
+        }
+
+        await c.query('UPDATE otp_codes SET consumed_at = ? WHERE id = ?', [iso(now), row.id]);
       }
-
-      await c.query('UPDATE otp_codes SET consumed_at = ? WHERE id = ?', [iso(now), row.id]);
       const [users] = (await c.query('SELECT id FROM users WHERE phone = ?', [
         phone,
       ])) as unknown as [{ id: string }[]];
