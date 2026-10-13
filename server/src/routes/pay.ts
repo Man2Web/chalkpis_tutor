@@ -188,7 +188,11 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
             ),
           );
         } catch (e) {
-          req.log.warn({ err: e }, 'pay page: payment link failed');
+          const cause = (e as { cause?: unknown }).cause;
+          req.log.warn(
+            { err: e, reason: cause instanceof Error ? cause.message : undefined },
+            'pay page: payment link failed',
+          );
           return send(
             reply,
             502,

@@ -54,8 +54,9 @@ export async function createOrder(
         returnUrl: a.returnUrl?.(orderId),
         notifyUrl: a.notifyUrl,
       });
-    } catch {
-      throw new AppError(502, 'payment_provider_error');
+    } catch (e) {
+      // the provider's own reason stays on the error (for the server log), never in the answer to the client
+      throw Object.assign(new AppError(502, 'payment_provider_error'), { cause: e });
     }
     await conn.query(
       'INSERT INTO billing_orders (id, institute_id, plan_id, amount, provider, link_id, url, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
@@ -198,8 +199,8 @@ export async function reconcileOrder(
   let status;
   try {
     status = await provider.checkStatus(order.link_id);
-  } catch {
-    throw new AppError(502, 'payment_provider_error');
+  } catch (e) {
+    throw Object.assign(new AppError(502, 'payment_provider_error'), { cause: e });
   }
   if (status.state === 'FAILED') return { orderId: order.id, state: 'failed' };
   if (status.state !== 'COMPLETED') return { orderId: order.id, state: 'pending' };
