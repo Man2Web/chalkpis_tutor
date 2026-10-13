@@ -41,7 +41,7 @@ holiday or cancelled"); like every parent message they follow the master switch 
 - **cp_late_alert**: Hello, {{1}} arrived \*late\* for the {{2}}. / We are sharing this so that you are aware. Regards, {{3}}. Thank you.
 - **cp_fee_due_soon**: Hello, a gentle reminder that the fee for {{1}} is due: {{2}}. / Kindly pay on time. If you have already paid, please ignore this message. Regards, {{3}}. Thank you.
 - **cp_fee_overdue**: Hello, the fee for {{1}} is still \*pending\*: {{2}}. / Please pay at the earliest. If you have already paid, please ignore this message. Regards, {{3}}. Thank you.
-- **cp_payment_receipt**: Hello, we have received the fee payment for {{1}}: {{2}}. / Please keep this message as your receipt. Regards, {{3}}. Thank you.
+- **cp_payment_receipt_nf**: Hello, we have received the fee payment for {{1}}: {{2}}. / Please keep this message as your receipt. Regards, {{3}}. Thank you.
 - **cp_fee_qr** (header: image): Hello, the fee for {{1}} is pending: {{2}}. / Scan the QR code above with any UPI app (Google Pay, PhonePe, Paytm) to pay {{3}} directly. If you have already paid, please ignore this message. Thank you.
 - **cp_fee_link**: Hello, the fee for {{1}} is pending: {{2}}. / You can pay online here: {{3}} / If you have already paid, please ignore this message. Thank you.
 - **cp_parent_page**: Hello, you can now check the attendance and fee details of {{1}} anytime on this private page: {{2}} / Please do not share this link outside your family. Regards, {{3}}. Thank you.
