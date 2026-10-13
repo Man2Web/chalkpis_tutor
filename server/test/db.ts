@@ -47,6 +47,7 @@ export const testConfig = (over: Partial<Config> = {}): Config => ({
   DB_POOL_SIZE: 5,
   DB_SSL: false,
   AUTO_MIGRATE: false,
+  FEE_PAID_LINK: false,
   JWT_SECRET: 'test-jwt-secret-test-jwt-secret-1234',
   OTP_PEPPER: 'test-otp-pepper-test-otp-pepper-1234',
   ACCESS_TTL_MINUTES: 15,

@@ -16,6 +16,7 @@ import { attendanceRoutes } from './routes/attendance.js';
 import { feeRoutes } from './routes/fees.js';
 import { billingRoutes } from './routes/billing.js';
 import { payRoutes } from './routes/pay.js';
+import { paidRoutes } from './routes/paid.js';
 import { messageRoutes } from './routes/messages.js';
 import { fileRoutes } from './routes/files.js';
 import { parentRoutes } from './routes/parent.js';
@@ -129,6 +130,7 @@ export async function buildApp({
   adminRoutes(app, { config, pool, clock, mailer, providerName: provider?.name ?? 'none' });
   billingRoutes(app, { config, pool, billing, clock });
   payRoutes(app, { config, pool, billing, provider, clock });
+  paidRoutes(app, { config, pool, clock });
   webhookRoutes(app, { config });
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));

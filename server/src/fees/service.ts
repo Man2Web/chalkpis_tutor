@@ -643,3 +643,55 @@ export async function getPayment(db: Db, instituteId: string, id: string) {
     institute: { name: inst[0]!.name, address: inst[0]!.address, phone: inst[0]!.phone },
   };
 }
+
+/**
+ * A parent's "I've paid" that the tutor confirmed: pays the student's open dues oldest first, up to `amount` (never more
+ * than is owed now), one receipt per due, and queues ONE WhatsApp receipt for the total. Inside the caller's
+ * transaction, so the report is marked confirmed together with the payments. Returns what was paid (0: nothing owed).
+ */
+export async function payReported(
+  c: PoolConnection,
+  instituteId: string,
+  userId: string,
+  r: { studentId: string; amount: number; note: string },
+  now: Date,
+) {
+  const [dues] = (await c.query(
+    `SELECT ${DUE_COLS} FROM fee_dues d
+      WHERE d.institute_id = ? AND d.student_id = ? AND d.status IN ('pending','partial')
+      ORDER BY d.period, d.due_date FOR UPDATE`,
+    [instituteId, r.studentId],
+  )) as unknown as [DueRow[]];
+  const paidAt = paidAtFor(todayYmd(now), now);
+  let left = r.amount;
+  const paid: { paymentId: string; receiptNo: string; amount: number; balanceAfter: number }[] = [];
+  for (const due of dues) {
+    if (left <= 0) break;
+    const owe = outstanding(money(due));
+    if (owe <= 0) continue;
+    const amount = Math.min(owe, left);
+    const p = await insertPayment(c, instituteId, userId, due, amount, 'upi', paidAt, r.note);
+    paid.push({ ...p, amount });
+    left -= amount;
+  }
+  if (!paid.length) return { total: 0, receipts: [] as string[] };
+  const total = paid.reduce((t, p) => t + p.amount, 0);
+  const [rest] = (await c.query(
+    `SELECT COALESCE(SUM(GREATEST(CAST(amount AS SIGNED) - CAST(discount AS SIGNED) - CAST(paid AS SIGNED), 0)), 0) AS owe
+       FROM fee_dues WHERE institute_id = ? AND student_id = ? AND status IN ('pending','partial')`,
+    [instituteId, r.studentId],
+  )) as unknown as [{ owe: number }[]];
+  await enqueuePayment(
+    c,
+    instituteId,
+    {
+      paymentId: paid[0]!.paymentId,
+      studentId: r.studentId,
+      amount: total,
+      receiptNo: paid.map((p) => p.receiptNo).join(', '),
+      balanceAfter: Number(rest[0]?.owe ?? 0),
+    },
+    now,
+  );
+  return { total, receipts: paid.map((p) => p.receiptNo) };
+}

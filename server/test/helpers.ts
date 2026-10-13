@@ -75,6 +75,7 @@ const TABLES = [
   'notify_settings',
   'billing_events',
   'billing_orders',
+  'payment_reports',
   'payments',
   'fee_dues',
   'attendance_marks',

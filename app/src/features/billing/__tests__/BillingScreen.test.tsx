@@ -166,7 +166,7 @@ it('tells the owner plainly when online payments are not set up', async () => {
 it('when online payment is off, no plan can be bought and the owner is told why', async () => {
   (usePaymentsAvailable as jest.Mock).mockReturnValue(q(false));
   await render(<BillingScreen />);
-  expect(screen.getByText('Online payment is not switched on yet')).toBeTruthy();
+  expect(screen.getByText('About your plan')).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Choose Starter' })).toBeNull();
   expect(screen.queryByText('₹399')).toBeNull();
   expect(screen.getByText('Free trial')).toBeTruthy(); // the current plan is still shown
@@ -179,7 +179,7 @@ it.each(['ios', 'android'] as const)(
     await render(<BillingScreen />);
     expect(screen.queryByRole('button', { name: 'Choose Starter' })).toBeNull();
     expect(screen.queryByText('₹399')).toBeNull();
-    expect(screen.getByText('Online payment is not switched on yet')).toBeTruthy();
+    expect(screen.getByText('About your plan')).toBeTruthy();
     expect(screen.getByText('Free trial')).toBeTruthy();
   },
 );

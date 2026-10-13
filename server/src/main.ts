@@ -127,6 +127,7 @@ async function main() {
             baseUrl: config.PUBLIC_BASE_URL,
             secret: config.JWT_SECRET,
             templates: parseTemplates(config.WA_TEMPLATES),
+            paidLinks: config.FEE_PAID_LINK,
           }
         : undefined,
     ),

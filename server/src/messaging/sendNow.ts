@@ -1,3 +1,4 @@
+import { paidUrl } from '../billing/payLink.js';
 import type { Pool } from '../db.js';
 import { AppError, notFound } from '../errors.js';
 import { requireActivePlan } from '../institutes/limits.js';
@@ -14,6 +15,8 @@ export interface SendNowConfig {
   publicBaseUrl?: string;
   /** Secret used to sign QR picture links. */
   secret: string;
+  /** Put the parent's "I've paid" link in fee reminders (FEE_PAID_LINK; the templates must have the 4th value). */
+  paidLinks?: boolean;
 }
 
 interface StudentRow {
@@ -119,6 +122,9 @@ export async function sendFeeReminderNow(
     period: first === last ? first : `${first} to ${last}`,
     since: first,
     link: inst.payment_link,
+    ...(cfg.paidLinks && cfg.publicBaseUrl
+      ? { paidLink: paidUrl(cfg.publicBaseUrl, cfg.secret, studentId) }
+      : {}),
   };
   if (inst.payment_link) {
     await queueManual(pool, instituteId, s, 'fee_link', ctx, now);

@@ -67,7 +67,9 @@ async function cleanupJob(pool: Pool, now: Date) {
 }
 
 /** The jobs; plan reminders need the public address and the secret to build each centre's pay link. */
-export const makeJobs = (links?: Parameters<typeof queuePlanReminders>[2]): Job[] => [
+export const makeJobs = (
+  links?: Parameters<typeof queuePlanReminders>[2] & { paidLinks?: boolean },
+): Job[] => [
   { name: 'dues', from: 2, until: 23, every: 'day', run: duesJob },
   {
     name: 'expire',
@@ -82,7 +84,7 @@ export const makeJobs = (links?: Parameters<typeof queuePlanReminders>[2]): Job[
     from: 9,
     until: 18,
     every: 'day',
-    run: (pool, now) => enqueueAllFeeReminders(pool, now),
+    run: (pool, now) => enqueueAllFeeReminders(pool, now, links?.paidLinks ? links : undefined),
   },
   // owners get their pay link on WhatsApp before a trial or plan ends, and on the day it ended
   ...(links

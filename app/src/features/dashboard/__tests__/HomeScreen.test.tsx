@@ -19,6 +19,7 @@ jest.mock('../../auth/session', () => ({
     sel({ profile: { name: 'Asha' } }),
 }));
 jest.mock('../../announcements/AnnouncementBanner', () => ({ AnnouncementBanner: () => null }));
+jest.mock('../../fees/PaymentReportsCard', () => ({ PaymentReportsCard: () => null }));
 jest.mock('../../tasks/api', () => ({
   useTasks: () => ({ data: [], isLoading: false }),
   useTaskActions: () => ({

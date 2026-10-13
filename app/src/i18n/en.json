@@ -949,5 +949,16 @@
     "added": "Mobile number added",
     "unavailable": "WhatsApp codes cannot be sent right now. Please try again later.",
     "failed": "Could not add your number. Please try again."
+  },
+  "paidReports": {
+    "title_one": "{{count}} parent says they have paid",
+    "title_other": "{{count}} parents say they have paid",
+    "says": "{{name}}: {{amount}}",
+    "ref": "UPI ref {{ref}}",
+    "confirm": "Confirm",
+    "notReceived": "Not received",
+    "confirmed": "Payment recorded for {{name}}. The receipt is on its way on WhatsApp.",
+    "rejected": "Marked as not received for {{name}}.",
+    "hint": "Check your UPI or bank app first. Confirm records the payment and sends the receipt to the parent."
   }
 }

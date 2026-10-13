@@ -52,6 +52,7 @@
         "PHONEPE_WEBHOOK_PASSWORD=${PHONEPE_WEBHOOK_PASSWORD}",
         "REVIEW_PHONE=${REVIEW_PHONE}",
         "REVIEW_CODE=${REVIEW_CODE}",
+        "FEE_PAID_LINK=${FEE_PAID_LINK:-false}",
         "TRIAL_DAYS=90"
       ],
       "volumes": ["uploads:/data/uploads", "backups:/data/backups"]

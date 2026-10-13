@@ -95,6 +95,14 @@ it, so it stays.
 
 Every send is logged with the gateway's answer (`wa-send` in Coolify > Chalkpis > Runtime Logs, phone numbers masked).
 
+## "I've paid" link in fee reminders (to do)
+
+With `FEE_PAID_LINK=true` the four fee messages (`fee_due`, `fee_overdue`, `fee_reminder`, `fee_link`) carry a 4th
+value: the parent's "I've paid" page (`https://tutor.chalkpis.com/f/…`). Make a copy of each template with that value
+added, for example "… Already paid? Tell {{3}} here: {{4}}" (for `cp_fee_link`, whose `{{3}}` is the payment link:
+"… Already paid? Tap here: {{4}}"), get them approved, then set `WA_TEMPLATES` to the new ids and `FEE_PAID_LINK=true`
+together, and restart. Until then the reminders go out as before.
+
 ## Login code
 
 `tutor_desk` (Authentication), template id **1809804**: `WA_TEMPLATE_OTP=1809804`.

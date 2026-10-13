@@ -1,3 +1,4 @@
+import { paidUrl } from '../billing/payLink.js';
 import type { Pool, PoolConnection } from '../db.js';
 import { planState, requireActivePlan } from '../institutes/limits.js';
 import { newId } from '../lib/ids.js';
@@ -385,6 +386,8 @@ export async function enqueueFeeReminders(
   pool: Pool,
   instituteId: string,
   now: Date,
+  /** With these, each reminder carries the parent's "I've paid" link (FEE_PAID_LINK). */
+  paidLinks?: { baseUrl: string; secret: string },
 ): Promise<number> {
   const s = await getSettings(pool, instituteId);
   if (!s.enabled || (!s.feeDue && !s.feeOverdue)) return 0;
@@ -441,6 +444,9 @@ export async function enqueueFeeReminders(
         period: periodText(w.due.period, s.language),
         dueDate: ymdText(w.due.due_date, s.language),
         since: ymdText(w.due.due_date, s.language),
+        ...(paidLinks
+          ? { paidLink: paidUrl(paidLinks.baseUrl, paidLinks.secret, w.due.student_id) }
+          : {}),
       },
     });
   }
@@ -451,12 +457,16 @@ export async function enqueueFeeReminders(
 }
 
 /** The daily job for every institute that has messages on and an active plan. Returns the total queued. */
-export async function enqueueAllFeeReminders(pool: Pool, now: Date): Promise<number> {
+export async function enqueueAllFeeReminders(
+  pool: Pool,
+  now: Date,
+  paidLinks?: { baseUrl: string; secret: string },
+): Promise<number> {
   const [rows] = (await pool.query(
     "SELECT n.institute_id FROM notify_settings n JOIN subscriptions s ON s.institute_id = n.institute_id WHERE n.enabled = 1 AND s.status = 'active' AND s.expires_at > ?",
     [now],
   )) as unknown as [{ institute_id: string }[]];
   let total = 0;
-  for (const r of rows) total += await enqueueFeeReminders(pool, r.institute_id, now);
+  for (const r of rows) total += await enqueueFeeReminders(pool, r.institute_id, now, paidLinks);
   return total;
 }

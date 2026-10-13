@@ -113,13 +113,23 @@ export function messageRoutes(app: FastifyInstance, deps: Deps) {
   app.post('/messages/reminders/run', write, async (req) => {
     const s = await getSettings(deps.pool, inst(req));
     if (!s.enabled) throw badRequest('messages_off');
-    return { queued: await enqueueFeeReminders(deps.pool, inst(req), now()) };
+    return {
+      queued: await enqueueFeeReminders(
+        deps.pool,
+        inst(req),
+        now(),
+        deps.config.FEE_PAID_LINK && deps.config.PUBLIC_BASE_URL
+          ? { baseUrl: deps.config.PUBLIC_BASE_URL, secret: deps.config.JWT_SECRET }
+          : undefined,
+      ),
+    };
   });
 
   // ---- sent now by the tutor, through the WhatsApp API ----
   const sendCfg = () => ({
     publicBaseUrl: deps.config.PUBLIC_BASE_URL,
     secret: deps.config.JWT_SECRET,
+    paidLinks: deps.config.FEE_PAID_LINK,
   });
   const id = (req: { params: unknown }) => idParam((req.params as { id: string }).id);
   app.post('/students/:id/remind', write, async (req, reply) =>

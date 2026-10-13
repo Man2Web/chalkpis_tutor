@@ -93,6 +93,8 @@ export interface MessageContext {
   balance?: string;
   /** A web address: the tutor's payment page or the private parent page. */
   link?: string;
+  /** The parent's "I've paid" page; fee messages carry it as a 4th value when FEE_PAID_LINK is on. */
+  paidLink?: string;
 }
 
 /** WhatsApp template values must be single-line; `~` separates values for this gateway. */
@@ -118,6 +120,7 @@ export function varsFor(type: MessageType, c: MessageContext): string[] {
   const student = cleanVar(c.student);
   const institute = cleanVar(c.institute);
   const m = (details: string) => [student, cleanVar(details, 90), institute];
+  const paid = (vars: string[]) => (c.paidLink ? [...vars, cleanVar(c.paidLink, 120)] : vars);
   switch (type) {
     case 'absent':
     case 'late':
@@ -127,21 +130,25 @@ export function varsFor(type: MessageType, c: MessageContext): string[] {
       // the batches with their days and time, e.g. "Kids Beginners (Mon, Wed, Fri 5:00 PM)"
       return m(c.batch || 'our classes');
     case 'fee_due':
-      return m(
-        `${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 20)}, due on ${cleanVar(c.dueDate, 20)}`,
+      return paid(
+        m(
+          `${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 20)}, due on ${cleanVar(c.dueDate, 20)}`,
+        ),
       );
     case 'fee_overdue':
-      return m(
-        `${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 20)}, pending since ${cleanVar(c.since, 20)}`,
+      return paid(
+        m(
+          `${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 20)}, pending since ${cleanVar(c.since, 20)}`,
+        ),
       );
     case 'fee_reminder':
-      return m(`${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 40)}`);
+      return paid(m(`${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 40)}`));
     case 'fee_link':
-      return [
+      return paid([
         student,
         cleanVar(`${cleanVar(c.amount, 20)} for ${cleanVar(c.period, 40)}`, 90),
         cleanVar(c.link, 300),
-      ];
+      ]);
     case 'parent_link':
       return [student, cleanVar(c.link, 300), institute];
     case 'payment_received':

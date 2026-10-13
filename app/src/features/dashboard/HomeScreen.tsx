@@ -15,6 +15,7 @@ import { colors, spacing, type } from '../../theme';
 import { useSession } from '../auth/session';
 import { scheduleLabel } from '../batches/format';
 import { PlanBanner } from '../billing/PlanBanner';
+import { PaymentReportsCard } from '../fees/PaymentReportsCard';
 import { AnnouncementBanner } from '../announcements/AnnouncementBanner';
 import { AttendanceRing } from './AttendanceRing';
 import { HomeHero } from './HomeHero';
@@ -107,6 +108,7 @@ export function HomeScreen() {
 
         <AnnouncementBanner />
         <PlanBanner />
+        <PaymentReportsCard />
 
         {loading ? (
           <Skeleton height={210} />

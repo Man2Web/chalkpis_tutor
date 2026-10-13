@@ -134,6 +134,12 @@ const schema = z.object({
   RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().min(16).optional(),
 
+  /**
+   * Fee reminders carry the parent's "I've paid" link as a 4th value. Switch on together with WA_TEMPLATES pointing
+   * the four fee messages at templates that have that 4th value (docs/WHATSAPP-TEMPLATES.md).
+   */
+  FEE_PAID_LINK: flag('false'),
+
   /** Run pending migrations when the server starts. Safe: guarded by a database lock. */
   AUTO_MIGRATE: flag('true'),
 });
