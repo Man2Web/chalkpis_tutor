@@ -56,9 +56,9 @@ Footer on all of them: "Sent via Chalkpis on behalf of your centre". ("/" marks 
 | --- | --- | --- | --- | --- | --- | --- |
 | `centre_welcome` | `cp_centre_welcome` | 1815396 | owner's name | centre | trial end date | a centre is set up |
 | `plan_active` | `cp_plan_active` | 1815397 | owner's name | `Standard plan for Kiran Karate Academy` | end date | a plan payment is applied (once per payment) |
-| `helper_invite` | `cp_helper_invite` | (in review) | helper's name | owner's name | centre | a helper is added (once per helper) |
-| `plan_ending` | `cp_plan_ending` (**image header**, Meta classed it Marketing) | (in review) | owner's name | `free trial for Kiran Karate Academy` / `Standard plan for …` | end date | daily job: a trial ends within 2 days, a paid plan within 3 (once per end date); `{{4}}` is the centre's pay link |
-| `plan_ended` | `cp_plan_ended` (**image header**, Meta classed it Marketing) | (in review) | owner's name | same | end date | daily job: on the day it ended (within 2 days, not renewed; once per end date); `{{4}}` is the pay link |
+| `helper_invite` | `cp_helper_invite` | 1815400 | helper's name | owner's name | centre | a helper is added (once per helper) |
+| `plan_ending` | `cp_plan_ending` (**image header**, Meta classed it Marketing) | 1815843 | owner's name | `free trial for Kiran Karate Academy` / `Standard plan for …` | end date | daily job: a trial ends within 2 days, a paid plan within 3 (once per end date); `{{4}}` is the centre's pay link |
+| `plan_ended` | `cp_plan_ended` (**image header**, Meta classed it Marketing) | 1815844 | owner's name | same | end date | daily job: on the day it ended (within 2 days, not renewed; once per end date); `{{4}}` is the pay link |
 
 These are queued in `centre_messages` in the same transaction as their event and sent by the same worker as parent
 messages (with retries); the number is read from the person's account at send time.
@@ -95,7 +95,18 @@ it, so it stays.
 
 Every send is logged with the gateway's answer (`wa-send` in Coolify > Chalkpis > Runtime Logs, phone numbers masked).
 
-## "I've paid" link in fee reminders (to do)
+## "I've paid" link in fee reminders (templates in review, 14 Oct 2026)
+
+Submitted on wa.adsme.in (Utility, footer "Sent via Chalkpis on behalf of your centre"); `{{4}}` is the parent's
+"I've paid" page. Once approved, put their ids in `WA_TEMPLATES` for `fee_due`, `fee_overdue`, `fee_link` and
+`fee_reminder`, set `FEE_PAID_LINK=true`, and restart, all together.
+
+- **cp_fee_due_paid**: Hello, a gentle reminder that the fee for {{1}} is due: {{2}}. / Kindly pay on time. Regards, {{3}}. / Already paid? Tap here to let the centre know: {{4}} / Thank you.
+- **cp_fee_overdue_paid**: Hello, the fee for {{1}} is still \*pending\*: {{2}}. / Please pay at the earliest. Regards, {{3}}. / Already paid? Tap here to let the centre know: {{4}} / Thank you.
+- **cp_fee_link_paid**: Hello, the fee for {{1}} is pending: {{2}}. / You can pay online here: {{3}} / Already paid? Tap here to let the centre know: {{4}} / Thank you.
+- **cp_fee_qr_paid** (header: image, the UPI QR): Hello, the fee for {{1}} is pending: {{2}}. / Scan the QR code above with any UPI app (Google Pay, PhonePe, Paytm) to pay {{3}} directly. / Already paid? Tap here to let the centre know: {{4}} / Thank you.
+
+### How it is switched on
 
 With `FEE_PAID_LINK=true` the four fee messages (`fee_due`, `fee_overdue`, `fee_reminder`, `fee_link`) carry a 4th
 value: the parent's "I've paid" page (`https://tutor.chalkpis.com/f/…`). Make a copy of each template with that value
@@ -113,7 +124,7 @@ The server reads the template per app message type from `WA_TEMPLATES` (JSON), p
 Through wa.adsme.in use the **Template Id numbers** above (add `helper_invite` once it is approved):
 
 ```
-{"absent":{"en":"1815393"},"late":{"en":"1815389"},"fee_due":{"en":"1815388"},"fee_overdue":{"en":"1815387"},"payment_received":{"en":"1815826"},"fee_reminder":{"en":"1815399"},"fee_link":{"en":"1815392"},"parent_link":{"en":"1815395"},"student_welcome":{"en":"1815398"},"class_cancelled":{"en":"1815394"},"centre_welcome":{"en":"1815396"},"plan_active":{"en":"1815397"}}
+{"absent":{"en":"1815393"},"late":{"en":"1815389"},"fee_due":{"en":"1815388"},"fee_overdue":{"en":"1815387"},"payment_received":{"en":"1815826"},"fee_reminder":{"en":"1815399"},"fee_link":{"en":"1815392"},"parent_link":{"en":"1815395"},"student_welcome":{"en":"1815398"},"class_cancelled":{"en":"1815394"},"centre_welcome":{"en":"1815396"},"plan_active":{"en":"1815397"},"plan_ending":{"en":"1815843"},"plan_ended":{"en":"1815844"},"helper_invite":{"en":"1815400"}}
 ```
 
 A message type with no template is skipped and shows in the Message log as "No template for this message".
