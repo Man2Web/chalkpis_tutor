@@ -242,6 +242,8 @@ export interface Institute {
   upiId?: string;
   paymentLink?: string;
   receiptPrefix: string;
+  /** When the centre was set up (ISO); only new centres get the welcome tour. */
+  createdAt?: string;
 }
 
 export function useInstitute() {
@@ -259,6 +261,7 @@ export function useInstitute() {
         upiId: d.upiId,
         paymentLink: d.paymentLink,
         receiptPrefix: d.receiptPrefix,
+        createdAt: d.createdAt,
       };
     },
   });

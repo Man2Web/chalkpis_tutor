@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components';
-import { useInstituteId } from '../../data/hooks';
+import { useInstitute, useInstituteId } from '../../data/hooks';
 import { haptic } from '../../lib/haptics';
 import { readFlag, setFlag } from '../../lib/onceFlag';
 import { colors, spacing, type } from '../../theme';
@@ -25,9 +25,12 @@ const SLIDES = [
   { key: 'parents', icon: 'chatbubbles-outline' },
 ] as const;
 
+/** Only centres set up this recently see the tour; everyone else already knows the app. */
+const NEW_CENTRE_MS = 3 * 86_400_000;
+
 /**
- * A short tour the first time an owner opens Home: four quiet slides (swipe or Next), Skip at any time. Shown once per
- * centre on this device.
+ * A short tour the first time the owner of a NEW centre opens Home: four quiet slides (swipe or Next), Skip at any
+ * time. Shown once per centre on this device; centres older than a few days never see it.
  */
 export function WelcomeTour() {
   const { t } = useTranslation();
@@ -38,14 +41,17 @@ export function WelcomeTour() {
   const scroller = useRef<ScrollView>(null);
   const [open, setOpen] = useState(false);
   const [page, setPage] = useState(0);
+  const createdAt = useInstitute().data?.createdAt;
+  const isNew = !!createdAt && Date.now() - Date.parse(createdAt) < NEW_CENTRE_MS;
 
   useEffect(() => {
+    if (!isNew) return;
     let live = true;
     void readFlag(flag).then((seen) => live && !seen && setOpen(true));
     return () => {
       live = false;
     };
-  }, [flag]);
+  }, [flag, isNew]);
 
   const close = () => {
     setOpen(false);

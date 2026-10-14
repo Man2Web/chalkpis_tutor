@@ -63,7 +63,7 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
   // The institute is always the caller's own, taken from their membership; there is no id in the URL to tamper with.
   app.get('/institute', { preHandler: [auth, requireInstitute] }, async (req) => {
     const [rows] = (await deps.pool.query(
-      'SELECT name, category, address, phone, upi_id, payment_link, receipt_prefix, timezone, currency, logo_path FROM institutes WHERE id = ?',
+      'SELECT name, category, address, phone, upi_id, payment_link, receipt_prefix, timezone, currency, logo_path, created_at FROM institutes WHERE id = ?',
       [req.auth!.instituteId],
     )) as unknown as [
       {
@@ -77,6 +77,7 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
         timezone: string;
         currency: string;
         logo_path: string | null;
+        created_at: Date;
       }[],
     ];
     const r = rows[0]!;
@@ -91,6 +92,7 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
       timezone: r.timezone,
       currency: r.currency,
       logoUrl: logoUrl(deps.config.PUBLIC_BASE_URL, r.logo_path),
+      createdAt: r.created_at.toISOString(),
     };
   });
 
