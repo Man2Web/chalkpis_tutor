@@ -19,7 +19,9 @@ import { Cohorts } from '@/pages/Cohorts';
 import { Leaders } from '@/pages/Leaders';
 import { Logins } from '@/pages/Logins';
 import { Overview } from '@/pages/Overview';
+import { Payments } from '@/pages/Payments';
 import { Signins } from '@/pages/Signins';
+import { Subscriptions } from '@/pages/Subscriptions';
 import { System } from '@/pages/System';
 import { WhatsApp } from '@/pages/WhatsApp';
 
@@ -67,7 +69,9 @@ export default function App() {
     analytics: <Analytics />,
     cohorts: <Cohorts />,
     centres: <Centres key={route.key} query={route.query} />,
-    centre: id ? <Centre key={id} id={id} onName={setCentreName} /> : <Overview />,
+    centre: id ? <Centre key={id} id={id} tab={route.query.tab} onName={setCentreName} /> : <Overview />,
+    subscriptions: <Subscriptions key={route.key} query={route.query} />,
+    payments: <Payments />,
     logins: <Logins />,
     leaders: <Leaders />,
     activity: <Activity />,

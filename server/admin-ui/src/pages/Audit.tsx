@@ -15,7 +15,7 @@ export function Audit() {
   if (!data) return <Loading rows={8} />;
   return (
     <div className="grid gap-6">
-      <PageHeader title="Audit log" description="Every admin action and sign-in, newest first" />
+      <PageHeader title="Audit log" description="Everything an admin changed, exported or signed in for, newest first: who, what and when." />
       <Card className="py-0">
         <Table>
           <TableHeader>

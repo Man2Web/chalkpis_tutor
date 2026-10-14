@@ -111,6 +111,33 @@ describe('admin: full control of a subscription', () => {
     });
     expect((await sub()).expires_at.getTime()).toBe(before); // only the money was recorded
     expect((await T.call('GET', '/billing')).body.history).toHaveLength(2);
+
+    // the Billing page: revenue, recurring revenue from the running Pro plan, and both payments, newest first
+    const other = await h.tenant('+919800000002', { institute: 'Moon Yoga' }); // still on its trial
+    const b = (await admin.call('GET', '/admin/api/billing')).body;
+    expect(b.summary).toMatchObject({
+      revenueThisMonth: 149900,
+      revenueAllTime: 149900,
+      paymentsAllTime: 2,
+      paying: 1,
+      trials: 1,
+      mrr: Math.round(99900 / 12),
+    });
+    expect(b.payments).toHaveLength(2);
+    expect(b.payments[0]).toMatchObject({
+      centre: 'Sunrise Dance',
+      plan: 'starter',
+      amount: 50000,
+      provider: 'manual',
+      method: 'cash',
+      status: 'paid',
+    });
+    expect(b.payments[1]).toMatchObject({ plan: 'pro', reference: 'UTR 1234' });
+    // search by centre
+    expect((await admin.call('GET', '/admin/api/billing?q=moon')).body.payments).toHaveLength(0);
+    expect(other.instituteId).toBeTruthy();
+    // tutors cannot see it
+    expect((await T.call('GET', '/admin/api/billing')).status).toBe(401);
   });
 
   it('a tutor cannot use these endpoints', async () => {

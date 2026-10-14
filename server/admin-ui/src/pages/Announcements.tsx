@@ -60,7 +60,7 @@ export function Announcements() {
 
   return (
     <div className="grid gap-6">
-      <PageHeader title="Announcements" description="A banner on every tutor’s Home screen" />
+      <PageHeader title="Announcements" description="A banner on every tutor’s Home screen in the app, for news, offers and maintenance notices." />
       <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
         <Card>
           <CardHeader>

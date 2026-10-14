@@ -25,6 +25,7 @@ import {
   userListQuery,
 } from '../admin/service.js';
 import { analytics, getInstitute, listInstitutes } from '../admin/analytics.js';
+import { billingOverview, billingQuery } from '../admin/billing.js';
 import { payUrl } from '../billing/payLink.js';
 import {
   announcementBody,
@@ -233,6 +234,9 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
     // the centre's own pay page, to send to its owner on WhatsApp (see routes/pay.ts)
     payUrl: payUrl(config.PUBLIC_BASE_URL, config.JWT_SECRET, id(req)),
   }));
+  app.get('/admin/api/billing', guard, async (req) =>
+    billingOverview(pool, parse(billingQuery, req.query), now()),
+  );
   app.get('/admin/api/messages', guard, async (req) =>
     messagesMonitor(pool, parse(messagesQuery, req.query), now()),
   );

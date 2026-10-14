@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Check, Copy, Download, ExternalLink, MessageCircle, Phone, Search, Tags, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, Copy, Download, MessageCircle, Phone, Search, Tags, Trash2 } from 'lucide-react';
 import { Empty, ErrorBox, Health, Kpi, Loading, PersonAvatar } from '@/components/app/bits';
 import { Bars, C, Donut } from '@/components/app/charts';
 import { confirmDialog } from '@/components/app/dialogs';
 import { DayFeed, type Ev } from '@/components/app/events';
 import { Pill } from '@/components/app/pill';
-import { PlanEditor } from '@/components/app/plan';
+import { PayLinkCard, PaymentsTable, StatusBadge, SubscriptionCard, planName, subscriptionState } from '@/components/app/billing';
 import { Tag } from '@/components/app/tags';
 import { toast } from '@/components/app/toast';
 import { openUser } from '@/components/app/user';
@@ -23,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Toggle } from '@/components/ui/toggle';
 import { api, downloadCsv } from '@/lib/api';
-import { ago, dlong, dshort, money, plural, when } from '@/lib/format';
+import { ago, dateOnly, dlong, dshort, money, plural, when } from '@/lib/format';
 import { go, useApi, useDebounced } from '@/lib/hooks';
 import { AREA, category, DEVICE, KIND, METHOD, msgType, NOPHONE, TAGS, tagLabel } from '@/lib/names';
 import { cn } from '@/lib/utils';
@@ -61,9 +61,9 @@ type Detail = {
 
 const digits = (p: string) => p.replace(/\D/g, '');
 
-export function Centre({ id, onName }: { id: string; onName: (n: string) => void }) {
+export function Centre({ id, tab: initialTab, onName }: { id: string; tab?: string; onName: (n: string) => void }) {
   const { data, error, reload } = useApi<Detail>(`/admin/api/institutes/${id}`);
-  const [tab, setTab] = useState('overview');
+  const [tab, setTab] = useState(initialTab ?? 'overview');
   useEffect(() => {
     onName(data?.institute.name ?? '');
   }, [data, onName]);
@@ -94,7 +94,10 @@ export function Centre({ id, onName }: { id: string; onName: (n: string) => void
               {c.name.slice(0, 2).toUpperCase()}
             </span>
             <div className="min-w-0">
-              <h1 className="text-2xl font-semibold tracking-tight">{c.name}</h1>
+              <h1 className="flex flex-wrap items-center gap-2 text-2xl font-semibold tracking-tight">
+                {c.name}
+                <StatusBadge s={c} className="text-xs" />
+              </h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 {[
                   category(c.category),
@@ -146,25 +149,32 @@ export function Centre({ id, onName }: { id: string; onName: (n: string) => void
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Kpi label="Health" value={<Health score={c.health} />} hint="Activity, students, payments and WhatsApp" />
         <Kpi label="Students" value={c.students} hint={`${plural(c.batches, 'batch', 'batches')} · ${plural(c.staff, 'helper')}`} />
         <Kpi label="Fees recorded · 30 d" value={money(c.collected30)} hint={`${money(data.activity.outstanding)} still owed`} />
         <Kpi
           label="Plan"
-          value={<span className="capitalize">{c.plan || '—'}</span>}
-          hint={c.expiresAt ? `${c.planActive ? 'until' : 'ended'} ${dshort(c.expiresAt)}` : undefined}
+          value={planName(c.plan)}
+          hint={
+            c.expiresAt
+              ? subscriptionState(c).key === 'ended'
+                ? `Ended ${dateOnly(c.expiresAt)}`
+                : `Until ${dateOnly(c.expiresAt)} · ${subscriptionState(c).daysLeft} days left`
+              : undefined
+          }
+          onClick={() => setTab('billing')}
         />
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex h-auto w-full flex-wrap justify-start sm:w-fit">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="logs">Logs</TabsTrigger>
+          <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="people">People</TabsTrigger>
+          <TabsTrigger value="logs">Activity log</TabsTrigger>
           <TabsTrigger value="messages">WhatsApp</TabsTrigger>
           <TabsTrigger value="notes">Notes</TabsTrigger>
-          <TabsTrigger value="billing">Plan & billing</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4 grid gap-4 xl:grid-cols-3">
@@ -287,76 +297,23 @@ export function Centre({ id, onName }: { id: string; onName: (n: string) => void
           <Notes id={id} />
         </TabsContent>
 
-        <TabsContent value="billing" className="mt-4 grid gap-4 lg:grid-cols-2">
-          <PayLink url={new URL(data.payUrl, location.origin).href} centre={c.name} ownerName={owner?.name ?? null} ownerPhone={owner?.phone ?? null} />
-          <PlanEditor
-            instituteId={id}
-            plan={c.plan}
-            active={c.planActive}
-            planStatus={c.planStatus}
-            expiresAt={c.expiresAt}
-            studentLimit={c.studentLimit}
-            batchLimit={c.batchLimit}
-            onDone={reload}
-          />
-          <Card>
-            <CardHeader><CardTitle>Plan payments</CardTitle></CardHeader>
-            <CardContent className="grid gap-2 text-sm">
-              {data.billing.length ? (
-                data.billing.map((b) => (
-                  <div key={b.paymentId} className="grid gap-0.5 border-b pb-2 last:border-0 last:pb-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span><span className="capitalize">{b.plan}</span> · <span className="font-medium tabular">{money(b.amount)}</span></span>
-                      <span className="text-muted-foreground">{when(b.at)}</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {b.provider === 'manual' ? `Recorded by admin · ${b.method ?? ''}` : b.provider}
-                      {b.note ? ` · ${b.note}` : ''}
-                      {b.validUntil ? ` · until ${dshort(b.validUntil)}` : ''}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <Empty text="No plan payments yet." />
-              )}
-            </CardContent>
-          </Card>
+        <TabsContent value="billing" className="mt-4 grid items-start gap-4 lg:grid-cols-3">
+          <div className="grid min-w-0 gap-4 lg:col-span-2">
+            <SubscriptionCard c={c} onDone={reload} />
+            <Card>
+              <CardHeader>
+                <CardTitle>Payment history</CardTitle>
+                <CardDescription>Every plan payment from this centre, online or recorded by an admin.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <PaymentsTable rows={data.billing} empty="No plan payments yet." />
+              </CardContent>
+            </Card>
+          </div>
+          <PayLinkCard url={new URL(data.payUrl, location.origin).href} centre={c.name} ownerName={owner?.name ?? null} ownerPhone={owner?.phone ?? null} />
         </TabsContent>
       </Tabs>
     </div>
-  );
-}
-
-/** The centre's own pay page: copy it, open it, or send it to the owner on WhatsApp with a short note. */
-function PayLink({ url, centre, ownerName, ownerPhone }: { url: string; centre: string; ownerName: string | null; ownerPhone: string | null }) {
-  const text = `Hi${ownerName ? ` ${ownerName.split(' ')[0]}` : ''}, here is the link to choose and pay for your Chalkpis plan for ${centre}: ${url}`;
-  return (
-    <Card className="lg:col-span-2">
-      <CardHeader>
-        <CardTitle>Payment link</CardTitle>
-        <CardDescription>
-          The centre's own page to choose a plan and pay online. The plan switches on by itself once the payment is confirmed.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-3">
-        <Input readOnly value={url} onFocus={(e) => e.currentTarget.select()} className="font-mono text-xs" aria-label="Payment link" />
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => void navigator.clipboard.writeText(url).then(() => toast('Payment link copied'))}>
-            <Copy /> Copy link
-          </Button>
-          {ownerPhone ? (
-            <Button size="sm" variant="outline" asChild>
-              <a href={`https://wa.me/${digits(ownerPhone)}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">
-                <MessageCircle /> Send on WhatsApp
-              </a>
-            </Button>
-          ) : null}
-          <Button size="sm" variant="outline" asChild>
-            <a href={url} target="_blank" rel="noreferrer"><ExternalLink /> Open</a>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 

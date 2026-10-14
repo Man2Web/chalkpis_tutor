@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 import { Building2, ChevronRight, IndianRupee, MessageCircle, UserPlus } from 'lucide-react';
+import { BillingKpis } from '@/components/app/billing';
 import { Delta, Empty, ErrorBox, Health, Kpi, Loading, PageHeader } from '@/components/app/bits';
 import { C, Donut, TrendChart } from '@/components/app/charts';
 import { EventRow, type Ev } from '@/components/app/events';
@@ -120,6 +121,16 @@ export function Overview() {
         <Kpi label="WhatsApp delivered" value={num(t('messagesSent').now)} icon={<MessageCircle />} hint={<><Delta {...t('messagesSent')} /> vs previous 30 days</>} onClick={() => go('whatsapp')}>
           <Spark values={a.series.messagesSent} color="#0d9488" />
         </Kpi>
+      </div>
+
+      <div className="grid gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-muted-foreground">Billing</h2>
+          <Button variant="ghost" size="sm" onClick={() => go('subscriptions')}>
+            Subscriptions <ChevronRight />
+          </Button>
+        </div>
+        <BillingKpis onPick={(v) => go(`subscriptions?view=${v}`)} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">

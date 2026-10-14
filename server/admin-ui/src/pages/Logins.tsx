@@ -36,8 +36,8 @@ export function Logins() {
   return (
     <div className="grid gap-6">
       <PageHeader
-        title="Logins"
-        description="Every tutor and helper who has signed in"
+        title="People"
+        description="Every tutor and helper who has signed in. Open someone to block them, sign them out or see their centre."
         actions={
           <Button
             variant="outline"

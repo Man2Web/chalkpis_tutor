@@ -69,7 +69,7 @@ export function WhatsApp() {
   };
   return (
     <div className="grid gap-6">
-      <PageHeader title="WhatsApp" description="Every parent message, platform-wide" />
+      <PageHeader title="WhatsApp" description="Every message Chalkpis sends to parents: what went out, what failed and why. Failed ones can be retried." />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi label="Sent · 7 d" value={sent} hint="accepted by the WhatsApp gateway" />
         <Kpi label="Failed · 7 d" value={<span className={cn(tot('failed') && 'text-rose-600 dark:text-rose-400')}>{tot('failed')}</span>} hint="the gateway refused them" />

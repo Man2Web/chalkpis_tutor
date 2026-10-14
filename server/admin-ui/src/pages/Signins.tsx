@@ -15,7 +15,7 @@ export function Signins() {
   if (!data) return <Loading rows={8} />;
   return (
     <div className="grid gap-6">
-      <PageHeader title="Sign-ins" description="The last 100 login codes asked for in the app, and what happened" />
+      <PageHeader title="Login codes" description="The last 100 WhatsApp login codes asked for in the app, and what happened. Use it when a tutor says they cannot sign in." />
       <Card className="py-0">
         <Table>
           <TableHeader>

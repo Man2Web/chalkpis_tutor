@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Download, Search } from 'lucide-react';
 import { Empty, ErrorBox, Health, Loading, PageHeader } from '@/components/app/bits';
-import { Pill } from '@/components/app/pill';
+import { StatusBadge, planName, subscriptionState } from '@/components/app/billing';
 import { Tag } from '@/components/app/tags';
 import { toast } from '@/components/app/toast';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { downloadCsv } from '@/lib/api';
-import { ago, dshort, money, plural } from '@/lib/format';
+import { ago, dateOnly, money, plural } from '@/lib/format';
 import { go, useApi, useDebounced } from '@/lib/hooks';
 import { category, TAGS, tagLabel } from '@/lib/names';
 import { cn } from '@/lib/utils';
@@ -32,13 +32,17 @@ const SORTS = [
 ] as const;
 
 export function PlanCell({ plan, active, expiresAt }: { plan: string | null; active: boolean; expiresAt: string | null }) {
+  const st = subscriptionState({ plan, planActive: active, expiresAt });
   return (
     <div className="grid gap-0.5">
-      <Pill tone={!active ? 'orange' : plan === 'trial' ? 'blue' : 'green'} className="w-fit capitalize">
-        {plan || '—'}
-        {plan && !active ? ' · ended' : ''}
-      </Pill>
-      {expiresAt ? <span className="text-xs text-muted-foreground">{active ? 'until' : 'ended'} {dshort(expiresAt)}</span> : null}
+      <span className="flex items-center gap-1.5">
+        {planName(plan)} <StatusBadge s={{ plan, planActive: active, expiresAt }} />
+      </span>
+      {expiresAt ? (
+        <span className="text-xs text-muted-foreground">
+          {st.key === 'ended' ? 'Ended' : 'Until'} {dateOnly(expiresAt)}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -57,7 +61,7 @@ export function Centres({ query }: { query: Record<string, string> }) {
     <div className="grid gap-6">
       <PageHeader
         title="Centres"
-        description={data ? `${plural(rows.length, 'centre')}${tag !== 'any' || filter !== 'all' || dq ? ' match' : ''}` : 'Every class, academy and institute'}
+        description={`Every class, academy and institute using Chalkpis${data ? ` · ${plural(rows.length, 'centre')}${tag !== 'any' || filter !== 'all' || dq ? ' match' : ''}` : ''}`}
         actions={
           <Button
             variant="outline"
