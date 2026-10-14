@@ -3,7 +3,7 @@
     "name": "Chalkpis",
     "slug": "chalkpis",
     "scheme": "chalkpis",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -55,6 +55,14 @@
           "backgroundColor": "#FFFFFF",
           "image": "./assets/splash-blank.png",
           "imageWidth": 104
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#262626",
+          "defaultChannel": "default"
         }
       ]
     ],

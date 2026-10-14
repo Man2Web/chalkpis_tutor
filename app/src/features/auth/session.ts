@@ -1,3 +1,4 @@
+import { unregisterPush } from '../../lib/push';
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { api, ApiError, setSignedOutHandler } from '../../api/client';
@@ -98,6 +99,7 @@ export function logout(): Promise<void> {
   return (loggingOut ??= (async () => {
     try {
       const refreshToken = await tokens.getRefresh();
+      await unregisterPush();
       try {
         if (refreshToken) await api('POST', '/auth/logout', { refreshToken });
       } catch {

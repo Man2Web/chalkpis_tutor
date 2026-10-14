@@ -1,3 +1,4 @@
+import type { PushSender } from '../src/push/expo.js';
 import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
@@ -75,6 +76,8 @@ const TABLES = [
   'notify_settings',
   'billing_events',
   'billing_orders',
+  'push_log',
+  'push_tokens',
   'payment_reports',
   'payments',
   'fee_dues',
@@ -97,6 +100,7 @@ export async function startHarness(
   opts: {
     billing?: BillingProvider;
     mailer?: Mailer | null;
+    push?: PushSender | null;
   } = {},
 ): Promise<Harness> {
   const db = await createTestDb();
@@ -119,6 +123,7 @@ export async function startHarness(
     provider,
     billing: opts.billing ?? billing,
     mailer: opts.mailer ?? null,
+    push: opts.push ?? null,
     clock: () => clock.now,
   });
 

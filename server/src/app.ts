@@ -17,6 +17,8 @@ import { feeRoutes } from './routes/fees.js';
 import { billingRoutes } from './routes/billing.js';
 import { payRoutes } from './routes/pay.js';
 import { paidRoutes } from './routes/paid.js';
+import { pushRoutes } from './routes/push.js';
+import type { PushSender } from './push/expo.js';
 import { messageRoutes } from './routes/messages.js';
 import { fileRoutes } from './routes/files.js';
 import { parentRoutes } from './routes/parent.js';
@@ -41,6 +43,8 @@ export interface AppDeps {
   billing?: BillingProvider | null;
   /** Sends the admin dashboard's sign-in codes and alerts by email. Null means not configured. */
   mailer?: Mailer | null;
+  /** Push notifications to the app. Null means none are sent. */
+  push?: PushSender | null;
   /** Test hook: the current time. */
   clock?: () => Date;
 }
@@ -53,6 +57,7 @@ export async function buildApp({
   provider = null,
   billing = null,
   mailer = null,
+  push = null,
   clock,
 }: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
@@ -130,7 +135,8 @@ export async function buildApp({
   adminRoutes(app, { config, pool, clock, mailer, providerName: provider?.name ?? 'none' });
   billingRoutes(app, { config, pool, billing, clock });
   payRoutes(app, { config, pool, billing, provider, clock });
-  paidRoutes(app, { config, pool, clock });
+  paidRoutes(app, { config, pool, push, clock });
+  pushRoutes(app, { config, pool, clock });
   webhookRoutes(app, { config });
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));

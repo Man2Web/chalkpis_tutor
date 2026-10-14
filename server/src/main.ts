@@ -19,6 +19,7 @@ import {
   type MessageProvider,
 } from './messaging/provider.js';
 import { makeJobs, startScheduler } from './jobs/runner.js';
+import { ExpoPushSender } from './push/expo.js';
 import { parseTemplates } from './messaging/templates.js';
 import { startWorker } from './messaging/worker.js';
 import { runMigrations } from './migrate.js';
@@ -101,7 +102,9 @@ async function main() {
       config.MAIL_FROM,
     );
   else if (config.NODE_ENV !== 'production') mailer = new MockMailer();
-  const app = await buildApp({ config, pool, provider, billing, mailer });
+  // push notifications go through Expo's push service; locally nothing is sent
+  const push = config.NODE_ENV === 'production' ? new ExpoPushSender() : null;
+  const app = await buildApp({ config, pool, provider, billing, mailer, push });
 
   const stopWorker = startWorker(
     {
@@ -128,6 +131,7 @@ async function main() {
             secret: config.JWT_SECRET,
             templates: parseTemplates(config.WA_TEMPLATES),
             paidLinks: config.FEE_PAID_LINK,
+            push,
           }
         : undefined,
     ),

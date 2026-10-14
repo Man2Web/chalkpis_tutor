@@ -3,6 +3,7 @@ import { generateDues } from '../fees/service.js';
 import { expireDueSubscriptions } from '../billing/service.js';
 import { currentPeriod, istHour, todayYmd } from '../lib/ist.js';
 import { queuePlanReminders } from '../messaging/centreMessages.js';
+import { attendanceNudges } from '../push/nudges.js';
 import { enqueueAllFeeReminders } from '../messaging/notify.js';
 
 export interface JobLog {
@@ -70,6 +71,18 @@ async function cleanupJob(pool: Pool, now: Date) {
 export const makeJobs = (
   links?: Parameters<typeof queuePlanReminders>[2] & { paidLinks?: boolean },
 ): Job[] => [
+  // the evening "attendance not marked" push, once per centre per day
+  ...(links?.push
+    ? [
+        {
+          name: 'attendance-nudge',
+          from: 20,
+          until: 22,
+          every: 'day',
+          run: (pool: Pool, now: Date) => attendanceNudges(pool, links.push!, now),
+        } satisfies Job,
+      ]
+    : []),
   { name: 'dues', from: 2, until: 23, every: 'day', run: duesJob },
   {
     name: 'expire',

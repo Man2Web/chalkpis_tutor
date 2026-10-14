@@ -10,8 +10,9 @@ import { newId } from '../lib/ids.js';
 import { idParam } from '../lib/params.js';
 import { rupees } from '../messaging/templates.js';
 import { PAY_CSS_HREF } from './payCss.js';
+import { ownerOf, pushToUsers } from '../push/expo.js';
 
-type Deps = Pick<AppDeps, 'config' | 'pool'> & { clock?: () => Date };
+type Deps = Pick<AppDeps, 'config' | 'pool' | 'push'> & { clock?: () => Date };
 
 const CSP =
   "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
@@ -128,11 +129,24 @@ export function paidRoutes(app: FastifyInstance, deps: Deps) {
           .replace(/[^A-Za-z0-9-]/g, '')
           .slice(0, 40);
         // INSERT IGNORE: a double tap (or two parents at once) still makes one pending report
-        await pool.query(
+        const reportId = newId();
+        const [ins] = (await pool.query(
           `INSERT IGNORE INTO payment_reports (id, institute_id, student_id, amount, upi_ref, open_key, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [newId(), r.s.institute_id, r.s.id, r.s.owe, ref, r.s.id, now()],
-        );
+          [reportId, r.s.institute_id, r.s.id, r.s.owe, ref, r.s.id, now()],
+        )) as unknown as [{ affectedRows: number }];
+        if (ins.affectedRows === 1)
+          void pushToUsers(
+            pool,
+            deps.push ?? null,
+            await ownerOf(pool, r.s.institute_id),
+            `paid_${reportId}`,
+            {
+              title: 'Payment reported',
+              body: `${r.s.name}'s parent says they paid ${rupees(r.s.owe)}. Tap to confirm.`,
+              screen: 'Home',
+            },
+          );
         const after = await load(req.params.token);
         return send(
           reply,

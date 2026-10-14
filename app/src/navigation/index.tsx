@@ -1,6 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
+import { navigationRef } from './ref';
+import { usePushSetup } from '../features/push/usePushSetup';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Text, useWindowDimensions, View } from 'react-native';
@@ -207,6 +209,7 @@ function MainTabs() {
 }
 
 function MainStack() {
+  usePushSetup();
   const { t } = useTranslation();
   return (
     <Main.Navigator screenOptions={stackHeader}>
@@ -374,7 +377,7 @@ export function RootNavigator() {
 
   if (status === 'loading') return <RestoringSession />;
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       {status === 'signedOut' ? (
         <AuthStack />
       ) : status === 'needsOnboarding' ? (

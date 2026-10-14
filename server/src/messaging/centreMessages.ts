@@ -1,5 +1,6 @@
 import type { Pool, PoolConnection } from '../db.js';
 import { payUrl } from '../billing/payLink.js';
+import { pushToUsers, type PushSender } from '../push/expo.js';
 import { PLANS, type PlanId } from '../billing/plans.js';
 import { newId } from '../lib/ids.js';
 import type { MessageProvider } from './provider.js';
@@ -167,7 +168,7 @@ export async function queueHelperInvite(
 export async function queuePlanReminders(
   pool: Pool,
   now: Date,
-  links: { baseUrl: string; secret: string; templates?: TemplateMap },
+  links: { baseUrl: string; secret: string; templates?: TemplateMap; push?: PushSender | null },
 ): Promise<number> {
   const DAY = 86_400_000;
   const [rows] = (await pool.query(
@@ -208,7 +209,29 @@ export async function queuePlanReminders(
       },
       now,
     );
-    if (queued) n++;
+    if (queued) {
+      n++;
+      // the same news in the app (informational only: the store apps never point to paying)
+      const label =
+        r.plan === 'trial' ? 'free trial' : `${PLANS[r.plan as PlanId]?.name ?? 'Chalkpis'} plan`;
+      await pushToUsers(
+        pool,
+        links.push ?? null,
+        [c.owner_id],
+        `plan_${type}_${r.institute_id}_${r.expires_at.toISOString().slice(0, 10)}`,
+        {
+          title:
+            type === 'plan_ended'
+              ? `Your ${label} has ended`
+              : `Your ${label} ends on ${day(r.expires_at)}`,
+          body:
+            type === 'plan_ended'
+              ? 'Your data is safe, and you can still see everything in Chalkpis.'
+              : 'Open Plans & billing to see your plan details.',
+          screen: 'Billing',
+        },
+      );
+    }
   }
   return n;
 }
