@@ -174,6 +174,8 @@ export const announcementBody = z.object({
     .refine((v) => v === '' || /^https:\/\/[^\s<>"]+$/i.test(v))
     .default(''),
   days: z.number().int().min(1).max(365).nullable().default(7),
+  /** Also send it as a push notification to the same people's phones, once, now. */
+  push: z.boolean().default(false),
 });
 
 interface AnnRow {

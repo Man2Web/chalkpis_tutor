@@ -103,3 +103,37 @@ export async function ownerOf(pool: Pool, instituteId: string): Promise<string[]
   ])) as unknown as [{ owner_user_id: string }[]];
   return rows.map((r) => r.owner_user_id);
 }
+
+/**
+ * One notification to every signed-in phone of an audience (owners, helpers or both; blocked people never), once per
+ * `key`. For admin announcements. Dead tokens are removed. Returns how many phones it went to and how many Expo took.
+ */
+export async function pushAudience(
+  pool: Pool,
+  sender: PushSender | null,
+  audience: 'all' | 'owners' | 'staff',
+  key: string,
+  m: PushMessage,
+): Promise<{ phones: number; sent: number }> {
+  if (!sender) return { phones: 0, sent: 0 };
+  const [r] = (await pool.query('INSERT IGNORE INTO push_log (push_key) VALUES (?)', [
+    key.slice(0, 120),
+  ])) as unknown as [{ affectedRows: number }];
+  if (r.affectedRows !== 1) return { phones: 0, sent: 0 };
+  const roles =
+    audience === 'owners' ? ['owner'] : audience === 'staff' ? ['staff'] : ['owner', 'staff'];
+  const [rows] = (await pool.query(
+    `SELECT DISTINCT t.token FROM push_tokens t
+       JOIN users u ON u.id = t.user_id AND u.blocked_at IS NULL
+       JOIN memberships m ON m.user_id = t.user_id
+      WHERE m.role IN (?)`,
+    [roles],
+  )) as unknown as [{ token: string }[]];
+  if (!rows.length) return { phones: 0, sent: 0 };
+  const results = await sender.send(
+    rows.map((t) => ({ to: t.token, title: m.title, body: m.body, data: { screen: m.screen } })),
+  );
+  const gone = results.filter((x) => x.error === 'DeviceNotRegistered').map((x) => x.to);
+  if (gone.length) await pool.query('DELETE FROM push_tokens WHERE token IN (?)', [gone]);
+  return { phones: rows.length, sent: results.filter((x) => !x.error).length };
+}

@@ -1,3 +1,4 @@
+import { pushAudience, type PushSender } from '../push/expo.js';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
@@ -72,6 +73,8 @@ type Deps = Pick<AppDeps, 'config' | 'pool'> & {
   mailer?: Mailer | null;
   /** Which WhatsApp sender is in use, for the health screen. */
   providerName?: string;
+  /** Push notifications (announcements can go out as one too). */
+  push?: PushSender | null;
 };
 
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'public');
@@ -262,11 +265,22 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
   app.get('/admin/api/announcements', guard, async () => ({
     announcements: await listAnnouncements(pool, now()),
   }));
-  app.post('/admin/api/announcements', guard, async (req, reply) =>
-    reply
-      .code(201)
-      .send(await createAnnouncement(pool, actor(req), parse(announcementBody, req.body), now())),
-  );
+  app.post('/admin/api/announcements', guard, async (req, reply) => {
+    const b = parse(announcementBody, req.body);
+    const { id: annId } = await createAnnouncement(pool, actor(req), b, now());
+    let push: { phones: number; sent: number } | null = null;
+    if (b.push) {
+      push = await pushAudience(pool, deps.push ?? null, b.audience, `ann_${annId}`, {
+        title: b.title,
+        body: b.body || 'Open Chalkpis to read it.',
+        screen: 'Home',
+      }).catch(() => ({ phones: 0, sent: 0 }));
+      await audit(pool, actor(req), 'announce-push', {
+        detail: `${b.title} · ${push.sent} of ${push.phones} phones`,
+      });
+    }
+    return reply.code(201).send({ id: annId, push });
+  });
   app.post('/admin/api/announcements/:id/end', guard, async (req) => {
     await endAnnouncement(pool, actor(req), id(req), now());
     return { ok: true };

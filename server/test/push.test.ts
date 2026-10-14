@@ -117,4 +117,57 @@ describe('push notifications', () => {
       data: { screen: 'Billing' },
     });
   });
+
+  it('an announcement can go out as a push, only to its audience, once', async () => {
+    // a helper with their own phone, and a blocked owner elsewhere who must get nothing
+    const r = await A.call('POST', '/staff', { phone: '9876511111', name: 'Helper One' });
+    const helper = await h.login(r.body.id as string, A.instituteId);
+    await helper.call('POST', '/me/push-token', {
+      token: 'ExponentPushToken[helperhelper123]',
+      platform: 'ios',
+    });
+    const B = await h.tenant('+919800000002');
+    await B.call('POST', '/me/push-token', {
+      token: 'ExponentPushToken[blockedblocked1]',
+      platform: 'android',
+    });
+    await h.db.pool.query('UPDATE users SET blocked_at = NOW() WHERE id = ?', [B.userId]);
+    const admin = await h.admin();
+
+    const owners = await admin.call('POST', '/admin/api/announcements', {
+      title: 'New: fee reports',
+      body: 'See who paid this month at a glance.',
+      audience: 'owners',
+      push: true,
+    });
+    expect(owners.status).toBe(201);
+    expect(owners.body.push).toEqual({ phones: 1, sent: 1 });
+    expect(push.sent).toEqual([
+      {
+        to: TOKEN,
+        title: 'New: fee reports',
+        body: 'See who paid this month at a glance.',
+        data: { screen: 'Home' },
+      },
+    ]);
+
+    // everyone: the owner and the helper; without a body the push still says something
+    push.sent = [];
+    const all = await admin.call('POST', '/admin/api/announcements', {
+      title: 'Maintenance tonight',
+      audience: 'all',
+      push: true,
+    });
+    expect(all.body.push).toEqual({ phones: 2, sent: 2 });
+    expect(push.sent.map((m) => m.body)).toEqual([
+      'Open Chalkpis to read it.',
+      'Open Chalkpis to read it.',
+    ]);
+
+    // without the switch, no push
+    push.sent = [];
+    const quiet = await admin.call('POST', '/admin/api/announcements', { title: 'Banner only' });
+    expect(quiet.body.push).toBeNull();
+    expect(push.sent).toHaveLength(0);
+  });
 });

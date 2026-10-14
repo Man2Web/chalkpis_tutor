@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, Megaphone, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, BellRing, Megaphone, Sparkles, X } from 'lucide-react';
 import { Empty, ErrorBox, Loading, PageHeader } from '@/components/app/bits';
 import { confirmDialog } from '@/components/app/dialogs';
 import { Pill } from '@/components/app/pill';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils';
 type Ann = { id: string; title: string; body: string; tone: string; audience: string; link: string | null; startsAt: string; endsAt: string | null; live: boolean };
 const TONES = { info: ['Info', Megaphone, 'border-sky-500/30 bg-sky-500/10 text-sky-900 dark:text-sky-100'], success: ['Good news', Sparkles, 'border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100'], warning: ['Warning', AlertTriangle, 'border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-100'] } as const;
 const AUDIENCE: Record<string, string> = { all: 'Everyone', owners: 'Tutors', staff: 'Helpers' };
+const AUDIENCE_LONG: Record<string, string> = { all: 'every tutor and helper', owners: 'every tutor', staff: 'every helper' };
 
 export function Announcements() {
   const { data, error, reload } = useApi<{ announcements: Ann[] }>('/admin/api/announcements');
@@ -28,6 +30,7 @@ export function Announcements() {
   const [tone, setTone] = useState<keyof typeof TONES>('info');
   const [audience, setAudience] = useState('all');
   const [days, setDays] = useState('7');
+  const [push, setPush] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -35,20 +38,37 @@ export function Announcements() {
     setErr('');
     if (title.trim().length < 2) return setErr('Add a title (at least 2 letters).');
     if (link.trim() && !/^https:\/\/\S+$/.test(link.trim())) return setErr('The link must start with https://');
+    if (
+      push &&
+      !(await confirmDialog({
+        title: `Send a push notification to ${AUDIENCE_LONG[audience]}?`,
+        body: `“${title.trim()}” will pop up on their phones now. A notification cannot be taken back once it is sent.`,
+        action: 'Publish and send',
+      }))
+    )
+      return;
     setBusy(true);
     try {
-      await api('POST', '/admin/api/announcements', {
+      const r = await api<{ id: string; push: { phones: number; sent: number } | null }>('POST', '/admin/api/announcements', {
         title: title.trim(),
         body: body.trim(),
         link: link.trim(),
         tone,
         audience,
         days: days === 'none' ? null : Number(days),
+        push,
       });
-      toast('Live in the app');
+      toast(
+        !r.push
+          ? 'Live in the app'
+          : r.push.phones
+            ? `Live in the app · push sent to ${r.push.sent} of ${r.push.phones} ${r.push.phones === 1 ? 'phone' : 'phones'}`
+            : 'Live in the app · no phones to notify yet (they need the new app with notifications allowed)',
+      );
       setTitle('');
       setBody('');
       setLink('');
+      setPush(false);
       await reload();
     } catch (e) {
       setErr((e as ApiError).code === 'bad_request' ? 'A title of at least 2 letters is needed, and links must start with https://' : (e as Error).message);
@@ -100,16 +120,41 @@ export function Announcements() {
                 </ToggleGroup>
               </div>
             </div>
+            <label className="flex items-start justify-between gap-4 rounded-lg border p-3 text-sm">
+              <span>
+                <span className="flex items-center gap-1.5 font-medium"><BellRing className="size-4" /> Also send as a push notification</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  Pops up once, right now, on the phones of {AUDIENCE_LONG[audience]} who have the new app (version 1.1 or
+                  later) and allowed notifications. Keep it for important news: too many pushes make people turn them off.
+                </span>
+              </span>
+              <Switch checked={push} onCheckedChange={setPush} aria-label="Also send as a push notification" />
+            </label>
             {err ? <p className="text-sm text-destructive">{err}</p> : null}
-            <div><Button onClick={() => void publish()} disabled={busy}><Megaphone /> Publish</Button></div>
+            <div>
+              <Button onClick={() => void publish()} disabled={busy}>
+                {push ? <BellRing /> : <Megaphone />} {push ? 'Publish and send push' : 'Publish'}
+              </Button>
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle>Preview</CardTitle>
-            <CardDescription>Tutor’s Home screen</CardDescription>
+            <CardDescription>{push ? 'The notification, then the Home screen' : 'Tutor’s Home screen'}</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="grid gap-4">
+            {push ? (
+              <div className="mx-auto w-full max-w-[17rem] rounded-2xl border bg-muted/60 p-3 shadow-sm backdrop-blur">
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <img src="/admin-logo/logo-mark.svg" alt="" className="size-4 rounded" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                  <span className="font-medium uppercase tracking-wide">Chalkpis</span>
+                  <span className="ml-auto">now</span>
+                </div>
+                <div className="mt-1.5 text-sm font-semibold">{title.trim() || 'Your title'}</div>
+                <div className="text-xs text-muted-foreground">{body.trim() || 'Open Chalkpis to read it.'}</div>
+              </div>
+            ) : null}
             <div className="mx-auto w-full max-w-[17rem] rounded-[2rem] border-8 border-foreground/90 bg-background p-3 shadow-xl">
               <div className={cn('flex gap-2 rounded-xl border p-3', tint)}>
                 <Icon className="mt-0.5 size-4 shrink-0" />
