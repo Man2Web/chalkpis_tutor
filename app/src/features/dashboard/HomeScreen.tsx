@@ -16,6 +16,8 @@ import { useSession } from '../auth/session';
 import { scheduleLabel } from '../batches/format';
 import { PlanBanner } from '../billing/PlanBanner';
 import { PaymentReportsCard } from '../fees/PaymentReportsCard';
+import { GettingStartedCard } from '../onboarding/GettingStartedCard';
+import { WelcomeTour } from '../onboarding/WelcomeTour';
 import { AnnouncementBanner } from '../announcements/AnnouncementBanner';
 import { AttendanceRing } from './AttendanceRing';
 import { HomeHero } from './HomeHero';
@@ -97,6 +99,7 @@ export function HomeScreen() {
           />
         }
       >
+        <WelcomeTour />
         <TopBar />
 
         <View style={{ gap: 2, marginBottom: spacing.xs }}>
@@ -109,6 +112,7 @@ export function HomeScreen() {
         <AnnouncementBanner />
         <PlanBanner />
         <PaymentReportsCard />
+        <GettingStartedCard hasAttendance={(week.data?.length ?? 0) > 0} />
 
         {loading ? (
           <Skeleton height={210} />
@@ -145,7 +149,10 @@ export function HomeScreen() {
               padding: spacing.lg,
             }}
           >
-            <AttendanceRing present={s.presentToday} total={s.markedToday} />
+            {/* the ring only means something on a day with classes */}
+            {s.todaysBatches.length ? (
+              <AttendanceRing present={s.presentToday} total={s.markedToday} />
+            ) : null}
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={type.heading}>{t('home.heroTitle')}</Text>
               <Text style={[type.subhead, { color: colors.textMuted }]}>
@@ -188,8 +195,11 @@ export function HomeScreen() {
           ))}
         </Panel>
 
+        {/* the week chart appears once there is something to chart */}
         {week.data ? (
-          <WeekChart points={weekAttendance(week.data, today, addDays)} today={today} />
+          week.data.length ? (
+            <WeekChart points={weekAttendance(week.data, today, addDays)} today={today} />
+          ) : null
         ) : (
           <Skeleton height={150} />
         )}

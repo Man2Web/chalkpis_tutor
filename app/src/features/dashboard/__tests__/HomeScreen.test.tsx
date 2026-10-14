@@ -20,6 +20,8 @@ jest.mock('../../auth/session', () => ({
 }));
 jest.mock('../../announcements/AnnouncementBanner', () => ({ AnnouncementBanner: () => null }));
 jest.mock('../../fees/PaymentReportsCard', () => ({ PaymentReportsCard: () => null }));
+jest.mock('../../onboarding/GettingStartedCard', () => ({ GettingStartedCard: () => null }));
+jest.mock('../../onboarding/WelcomeTour', () => ({ WelcomeTour: () => null }));
 jest.mock('../../tasks/api', () => ({
   useTasks: () => ({ data: [], isLoading: false }),
   useTaskActions: () => ({

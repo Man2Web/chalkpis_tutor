@@ -2,9 +2,9 @@ import { ReactNode } from 'react';
 import { Text, View, ViewProps, ViewStyle } from 'react-native';
 import { Card as PanelCard } from 'panelui-native/components/card';
 
-/** PanelUI Card with comfortable padding; pass `style` to change the padding or layout. */
+/** PanelUI Card with comfortable padding and a hairline border (no drop shadow); `style` changes padding or layout. */
 export function Card({ style, ...rest }: ViewProps) {
-  return <PanelCard className="p-4" style={style} {...rest} />;
+  return <PanelCard className="p-4 shadow-none" style={style} {...rest} />;
 }
 
 /**
@@ -27,12 +27,12 @@ export function Panel({
   bodyStyle?: ViewStyle;
 }) {
   return (
-    <PanelCard className="overflow-hidden" style={style}>
+    <PanelCard className="overflow-hidden shadow-none" style={style}>
       {title || right ? (
-        <View className="min-h-11 flex-row items-center justify-between gap-2 border-b border-border bg-muted/40 px-4 py-2.5">
+        <View className="flex-row items-center justify-between gap-2 px-4 pt-4">
           {title ? (
             <Text
-              className="flex-1 text-sm font-medium text-muted-foreground"
+              className="flex-1 text-[15px] font-semibold text-foreground"
               numberOfLines={1}
               accessibilityRole="header"
             >
@@ -48,7 +48,7 @@ export function Panel({
           )}
         </View>
       ) : null}
-      <View className={padded ? 'p-4' : undefined} style={bodyStyle}>
+      <View className={padded ? 'p-4' : title || right ? 'pt-3' : undefined} style={bodyStyle}>
         {children}
       </View>
     </PanelCard>

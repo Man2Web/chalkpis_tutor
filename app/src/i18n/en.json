@@ -959,5 +959,47 @@
     "confirmed": "Payment recorded for {{name}}. The receipt is on its way on WhatsApp.",
     "rejected": "Marked as not received for {{name}}.",
     "hint": "Check your UPI or bank app first. Confirm records the payment and sends the receipt to the parent."
+  },
+  "tour": {
+    "skip": "Skip",
+    "next": "Next",
+    "done": "Get started",
+    "start": {
+      "title": "Your classes, in one place",
+      "text": "Students, batches, attendance and fees, kept together and always up to date. Here is a quick look at how it works."
+    },
+    "attendance": {
+      "title": "Attendance in seconds",
+      "text": "Everyone starts as present. Tap only the students who are absent or late, then save. Parents are told on WhatsApp."
+    },
+    "fees": {
+      "title": "Fees without chasing",
+      "text": "Monthly dues are created for you. Record cash or UPI in one tap; the receipt goes to the parent automatically."
+    },
+    "parents": {
+      "title": "Parents stay informed",
+      "text": "Absent alerts, fee reminders and receipts go out on WhatsApp, so you spend less time messaging and more time teaching."
+    }
+  },
+  "getStarted": {
+    "title": "Get started",
+    "hide": "Hide",
+    "progress": "{{done}} of {{total}} done",
+    "students": {
+      "title": "Add your students",
+      "text": "One at a time, from contacts or from Excel"
+    },
+    "attendance": {
+      "title": "Mark your first attendance",
+      "text": "Takes a few seconds per batch"
+    },
+    "payments": {
+      "title": "Add your UPI ID",
+      "text": "So parents can pay you directly from reminders"
+    },
+    "messages": {
+      "title": "Turn on WhatsApp updates",
+      "text": "Absent alerts, reminders and receipts for parents"
+    }
   }
 }

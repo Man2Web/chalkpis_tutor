@@ -32,7 +32,7 @@ export function Section({
           {title}
         </Text>
       ) : null}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden shadow-none">
         {rows.map((row, i) => (
           <View key={(row.key as string) ?? i}>
             {row}
@@ -54,21 +54,16 @@ export function IconTile({
   size = 32,
 }: {
   name: keyof typeof Ionicons.glyphMap;
+  /** Only a destructive row keeps its own colour; every other icon is the same quiet grey. */
   color: string;
   size?: number;
 }) {
+  const outline = `${name}-outline` as keyof typeof Ionicons.glyphMap;
+  const glyph = outline in Ionicons.glyphMap ? outline : name;
+  const danger = color === colors.dangerFill;
   return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size * 0.3,
-        backgroundColor: /^#[0-9a-f]{6}$/i.test(color) ? `${color}1A` : colors.fill,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Ionicons name={name} size={size * 0.55} color={color} />
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons name={glyph} size={Math.round(size * 0.66)} color={danger ? color : colors.textMuted} />
     </View>
   );
 }
