@@ -23,6 +23,9 @@ export type CentreRow = {
   plan: string | null;
   planActive: boolean;
   expiresAt: string | null;
+  planStatus?: string | null;
+  studentLimit?: number | null;
+  batchLimit?: number | null;
   students: number;
   batches: number;
   staff: number;

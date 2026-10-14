@@ -13,6 +13,10 @@ import {
   listUsers,
   overview,
   planBody,
+  planPaymentBody,
+  recordPlanPayment,
+  setSubscription,
+  subscriptionBody,
   recentLogins,
   setPlan,
   signOutUser,
@@ -193,6 +197,16 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
   );
   app.post('/admin/api/institutes/:id/plan', guard, async (req) =>
     setPlan(pool, actor(req), id(req), parse(planBody, req.body), now()),
+  );
+  app.put('/admin/api/institutes/:id/subscription', guard, async (req) =>
+    setSubscription(pool, actor(req), id(req), parse(subscriptionBody, req.body)),
+  );
+  app.post('/admin/api/institutes/:id/plan-payments', guard, async (req, reply) =>
+    reply
+      .code(201)
+      .send(
+        await recordPlanPayment(pool, actor(req), id(req), parse(planPaymentBody, req.body), now()),
+      ),
   );
   app.get('/admin/api/logins', guard, async () => ({ logins: await recentLogins(pool, now()) }));
   app.get('/admin/api/audit', guard, async () => ({ audit: await auditLog(pool) }));

@@ -51,24 +51,71 @@ export function addMonths(date: Date, months: number): Date {
   return d;
 }
 
+/** Higher is more: an upgrade is a move to a higher rank. */
+export const PLAN_RANK: Record<PlanId, number> = { starter: 1, standard: 2, pro: 3 };
+const DAY = 86_400_000;
+/** What one day of a plan is worth, in paise (a month counted as 30.4375 days). */
+const dayValue = (p: Plan) => p.pricePaise / (p.months * 30.4375);
+
 /**
- * New subscription after buying a plan. Renewing while still active adds the months on top of the remaining
- * time (nobody loses days); an expired or trial-ended plan starts counting from now.
+ * New subscription after buying a plan. Nobody loses days or money:
+ * - ended or no plan: the plan starts now; during a free trial it starts when the trial ends (no free day is lost);
+ * - the same plan while it runs (a renewal): its months are added after the current end;
+ * - a higher plan while a lower one runs (an upgrade): the new plan starts now, and the unused days of the old one are
+ *   credited at their value (Starter days are worth fewer Pro days);
+ * - a lower plan while a higher one runs: buying it is refused up front (planChange), but if such a payment arrives
+ *   anyway, the current plan stays and the payment's value is added to it as days.
  */
 export function computeSubscription(
-  prev: { status?: string; expiresAt?: Date } | undefined,
+  prev: { status?: string; expiresAt?: Date; plan?: string } | undefined,
   planId: PlanId,
   now: Date,
 ) {
-  const plan = PLANS[planId];
-  const stillActive =
-    prev?.status === 'active' && prev.expiresAt && prev.expiresAt.getTime() > now.getTime();
-  const base = stillActive ? (prev!.expiresAt as Date) : now;
-  return {
+  const bought = PLANS[planId];
+  const running =
+    prev?.status === 'active' &&
+    !!prev.expiresAt &&
+    prev.expiresAt.getTime() > now.getTime() &&
+    isPlanId(prev.plan);
+  const result = (plan: Plan, expiresAt: Date) => ({
     plan: plan.id,
     startsAt: now,
-    expiresAt: addMonths(base, plan.months),
+    expiresAt,
     studentLimit: plan.studentLimit,
     batchLimit: plan.batchLimit,
-  };
+  });
+  if (!running) {
+    const trialEnd =
+      prev?.status === 'active' && prev.plan === 'trial' && prev.expiresAt && prev.expiresAt > now
+        ? prev.expiresAt
+        : now;
+    return result(bought, addMonths(trialEnd, bought.months));
+  }
+  const current = PLANS[prev!.plan as PlanId];
+  const end = prev!.expiresAt!;
+  if (current.id === bought.id) return result(bought, addMonths(end, bought.months));
+  if (PLAN_RANK[bought.id] > PLAN_RANK[current.id]) {
+    const credit = ((end.getTime() - now.getTime()) * dayValue(current)) / dayValue(bought);
+    return result(bought, new Date(addMonths(now, bought.months).getTime() + Math.round(credit)));
+  }
+  const extra = (bought.pricePaise / dayValue(current)) * DAY;
+  return result(current, new Date(end.getTime() + Math.round(extra)));
+}
+
+/** Whether a plan can be bought now: a lower plan waits until the running higher plan ends. */
+export function planChange(
+  prev: { status?: string; expiresAt?: Date; plan?: string } | undefined,
+  planId: PlanId,
+  now: Date,
+): { ok: true; kind: 'new' | 'renew' | 'upgrade' } | { ok: false; until: Date } {
+  const running =
+    prev?.status === 'active' &&
+    !!prev.expiresAt &&
+    prev.expiresAt.getTime() > now.getTime() &&
+    isPlanId(prev.plan);
+  if (!running) return { ok: true, kind: 'new' };
+  const current = prev!.plan as PlanId;
+  if (current === planId) return { ok: true, kind: 'renew' };
+  if (PLAN_RANK[planId] > PLAN_RANK[current]) return { ok: true, kind: 'upgrade' };
+  return { ok: false, until: prev!.expiresAt! };
 }

@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
-import { PLANS, addMonths, computeSubscription } from '../src/billing/plans.js';
+import { PLANS, addMonths, computeSubscription, planChange } from '../src/billing/plans.js';
 import {
   RazorpayProvider,
   parsePaymentLinkPaid,
@@ -84,7 +84,7 @@ describe('plan catalogue and pure rules', () => {
     const now = new Date('2026-10-08T00:00:00Z');
     expect(
       computeSubscription(
-        { status: 'active', expiresAt: new Date('2026-11-08T00:00:00Z') },
+        { status: 'active', plan: 'starter', expiresAt: new Date('2026-11-08T00:00:00Z') },
         'starter',
         now,
       )
@@ -93,7 +93,7 @@ describe('plan catalogue and pure rules', () => {
     ).toBe('2027-02-08');
     expect(
       computeSubscription(
-        { status: 'active', expiresAt: new Date('2026-10-01T00:00:00Z') },
+        { status: 'active', plan: 'starter', expiresAt: new Date('2026-10-01T00:00:00Z') },
         'starter',
         now,
       )
@@ -105,6 +105,66 @@ describe('plan catalogue and pure rules', () => {
       batchLimit: null,
     });
   });
+  it('an upgrade starts now and credits the days left at their value; a stray downgrade payment adds days', () => {
+    const now = new Date('2026-10-08T00:00:00Z');
+    const day = 86_400_000;
+    // 61 days of Starter left (₹399 / 3 months) become Pro days worth the same (₹999 / 12 months)
+    const up = computeSubscription(
+      { status: 'active', plan: 'starter', expiresAt: new Date(now.getTime() + 61 * day) },
+      'pro',
+      now,
+    );
+    expect(up.plan).toBe('pro');
+    const credit = (up.expiresAt.getTime() - addMonths(now, 12).getTime()) / day;
+    expect(credit).toBeCloseTo((61 * (39900 / (3 * 30.4375))) / (99900 / (12 * 30.4375)), 3);
+    expect(up.studentLimit).toBeNull();
+
+    const down = computeSubscription(
+      { status: 'active', plan: 'pro', expiresAt: new Date(now.getTime() + 100 * day) },
+      'starter',
+      now,
+    );
+    expect(down.plan).toBe('pro'); // the higher plan stays
+    expect((down.expiresAt.getTime() - now.getTime()) / day).toBeCloseTo(
+      100 + 39900 / (99900 / (12 * 30.4375)),
+      3,
+    );
+    // during a trial the plan starts when the trial ends
+    const trialEnd = new Date(now.getTime() + 60 * day);
+    expect(
+      computeSubscription(
+        { status: 'active', plan: 'trial', expiresAt: trialEnd },
+        'starter',
+        now,
+      ).expiresAt.toISOString(),
+    ).toBe(addMonths(trialEnd, 3).toISOString());
+  });
+
+  it('a lower plan cannot be bought while a higher one runs', async () => {
+    const now = new Date('2026-10-08T00:00:00Z');
+    const until = new Date('2027-01-01T00:00:00Z');
+    const pro = { status: 'active', plan: 'pro', expiresAt: until };
+    expect(planChange(pro, 'starter', now)).toEqual({ ok: false, until });
+    expect(planChange(pro, 'pro', now)).toEqual({ ok: true, kind: 'renew' });
+    expect(planChange({ ...pro, plan: 'starter' }, 'pro', now)).toEqual({
+      ok: true,
+      kind: 'upgrade',
+    });
+    expect(planChange({ ...pro, plan: 'trial' }, 'starter', now)).toEqual({
+      ok: true,
+      kind: 'new',
+    });
+
+    await h.db.pool.query(
+      "UPDATE subscriptions SET plan = 'pro', status = 'active', expires_at = ? WHERE institute_id = ?",
+      [new Date(h.clock.now.getTime() + 30 * 86_400_000), A.instituteId],
+    );
+    const r = await A.call('POST', '/billing/links', { planId: 'starter' });
+    expect(r.status).toBe(409);
+    expect(r.body.error).toBe('plan_downgrade');
+    expect((await A.call('POST', '/billing/links', { planId: 'pro' })).status).toBe(201);
+  });
+
   it('lists the plans for any signed-in member', async () => {
     const r = await A.call('GET', '/billing/plans');
     expect(r.body.plans.map((p: { id: string }) => p.id)).toEqual(['starter', 'standard', 'pro']);

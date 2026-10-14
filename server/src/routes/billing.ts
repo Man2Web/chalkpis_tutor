@@ -94,6 +94,7 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
         planId,
         ownerPhone: u[0]?.phone,
         ...orderUrls(deps.config, deps.billing),
+        now: now(),
       });
       return reply.code(201).send(order);
     },

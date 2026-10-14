@@ -20,7 +20,7 @@ import {
 } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
 import { open } from '../../lib/contact';
-import { toYmd, prettyDate } from '../../lib/dates';
+import { toYmd, fullDate } from '../../lib/dates';
 import { formatINR } from '../../lib/money';
 import { colors, radius, spacing, type, font } from '../../theme';
 import { checkPlanOrder, createPlanLink, mockCompletePayment, type PlanLink } from './api';
@@ -191,7 +191,7 @@ export function BillingScreen() {
     if (link) await check(link.data.referenceId, true);
   };
 
-  const expiryText = l.expiresAtMs ? prettyDate(toYmd(new Date(l.expiresAtMs)), locale) : '—';
+  const expiryText = l.expiresAtMs ? fullDate(toYmd(new Date(l.expiresAtMs)), locale) : '—';
 
   return (
     <Screen padded={false}>
@@ -299,7 +299,7 @@ export function BillingScreen() {
             >
               <View>
                 <Text style={type.body}>{planName(r.planId)}</Text>
-                <Text style={type.caption}>{prettyDate(toYmd(r.createdAt.toDate()), locale)}</Text>
+                <Text style={type.caption}>{fullDate(toYmd(r.createdAt.toDate()), locale)}</Text>
               </View>
               <Text style={type.label}>{formatINR(r.amountPaise)}</Text>
             </View>

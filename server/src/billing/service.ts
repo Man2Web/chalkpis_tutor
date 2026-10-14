@@ -3,7 +3,7 @@ import { withTransaction, type Pool } from '../db.js';
 import { newId } from '../lib/ids.js';
 import { withNamedLock } from '../lib/lock.js';
 import { queuePlanActive } from '../messaging/centreMessages.js';
-import { PLANS, computeSubscription, type PlanId } from './plans.js';
+import { PLANS, computeSubscription, planChange, type PlanId } from './plans.js';
 import type { BillingProvider, PaidEvent, ProviderName } from './provider.js';
 
 export type PurchaseResult = 'applied' | 'duplicate' | 'invalid';
@@ -25,10 +25,24 @@ export async function createOrder(
     returnUrl?: (orderId: string) => string;
     /** Where the provider sends its webhook, for providers that take it per order (Cashfree). */
     notifyUrl?: string;
+    now?: Date;
   },
 ) {
   return withNamedLock(pool, `billing:${a.instituteId}`, async (conn) => {
     const plan = PLANS[a.planId];
+    const [cur] = (await conn.query(
+      'SELECT plan, status, expires_at FROM subscriptions WHERE institute_id = ?',
+      [a.instituteId],
+    )) as unknown as [{ plan: string; status: string; expires_at: Date }[]];
+    const change = planChange(
+      cur[0]
+        ? { plan: cur[0].plan, status: cur[0].status, expiresAt: cur[0].expires_at }
+        : undefined,
+      a.planId,
+      a.now ?? new Date(),
+    );
+    if (!change.ok)
+      throw new AppError(409, 'plan_downgrade', { until: change.until.toISOString() });
     const [recent] = (await conn.query(
       `SELECT o.id, o.url FROM billing_orders o
       WHERE o.institute_id = ? AND o.plan_id = ? AND o.provider = ? AND o.created_at > NOW(3) - INTERVAL 15 MINUTE
@@ -116,11 +130,13 @@ export async function applyPaid(
         return reject('amount_mismatch');
 
       const [subs] = (await c.query(
-        'SELECT status, expires_at FROM subscriptions WHERE institute_id = ? FOR UPDATE',
+        'SELECT plan, status, expires_at FROM subscriptions WHERE institute_id = ? FOR UPDATE',
         [order.institute_id],
-      )) as unknown as [{ status: string; expires_at: Date }[]];
+      )) as unknown as [{ plan: string; status: string; expires_at: Date }[]];
       const next = computeSubscription(
-        subs[0] ? { status: subs[0].status, expiresAt: subs[0].expires_at } : undefined,
+        subs[0]
+          ? { plan: subs[0].plan, status: subs[0].status, expiresAt: subs[0].expires_at }
+          : undefined,
         order.plan_id,
         now,
       );
@@ -153,7 +169,7 @@ export async function applyPaid(
       await queuePlanActive(
         c,
         order.institute_id,
-        { paymentId: p.paymentId, planId: order.plan_id, expiresAt: next.expiresAt },
+        { paymentId: p.paymentId, planId: next.plan as PlanId, expiresAt: next.expiresAt },
         now,
       );
       return 'applied' as const;

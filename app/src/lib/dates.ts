@@ -47,6 +47,15 @@ export const prettyDate = (ymd: string, locale = 'en-IN') =>
     timeZone: 'UTC',
   });
 
+/** "15 Jul 2028": a date that may be in another year (plan end dates, payment history). */
+export const fullDate = (ymd: string, locale = 'en-IN') =>
+  toUtc(ymd).toLocaleDateString(locale, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+
 /** "5 Oct": for tight spaces such as list subtitles, where the weekday adds nothing. */
 export const shortDate = (ymd: string, locale = 'en-IN') =>
   toUtc(ymd).toLocaleDateString(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' });

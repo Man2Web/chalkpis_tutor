@@ -1,7 +1,8 @@
 import { z } from 'zod';
-import type { Pool } from '../db.js';
+import { withTransaction, type Pool } from '../db.js';
 import { AppError, notFound } from '../errors.js';
-import { PLANS, isPlanId } from '../billing/plans.js';
+import { PLANS, computeSubscription, isPlanId, type PlanId } from '../billing/plans.js';
+import { queuePlanActive } from '../messaging/centreMessages.js';
 import { newId } from '../lib/ids.js';
 
 export interface AdminActor {
@@ -292,15 +293,14 @@ export async function setPlan(
   if (!rows[0]) throw notFound();
   const from = rows[0].status === 'active' && rows[0].expires_at > now ? rows[0].expires_at : now;
   const expires = new Date(from.getTime() + b.days * DAY);
+  // a trial has no limits; a plan gets its own (an admin's custom limits are set with setSubscription)
   const limits = isPlanId(b.plan)
     ? { students: PLANS[b.plan].studentLimit, batches: PLANS[b.plan].batchLimit }
-    : null;
+    : { students: null, batches: null };
   await pool.query(
-    `UPDATE subscriptions SET plan = ?, status = 'active', expires_at = ?
-       ${limits ? ', student_limit = ?, batch_limit = ?' : ''} WHERE institute_id = ?`,
-    limits
-      ? [b.plan, expires, limits.students, limits.batches, instituteId]
-      : [b.plan, expires, instituteId],
+    `UPDATE subscriptions SET plan = ?, status = 'active', expires_at = ?, student_limit = ?, batch_limit = ?
+      WHERE institute_id = ?`,
+    [b.plan, expires, limits.students, limits.batches, instituteId],
   );
   await audit(pool, actor, 'set-plan', {
     instituteId,
@@ -330,4 +330,120 @@ export async function auditLog(pool: Pool, limit = 100) {
     target: r.target_phone || r.target_institute_id || '',
     detail: r.detail,
   }));
+}
+
+export const subscriptionBody = z.object({
+  plan: z.enum(['trial', 'starter', 'standard', 'pro']),
+  status: z.enum(['active', 'expired']),
+  /** The last day of the plan (IST); it ends at the end of that day. */
+  endsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  studentLimit: z.number().int().min(1).max(100_000).nullable(),
+  batchLimit: z.number().int().min(1).max(10_000).nullable(),
+});
+
+/** The end of an IST day as a moment: 2026-10-14 ends at 2026-10-14T18:29:59.999Z. */
+const endOfIstDay = (ymd: string) => new Date(Date.parse(`${ymd}T23:59:59.999+05:30`));
+
+/** Sets a centre's subscription exactly as the admin says: plan, status, last day and limits (null = unlimited). */
+export async function setSubscription(
+  pool: Pool,
+  actor: AdminActor,
+  instituteId: string,
+  b: z.infer<typeof subscriptionBody>,
+) {
+  const expires = endOfIstDay(b.endsOn);
+  if (Number.isNaN(expires.getTime())) throw new AppError(400, 'bad_date');
+  const [r] = (await pool.query(
+    `UPDATE subscriptions SET plan = ?, status = ?, expires_at = ?, student_limit = ?, batch_limit = ?
+      WHERE institute_id = ?`,
+    [b.plan, b.status, expires, b.studentLimit, b.batchLimit, instituteId],
+  )) as unknown as [{ affectedRows: number }];
+  if (!r.affectedRows) throw notFound();
+  const lim = (n: number | null) => (n === null ? 'unlimited' : String(n));
+  await audit(pool, actor, 'set-subscription', {
+    instituteId,
+    detail: `${b.plan}, ${b.status}, until ${b.endsOn}, students ${lim(b.studentLimit)}, batches ${lim(b.batchLimit)}`,
+  });
+  return { ok: true, expiresAt: expires.toISOString() };
+}
+
+export const planPaymentBody = z.object({
+  planId: z.enum(['starter', 'standard', 'pro']),
+  amountPaise: z.number().int().min(0).max(10_000_000),
+  method: z.enum(['cash', 'upi', 'bank', 'other']),
+  reference: z.string().trim().max(80).default(''),
+  /** Apply the plan as if bought online (renew, upgrade with credit), or only record the money. */
+  apply: z.boolean(),
+});
+
+/**
+ * Records a plan payment made outside the gateway (cash, bank transfer, UPI to M2W). It shows in revenue and the
+ * centre's payments; with `apply`, the plan is applied by the same rules as an online purchase and the owner gets the
+ * "plan active" WhatsApp.
+ */
+export async function recordPlanPayment(
+  pool: Pool,
+  actor: AdminActor,
+  instituteId: string,
+  b: z.infer<typeof planPaymentBody>,
+  now: Date,
+) {
+  return withTransaction(pool, async (c) => {
+    const [subs] = (await c.query(
+      'SELECT plan, status, expires_at FROM subscriptions WHERE institute_id = ? FOR UPDATE',
+      [instituteId],
+    )) as unknown as [{ plan: string; status: string; expires_at: Date }[]];
+    if (!subs[0]) throw notFound();
+    const next = computeSubscription(
+      { plan: subs[0].plan, status: subs[0].status, expiresAt: subs[0].expires_at },
+      b.planId,
+      now,
+    );
+    const paymentId = `manual_${newId()}`;
+    await c.query(
+      `INSERT INTO billing_events (payment_id, provider, institute_id, plan_id, amount, status, reason, note, expires_at)
+       VALUES (?, 'manual', ?, ?, ?, 'applied', ?, ?, ?)`,
+      [
+        paymentId,
+        instituteId,
+        b.planId,
+        b.amountPaise,
+        b.method,
+        b.reference || null,
+        b.apply ? next.expiresAt : subs[0].expires_at,
+      ],
+    );
+    if (b.apply) {
+      await c.query(
+        `UPDATE subscriptions SET plan = ?, status = 'active', starts_at = ?, expires_at = ?, student_limit = ?,
+           batch_limit = ? WHERE institute_id = ?`,
+        [next.plan, next.startsAt, next.expiresAt, next.studentLimit, next.batchLimit, instituteId],
+      );
+      await queuePlanActive(
+        c,
+        instituteId,
+        { paymentId, planId: next.plan as PlanId, expiresAt: next.expiresAt },
+        now,
+      );
+    }
+    await c.query(
+      'INSERT INTO admin_audit (id, admin_user_id, admin_phone, action, target_institute_id, detail) VALUES (?, ?, ?, ?, ?, ?)',
+      [
+        newId(),
+        actor.userId,
+        actor.phone,
+        'plan-payment',
+        instituteId,
+        `${b.planId} ₹${b.amountPaise / 100} by ${b.method}${b.reference ? ` (${b.reference})` : ''}${b.apply ? `, applied until ${next.expiresAt.toISOString().slice(0, 10)}` : ', not applied'}`.slice(
+          0,
+          250,
+        ),
+      ],
+    );
+    return {
+      paymentId,
+      plan: b.apply ? next.plan : subs[0].plan,
+      expiresAt: (b.apply ? next.expiresAt : subs[0].expires_at).toISOString(),
+    };
+  });
 }

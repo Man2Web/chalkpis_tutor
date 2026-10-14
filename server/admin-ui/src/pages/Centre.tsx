@@ -46,7 +46,16 @@ type Detail = {
   trend: { dates: string[]; values: number[] };
   areas: { area: string; count: number }[];
   messages: { type: string; status: string; count: number }[];
-  billing: { plan: string; amount: number; at: string }[];
+  billing: {
+    paymentId: string;
+    provider: string;
+    plan: string | null;
+    amount: number;
+    method: string | null;
+    note: string | null;
+    validUntil: string | null;
+    at: string;
+  }[];
   payUrl: string;
 };
 
@@ -280,15 +289,31 @@ export function Centre({ id, onName }: { id: string; onName: (n: string) => void
 
         <TabsContent value="billing" className="mt-4 grid gap-4 lg:grid-cols-2">
           <PayLink url={new URL(data.payUrl, location.origin).href} centre={c.name} ownerName={owner?.name ?? null} ownerPhone={owner?.phone ?? null} />
-          <PlanEditor instituteId={id} plan={c.plan} active={c.planActive} expiresAt={c.expiresAt} onDone={reload} />
+          <PlanEditor
+            instituteId={id}
+            plan={c.plan}
+            active={c.planActive}
+            planStatus={c.planStatus}
+            expiresAt={c.expiresAt}
+            studentLimit={c.studentLimit}
+            batchLimit={c.batchLimit}
+            onDone={reload}
+          />
           <Card>
             <CardHeader><CardTitle>Plan payments</CardTitle></CardHeader>
             <CardContent className="grid gap-2 text-sm">
               {data.billing.length ? (
-                data.billing.map((b, i) => (
-                  <div key={i} className="flex items-center justify-between gap-2 border-b pb-2 last:border-0 last:pb-0">
-                    <span className="text-muted-foreground">{when(b.at)}</span>
-                    <span><span className="capitalize">{b.plan}</span> · <span className="font-medium tabular">{money(b.amount)}</span></span>
+                data.billing.map((b) => (
+                  <div key={b.paymentId} className="grid gap-0.5 border-b pb-2 last:border-0 last:pb-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span><span className="capitalize">{b.plan}</span> · <span className="font-medium tabular">{money(b.amount)}</span></span>
+                      <span className="text-muted-foreground">{when(b.at)}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {b.provider === 'manual' ? `Recorded by admin · ${b.method ?? ''}` : b.provider}
+                      {b.note ? ` · ${b.note}` : ''}
+                      {b.validUntil ? ` · until ${dshort(b.validUntil)}` : ''}
+                    </span>
                   </div>
                 ))
               ) : (

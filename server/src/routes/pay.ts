@@ -10,7 +10,7 @@ import {
   planSessionCookie,
   readPlanSession,
 } from '../billing/planSession.js';
-import { PLANS, isPlanId, type Plan } from '../billing/plans.js';
+import { PLANS, isPlanId, planChange, type Plan } from '../billing/plans.js';
 import type { BillingProvider } from '../billing/provider.js';
 import { billingHistory, createOrder } from '../billing/service.js';
 import { activeCount } from '../institutes/limits.js';
@@ -87,11 +87,19 @@ function status(c: Centre, now: Date): string {
   if (!active)
     return `<p class="status ended">Your ${c.plan === 'trial' ? 'free trial' : 'plan'} ended on ${until}. Choose a plan to keep adding students, attendance and fees. Nothing you saved is lost.</p>`;
   if (c.plan === 'trial') return `<p class="status">Your free trial runs until ${until}.</p>`;
-  return `<p class="status">${esc(planName(c.plan))} plan, active until ${until}. Paying now adds the new months after that date.</p>`;
+  return `<p class="status">${esc(planName(c.plan))} plan, active until ${until}. Renewing adds months after that date; upgrading starts now and credits the days you have left.</p>`;
 }
 
-/** The three plan cards; each Pay button posts the plan (plus any hidden fields) to `action`. */
-function plansHtml(action: string | null, hidden: Record<string, string> = {}): string {
+/**
+ * The three plan cards; each Pay button posts the plan (plus any hidden fields) to `action`. With the centre given, the
+ * button says Renew or Upgrade, and a lower plan than the running one waits until it ends.
+ */
+function plansHtml(
+  action: string | null,
+  hidden: Record<string, string> = {},
+  c?: Centre,
+  now: Date = new Date(),
+): string {
   const best = Math.min(...Object.values(PLANS).map((p) => p.pricePaise / p.months));
   const fields = Object.entries(hidden)
     .map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`)
@@ -104,11 +112,24 @@ ${isBest ? '<span class="tag">Best value</span>' : ''}<h2>${esc(p.name)}</h2>
 <p class="price">${rupees(p.pricePaise)} <span>for ${p.months} months</span></p>
 <p class="per">About ₹${Math.round(p.pricePaise / p.months / 100)} a month</p>
 <ul><li>${limit(p.studentLimit, 'students')}</li><li>${limit(p.batchLimit, 'batches')}</li><li>Attendance, fees, reports and WhatsApp updates to parents</li></ul>
-${
-  action
-    ? `<form method="post" action="${esc(action)}">${fields}<input type="hidden" name="plan" value="${p.id}"><button type="submit">Pay ${rupees(p.pricePaise)}</button></form>`
-    : ''
-}</section>`;
+${(() => {
+  if (!action) return '';
+  const change = c
+    ? planChange(
+        {
+          plan: c.plan ?? undefined,
+          status: c.status ?? undefined,
+          expiresAt: c.expires_at ?? undefined,
+        },
+        p.id,
+        now,
+      )
+    : ({ ok: true, kind: 'new' } as const);
+  if (!change.ok)
+    return `<p class="note">Available after your current plan ends on ${day(change.until)}.</p>`;
+  const verb = change.kind === 'renew' ? 'Renew' : change.kind === 'upgrade' ? 'Upgrade' : 'Pay';
+  return `<form method="post" action="${esc(action)}">${fields}<input type="hidden" name="plan" value="${p.id}"><button type="submit">${verb === 'Pay' ? `Pay ${rupees(p.pricePaise)}` : `${verb} · ${rupees(p.pricePaise)}`}</button></form>`;
+})()}</section>`;
     })
     .join('')}</div>`;
 }
@@ -156,6 +177,7 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         planId,
         ownerPhone: c.phone ?? undefined,
         ...orderUrls(deps.config, deps.billing!),
+        now: now(),
       });
       if (!/^https:\/\//.test(order.url)) throw new Error('not-https');
       const plan = PLANS[planId];
@@ -225,7 +247,7 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         `Plans for ${c.name}`,
         `<h1>Choose a plan</h1><p class="centre">${esc(c.name)}</p>${status(c, now())}${note}${
           deps.billing ? '' : PAYMENTS_OFF
-        }${plansHtml(deps.billing ? `/pay/${token}` : null)}<p class="small">One payment, no auto-renewal. Pay by UPI, card or net banking. <a href="/plan">Sign in</a> to see past payments and receipts.</p>`,
+        }${plansHtml(deps.billing ? `/pay/${token}` : null, {}, c, now())}<p class="small">One payment, no auto-renewal. Pay by UPI, card or net banking. <a href="/plan">Sign in</a> to see past payments and receipts.</p>`,
         { gateway },
       );
 
@@ -324,7 +346,7 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         `Plan for ${c.name}`,
         `<h1>${esc(c.name)}</h1>${switcher}${status(c, now())}${note}
 <section class="usage">${meter('Students', students, c.student_limit)}${meter('Batches', batches, c.batch_limit)}</section>
-<h2 class="section">Choose a plan</h2>${deps.billing ? '' : PAYMENTS_OFF}${plansHtml(deps.billing ? '/plan/pay' : null, { centre: c.id })}
+<h2 class="section">Choose a plan</h2>${deps.billing ? '' : PAYMENTS_OFF}${plansHtml(deps.billing ? '/plan/pay' : null, { centre: c.id }, c, now())}
 <p class="small">One payment, no auto-renewal. Pay by UPI, card or net banking.</p>
 <h2 class="section">Payments</h2>${rows}`,
         { gateway, nav: signOutNav },

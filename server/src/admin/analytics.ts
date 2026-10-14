@@ -167,6 +167,8 @@ interface InstRow {
   name: string;
   category: string;
   created_at: Date;
+  student_limit: number | null;
+  batch_limit: number | null;
   owner_name: string | null;
   owner_phone: string | null;
   owner_id: string | null;
@@ -211,7 +213,7 @@ export function healthScore(i: {
 
 const INST_SELECT = `SELECT i.id, i.name, i.category, i.created_at, i.upi_id, i.payment_link,
     u.name AS owner_name, u.phone AS owner_phone, u.id AS owner_id,
-    s.plan, s.status AS plan_status, s.expires_at, ns.enabled AS messages_on,
+    s.plan, s.status AS plan_status, s.expires_at, s.student_limit, s.batch_limit, ns.enabled AS messages_on,
     (SELECT COUNT(*) FROM students st WHERE st.institute_id = i.id AND st.status = 'active') AS students,
     (SELECT COUNT(*) FROM batches b WHERE b.institute_id = i.id AND b.status = 'active') AS batches,
     (SELECT COUNT(*) FROM memberships m WHERE m.institute_id = i.id AND m.role = 'staff') AS staff,
@@ -243,6 +245,11 @@ function toInstitute(r: InstRow, now: Date) {
     plan: r.plan,
     planActive: r.plan_status === 'active' && !!r.expires_at && r.expires_at > now,
     expiresAt: r.expires_at?.toISOString() ?? null,
+    planStatus: r.plan_status ?? null,
+    studentLimit:
+      r.student_limit === null || r.student_limit === undefined ? null : Number(r.student_limit),
+    batchLimit:
+      r.batch_limit === null || r.batch_limit === undefined ? null : Number(r.batch_limit),
     students: n(r.students),
     batches: n(r.batches),
     staff: n(r.staff),
@@ -359,9 +366,20 @@ export async function getInstitute(pool: Pool, id: string, now: Date) {
     [id, since],
   )) as unknown as [{ type: string; status: string; c: number }[]];
   const [billing] = (await pool.query(
-    "SELECT plan_id, amount, created_at FROM billing_events WHERE institute_id = ? AND status = 'applied' ORDER BY created_at DESC LIMIT 20",
+    "SELECT payment_id, provider, plan_id, amount, reason, note, expires_at, created_at FROM billing_events WHERE institute_id = ? AND status = 'applied' ORDER BY created_at DESC LIMIT 50",
     [id],
-  )) as unknown as [{ plan_id: string | null; amount: number; created_at: Date }[]];
+  )) as unknown as [
+    {
+      payment_id: string;
+      provider: string;
+      plan_id: string | null;
+      amount: number;
+      reason: string | null;
+      note: string | null;
+      expires_at: Date | null;
+      created_at: Date;
+    }[],
+  ];
   const [[counts]] = (await pool.query(
     `SELECT (SELECT COUNT(*) FROM attendance_days WHERE institute_id = ? AND day >= DATE(?)) AS attendance30,
             (SELECT COUNT(*) FROM payments WHERE institute_id = ? AND amount > 0 AND paid_at >= ?) AS payments30,
@@ -392,8 +410,13 @@ export async function getInstitute(pool: Pool, id: string, now: Date) {
     areas: areas.map((a) => ({ area: a.area, count: n(a.c) })),
     messages: mix.map((m) => ({ type: m.type, status: m.status, count: n(m.c) })),
     billing: billing.map((b) => ({
+      paymentId: b.payment_id,
+      provider: b.provider,
       plan: b.plan_id,
       amount: n(b.amount),
+      method: b.provider === 'manual' ? b.reason : null,
+      note: b.note,
+      validUntil: b.expires_at?.toISOString() ?? null,
       at: b.created_at.toISOString(),
     })),
   };
