@@ -111,26 +111,15 @@ const schema = z.object({
   WA_TEMPLATES: z.string().optional(),
   /** How long a new institute's free trial lasts. With online payment switched off, this is how long they can write before the app turns read-only. */
   TRIAL_DAYS: z.coerce.number().int().min(1).max(3650).default(7),
-  /** Razorpay (plan purchases). Without keys the server uses the local mock in development and answers 503 in production. */
   // Admin dashboard emails: sign-in codes, password resets and lockout alerts (SMTP, e.g. the hello@chalkpis.com mailbox).
   SMTP_HOST: z.string().min(1).optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(465),
   SMTP_USER: z.string().min(1).optional(),
   SMTP_PASS: z.string().min(1).optional(),
   MAIL_FROM: z.string().min(3).default('Chalkpis <hello@chalkpis.com>'),
-  // Cashfree Payment Links for plan purchases (App ID and Secret Key from Developers > API Keys); preferred over
-  // PhonePe and Razorpay when set. The secret key also checks Cashfree's webhook signatures.
-  CASHFREE_APP_ID: z.string().min(1).optional(),
-  CASHFREE_SECRET_KEY: z.string().min(1).optional(),
-  CASHFREE_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
-  // PhonePe Standard Checkout (v2) for plan purchases; preferred over Razorpay when set.
-  PHONEPE_CLIENT_ID: z.string().min(1).optional(),
-  PHONEPE_CLIENT_SECRET: z.string().min(1).optional(),
-  PHONEPE_CLIENT_VERSION: z.string().min(1).default('1'),
-  PHONEPE_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
-  // The username and password you set for the webhook in the PhonePe dashboard.
-  PHONEPE_WEBHOOK_USERNAME: z.string().min(1).optional(),
-  PHONEPE_WEBHOOK_PASSWORD: z.string().min(1).optional(),
+  // Razorpay (plan purchases, Payment Links): Key ID and Key Secret from Account & Settings > API Keys, and the secret
+  // you type for the webhook (payment_link.paid to /billing/webhooks/razorpay). Without keys the server uses the
+  // local mock in development and answers 503 in production.
   RAZORPAY_KEY_ID: z.string().min(1).optional(),
   RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().min(16).optional(),

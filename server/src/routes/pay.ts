@@ -12,7 +12,7 @@ import {
 } from '../billing/planSession.js';
 import { PLANS, isPlanId, planChange, type Plan } from '../billing/plans.js';
 import type { BillingProvider } from '../billing/provider.js';
-import { billingHistory, createOrder } from '../billing/service.js';
+import { billingHistory, createOrder, reconcilePending } from '../billing/service.js';
 import { activeCount } from '../institutes/limits.js';
 import { maskPhone, normalizeIndianPhone } from '../lib/phone.js';
 import type { MessageProvider } from '../messaging/provider.js';
@@ -60,6 +60,7 @@ const CENTRE_SQL = `SELECT i.id, i.name, i.owner_user_id, COALESCE(u.phone, NULL
   FROM institutes i JOIN users u ON u.id = i.owner_user_id
   LEFT JOIN subscriptions s ON s.institute_id = i.id`;
 
+// receipts name the gateway each payment went through (PhonePe and Cashfree were used before Razorpay)
 const GATEWAY: Record<string, string> = {
   cashfree: 'Cashfree Payments',
   phonepe: 'PhonePe',
@@ -138,9 +139,6 @@ const PAYMENTS_OFF =
   '<p class="note">Online payment is not switched on yet. Write to <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a> and we will help you renew.</p>';
 const PAY_FAILED =
   '<p class="note error">We could not open the payment page just now. Please try again in a minute, or write to <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a>.</p>';
-// Cashfree needs a mobile number; an owner who signed in with Apple or Google may have none
-const PAY_NO_PHONE =
-  '<p class="note error">Online payment needs a mobile number. Add your institute phone in the Chalkpis app (Settings), then open this page again, or write to <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a>.</p>';
 
 /**
  * Where centres pay for their plan, outside the store apps (Apple and Google allow no other way to pay inside them):
@@ -179,7 +177,7 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         userId: c.owner_user_id,
         planId,
         ownerPhone: c.phone ?? undefined,
-        ...orderUrls(deps.config, deps.billing!),
+        ...orderUrls(deps.config),
         now: now(),
       });
       if (!/^https:\/\//.test(order.url)) throw new Error('not-https');
@@ -200,9 +198,7 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         { err: e, reason: cause instanceof Error ? cause.message : undefined },
         'pay page: payment link failed',
       );
-      return cause instanceof Error && cause.message === 'cashfree-no-phone'
-        ? PAY_NO_PHONE
-        : PAY_FAILED;
+      return PAY_FAILED;
     }
   };
 
@@ -257,8 +253,17 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
       );
 
     scope.get<{ Params: { token: string } }>('/pay/:token', async (req, reply) => {
-      const c = await byToken(req.params.token);
+      let c = await byToken(req.params.token);
       if (!c) return tokenNotFound(reply);
+      if (
+        await reconcilePending(
+          deps.pool,
+          deps.billing,
+          { instituteId: c.id, sinceMinutes: 24 * 60 },
+          now(),
+        )
+      )
+        c = (await byToken(req.params.token))!;
       return send(reply, 200, tokenView(req.params.token, c));
     });
 
@@ -368,7 +373,17 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
     scope.get<{ Querystring: { centre?: string } }>('/plan', async (req, reply) => {
       const userId = await signedIn(req);
       if (!userId) return send(reply, 200, signInPage());
-      const centres = await ownedCentres(userId);
+      let centres = await ownedCentres(userId);
+      // a payment made here but never confirmed back (browser closed, webhook missed) switches the plan on now
+      let found = 0;
+      for (const c of centres)
+        found += await reconcilePending(
+          deps.pool,
+          deps.billing,
+          { instituteId: c.id, sinceMinutes: 24 * 60 },
+          now(),
+        );
+      if (found) centres = await ownedCentres(userId);
       if (!centres.length) return send(reply, 200, noCentre);
       return send(reply, 200, await accountPage(centres, pick(centres, req.query.centre ?? null)!));
     });

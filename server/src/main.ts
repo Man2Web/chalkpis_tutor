@@ -4,13 +4,7 @@ import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createPool } from './db.js';
 import { MockMailer, SmtpMailer, type Mailer } from './auth/mailer.js';
-import {
-  CashfreeProvider,
-  MockBillingProvider,
-  PhonePeProvider,
-  RazorpayProvider,
-  type BillingProvider,
-} from './billing/provider.js';
+import { MockBillingProvider, RazorpayProvider, type BillingProvider } from './billing/provider.js';
 import {
   MetaCloudProvider,
   MockProvider,
@@ -67,27 +61,12 @@ async function main() {
     );
   }
   let billing: BillingProvider | null = null;
-  if (config.CASHFREE_APP_ID && config.CASHFREE_SECRET_KEY)
-    billing = new CashfreeProvider({
-      appId: config.CASHFREE_APP_ID,
-      secretKey: config.CASHFREE_SECRET_KEY,
-      env: config.CASHFREE_ENV,
-      checkoutUrl: (id) =>
-        `${(config.PUBLIC_BASE_URL ?? '').replace(/\/$/, '')}/billing/checkout/${id}`,
-    });
-  else if (config.PHONEPE_CLIENT_ID && config.PHONEPE_CLIENT_SECRET)
-    billing = new PhonePeProvider({
-      clientId: config.PHONEPE_CLIENT_ID,
-      clientSecret: config.PHONEPE_CLIENT_SECRET,
-      clientVersion: config.PHONEPE_CLIENT_VERSION,
-      env: config.PHONEPE_ENV,
-    });
-  else if (config.RAZORPAY_KEY_ID && config.RAZORPAY_KEY_SECRET)
+  if (config.RAZORPAY_KEY_ID && config.RAZORPAY_KEY_SECRET)
     billing = new RazorpayProvider(config.RAZORPAY_KEY_ID, config.RAZORPAY_KEY_SECRET);
   else if (config.NODE_ENV !== 'production') billing = new MockBillingProvider();
   else
     console.warn(
-      'No payment gateway is configured: plan purchases are unavailable until CASHFREE_* (or PHONEPE_*, RAZORPAY_*) settings are set.',
+      'No payment gateway is configured: plan purchases are unavailable until RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are set.',
     );
   // Admin dashboard emails: SMTP when set up; locally a stand-in that keeps the mail (use OTP_DEV_ECHO to see codes).
   let mailer: Mailer | null = null;
@@ -134,6 +113,7 @@ async function main() {
             push,
           }
         : undefined,
+      billing,
     ),
   );
 

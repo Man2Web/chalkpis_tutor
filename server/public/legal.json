@@ -37,7 +37,7 @@
         "p": [
           "WhatsApp messages are sent from our business number through the WhatsApp Business Platform (Meta) and our messaging partner ValueFirst Digital Media. They receive the parent's number and the message text needed to deliver it.",
           "Our servers are hosted by our cloud provider. App updates are delivered through Expo (EAS).",
-          "Plan payments are handled by PhonePe Payment Gateway; we never see your card, UPI or bank details.",
+          "Plan payments are handled by Razorpay; we never see your card, UPI or bank details.",
           "Tuition fees go straight from parents to your own UPI id or payment page. Chalkpis never receives or holds that money.",
           "We share information with authorities only when the law requires it."
         ]

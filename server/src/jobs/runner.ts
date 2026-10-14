@@ -1,3 +1,5 @@
+import type { BillingProvider } from '../billing/provider.js';
+import { reconcilePending } from '../billing/service.js';
 import type { Pool } from '../db.js';
 import { generateDues } from '../fees/service.js';
 import { expireDueSubscriptions } from '../billing/service.js';
@@ -67,10 +69,26 @@ async function cleanupJob(pool: Pool, now: Date) {
   return n;
 }
 
-/** The jobs; plan reminders need the public address and the secret to build each centre's pay link. */
+/**
+ * The jobs; plan reminders need the public address and the secret to build each centre's pay link, and the payment
+ * gateway is asked hourly about recent plan orders that were never confirmed back.
+ */
 export const makeJobs = (
   links?: Parameters<typeof queuePlanReminders>[2] & { paidLinks?: boolean },
+  billing?: BillingProvider | null,
 ): Job[] => [
+  ...(billing?.checkStatus
+    ? [
+        {
+          name: 'billing-reconcile',
+          from: 0,
+          until: 23,
+          every: 'hour',
+          run: (pool: Pool, now: Date) =>
+            reconcilePending(pool, billing, { sinceMinutes: 6 * 60 }, now),
+        } satisfies Job,
+      ]
+    : []),
   // the evening "attendance not marked" push: hourly 8 to 10 pm, each batch once a day
   ...(links?.push
     ? [

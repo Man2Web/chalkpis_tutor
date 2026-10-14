@@ -27,7 +27,7 @@ At sign-up the owner picks what they teach, and the app speaks their language: a
 
 - **Sign up and sign in with WhatsApp:** a 6-digit code to the owner's mobile number. No passwords, no email.
 - **Fees go straight to the centre:** parents pay the owner's own UPI ID or payment link; Chalkpis never touches that money.
-- **Plans:** a free trial, then plans by the number of students and batches, paid through PhonePe.
+- **Plans:** a free trial, then plans by the number of students and batches, paid on the website through Razorpay.
 
 Built and run by M2W Technologies Private Limited (Man2Web). Contact: hello@chalkpis.com.
 

@@ -23,8 +23,6 @@ export async function createOrder(
     ownerPhone?: string;
     /** The page the payer returns to, given our order id. */
     returnUrl?: (orderId: string) => string;
-    /** Where the provider sends its webhook, for providers that take it per order (Cashfree). */
-    notifyUrl?: string;
     now?: Date;
   },
 ) {
@@ -66,7 +64,6 @@ export async function createOrder(
         referenceId: orderId,
         customerPhone: a.ownerPhone,
         returnUrl: a.returnUrl?.(orderId),
-        notifyUrl: a.notifyUrl,
       });
     } catch (e) {
       // the provider's own reason stays on the error (for the server log), never in the answer to the client
@@ -187,8 +184,9 @@ export async function applyPaid(
 export type OrderState = 'paid' | 'pending' | 'failed';
 
 /**
- * Asks the provider where one of OUR orders stands and, when it is paid, applies the plan (once). This is the only
- * way a PhonePe or Cashfree payment is applied: the webhook, the return page and the app all just ask for it.
+ * Asks the provider where one of OUR orders stands and, when it is paid, applies the plan (once). The return page, the
+ * app, the owner's plan page and the reconcile job use it; Razorpay's signed webhook applies the same payment id, so
+ * whichever comes first wins and the other is a no-op.
  */
 export async function reconcileOrder(
   pool: Pool,
@@ -238,6 +236,41 @@ export async function reconcileOrder(
     now,
   );
   return { orderId: order.id, state: result === 'invalid' ? 'failed' : 'paid', result };
+}
+
+/**
+ * Asks the provider about recent orders that were neither applied nor refused yet (one centre's, or everyone's), so a
+ * plan switches on even when the payer closed the browser before Razorpay sent them back and the webhook was missed.
+ * Never throws. Returns how many were found paid.
+ */
+export async function reconcilePending(
+  pool: Pool,
+  provider: BillingProvider | null,
+  where: { instituteId?: string; sinceMinutes: number },
+  now: Date,
+): Promise<number> {
+  if (!provider?.checkStatus) return 0;
+  try {
+    const [rows] = (await pool.query(
+      `SELECT o.id FROM billing_orders o
+        WHERE o.provider = ? AND o.created_at > ?${where.instituteId ? ' AND o.institute_id = ?' : ''}
+          AND NOT EXISTS (SELECT 1 FROM billing_events e WHERE e.provider = o.provider AND e.order_id = o.id)
+        ORDER BY o.created_at DESC LIMIT 20`,
+      [
+        provider.name,
+        new Date(now.getTime() - where.sinceMinutes * 60_000),
+        ...(where.instituteId ? [where.instituteId] : []),
+      ],
+    )) as unknown as [{ id: string }[]];
+    let paid = 0;
+    for (const r of rows) {
+      const res = await reconcileOrder(pool, provider, { orderId: r.id }, now).catch(() => null);
+      if (res?.state === 'paid') paid++;
+    }
+    return paid;
+  } catch {
+    return 0;
+  }
 }
 
 export async function billingHistory(pool: Pool, instituteId: string) {

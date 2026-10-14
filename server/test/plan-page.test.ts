@@ -7,13 +7,13 @@ import { startHarness, type Harness } from './helpers.js';
 const SECRET = 'test-jwt-secret-test-jwt-secret-1234';
 
 class FakeGateway implements BillingProvider {
-  name = 'cashfree' as const;
+  name = 'razorpay' as const;
   created: LinkRequest[] = [];
   async createPaymentLink(req: LinkRequest) {
     this.created.push(req);
     return {
       id: req.referenceId,
-      url: `https://tutor.chalkpis.com/billing/checkout/${req.referenceId}`,
+      url: `https://rzp.io/i/${req.referenceId}`,
     };
   }
   async checkStatus(): Promise<OrderStatus> {
@@ -116,7 +116,7 @@ describe('billing page (/plan)', () => {
       amountPaise: PLANS.standard.pricePaise,
       customerPhone: '+919800000001',
     });
-    expect(r.body).toContain(`url=https://tutor.chalkpis.com/billing/checkout/`);
+    expect(r.body).toContain(`url=https://rzp.io/i/`);
 
     // another owner's centre, a form from another site, or no sign-in: nothing is created
     await form('/plan/pay', { plan: 'pro', centre: other.instituteId }, { cookie });

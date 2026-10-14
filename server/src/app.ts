@@ -90,7 +90,7 @@ export async function buildApp({
   await app.register(helmet, {
     contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
   });
-  // no page here needs the camera, microphone, location or USB (payment stays allowed for the Cashfree checkout)
+  // no page here needs the camera, microphone, location or USB
   app.addHook('onSend', async (_req, reply) => {
     if (!reply.hasHeader('Permissions-Policy'))
       reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), usb=()');

@@ -37,20 +37,21 @@ Do this after the newest code is pushed: the code on GitHub must be the version 
 
 ## Online payment
 
-Plans are paid through **Cashfree Payment Gateway, standard checkout** (M2W's Cashfree account). Set in Coolify, then
-"Restart current version":
+Plans are paid through **Razorpay Payment Links** (M2W's Razorpay account; PhonePe and Cashfree were used before and
+are removed). The compose file passes three settings; set them in Coolify > Environment Variables, then "Restart
+current version":
 
-- `CASHFREE_APP_ID` and `CASHFREE_SECRET_KEY`: merchant.cashfree.com > Payment Gateway > Developers > API Keys (not the
-  Secure ID keys; the live pair, or the "Switch to Test" pair for trying it out).
-- `CASHFREE_ENV`: `production` for the live pair, `sandbox` for the test pair.
-- Cashfree > Developers > Whitelisting must list `tutor.chalkpis.com` (approved): Cashfree's checkout only opens from
-  whitelisted websites.
+- `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`: dashboard.razorpay.com > Account & Settings > API Keys > Generate Key
+  (live mode; the secret is shown once).
+- `RAZORPAY_WEBHOOK_SECRET`: a secret you make up (16+ characters). In Razorpay > Account & Settings > Webhooks >
+  Add New Webhook: URL `https://tutor.chalkpis.com/billing/webhooks/razorpay`, the same secret, event
+  **payment_link.paid**.
 
-How a payment runs: the pay page creates a Cashfree order (our order id is Cashfree's `order_id`), the payer lands on
-`/billing/checkout/<order>`, which opens Cashfree's hosted payment page with Cashfree's own script, and Cashfree sends
-them back to `/billing/return`. Each order carries its own webhook address (`/billing/webhooks/cashfree`, checked with
-the secret key). A plan is switched on only after the server asks Cashfree about the order and it says PAID, with a
-successful payment of the exact plan price.
+How a payment runs: the pay page creates a Razorpay payment link (our order id is its `reference_id`, it expires after
+an hour), the payer pays on Razorpay's own page (UPI, cards, net banking, wallets) and Razorpay sends them back to
+`/billing/return`. The plan switches on from Razorpay's signed webhook, or from asking Razorpay about the link (the
+return page, the app, the owner's plan page and an hourly job all do), always at the exact plan price and once per
+payment id, so a closed browser or a missed webhook never loses a payment.
 
 Where tutors pay (never inside the store apps, which only show the plan):
 
