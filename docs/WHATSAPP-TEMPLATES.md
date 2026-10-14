@@ -95,11 +95,11 @@ it, so it stays.
 
 Every send is logged with the gateway's answer (`wa-send` in Coolify > Chalkpis > Runtime Logs, phone numbers masked).
 
-## "I've paid" link in fee reminders (templates in review, 14 Oct 2026)
+## "I've paid" link in fee reminders (live since 14 Oct 2026)
 
-Submitted on wa.adsme.in (Utility, footer "Sent via Chalkpis on behalf of your centre"); `{{4}}` is the parent's
-"I've paid" page. Once approved, put their ids in `WA_TEMPLATES` for `fee_due`, `fee_overdue`, `fee_link` and
-`fee_reminder`, set `FEE_PAID_LINK=true`, and restart, all together.
+Approved on wa.adsme.in (Utility, footer "Sent via Chalkpis on behalf of your centre"); `{{4}}` is the parent's
+"I've paid" page. In use with `FEE_PAID_LINK=true`: `fee_due` 1815863, `fee_overdue` 1815859, `fee_link` 1815858,
+`fee_reminder` 1815861 (the older 3-value templates in the tables above are no longer used).
 
 - **cp_fee_due_paid**: Hello, a gentle reminder that the fee for {{1}} is due: {{2}}. / Kindly pay on time. Regards, {{3}}. / Already paid? Tap here to let the centre know: {{4}} / Thank you.
 - **cp_fee_overdue_paid**: Hello, the fee for {{1}} is still \*pending\*: {{2}}. / Please pay at the earliest. Regards, {{3}}. / Already paid? Tap here to let the centre know: {{4}} / Thank you.
@@ -124,7 +124,7 @@ The server reads the template per app message type from `WA_TEMPLATES` (JSON), p
 Through wa.adsme.in use the **Template Id numbers** above (add `helper_invite` once it is approved):
 
 ```
-{"absent":{"en":"1815393"},"late":{"en":"1815389"},"fee_due":{"en":"1815388"},"fee_overdue":{"en":"1815387"},"payment_received":{"en":"1815826"},"fee_reminder":{"en":"1815399"},"fee_link":{"en":"1815392"},"parent_link":{"en":"1815395"},"student_welcome":{"en":"1815398"},"class_cancelled":{"en":"1815394"},"centre_welcome":{"en":"1815396"},"plan_active":{"en":"1815397"},"plan_ending":{"en":"1815843"},"plan_ended":{"en":"1815844"},"helper_invite":{"en":"1815400"}}
+{"absent":{"en":"1815393"},"late":{"en":"1815389"},"fee_due":{"en":"1815863"},"fee_overdue":{"en":"1815859"},"payment_received":{"en":"1815826"},"fee_reminder":{"en":"1815861"},"fee_link":{"en":"1815858"},"parent_link":{"en":"1815395"},"student_welcome":{"en":"1815398"},"class_cancelled":{"en":"1815394"},"centre_welcome":{"en":"1815396"},"plan_active":{"en":"1815397"},"plan_ending":{"en":"1815843"},"plan_ended":{"en":"1815844"},"helper_invite":{"en":"1815400"}}
 ```
 
 A message type with no template is skipped and shows in the Message log as "No template for this message".
