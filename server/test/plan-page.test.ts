@@ -83,10 +83,13 @@ describe('billing page (/plan)', () => {
     expect(page.body).toContain('No payments yet.');
   });
 
-  it('never creates an account for a number that has none', async () => {
-    await form('/plan/code', { phone: '9811111111' });
-    const r = await form('/plan/verify', { phone: '9811111111', code: lastCode() });
-    expect(r.body).toContain('No centre on this number');
+  it('sends no code to a number without a centre, and never creates an account', async () => {
+    // looks the same as for an owner, so the page tells nobody who is registered
+    const page = await form('/plan/code', { phone: '9811111111' });
+    expect(page.statusCode).toBe(200);
+    expect(page.body).toContain('Enter the code');
+    expect(h.provider.sent).toHaveLength(0);
+    const r = await form('/plan/verify', { phone: '9811111111', code: '123456' });
     expect(r.headers['set-cookie']).toBeUndefined();
     const [users] = (await h.db.pool.query('SELECT id FROM users WHERE phone = ?', [
       '+919811111111',

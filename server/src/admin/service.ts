@@ -201,7 +201,8 @@ export async function recentLogins(pool: Pool, now: Date, limit = 100) {
   }));
 }
 
-async function audit(
+/** One line in the admin audit log (who did what to whom). */
+export async function audit(
   pool: Pool,
   a: AdminActor,
   action: string,

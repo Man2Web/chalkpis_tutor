@@ -71,11 +71,19 @@ export async function requestOtp(deps: OtpDeps, rawPhone: unknown): Promise<OtpR
       } as const;
     }
 
-    const [[all]] = (await conn.query('SELECT COUNT(*) AS n FROM otp_codes WHERE created_at > ?', [
-      iso(new Date(now.getTime() - 3_600_000)),
-    ])) as unknown as [[{ n: number }]];
-    if (Number(all?.n ?? 0) >= (deps.config.OTP_GLOBAL_PER_HOUR ?? 300))
-      return { ok: false, error: 'too_many', retryAfter: 600 } as const;
+    // The hourly cap across everyone stops code-pumping to random numbers. People who already have an account are
+    // not counted against it, so a flood of strangers' numbers can never stop real users from signing in.
+    const [known] = (await conn.query('SELECT 1 FROM users WHERE phone = ? LIMIT 1', [
+      phone,
+    ])) as unknown as [unknown[]];
+    if (!known.length) {
+      const [[all]] = (await conn.query(
+        'SELECT COUNT(*) AS n FROM otp_codes WHERE created_at > ? AND phone NOT IN (SELECT phone FROM users WHERE phone IS NOT NULL)',
+        [iso(new Date(now.getTime() - 3_600_000))],
+      )) as unknown as [[{ n: number }]];
+      if (Number(all?.n ?? 0) >= (deps.config.OTP_GLOBAL_PER_HOUR ?? 300))
+        return { ok: false, error: 'too_many', retryAfter: 600 } as const;
+    }
 
     const code = newOtp();
     const id = newId();
@@ -152,7 +160,19 @@ async function checkOtp(
   return withNamedLock(deps.pool, `otp:${phone}`, (conn) =>
     inTransaction(conn, async (c) => {
       if (isReview(deps, phone)) {
-        if (!sameCode(rawCode, deps.config.REVIEW_CODE!)) return { ok: false } as const;
+        // the fixed review code gets the same kind of guard as a real code: 10 wrong tries an hour lock it
+        const [[failed]] = (await c.query(
+          "SELECT COUNT(*) AS n FROM otp_codes WHERE phone = ? AND code_hash = 'review-miss' AND created_at > ?",
+          [phone, iso(new Date(now.getTime() - 3_600_000))],
+        )) as unknown as [[{ n: number }]];
+        if (Number(failed?.n ?? 0) >= 10) return { ok: false } as const;
+        if (!sameCode(rawCode, deps.config.REVIEW_CODE!)) {
+          await c.query(
+            "INSERT INTO otp_codes (id, phone, code_hash, expires_at, created_at, consumed_at) VALUES (?, ?, 'review-miss', ?, ?, ?)",
+            [newId(), phone, iso(now), iso(now), iso(now)],
+          );
+          return { ok: false } as const;
+        }
       } else {
         const [rows] = (await c.query(
           'SELECT id, code_hash, attempts FROM otp_codes WHERE phone = ? AND consumed_at IS NULL AND expires_at > ? ORDER BY created_at DESC LIMIT 1 FOR UPDATE',

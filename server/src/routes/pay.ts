@@ -388,6 +388,13 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
               raw.slice(0, 16),
             ),
           );
+        // Only a number that owns a centre gets a code here (this page is only for owners). Anyone else sees the same
+        // "code sent" page, so the page tells nobody who is registered and cannot be used to send codes to strangers.
+        const [owner] = (await deps.pool.query(
+          'SELECT 1 FROM users u JOIN institutes i ON i.owner_user_id = u.id WHERE u.phone = ? LIMIT 1',
+          [phone],
+        )) as unknown as [unknown[]];
+        if (!owner.length) return send(reply, 200, codePage(phone));
         const r = await requestOtp(otpDeps, phone);
         if (r.ok) return send(reply, 200, codePage(phone));
         if (r.error === 'too_soon') return send(reply, 200, codePage(phone)); // the last code still works

@@ -51,6 +51,23 @@ export const toStudent = (r: StudentRow, batchIds: string[]) => ({
   batchIds,
 });
 
+/**
+ * What a helper (staff) gets: they only take attendance, so names, class and photo, never the family's phone numbers,
+ * date of birth, private notes or fee terms. Same shape, those fields blank.
+ */
+export const staffView = (s: ReturnType<typeof toStudent>): ReturnType<typeof toStudent> => ({
+  ...s,
+  phone: '',
+  parentName: '',
+  parentPhone: '',
+  dob: '',
+  gender: '',
+  monthlyFee: 0,
+  discount: 0,
+  notifyParent: false,
+  notes: '',
+});
+
 const lockName = (instituteId: string) => `limits:${instituteId}`;
 
 async function linksFor(

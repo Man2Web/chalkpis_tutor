@@ -40,6 +40,12 @@ describe('csv output', () => {
     expect(csvCell('a,b')).toBe('"a,b"');
     expect(csvCell('say "x"')).toBe('"say ""x"""');
   });
+  it('shows a formula in a name as text, never runs it; numbers stay numbers', () => {
+    expect(csvCell('=HYPERLINK("https://x","y")')).toBe(`"'=HYPERLINK(""https://x"",""y"")"`);
+    expect(csvCell('+91 98765')).toBe("'+91 98765");
+    expect(csvCell('@sum')).toBe("'@sum");
+    expect(csvCell(-500)).toBe('-500');
+  });
   it('round-trips', () => {
     const rows = [
       ['name', 'note'],

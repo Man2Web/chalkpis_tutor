@@ -90,6 +90,11 @@ export async function buildApp({
   await app.register(helmet, {
     contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
   });
+  // no page here needs the camera, microphone, location or USB (payment stays allowed for the Cashfree checkout)
+  app.addHook('onSend', async (_req, reply) => {
+    if (!reply.hasHeader('Permissions-Policy'))
+      reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), usb=()');
+  });
   if (config.CORS_ORIGINS.length)
     await app.register(cors, {
       origin: config.CORS_ORIGINS,

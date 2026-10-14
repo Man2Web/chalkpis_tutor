@@ -10,6 +10,13 @@ describe('safeUrl', () => {
     expect(safeUrl(`/p/${t}`)).toBe('/p/[hidden]');
     expect(safeUrl(`/p/${t}?lang=hi`)).toBe('/p/[hidden]');
   });
+  it('hides the tokens of the "I\'ve paid", pay and delivery-report links', () => {
+    const t = 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_';
+    expect(safeUrl(`/f/${t}`)).toBe('/f/[hidden]');
+    expect(safeUrl(`/pay/${t}`)).toBe('/pay/[hidden]');
+    expect(safeUrl(`/webhooks/wa-dlr/${t}`)).toBe('/webhooks/wa-dlr/[hidden]');
+    expect(safeUrl('/plan/receipt/abc')).toBe('/plan/receipt/abc');
+  });
   it('leaves ordinary paths alone', () => {
     expect(safeUrl('/health')).toBe('/health');
     expect(safeUrl('/p/short')).toBe('/p/short');

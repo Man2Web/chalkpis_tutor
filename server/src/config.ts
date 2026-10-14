@@ -40,8 +40,9 @@ const schema = z.object({
     .string()
     .regex(/^\d{6}$/)
     .optional(),
-  // Most WhatsApp login codes sent per hour across everyone (each costs money); a flood beyond it waits.
-  OTP_GLOBAL_PER_HOUR: z.coerce.number().int().min(10).default(300),
+  // Most WhatsApp login codes sent per hour to numbers WITHOUT an account (each costs money); a flood beyond it waits.
+  // People who already have an account are not counted, so it never stops them signing in.
+  OTP_GLOBAL_PER_HOUR: z.coerce.number().int().min(10).default(100),
 
   /** WhatsApp gateway for login codes. Optional at start; without it the login-code route answers 503. */
   WA_API_URL: z.string().url().optional(),

@@ -48,6 +48,10 @@ const PAYMENT_STUDENT: Lookup = {
   sql: 'SELECT s.name FROM payments x JOIN students s ON s.institute_id = x.institute_id AND s.id = x.student_id WHERE x.institute_id = ? AND x.id = ?',
   param: (p) => p.id,
 };
+const REPORT_STUDENT: Lookup = {
+  sql: 'SELECT s.name FROM payment_reports r JOIN students s ON s.id = r.student_id WHERE r.institute_id = ? AND r.id = ?',
+  param: (p) => p.id,
+};
 const STAFF: Lookup = {
   sql: 'SELECT u.name FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.institute_id = ? AND m.user_id = ?',
   param: (p) => p.id,
@@ -63,6 +67,7 @@ export const RULES: Record<string, Rule> = {
   'PATCH /students/:id': { action: 'student.edit', subject: STUDENT },
   'POST /students/:id/deactivate': { action: 'student.deactivate', subject: STUDENT },
   'POST /students/:id/reactivate': { action: 'student.reactivate', subject: STUDENT },
+  'PUT /students/:id/photo': { action: 'student.photo', subject: STUDENT },
   'DELETE /students/:id/photo': { action: 'student.photo-remove', subject: STUDENT },
   'POST /students/:id/parent-link': { action: 'parent.link', subject: STUDENT },
   'DELETE /students/:id/parent-link': { action: 'parent.unlink', subject: STUDENT },
@@ -122,6 +127,8 @@ export const RULES: Record<string, Rule> = {
     detail: (b) => (b.waived ? 'waived' : 'waiver undone'),
   },
   'POST /fees/payments/:id/send-receipt': { action: 'message.receipt', subject: PAYMENT_STUDENT },
+  'POST /fees/reports/:id/confirm': { action: 'fee.report-confirm', subject: REPORT_STUDENT },
+  'POST /fees/reports/:id/reject': { action: 'fee.report-reject', subject: REPORT_STUDENT },
   'POST /messages/reminders/run': { action: 'message.reminders' },
   'PUT /settings/notifications': {
     action: 'settings.notifications',
@@ -129,6 +136,7 @@ export const RULES: Record<string, Rule> = {
   },
 
   'PATCH /institute': { action: 'settings.institute' },
+  'PUT /institute/logo': { action: 'settings.logo' },
   'DELETE /institute/logo': { action: 'settings.logo-remove' },
   'POST /me/onboarding-complete': { action: 'centre.onboarded' },
 
@@ -141,6 +149,13 @@ export const RULES: Record<string, Rule> = {
   'DELETE /staff/:id': { action: 'staff.remove' },
 
   'POST /billing/links': { action: 'billing.checkout', detail: (b) => String(b.planId ?? '') },
+
+  'POST /tasks': { action: 'task.add', detail: (b) => String(b.title ?? '') },
+  'PATCH /tasks/:id': {
+    action: 'task.edit',
+    detail: (b) => (b.done === true ? 'done' : b.done === false ? 'not done' : ''),
+  },
+  'DELETE /tasks/:id': { action: 'task.delete' },
 };
 
 /** What the action was about, when the rule can look it up; never fails the log. */

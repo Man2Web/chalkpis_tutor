@@ -122,6 +122,21 @@ describe('requesting a login code', () => {
     expect((await post('/auth/otp/request', { phone: '9123456789' })).statusCode).toBe(200);
   });
 
+  it('a flood of unknown numbers fills the hourly cap, but people with an account still get codes', async () => {
+    await login(); // PHONE now has an account
+    app = await buildApp({
+      config: testConfig({ ...config(), OTP_GLOBAL_PER_HOUR: 2 }),
+      pool: db.pool,
+      provider,
+      clock: () => now,
+    });
+    advance(61_000);
+    expect((await post('/auth/otp/request', { phone: '9123456781' })).statusCode).toBe(200);
+    expect((await post('/auth/otp/request', { phone: '9123456782' })).statusCode).toBe(200);
+    expect((await post('/auth/otp/request', { phone: '9123456783' })).statusCode).toBe(429);
+    expect((await post('/auth/otp/request', { phone: PHONE })).statusCode).toBe(200);
+  });
+
   it('if WhatsApp fails: 503, and the unsent code does not count against the limits', async () => {
     provider.failNext = true;
     const r = await post('/auth/otp/request', { phone: PHONE });

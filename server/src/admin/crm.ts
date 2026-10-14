@@ -93,7 +93,9 @@ export async function events(pool: Pool, q: z.infer<typeof eventsQuery>, now: Da
   };
   // the platform-wide feed leaves out routine messages; one centre's log shows everything
   const defaults = (Object.keys(all) as EventKind[]).filter((k) => q.institute || k !== 'message');
-  const kinds = (q.kinds.length ? q.kinds : defaults).filter((k): k is EventKind => k in all);
+  const kinds = (q.kinds.length ? q.kinds : defaults).filter((k): k is EventKind =>
+    Object.hasOwn(all, k),
+  );
   if (!kinds.length) return { events: [] };
   // each part is filtered by centre and words inside, so a busy centre cannot crowd out the one asked for
   const filters: string[] = [];
@@ -186,6 +188,7 @@ export const ACTIVITY_TEXT: Record<string, string> = {
   'student.edit': 'edited {s}',
   'student.deactivate': 'marked {s} as left',
   'student.reactivate': 'brought back {s}',
+  'student.photo': 'added a photo of {s}',
   'student.photo-remove': "removed {s}'s photo",
   'parent.link': 'shared the parent link for {s}',
   'parent.unlink': 'turned off the parent link for {s}',
@@ -205,15 +208,21 @@ export const ACTIVITY_TEXT: Record<string, string> = {
   'fee.waive': 'changed a waiver for {s}',
   'message.remind': 'sent a fee reminder to the parent of {s}',
   'message.receipt': 'sent a receipt to the parent of {s}',
+  'fee.report-confirm': "confirmed the payment {s}'s parent reported",
+  'fee.report-reject': "marked {s}'s reported payment as not received",
   'message.reminders': 'sent fee reminders to all parents',
   'settings.notifications': 'changed parent message settings',
   'settings.institute': 'updated the centre details',
+  'settings.logo': 'changed the centre logo',
   'settings.logo-remove': 'removed the centre logo',
   'centre.onboarded': 'finished setting up the centre',
   'staff.add': 'added a staff member',
   'staff.batches': "changed {s}'s batches",
   'staff.remove': 'removed a staff member',
   'billing.checkout': 'started buying a plan',
+  'task.add': 'added a task',
+  'task.edit': 'updated a task',
+  'task.delete': 'deleted a task',
 };
 
 /** "recorded a fee from Riya Sharma · ₹1,500 · upi": a sentence, falling back gracefully for new actions. */
@@ -266,12 +275,18 @@ export async function addNote(
   return { id };
 }
 
+/** Deletes a note and returns what it said, for the audit log. */
 export async function deleteNote(pool: Pool, instituteId: string, noteId: string) {
+  const [rows] = (await pool.query(
+    'SELECT body FROM admin_notes WHERE id = ? AND institute_id = ?',
+    [noteId, instituteId],
+  )) as unknown as [{ body: string }[]];
   const [r] = (await pool.query('DELETE FROM admin_notes WHERE id = ? AND institute_id = ?', [
     noteId,
     instituteId,
   ])) as unknown as [{ affectedRows: number }];
   if (!r.affectedRows) throw notFound();
+  return rows[0]?.body ?? '';
 }
 
 export async function tagsFor(pool: Pool, ids: string[]) {

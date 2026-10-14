@@ -10,6 +10,7 @@ import {
   getStudent,
   listStudents,
   setStudentStatus,
+  staffView,
   updateStudent,
 } from '../students/service.js';
 
@@ -26,13 +27,14 @@ export function studentRoutes(app: FastifyInstance, deps: Deps) {
     const q = parse(listQuery, req.query);
     const scope = await batchScope(deps.pool, req.auth!);
     if (scope && q.batchId && !scope.includes(q.batchId)) return { students: [] };
-    return { students: await listStudents(deps.pool, inst(req), q, scope) };
+    const students = await listStudents(deps.pool, inst(req), q, scope);
+    return { students: scope ? students.map(staffView) : students };
   });
   app.get('/students/:id', read, async (req) => {
     const s = await getStudent(deps.pool, inst(req), idParam((req.params as { id: string }).id));
     const scope = await batchScope(deps.pool, req.auth!);
     if (scope && !s.batchIds.some((b) => scope.includes(b))) throw notFound();
-    return s;
+    return scope ? staffView(s) : s;
   });
 
   app.post('/students', write, async (req, reply) => {

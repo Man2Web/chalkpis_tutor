@@ -117,16 +117,25 @@ describe('admin sign-in: email, password, then an emailed code', () => {
     expect(mailer.sent).toHaveLength(0);
   });
 
-  it('five wrong passwords lock the account for 15 minutes and the admin is emailed', async () => {
+  it('five wrong passwords block that address for 15 minutes and the admin is emailed', async () => {
     await setPassword();
     mailer.sent = [];
     for (let i = 0; i < 5; i++)
       await post('/admin/auth/login', { email: TEST_ADMIN_EMAIL, password: `Wrong!Pass12${i}` });
     expect(mailer.sent.map((m) => m.subject)).toEqual([
-      'Chalkpis admin locked after wrong passwords',
+      'Wrong passwords for your Chalkpis admin account',
     ]);
-    // even the right password is refused while locked
+    // even the right password is refused from that address
     expect((await signIn()).step1.statusCode).toBe(401);
+    // but the admin, from another address, is not locked out by someone else's guesses
+    ip += 1;
+    expect((await signIn()).step2!.statusCode).toBe(200);
+    // a second address guessing in the same hour sends no second email
+    mailer.sent = [];
+    for (let i = 0; i < 5; i++)
+      await post('/admin/auth/login', { email: TEST_ADMIN_EMAIL, password: `Wrong!Pass13${i}` });
+    expect(mailer.sent.filter((m) => m.subject.startsWith('Wrong passwords'))).toHaveLength(0);
+    ip -= 1;
     later(16 * 60_000);
     expect((await signIn()).step2!.statusCode).toBe(200);
   });

@@ -29,13 +29,19 @@ export function batchRoutes(app: FastifyInstance, deps: Deps) {
   app.get('/batches', read, async (req) => {
     const scope = await batchScope(deps.pool, req.auth!);
     const all = await listBatches(deps.pool, inst(req), parse(listQuery, req.query).status);
-    return { batches: scope ? all.filter((b) => scope.includes(b.id)) : all };
+    // a helper sees their batches without the fee (money is the owner's)
+    return {
+      batches: scope
+        ? all.filter((b) => scope.includes(b.id)).map((b) => ({ ...b, defaultFee: 0 }))
+        : all,
+    };
   });
   app.get('/batches/:id', read, async (req) => {
     const id = idParam((req.params as { id: string }).id);
     const scope = await batchScope(deps.pool, req.auth!);
     if (scope && !scope.includes(id)) throw notFound();
-    return getBatch(deps.pool, inst(req), id);
+    const b = await getBatch(deps.pool, inst(req), id);
+    return scope ? { ...b, defaultFee: 0 } : b;
   });
 
   app.post('/batches', write, async (req, reply) => {

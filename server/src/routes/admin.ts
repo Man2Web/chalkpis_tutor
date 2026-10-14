@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { AppDeps } from '../app.js';
 import {
+  audit,
   auditLog,
   blockBody,
   blockUser,
@@ -275,7 +276,9 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
       .header('Cache-Control', 'no-store')
       .type('text/csv; charset=utf-8')
       .send(body);
-  app.get('/admin/api/export/users.csv', guard, async (_req, reply) => {
+  app.get('/admin/api/export/users.csv', guard, async (req, reply) => {
+    // a bulk copy of personal data (every phone number): always in the audit log
+    await audit(pool, actor(req), 'export-users', {});
     const users = await listUsers(
       pool,
       { q: '', filter: 'all', limit: 200, offset: 0 },
@@ -317,7 +320,8 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
       ]),
     )(reply);
   });
-  app.get('/admin/api/export/institutes.csv', guard, async (_req, reply) => {
+  app.get('/admin/api/export/institutes.csv', guard, async (req, reply) => {
+    await audit(pool, actor(req), 'export-institutes', {});
     const list = await listInstitutes(pool, { q: '', sort: 'newest', filter: 'all' }, now());
     return csv(
       'chalkpis-institutes.csv',
@@ -367,6 +371,7 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
   // one centre's full log as a spreadsheet: the last 30 days, every kind, newest first
   app.get('/admin/api/institutes/:id/logs.csv', guard, async (req, reply) => {
     const instituteId = id(req);
+    await audit(pool, actor(req), 'export-centre-logs', { instituteId });
     const { institute } = await getInstitute(pool, instituteId, now());
     const { events: rows } = await events(
       pool,
@@ -409,12 +414,17 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
       .send(await addNote(pool, actor(req), id(req), parse(noteBody, req.body).body, now())),
   );
   app.delete('/admin/api/institutes/:id/notes/:noteId', guard, async (req) => {
-    await deleteNote(pool, id(req), idParam((req.params as { noteId: string }).noteId));
+    const noteId = idParam((req.params as { noteId: string }).noteId);
+    const said = await deleteNote(pool, id(req), noteId);
+    await audit(pool, actor(req), 'note-delete', { instituteId: id(req), detail: said });
     return { ok: true };
   });
-  app.put('/admin/api/institutes/:id/tags', guard, async (req) =>
-    setTags(pool, id(req), parse(tagsBody, req.body).tags),
-  );
+  app.put('/admin/api/institutes/:id/tags', guard, async (req) => {
+    const tags = parse(tagsBody, req.body).tags;
+    const r = await setTags(pool, id(req), tags);
+    await audit(pool, actor(req), 'tags-set', { instituteId: id(req), detail: tags.join(', ') });
+    return r;
+  });
 
   // ---- for tutors and helpers in the app: live announcements ----
   app.get('/announcements', { preHandler: authenticate(deps) }, async (req) => ({

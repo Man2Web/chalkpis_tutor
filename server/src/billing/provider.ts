@@ -216,8 +216,8 @@ export function verifyPhonePeAuth(
 
 /** The merchantOrderId a PhonePe order webhook is about; null for anything else (refunds, malformed bodies). */
 export function phonePeOrderId(body: unknown): string | null {
-  const b = body as { event?: string; payload?: { merchantOrderId?: unknown } };
-  if (!b?.event?.startsWith('checkout.order.')) return null;
+  const b = body as { event?: unknown; payload?: { merchantOrderId?: unknown } };
+  if (typeof b?.event !== 'string' || !b.event.startsWith('checkout.order.')) return null;
   const id = b.payload?.merchantOrderId;
   return typeof id === 'string' && /^[A-Za-z0-9_-]{1,63}$/.test(id) ? id : null;
 }

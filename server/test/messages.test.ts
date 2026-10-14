@@ -398,6 +398,37 @@ describe('the worker', () => {
     expect((await rows())[0]).toMatchObject({ status: 'skipped', reason: 'no-template' });
   });
 
+  it('a trial centre past its daily limit waits for 8 am tomorrow, without using up an attempt', async () => {
+    const { s } = await queueOne();
+    // 150 messages already sent today (11:30 IST)
+    await h.db.pool.query(
+      `INSERT INTO messages (id, institute_id, student_id, type, dedupe_key, lang, to_last4, status, sent_at, next_attempt_at)
+       VALUES ?`,
+      [
+        Array.from({ length: 150 }, (_, i) => [
+          `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+          A.instituteId,
+          s,
+          'absent',
+          `old_${i}`,
+          'en',
+          '0001',
+          'sent',
+          h.clock.now,
+          h.clock.now,
+        ]),
+      ],
+    );
+    expect(await run()).toMatchObject({ sent: 0, retry: 1 });
+    expect(h.provider.sent).toHaveLength(0);
+    const [m] = await rows("status = 'queued'");
+    expect(m).toMatchObject({ attempts: 0 });
+    expect((m!.next_attempt_at as Date).toISOString()).toBe('2026-10-09T02:30:00.000Z');
+    // tomorrow it goes
+    h.clock.now = new Date('2026-10-09T02:31:00Z');
+    expect(await run()).toMatchObject({ sent: 1 });
+  });
+
   it('skips if the parent was switched off, the student left, messages were turned off, or the plan ended after queueing', async () => {
     const { s } = await queueOne();
     await A.call('PATCH', `/students/${s}`, { notifyParent: false });

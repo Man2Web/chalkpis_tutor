@@ -1,6 +1,7 @@
 import type { Pool } from '../db.js';
 import { planState } from '../institutes/limits.js';
 import { newId } from '../lib/ids.js';
+import { addDays, todayYmd } from '../lib/ist.js';
 import { processCentreQueue } from './centreMessages.js';
 import { getSettings } from './notify.js';
 import type { MessageProvider } from './provider.js';
@@ -16,6 +17,15 @@ export interface WorkerDeps {
 }
 
 export const MAX_ATTEMPTS = 3;
+/**
+ * Parent messages one centre can send in an IST day. Every message goes out from Chalkpis's own WhatsApp number, so a
+ * new (trial) account must not be able to use it for bulk messages: a trial gets 150 a day, a paid plan 3000. More
+ * than that waits for 8 am the next day rather than being dropped.
+ */
+export const DAILY_LIMIT = { trial: 150, paid: 3000 };
+/** Start of the IST day `ymd` plus `hours`, as an instant. */
+const istAt = (ymd: string, hours: number) =>
+  new Date(Date.parse(`${ymd}T00:00:00+05:30`) + hours * 3_600_000);
 /** Minutes to wait after the 1st and 2nd failed attempt. */
 const RETRY_MINUTES = [2, 15];
 /** A message stuck in "sending" this long (the server stopped mid-send) goes back in the queue. */
@@ -101,13 +111,26 @@ export async function processQueue(deps: WorkerDeps, limit = 25): Promise<Tally>
     );
     tally[status === 'sent' ? 'sent' : status]++;
   };
-  const planCache = new Map<string, { active: boolean; enabled: boolean }>();
+  const today = todayYmd(now);
+  const planCache = new Map<
+    string,
+    { active: boolean; enabled: boolean; limit: number; sentToday: number }
+  >();
   const institute = async (id: string) => {
     let v = planCache.get(id);
     if (!v) {
+      const [[sub]] = (await pool.query('SELECT plan FROM subscriptions WHERE institute_id = ?', [
+        id,
+      ])) as unknown as [[{ plan: string } | undefined]];
+      const [[sent]] = (await pool.query(
+        "SELECT COUNT(*) AS n FROM messages WHERE institute_id = ? AND status = 'sent' AND sent_at >= ?",
+        [id, istAt(today, 0)],
+      )) as unknown as [[{ n: number }]];
       v = {
         active: (await planState(pool, id, now)).active,
         enabled: (await getSettings(pool, id)).enabled,
+        limit: sub?.plan === 'trial' || !sub ? DAILY_LIMIT.trial : DAILY_LIMIT.paid,
+        sentToday: Number(sent?.n ?? 0),
       };
       planCache.set(id, v);
     }
@@ -143,6 +166,15 @@ export async function processQueue(deps: WorkerDeps, limit = 25): Promise<Tally>
       await settled(r, 'skipped', { reason: 'no-template' });
       continue;
     }
+    if (inst.sentToday >= inst.limit) {
+      // over today's limit: back in the queue for tomorrow morning, without using up an attempt
+      await pool.query(
+        "UPDATE messages SET status = 'queued', claim = NULL, attempts = attempts - 1, next_attempt_at = ? WHERE id = ?",
+        [istAt(addDays(today, 1), 8), r.id],
+      );
+      tally.retry++;
+      continue;
+    }
 
     let vars: string[] = [];
     try {
@@ -158,6 +190,7 @@ export async function processQueue(deps: WorkerDeps, limit = 25): Promise<Tally>
       ...(r.media_url ? { imageUrl: r.media_url } : {}),
     });
     if (result.ok) {
+      inst.sentToday++;
       await settled(r, 'sent', {
         providerId: result.providerId,
         channel: deps.provider.name,

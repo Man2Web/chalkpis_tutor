@@ -242,7 +242,26 @@ export async function adminLogin(
   if (!d.mailer) return { ok: false, error: 'unavailable' };
   const a = await account(d, email);
   const t = now(d);
-  if (!a || !a.password_hash || (a.locked_until && a.locked_until > t)) {
+  // Wrong passwords lock that address out of this account, not the account itself: someone who knows the admin email
+  // cannot keep the admin locked out from their own network. The password is still followed by an emailed code.
+  const fails = async (minutes: number, actions: string[], ip?: string) => {
+    const [[r]] = (await d.pool.query(
+      `SELECT COUNT(*) AS n FROM admin_audit WHERE admin_user_id = ? AND action IN (?) AND created_at > ?${
+        ip === undefined ? '' : ' AND detail = ?'
+      }`,
+      [
+        a!.id,
+        actions,
+        new Date(t.getTime() - minutes * 60_000),
+        ...(ip === undefined ? [] : [ip.slice(0, 300)]),
+      ],
+    )) as unknown as [[{ n: number }]];
+    return Number(r?.n ?? 0);
+  };
+  const failedHere = a?.password_hash
+    ? await fails(ADMIN_LIMITS.lockMinutes, ['admin-login-failed', 'admin-locked'], meta.ip ?? '')
+    : 0;
+  if (!a || !a.password_hash || failedHere >= ADMIN_LIMITS.lockAfter) {
     await verifyPassword(d.config.JWT_SECRET, await dummy(d.config.JWT_SECRET), password);
     if (a)
       await audit(
@@ -250,35 +269,24 @@ export async function adminLogin(
         a.id,
         a.email,
         'admin-login-refused',
-        a.password_hash ? 'locked' : 'no password set',
+        a.password_hash ? `locked ${meta.ip ?? ''}` : 'no password set',
       );
     return bad;
   }
   if (!(await verifyPassword(d.config.JWT_SECRET, a.password_hash, password))) {
-    const failed = a.failed_attempts + 1;
-    const lock = failed >= ADMIN_LIMITS.lockAfter;
-    await d.pool.query(
-      'UPDATE admin_accounts SET failed_attempts = ?, locked_until = ? WHERE id = ?',
-      [
-        lock ? 0 : failed,
-        lock ? new Date(t.getTime() + ADMIN_LIMITS.lockMinutes * 60_000) : a.locked_until,
-        a.id,
-      ],
-    );
-    await audit(d, a.id, a.email, lock ? 'admin-locked' : 'admin-login-failed', meta.ip);
-    if (lock)
+    const lock = failedHere + 1 >= ADMIN_LIMITS.lockAfter;
+    // one warning email an hour at most, however many addresses try
+    const warned = lock ? await fails(60, ['admin-locked']) : 0;
+    await audit(d, a.id, a.email, lock ? 'admin-locked' : 'admin-login-failed', meta.ip ?? '');
+    if (lock && !warned)
       await d.mailer.send(
-        mail(a.email, 'Chalkpis admin locked after wrong passwords', [
-          `Your Chalkpis admin account was locked for ${ADMIN_LIMITS.lockMinutes} minutes after ${ADMIN_LIMITS.lockAfter} wrong passwords (last from ${meta.ip || 'unknown'}, ${when(t)}).`,
-          'If this was not you, reset your password now with "Forgot password".',
+        mail(a.email, 'Wrong passwords for your Chalkpis admin account', [
+          `${ADMIN_LIMITS.lockAfter} wrong passwords for your Chalkpis admin account from ${meta.ip || 'unknown'} (${when(t)}). That address is blocked for ${ADMIN_LIMITS.lockMinutes} minutes; you can still sign in from yours.`,
+          'If this was not you, nobody got in (every sign-in also needs the emailed code), but reset your password if you think it is known.',
         ]),
       );
     return bad;
   }
-  await d.pool.query(
-    'UPDATE admin_accounts SET failed_attempts = 0, locked_until = NULL WHERE id = ?',
-    [a.id],
-  );
   const challenge = randomBytes(32).toString('base64url');
   const code = await newCode(d, a.id, 'login', sha256(challenge));
   const sent = await d.mailer.send(
@@ -365,10 +373,16 @@ export async function adminSession(
 
 export async function adminLogout(d: AdminAuthDeps, token: unknown) {
   if (typeof token !== 'string') return;
+  const [rows] = (await d.pool.query(
+    `SELECT a.id, a.email FROM admin_sessions s JOIN admin_accounts a ON a.id = s.admin_id
+      WHERE s.token_hash = ? AND s.revoked_at IS NULL`,
+    [sha256(token)],
+  )) as unknown as [{ id: string; email: string }[]];
   await d.pool.query(
     'UPDATE admin_sessions SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL',
     [now(d), sha256(token)],
   );
+  if (rows[0]) await audit(d, rows[0].id, rows[0].email, 'admin-logout');
 }
 
 /** Forgot password: emails a reset code if the address is an admin. The answer is the same either way. */

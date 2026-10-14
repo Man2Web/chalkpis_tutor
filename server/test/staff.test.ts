@@ -255,6 +255,28 @@ describe('what a helper can do', () => {
     staff = await invite(A, '9876511111', [b]);
   });
 
+  it("sees names and photos, never the family's phone numbers, notes or fees", async () => {
+    const list = (await staff.call('GET', '/students?status=all')).body.students as Record<
+      string,
+      unknown
+    >[];
+    expect(list.map((s) => s.name).sort()).toEqual(['Asha Rao', 'Bala K']);
+    for (const s of list)
+      expect(s).toMatchObject({ parentPhone: '', phone: '', notes: '', dob: '', monthlyFee: 0 });
+    expect((await staff.call('GET', `/students/${s1}`)).body).toMatchObject({
+      name: 'Asha Rao',
+      parentPhone: '',
+      monthlyFee: 0,
+    });
+    expect((await staff.call('GET', '/batches')).body.batches[0]).toMatchObject({ defaultFee: 0 });
+    expect((await staff.call('GET', `/batches/${b}`)).body).toMatchObject({ defaultFee: 0 });
+    // the owner still sees everything
+    expect((await A.call('GET', `/students/${s1}`)).body).toMatchObject({
+      parentPhone: '+919876500001',
+      monthlyFee: 100000,
+    });
+  });
+
   it('takes attendance for an assigned batch, and the owner sees it', async () => {
     expect(
       (

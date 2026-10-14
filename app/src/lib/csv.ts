@@ -38,9 +38,14 @@ export function parseCsv(input: string): string[][] {
   return rows.filter((r) => r.some((f) => f.trim() !== '')).map((r) => r.map((f) => f.trim()));
 }
 
-/** Escapes a value for CSV output (used by report export). */
+/**
+ * Escapes a value for CSV output (used by report export). Text starting with = + - @ (or a tab / CR) gets a leading
+ * ' so Excel or Google Sheets shows it instead of running it as a formula: a student "named" =HYPERLINK(...) in an
+ * imported list must not run when the owner opens the report. Numbers are left as they are.
+ */
 export function csvCell(v: string | number): string {
-  const s = String(v);
+  let s = String(v);
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

@@ -66,7 +66,7 @@ export function paidRoutes(app: FastifyInstance, deps: Deps) {
     if (!id) return null;
     const [rows] = (await pool.query(
       `SELECT s.id, s.institute_id, s.name, i.name AS centre, ${OWE_SQL} AS owe
-         FROM students s JOIN institutes i ON i.id = s.institute_id WHERE s.id = ?`,
+         FROM students s JOIN institutes i ON i.id = s.institute_id WHERE s.id = ? AND s.status = 'active'`,
       [id],
     )) as unknown as [Student[]];
     const s = rows[0];
@@ -210,7 +210,13 @@ export function paidRoutes(app: FastifyInstance, deps: Deps) {
         "SELECT id, student_id, amount, due_ids, upi_ref FROM payment_reports WHERE id = ? AND institute_id = ? AND status = 'pending' FOR UPDATE",
         [id, instituteId],
       )) as unknown as [
-        { id: string; student_id: string; amount: number; due_ids: string | null; upi_ref: string }[],
+        {
+          id: string;
+          student_id: string;
+          amount: number;
+          due_ids: string | null;
+          upi_ref: string;
+        }[],
       ];
       const r = rows[0];
       if (!r) throw notFound();
