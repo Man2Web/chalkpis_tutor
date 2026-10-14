@@ -10,15 +10,33 @@ jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(),
   setItemAsync: jest.fn().mockResolvedValue(undefined),
 }));
+const mockNavigate = jest.fn();
 // run the "Home came into view" refresh once, as the navigator would
 jest.mock('@react-navigation/native', () => ({
   useFocusEffect: (cb: () => void) => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('react').useEffect(cb, []);
   },
+  useNavigation: () => ({ navigate: mockNavigate }),
 }));
 
-const ann = (id: string, title: string) => ({ id, title, body: '', tone: 'info', link: '' });
+const ann = (id: string, title: string, more: object = {}) => ({
+  id,
+  title,
+  body: '',
+  tone: 'info',
+  link: '',
+  ...more,
+});
+/** GET /announcements answers `list`; the event posts just succeed. */
+const serve = (list: object[]) =>
+  (api as jest.Mock).mockImplementation((method: string) =>
+    Promise.resolve(method === 'GET' ? { announcements: list } : { ok: true }),
+  );
+const events = () =>
+  (api as jest.Mock).mock.calls
+    .filter(([m, url]) => m === 'POST' && String(url).includes('/events'))
+    .map(([, url, body]) => `${String(url).split('/')[2]}:${(body as { type: string }).type}`);
 
 let client: QueryClient;
 // no cache-cleanup timer (gcTime) and a cleared cache after each test, so Jest can exit straight away
@@ -35,19 +53,22 @@ function renderBanner() {
 
 beforeEach(() => jest.clearAllMocks());
 
-it('shows the newest announcement the tutor has not closed', async () => {
+it('shows the most important announcement the tutor has not closed, and counts it as seen once', async () => {
   (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(['a2']));
-  (api as jest.Mock).mockResolvedValue({
-    announcements: [ann('a2', 'Closed one'), ann('a1', 'Poster maker')],
-  });
+  serve([
+    ann('a2', 'Closed one'),
+    ann('a1', 'Poster maker'),
+    ann('a3', 'Closed on the server', { dismissed: true }),
+  ]);
   await renderBanner();
   expect(await screen.findByText('Poster maker')).toBeTruthy();
   expect(screen.queryByText('Closed one')).toBeNull();
+  await waitFor(() => expect(events()).toEqual(['a1:seen']));
 });
 
-it('closing it hides it and remembers that on the phone', async () => {
+it('closing it hides it, remembers that on the phone and tells the server', async () => {
   (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
-  (api as jest.Mock).mockResolvedValue({ announcements: [ann('a1', 'Poster maker')] });
+  serve([ann('a1', 'Poster maker', { read: true })]);
   await renderBanner();
   await fireEvent.press(await screen.findByRole('button', { name: 'Close' }));
   await waitFor(() => expect(screen.queryByText('Poster maker')).toBeNull());
@@ -55,11 +76,37 @@ it('closing it hides it and remembers that on the phone', async () => {
     'chalkpis.dismissedAnnouncements',
     JSON.stringify(['a1']),
   );
+  expect(events()).toEqual(['a1:dismissed']);
+});
+
+it('its button opens the screen it points to and counts the click', async () => {
+  (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
+  serve([
+    ann('a1', 'Your free trial ends soon', {
+      read: true,
+      ctaLabel: 'See plans',
+      screen: 'Billing',
+    }),
+  ]);
+  await renderBanner();
+  await fireEvent.press(await screen.findByText('See plans'));
+  expect(mockNavigate).toHaveBeenCalledWith('Billing');
+  await waitFor(() => expect(events()).toEqual(['a1:clicked']));
+});
+
+it('a button to a main tab goes through the tabs', async () => {
+  (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
+  serve([
+    ann('a1', 'Mark attendance faster', { read: true, ctaLabel: 'Open', screen: 'Attendance' }),
+  ]);
+  await renderBanner();
+  await fireEvent.press(await screen.findByText('Open'));
+  expect(mockNavigate).toHaveBeenCalledWith('Tabs', { screen: 'Attendance' });
 });
 
 it('shows nothing when there is no live announcement', async () => {
   (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
-  (api as jest.Mock).mockResolvedValue({ announcements: [] });
+  serve([]);
   await renderBanner();
   await waitFor(() => expect(api).toHaveBeenCalledWith('GET', '/announcements'));
   expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();

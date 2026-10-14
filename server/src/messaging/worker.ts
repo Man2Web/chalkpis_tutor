@@ -1,3 +1,5 @@
+import { dispatchDuePushes } from '../announcements/service.js';
+import type { PushSender } from '../push/expo.js';
 import type { Pool } from '../db.js';
 import { planState } from '../institutes/limits.js';
 import { newId } from '../lib/ids.js';
@@ -13,6 +15,8 @@ export interface WorkerDeps {
   templates: TemplateMap;
   /** The server's public address (header images of centre messages). */
   publicBaseUrl?: string;
+  /** Push notifications: scheduled announcement pushes go out from this loop when they are due. */
+  push?: PushSender | null;
   clock?: () => Date;
 }
 
@@ -215,7 +219,7 @@ export async function processQueue(deps: WorkerDeps, limit = 25): Promise<Tally>
 
 /**
  * Runs the worker on a timer, never two runs at once: parent messages first, then Chalkpis's own messages to centre
- * owners and helpers. Returns a function that stops it.
+ * owners and helpers, then announcement pushes that have become due. Returns a function that stops it.
  */
 export function startWorker(
   deps: WorkerDeps,
@@ -228,6 +232,9 @@ export function startWorker(
     running = true;
     processQueue(deps)
       .then(() => processCentreQueue(deps))
+      .then(() =>
+        dispatchDuePushes(deps.pool, deps.push ?? null, (deps.clock ?? (() => new Date()))()),
+      )
       .catch(onError)
       .finally(() => {
         running = false;

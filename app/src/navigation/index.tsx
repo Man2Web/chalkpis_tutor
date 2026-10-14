@@ -50,6 +50,7 @@ import { StudentFormScreen } from '../features/students/StudentFormScreen';
 import { StudentProfileScreen } from '../features/students/StudentProfileScreen';
 import { StudentsListScreen } from '../features/students/StudentsListScreen';
 import type { AuthStackParams, MainStackParams, OnboardingStackParams } from './types';
+import { UpdatesScreen } from '../features/announcements/UpdatesScreen';
 
 const Auth = createNativeStackNavigator<AuthStackParams>();
 const Onboarding = createNativeStackNavigator<OnboardingStackParams>();
@@ -321,6 +322,11 @@ function MainStack() {
         options={{ title: t('messages.settingsTitle') }}
       />
       <Main.Screen name="Staff" component={StaffScreen} options={{ title: t('staff.title') }} />
+      <Main.Screen
+        name="Updates"
+        component={UpdatesScreen}
+        options={{ title: t('updates.title'), headerTitle: '' }} // the screen shows its own large title
+      />
       <Main.Screen
         name="MessageLog"
         component={MessageLogScreen}

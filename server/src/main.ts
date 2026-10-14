@@ -91,6 +91,7 @@ async function main() {
       provider,
       templates: parseTemplates(config.WA_TEMPLATES),
       publicBaseUrl: config.PUBLIC_BASE_URL,
+      push,
     },
     (e) =>
       app.log.error(

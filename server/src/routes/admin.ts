@@ -1,4 +1,19 @@
-import { pushAudience, type PushSender } from '../push/expo.js';
+import type { PushSender } from '../push/expo.js';
+import {
+  announcementInput,
+  audienceInput,
+  createAnnouncement,
+  dispatchDuePushes,
+  endAnnouncement,
+  estimateAudience,
+  eventInput,
+  inboxFor,
+  listForAdmin,
+  liveFor,
+  markAllRead,
+  recordEvent,
+  testPush,
+} from '../announcements/service.js';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
@@ -29,11 +44,6 @@ import { analytics, getInstitute, listInstitutes } from '../admin/analytics.js';
 import { billingOverview, billingQuery } from '../admin/billing.js';
 import { payUrl } from '../billing/payLink.js';
 import {
-  announcementBody,
-  createAnnouncement,
-  endAnnouncement,
-  listAnnouncements,
-  liveAnnouncements,
   messagesMonitor,
   messagesQuery,
   quickSearch,
@@ -262,24 +272,28 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
       now(),
     ),
   );
-  app.get('/admin/api/announcements', guard, async () => ({
-    announcements: await listAnnouncements(pool, now()),
-  }));
+  app.get('/admin/api/announcements', guard, async () => listForAdmin(pool, now()));
   app.post('/admin/api/announcements', guard, async (req, reply) => {
-    const b = parse(announcementBody, req.body);
-    const { id: annId } = await createAnnouncement(pool, actor(req), b, now());
-    let push: { phones: number; sent: number } | null = null;
-    if (b.push) {
-      push = await pushAudience(pool, deps.push ?? null, b.audience, `ann_${annId}`, {
-        title: b.title,
-        body: b.body || 'Open Chalkpis to read it.',
-        screen: 'Home',
-      }).catch(() => ({ phones: 0, sent: 0 }));
-      await audit(pool, actor(req), 'announce-push', {
-        detail: `${b.title} · ${push.sent} of ${push.phones} phones`,
-      });
-    }
-    return reply.code(201).send({ id: annId, push });
+    const created = await createAnnouncement(pool, actor(req), parse(announcementInput, req.body), now());
+    // a push that is due now (not scheduled, not in quiet hours) goes out straight away; the rest go from the worker
+    await dispatchDuePushes(pool, deps.push ?? null, now()).catch(() => 0);
+    return reply.code(201).send(created);
+  });
+  app.post('/admin/api/announcements/estimate', guard, async (req) =>
+    estimateAudience(pool, parse(audienceInput, req.body), now()),
+  );
+  app.post('/admin/api/announcements/test-push', guard, async (req) => {
+    const b = parse(
+      z.object({
+        phone: z.string().max(20),
+        title: z.string().trim().min(2).max(80),
+        body: z.string().trim().max(400).default(''),
+      }),
+      req.body,
+    );
+    const r = await testPush(pool, deps.push ?? null, b.phone, b);
+    await audit(pool, actor(req), 'announce-test', { detail: `${b.title} · ${r.sent} phones` });
+    return r;
   });
   app.post('/admin/api/announcements/:id/end', guard, async (req) => {
     await endAnnouncement(pool, actor(req), id(req), now());
@@ -444,10 +458,25 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
     return r;
   });
 
-  // ---- for tutors and helpers in the app: live announcements ----
+  // ---- for tutors and helpers in the app: banners, the Updates inbox, and what they did with each ----
+  const viewer = (req: FastifyRequest) => ({
+    userId: req.auth!.userId,
+    role: req.auth!.role,
+    instituteId: req.auth!.instituteId,
+  });
   app.get('/announcements', { preHandler: authenticate(deps) }, async (req) => ({
-    announcements: await liveAnnouncements(pool, req.auth!.role, now()),
+    announcements: await liveFor(pool, viewer(req), now()),
   }));
+  app.get('/me/updates', { preHandler: authenticate(deps) }, async (req) =>
+    inboxFor(pool, viewer(req), now()),
+  );
+  app.post('/me/updates/read-all', { preHandler: authenticate(deps) }, async (req) =>
+    markAllRead(pool, viewer(req), now()),
+  );
+  app.post('/announcements/:id/events', { preHandler: authenticate(deps) }, async (req) => {
+    await recordEvent(pool, req.auth!.userId, id(req), parse(eventInput, req.body).type, now());
+    return { ok: true };
+  });
 
   const file =
     (name: string, type: string) => async (_req: unknown, reply: import('fastify').FastifyReply) =>

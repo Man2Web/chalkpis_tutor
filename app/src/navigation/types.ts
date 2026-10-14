@@ -40,4 +40,6 @@ export type MainStackParams = {
   NotificationSettings: undefined;
   MessageLog: undefined;
   Staff: undefined;
+  /** Announcements from Chalkpis, newest first (the bell on Home, or a tapped push). */
+  Updates: undefined;
 };

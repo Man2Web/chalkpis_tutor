@@ -1001,5 +1001,27 @@
       "title": "Turn on WhatsApp updates",
       "text": "Absent alerts, reminders and receipts for parents"
     }
+  },
+  "updates": {
+    "title": "Updates",
+    "unread": "Unread",
+    "markAllRead": "Mark all as read",
+    "bellUnread_one": "Updates, {{count}} unread",
+    "bellUnread_other": "Updates, {{count}} unread",
+    "empty": "No updates yet",
+    "emptyBody": "News from Chalkpis about new features, maintenance and your plan will show here.",
+    "category": {
+      "update": "Product update",
+      "feature": "New feature",
+      "maintenance": "Maintenance",
+      "billing": "Billing",
+      "tip": "Tip",
+      "policy": "Policy"
+    },
+    "priority": {
+      "normal": "",
+      "important": "Important",
+      "critical": "Urgent"
+    }
   }
 }

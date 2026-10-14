@@ -66,6 +66,7 @@ const TABLES = [
   'admin_tags',
   'login_events',
   'activity_log',
+  'announcement_events',
   'announcements',
   'admin_audit',
   'tasks',

@@ -1,241 +1,246 @@
 import { useState } from 'react';
-import { AlertTriangle, BellRing, Megaphone, Sparkles, X } from 'lucide-react';
-import { Empty, ErrorBox, Loading, PageHeader } from '@/components/app/bits';
+import { BellRing, Copy, Megaphone, MoreHorizontal, Plus, StopCircle } from 'lucide-react';
+import { Empty, ErrorBox, Kpi, Loading, PageHeader } from '@/components/app/bits';
+import { Composer } from '@/components/app/composer';
+import { ANN_CATEGORY, EMPTY, PRIORITY, audienceText, type AnnCategory, type AnnPriority, type Draft } from '@/lib/announce';
 import { confirmDialog } from '@/components/app/dialogs';
 import { Pill } from '@/components/app/pill';
 import { toast } from '@/components/app/toast';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import { Card } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Textarea } from '@/components/ui/textarea';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { api, ApiError } from '@/lib/api';
-import { dshort } from '@/lib/format';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { api } from '@/lib/api';
+import { ago, dateOnly, when } from '@/lib/format';
 import { useApi } from '@/lib/hooks';
+import type { Tone } from '@/lib/names';
 import { cn } from '@/lib/utils';
 
-type Ann = { id: string; title: string; body: string; tone: string; audience: string; link: string | null; startsAt: string; endsAt: string | null; live: boolean };
-const TONES = { info: ['Info', Megaphone, 'border-sky-500/30 bg-sky-500/10 text-sky-900 dark:text-sky-100'], success: ['Good news', Sparkles, 'border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100'], warning: ['Warning', AlertTriangle, 'border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-100'] } as const;
-const AUDIENCE: Record<string, string> = { all: 'Everyone', owners: 'Tutors', staff: 'Helpers' };
-const AUDIENCE_LONG: Record<string, string> = { all: 'every tutor and helper', owners: 'every tutor', staff: 'every helper' };
+type Ann = {
+  id: string;
+  title: string;
+  body: string;
+  category: AnnCategory;
+  priority: AnnPriority;
+  audience: 'all' | 'owners' | 'staff';
+  plan: Draft['plan'];
+  centreCategory: string;
+  banner: boolean;
+  push: boolean;
+  pushStatus: 'none' | 'scheduled' | 'sending' | 'sent' | 'cancelled';
+  pushAt: string | null;
+  pushSentAt: string | null;
+  pushPhones: number;
+  pushSent: number;
+  audienceSize: number | null;
+  link: string;
+  ctaLabel: string;
+  screen: string;
+  startsAt: string;
+  endsAt: string | null;
+  createdBy: string;
+  status: 'scheduled' | 'live' | 'ended';
+  stats: { seen: number; clicked: number; dismissed: number; opened: number };
+};
+type Data = {
+  announcements: Ann[];
+  summary: { live: number; scheduled: number; pushes30: number; phones30: number; seenRate: number | null; lastPushAt: string | null };
+};
+
+const STATUS: Record<Ann['status'], { label: string; tone: Tone }> = {
+  scheduled: { label: 'Scheduled', tone: 'blue' },
+  live: { label: 'Live', tone: 'green' },
+  ended: { label: 'Ended', tone: 'neutral' },
+};
+const PUSH: Record<Ann['pushStatus'], string> = {
+  none: '',
+  scheduled: 'Push scheduled',
+  sending: 'Sending…',
+  sent: 'Push sent',
+  cancelled: 'Push cancelled',
+};
+const VIEWS = [
+  ['all', 'All'],
+  ['live', 'Live'],
+  ['scheduled', 'Scheduled'],
+  ['ended', 'Ended'],
+] as const;
+
+const pct = (n: number, of: number | null) => (of ? `${Math.min(100, Math.round((n / of) * 100))}%` : '—');
+
+/** A draft from an existing announcement, to send it again or to a different audience. */
+const duplicate = (a: Ann): Draft => ({
+  ...EMPTY,
+  title: a.title,
+  body: a.body,
+  category: a.category,
+  priority: a.priority,
+  ctaLabel: a.ctaLabel,
+  action: a.link ? 'link' : a.screen ? 'screen' : 'none',
+  screen: a.screen || 'Home',
+  link: a.link,
+  audience: a.audience,
+  plan: a.plan,
+  centreCategory: a.centreCategory,
+  banner: a.banner,
+  push: a.push,
+});
 
 export function Announcements() {
-  const { data, error, reload } = useApi<{ announcements: Ann[] }>('/admin/api/announcements');
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
-  const [link, setLink] = useState('');
-  const [tone, setTone] = useState<keyof typeof TONES>('info');
-  const [audience, setAudience] = useState('all');
-  const [days, setDays] = useState('7');
-  const [push, setPush] = useState(false);
-  const [err, setErr] = useState('');
-  const [busy, setBusy] = useState(false);
+  const { data, error, loading, reload } = useApi<Data>('/admin/api/announcements');
+  const [composer, setComposer] = useState<Draft | null>(null);
+  const [view, setView] = useState<(typeof VIEWS)[number][0]>('all');
+  const rows = (data?.announcements ?? []).filter((a) => view === 'all' || a.status === view);
+  const s = data?.summary;
 
-  const publish = async () => {
-    setErr('');
-    if (title.trim().length < 2) return setErr('Add a title (at least 2 letters).');
-    if (link.trim() && !/^https:\/\/\S+$/.test(link.trim())) return setErr('The link must start with https://');
-    if (
-      push &&
-      !(await confirmDialog({
-        title: `Send a push notification to ${AUDIENCE_LONG[audience]}?`,
-        body: `“${title.trim()}” will pop up on their phones now. A notification cannot be taken back once it is sent.`,
-        action: 'Publish and send',
-      }))
-    )
-      return;
-    setBusy(true);
+  const end = async (a: Ann) => {
+    const ok = await confirmDialog({
+      title: `Take down “${a.title}”?`,
+      body: a.pushStatus === 'scheduled' ? 'The banner comes off now and the scheduled push is cancelled.' : 'The banner comes off the app now. It stays in people’s Updates.',
+      action: 'Take down',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
-      const r = await api<{ id: string; push: { phones: number; sent: number } | null }>('POST', '/admin/api/announcements', {
-        title: title.trim(),
-        body: body.trim(),
-        link: link.trim(),
-        tone,
-        audience,
-        days: days === 'none' ? null : Number(days),
-        push,
-      });
-      toast(
-        !r.push
-          ? 'Live in the app'
-          : r.push.phones
-            ? `Live in the app · push sent to ${r.push.sent} of ${r.push.phones} ${r.push.phones === 1 ? 'phone' : 'phones'}`
-            : 'Live in the app · no phones to notify yet (they need the new app with notifications allowed)',
-      );
-      setTitle('');
-      setBody('');
-      setLink('');
-      setPush(false);
+      await api('POST', `/admin/api/announcements/${a.id}/end`);
+      toast('Taken down');
       await reload();
     } catch (e) {
-      setErr((e as ApiError).code === 'bad_request' ? 'A title of at least 2 letters is needed, and links must start with https://' : (e as Error).message);
-    } finally {
-      setBusy(false);
+      toast((e as Error).message, false);
     }
   };
-  const [, Icon, tint] = TONES[tone];
 
   return (
     <div className="grid gap-6">
-      <PageHeader title="Announcements" description="A banner on every tutor’s Home screen in the app, for news, offers and maintenance notices." />
-      <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
-        <Card>
-          <CardHeader>
-            <CardTitle>New announcement</CardTitle>
-            <CardDescription>Shows as a banner on Home until it ends; tutors can close it</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="a-title">Title</Label>
-              <Input id="a-title" maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. New: poster maker" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="a-body">Message</Label>
-              <Textarea id="a-body" rows={3} maxLength={400} value={body} onChange={(e) => setBody(e.target.value)} placeholder="One or two short sentences" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="a-link">Link (optional)</Label>
-              <Input id="a-link" maxLength={300} value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="grid gap-2">
-                <Label>Look</Label>
-                <ToggleGroup type="single" variant="outline" size="sm" value={tone} onValueChange={(v) => v && setTone(v as keyof typeof TONES)}>
-                  {Object.entries(TONES).map(([k, [l]]) => <ToggleGroupItem key={k} value={k} className="flex-1">{l}</ToggleGroupItem>)}
-                </ToggleGroup>
-              </div>
-              <div className="grid gap-2">
-                <Label>Who sees it</Label>
-                <ToggleGroup type="single" variant="outline" size="sm" value={audience} onValueChange={(v) => v && setAudience(v)}>
-                  {Object.entries(AUDIENCE).map(([k, l]) => <ToggleGroupItem key={k} value={k} className="flex-1">{l}</ToggleGroupItem>)}
-                </ToggleGroup>
-              </div>
-              <div className="grid gap-2">
-                <Label>Show for</Label>
-                <ToggleGroup type="single" variant="outline" size="sm" value={days} onValueChange={(v) => v && setDays(v)}>
-                  {[['1', '1 day'], ['7', '7 days'], ['30', '30 days'], ['none', 'No end']].map(([k, l]) => <ToggleGroupItem key={k} value={k} className="flex-1">{l}</ToggleGroupItem>)}
-                </ToggleGroup>
-              </div>
-            </div>
-            <label className="flex items-start justify-between gap-4 rounded-lg border p-3 text-sm">
-              <span>
-                <span className="flex items-center gap-1.5 font-medium"><BellRing className="size-4" /> Also send as a push notification</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
-                  Pops up once, right now, on the phones of {AUDIENCE_LONG[audience]} who have the new app (version 1.1 or
-                  later) and allowed notifications. Keep it for important news: too many pushes make people turn them off.
-                </span>
-              </span>
-              <Switch checked={push} onCheckedChange={setPush} aria-label="Also send as a push notification" />
-            </label>
-            {err ? <p className="text-sm text-destructive">{err}</p> : null}
-            <div>
-              <Button onClick={() => void publish()} disabled={busy}>
-                {push ? <BellRing /> : <Megaphone />} {push ? 'Publish and send push' : 'Publish'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Preview</CardTitle>
-            <CardDescription>{push ? 'The notification, then the Home screen' : 'Tutor’s Home screen'}</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            {push ? (
-              <div className="mx-auto w-full max-w-[17rem] rounded-2xl border bg-muted/60 p-3 shadow-sm backdrop-blur">
-                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <img src="/admin-logo/logo-mark.svg" alt="" className="size-4 rounded" onError={(e) => (e.currentTarget.style.display = 'none')} />
-                  <span className="font-medium uppercase tracking-wide">Chalkpis</span>
-                  <span className="ml-auto">now</span>
-                </div>
-                <div className="mt-1.5 text-sm font-semibold">{title.trim() || 'Your title'}</div>
-                <div className="text-xs text-muted-foreground">{body.trim() || 'Open Chalkpis to read it.'}</div>
-              </div>
-            ) : null}
-            <div className="mx-auto w-full max-w-[17rem] rounded-[2rem] border-8 border-foreground/90 bg-background p-3 shadow-xl">
-              <div className={cn('flex gap-2 rounded-xl border p-3', tint)}>
-                <Icon className="mt-0.5 size-4 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold">{title.trim() || 'Your title'}</div>
-                  {body.trim() ? <div className="mt-0.5 text-xs opacity-80">{body}</div> : null}
-                  {link.trim() ? <div className="mt-1 text-xs font-medium underline">Open</div> : null}
-                </div>
-                <X className="size-4 shrink-0 opacity-60" />
-              </div>
-              <div className="mt-3 h-24 rounded-xl bg-gradient-to-br from-primary/70 to-primary" />
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="h-14 rounded-lg bg-muted" />
-                <div className="h-14 rounded-lg bg-muted" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <PageHeader
+        title="Announcements"
+        description="Tell tutors and helpers about new features, maintenance, billing and tips: as a banner in the app, a push notification on their phones, or both. Every announcement also stays in the app’s Updates."
+        actions={
+          <Button onClick={() => setComposer(EMPTY)}>
+            <Plus /> New announcement
+          </Button>
+        }
+      />
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Kpi label="Live now" value={s ? s.live : '…'} hint="Showing in the app" icon={<Megaphone />} onClick={() => setView('live')} />
+        <Kpi label="Scheduled" value={s ? s.scheduled : '…'} hint="Waiting to start or to push" onClick={() => setView('scheduled')} />
+        <Kpi
+          label="Pushes · 30 days"
+          value={s ? s.pushes30 : '…'}
+          icon={<BellRing />}
+          hint={s ? `${s.phones30} ${s.phones30 === 1 ? 'device' : 'devices'} reached${s.lastPushAt ? ` · last ${ago(s.lastPushAt)}` : ''}` : undefined}
+        />
+        <Kpi label="Seen by" value={s?.seenRate != null ? `${s.seenRate}%` : '—'} hint="Average of the audience who saw it" />
       </div>
 
-      <div className="grid gap-3">
-        <h2 className="text-lg font-semibold">History</h2>
-        {error ? (
-          <ErrorBox error={error} onRetry={reload} />
-        ) : !data ? (
-          <Loading rows={4} />
-        ) : (
-          <Card className="py-0">
+      <Tabs value={view} onValueChange={(v) => setView(v as typeof view)}>
+        <TabsList>
+          {VIEWS.map(([k, l]) => (
+            <TabsTrigger key={k} value={k}>
+              {l}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
+      {error ? (
+        <ErrorBox error={error} onRetry={reload} />
+      ) : !data ? (
+        <Loading rows={5} />
+      ) : (
+        <Card className={cn('py-0 transition-opacity', loading && 'opacity-60')}>
+          {rows.length ? (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="pl-4">Announcement</TableHead>
-                  <TableHead className="hidden md:table-cell">Audience</TableHead>
-                  <TableHead className="hidden md:table-cell">Shown</TableHead>
+                  <TableHead className="hidden lg:table-cell">Audience</TableHead>
+                  <TableHead className="hidden md:table-cell">Channels</TableHead>
+                  <TableHead className="hidden md:table-cell">Performance</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-0 pr-4" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.announcements.length ? (
-                  data.announcements.map((a) => (
+                {rows.map((a) => {
+                  const C = ANN_CATEGORY[a.category] ?? ANN_CATEGORY.update;
+                  return (
                     <TableRow key={a.id}>
-                      <TableCell className="max-w-[24rem] pl-4">
-                        <div className="truncate font-medium">{a.title}</div>
-                        {a.body ? <div className="truncate text-xs text-muted-foreground">{a.body}</div> : null}
+                      <TableCell className="max-w-80 pl-4">
+                        <div className="flex items-start gap-3">
+                          <span className={cn('mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border', C.tint)}>
+                            <C.icon className="size-4" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">{a.title}</span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {C.label}
+                              {a.priority !== 'normal' ? ` · ${PRIORITY[a.priority].label}` : ''} · {when(a.startsAt)}
+                              {a.endsAt && a.status !== 'ended' ? ` → ${dateOnly(a.endsAt)}` : ''}
+                            </span>
+                          </span>
+                        </div>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell">{AUDIENCE[a.audience] ?? a.audience}</TableCell>
-                      <TableCell className="hidden text-muted-foreground md:table-cell">
-                        {dshort(a.startsAt)} → {a.endsAt ? dshort(a.endsAt) : 'no end'}
+                      <TableCell className="hidden max-w-56 lg:table-cell">
+                        <span className="block truncate text-sm">{audienceText(a)}</span>
+                        <span className="block text-xs text-muted-foreground">{a.audienceSize != null ? `${a.audienceSize} ${a.audienceSize === 1 ? 'person' : 'people'}` : ''}</span>
                       </TableCell>
-                      <TableCell><Pill tone={a.live ? 'green' : 'neutral'}>{a.live ? 'Live' : 'Ended'}</Pill></TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <div className="grid gap-0.5 text-xs">
+                          {a.banner ? <span className="flex items-center gap-1"><Megaphone className="size-3.5" /> Banner</span> : null}
+                          {a.push ? (
+                            <span className="flex items-center gap-1">
+                              <BellRing className="size-3.5" /> {PUSH[a.pushStatus]}
+                              {a.pushStatus === 'sent' ? ` · ${a.pushSent} ${a.pushSent === 1 ? 'device' : 'devices'}` : a.pushStatus === 'scheduled' && a.pushAt ? ` · ${when(a.pushAt)}` : ''}
+                            </span>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <div className="grid gap-0.5 text-xs tabular">
+                          <span><strong className="text-sm">{a.stats.seen}</strong> seen <span className="text-muted-foreground">({pct(a.stats.seen, a.audienceSize)})</span></span>
+                          <span className="text-muted-foreground">
+                            {a.stats.clicked} clicked{a.push ? ` · ${a.stats.opened} opened push` : ''}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Pill tone={STATUS[a.status].tone}>{STATUS[a.status].label}</Pill>
+                      </TableCell>
                       <TableCell className="pr-4">
-                        {a.live ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              if (!(await confirmDialog({ title: `Take “${a.title}” down now?`, action: 'End', destructive: true }))) return;
-                              try {
-                                await api('POST', `/admin/api/announcements/${a.id}/end`);
-                                toast('Taken down');
-                                await reload();
-                              } catch (e) {
-                                toast((e as Error).message, false);
-                              }
-                            }}
-                          >
-                            End
-                          </Button>
-                        ) : null}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${a.title}`}>
+                              <MoreHorizontal />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => setComposer(duplicate(a))}>
+                              <Copy /> Duplicate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem variant="destructive" disabled={a.status === 'ended'} onSelect={() => void end(a)}>
+                              <StopCircle /> Take down
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow><TableCell colSpan={5}><Empty text="No announcements yet." /></TableCell></TableRow>
-                )}
+                  );
+                })}
               </TableBody>
             </Table>
-          </Card>
-        )}
-      </div>
+          ) : (
+            <Empty
+              icon={<Megaphone />}
+              text={view === 'all' ? 'No announcements yet. Start with a template: a new feature, maintenance or a tip.' : 'Nothing here right now.'}
+            />
+          )}
+        </Card>
+      )}
+
+      {composer ? <Composer initial={composer} onClose={() => setComposer(null)} onDone={() => void reload()} /> : null}
     </div>
   );
 }

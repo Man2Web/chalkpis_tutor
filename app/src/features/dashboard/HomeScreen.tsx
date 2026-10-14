@@ -19,6 +19,7 @@ import { PaymentReportsCard } from '../fees/PaymentReportsCard';
 import { GettingStartedCard } from '../onboarding/GettingStartedCard';
 import { WelcomeTour } from '../onboarding/WelcomeTour';
 import { AnnouncementBanner } from '../announcements/AnnouncementBanner';
+import { UpdatesBell } from '../announcements/UpdatesScreen';
 import { AttendanceRing } from './AttendanceRing';
 import { HomeHero } from './HomeHero';
 import { greetingKey } from './greeting';
@@ -100,7 +101,7 @@ export function HomeScreen() {
         }
       >
         <WelcomeTour />
-        <TopBar />
+        <TopBar right={<UpdatesBell />} />
 
         <View style={{ gap: 2, marginBottom: spacing.xs }}>
           <Text style={type.footnote}>{prettyDate(today, 'en-IN')}</Text>
