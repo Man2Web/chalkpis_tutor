@@ -60,17 +60,6 @@ export function LanguageScreen({
           <View style={[column, { width: '100%', flex: 1, paddingHorizontal: spacing.xl }]}>
             <Logo height={30} variant="full" color="#FFFFFF" markColor="#FFFFFF" />
             <Text
-              style={{
-                color: 'rgba(255,255,255,0.8)',
-                fontSize: 13,
-                ...font('600'),
-                marginTop: spacing.xl,
-                letterSpacing: 0.3,
-              }}
-            >
-              {t('auth.welcomeKicker').toUpperCase()}
-            </Text>
-            <Text
               accessibilityRole="header"
               maxFontSizeMultiplier={1.4}
               style={{
@@ -78,7 +67,7 @@ export function LanguageScreen({
                 fontSize: 32,
                 lineHeight: 38,
                 ...font('800'),
-                marginTop: 6,
+                marginTop: spacing.xl,
               }}
             >
               {t('auth.welcomeHeadline')}
