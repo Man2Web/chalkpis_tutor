@@ -124,6 +124,25 @@ describe('CashfreeProvider', () => {
     expect((await status('TERMINATION_REQUESTED')).state).toBe('FAILED');
   });
 
+  it('reads an active order whose every attempt failed as FAILED, not "in progress"', async () => {
+    const status = async (attempts: { payment_status: string }[]) =>
+      new CashfreeProvider(
+        opts,
+        fakeFetch({
+          '/orders/O1': { order_status: 'ACTIVE' },
+          '/orders/O1/payments': attempts,
+        }).fn,
+      ).checkStatus('O1');
+    expect(
+      (await status([{ payment_status: 'FAILED' }, { payment_status: 'USER_DROPPED' }])).state,
+    ).toBe('FAILED');
+    // one attempt still going (a UPI collect request waiting on the phone): keep waiting
+    expect(
+      (await status([{ payment_status: 'FAILED' }, { payment_status: 'PENDING' }])).state,
+    ).toBe('PENDING');
+    expect((await status([])).state).toBe('PENDING');
+  });
+
   it('hands the checkout page a payment session only while the order can be paid', async () => {
     const session = async (order: unknown) =>
       new CashfreeProvider(opts, fakeFetch({ '/orders/O1': order }).fn).checkoutSession('O1');

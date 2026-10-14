@@ -71,14 +71,14 @@ async function cleanupJob(pool: Pool, now: Date) {
 export const makeJobs = (
   links?: Parameters<typeof queuePlanReminders>[2] & { paidLinks?: boolean },
 ): Job[] => [
-  // the evening "attendance not marked" push, once per centre per day
+  // the evening "attendance not marked" push: hourly 8 to 10 pm, each batch once a day
   ...(links?.push
     ? [
         {
           name: 'attendance-nudge',
           from: 20,
           until: 22,
-          every: 'day',
+          every: 'hour',
           run: (pool: Pool, now: Date) => attendanceNudges(pool, links.push!, now),
         } satisfies Job,
       ]

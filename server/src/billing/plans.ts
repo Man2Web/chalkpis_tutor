@@ -40,15 +40,20 @@ export const PLANS: Record<PlanId, Plan> = {
 export const isPlanId = (v: unknown): v is PlanId =>
   typeof v === 'string' && Object.prototype.hasOwnProperty.call(PLANS, v);
 
-/** Calendar months, clamped to month end (31 Jan + 1 month = 28 Feb). UTC so servers agree. */
+const IST_OFFSET = 5.5 * 3_600_000;
+
+/**
+ * Calendar months on the IST calendar, clamped to month end (31 Jan + 1 month = 28 Feb). Counted in IST because
+ * 1 Mar at 3 am IST is still 28 Feb in UTC, and clamping that would end the plan days early.
+ */
 export function addMonths(date: Date, months: number): Date {
-  const d = new Date(date.getTime());
+  const d = new Date(date.getTime() + IST_OFFSET);
   const day = d.getUTCDate();
   d.setUTCDate(1);
   d.setUTCMonth(d.getUTCMonth() + months);
   const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
   d.setUTCDate(Math.min(day, last));
-  return d;
+  return new Date(d.getTime() - IST_OFFSET);
 }
 
 /** Higher is more: an upgrade is a move to a higher rank. */
@@ -62,7 +67,7 @@ const dayValue = (p: Plan) => p.pricePaise / (p.months * 30.4375);
  * - ended or no plan: the plan starts now; during a free trial it starts when the trial ends (no free day is lost);
  * - the same plan while it runs (a renewal): its months are added after the current end;
  * - a higher plan while a lower one runs (an upgrade): the new plan starts now, and the unused days of the old one are
- *   credited at their value (Starter days are worth fewer Pro days);
+ *   credited at their value (longer plans cost less a month, so a Starter day is worth about 1.6 Pro days);
  * - a lower plan while a higher one runs: buying it is refused up front (planChange), but if such a payment arrives
  *   anyway, the current plan stays and the payment's value is added to it as days.
  */

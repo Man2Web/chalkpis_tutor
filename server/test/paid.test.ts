@@ -141,6 +141,23 @@ describe('"I\'ve paid" from the parent', () => {
     expect(ok.body).toMatchObject({ paidPaise: 0 });
     expect(await reportsOf(A)).toHaveLength(0);
   });
+
+  it('confirming late never pays a fee that was added after the parent reported', async () => {
+    const s = await mkStudent(A);
+    await report(s);
+    // the tutor records October's cash by hand, then November's fee is added
+    const oct = (await A.call('GET', `/fees/dues?status=all&studentId=${s}&period=2026-10`)).body
+      .dues[0];
+    await A.call('POST', `/fees/dues/${oct.id}/payments`, { amount: 150000, mode: 'cash' });
+    await A.call('POST', '/fees/generate', { period: '2026-11' });
+    const [r] = await reportsOf(A);
+    const ok = await A.call('POST', `/fees/reports/${r!.id}/confirm`);
+    expect(ok.body).toMatchObject({ paidPaise: 0 });
+    expect(await receipts(A)).toBe(0);
+    const nov = (await A.call('GET', `/fees/dues?status=all&studentId=${s}&period=2026-11`)).body
+      .dues[0];
+    expect(nov).toMatchObject({ status: 'pending' });
+  });
 });
 
 describe('the link in fee reminders', () => {

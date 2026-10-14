@@ -79,6 +79,10 @@ describe('plan catalogue and pure rules', () => {
     expect(addMonths(new Date('2026-10-08T00:00:00Z'), 12).toISOString().slice(0, 10)).toBe(
       '2027-10-08',
     );
+    // 1 Mar 2027, 3 am IST (still 28 Feb in UTC): 3 months is 1 Jun IST, not 29 May
+    expect(addMonths(new Date('2027-02-28T21:30:00Z'), 3).toISOString()).toBe(
+      '2027-05-31T21:30:00.000Z',
+    );
   });
   it('renewing while active adds on top of the remaining time; expired starts from now', () => {
     const now = new Date('2026-10-08T00:00:00Z');
@@ -393,6 +397,8 @@ describe('razorpay webhook', () => {
   it('a wrong amount or an unknown link is recorded as rejected and gives nothing', async () => {
     const o = await order(A, 'pro');
     const link = await linkIdOf(o.orderId);
+    expect((await hook(paidBody(link, 'pay_cheap', 100))).json().result).toBe('invalid');
+    // the same refused payment again is still refused (not "duplicate", which reads as paid)
     expect((await hook(paidBody(link, 'pay_cheap', 100))).json().result).toBe('invalid');
     expect((await hook(paidBody('plink_never_issued', 'pay_ghost', 99900))).json().result).toBe(
       'invalid',

@@ -233,11 +233,15 @@ async function target(pool: Pool, id: string, admins: string[], actor: AdminActo
   return u;
 }
 
-const revokeAll = (pool: Pool, userId: string, now: Date) =>
-  pool.query('UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL', [
-    now,
-    userId,
-  ]);
+/** Signed out everywhere: no session works, and no phone keeps getting this person's notifications. */
+const revokeAll = async (pool: Pool, userId: string, now: Date) => {
+  const res = await pool.query(
+    'UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL',
+    [now, userId],
+  );
+  await pool.query('DELETE FROM push_tokens WHERE user_id = ?', [userId]);
+  return res;
+};
 
 /** Blocks a login: it is signed out everywhere and cannot sign in again until unblocked. */
 export async function blockUser(

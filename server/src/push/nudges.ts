@@ -11,9 +11,10 @@ const hhmm = (d: Date) =>
   });
 
 /**
- * Evening job: for each centre with an active plan, the batches scheduled today that have ended and are still not
- * marked (no attendance, holiday or cancellation saved). The owner, and helpers of those batches, get one
- * notification per centre per day. Returns how many centres were nudged.
+ * Evening job (hourly, 8 to 10 pm): for each centre with an active plan, the batches scheduled today that have ended
+ * and are still not marked (no attendance, holiday or cancellation saved). Each batch is nudged about once a day, so a
+ * later run only tells about batches that ended since (a 7 to 8:30 pm batch is caught at 9). The owner, and helpers of
+ * those batches, get one notification per centre per run. Returns how many centres were nudged.
  */
 export async function attendanceNudges(
   pool: Pool,
@@ -36,7 +37,15 @@ export async function attendanceNudges(
   const byCentre = new Map<string, typeof rows>();
   for (const r of rows) byCentre.set(r.institute_id, [...(byCentre.get(r.institute_id) ?? []), r]);
   let n = 0;
-  for (const [instituteId, batches] of byCentre) {
+  for (const [instituteId, all] of byCentre) {
+    const batches: typeof rows = [];
+    for (const b of all) {
+      const [r] = (await pool.query('INSERT IGNORE INTO push_log (push_key) VALUES (?)', [
+        `att_${b.id}_${day}`,
+      ])) as unknown as [{ affectedRows: number }];
+      if (r.affectedRows === 1) batches.push(b);
+    }
+    if (!batches.length) continue;
     const [staff] = (await pool.query(
       `SELECT DISTINCT user_id FROM staff_batches WHERE institute_id = ? AND batch_id IN (${batches.map(() => '?').join(',')})`,
       [instituteId, ...batches.map((b) => b.id)],
@@ -46,7 +55,7 @@ export async function attendanceNudges(
       pool,
       push,
       [batches[0]!.owner_user_id, ...staff.map((s) => s.user_id)],
-      `att_${instituteId}_${day}`,
+      `att_${instituteId}_${day}_${hhmm(now).slice(0, 2)}`,
       {
         title: names.length === 1 ? 'Attendance not marked' : `${names.length} batches not marked`,
         body:

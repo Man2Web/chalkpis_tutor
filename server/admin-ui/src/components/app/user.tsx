@@ -10,7 +10,6 @@ import { NOPHONE } from '@/lib/names';
 import { ErrorBox, Loading, PersonAvatar } from './bits';
 import { confirmDialog, promptDialog } from './dialogs';
 import { Pill } from './pill';
-import { PlanEditor } from './plan';
 import { toast } from './toast';
 
 export type UserRow = {
@@ -171,13 +170,26 @@ function UserBody({ id, close }: { id: string; close: () => void }) {
           </CardContent>
         </Card>
         {u.institute && u.role === 'owner' ? (
-          <PlanEditor
-            instituteId={u.institute.id}
-            plan={u.institute.plan}
-            active={u.institute.active}
-            expiresAt={u.institute.expiresAt}
-            onDone={reload}
-          />
+          // the plan is changed on the centre page, which has the limits and status the editor needs
+          <Card>
+            <CardHeader><CardTitle>Plan</CardTitle></CardHeader>
+            <CardContent className="flex items-center justify-between gap-2 text-sm">
+              <span className="text-muted-foreground">
+                {u.institute.plan} · {u.institute.active ? 'active' : 'ended'}
+                {u.institute.expiresAt ? ` · until ${when(u.institute.expiresAt)}` : ''}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  close();
+                  go(`centre/${u.institute!.id}`);
+                }}
+              >
+                Manage plan
+              </Button>
+            </CardContent>
+          </Card>
         ) : null}
         <Card>
           <CardHeader><CardTitle>Devices</CardTitle></CardHeader>

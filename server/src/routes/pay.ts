@@ -55,7 +55,7 @@ interface Centre {
   student_limit: number | null;
   batch_limit: number | null;
 }
-const CENTRE_SQL = `SELECT i.id, i.name, i.owner_user_id, u.phone, s.plan, s.status, s.expires_at, s.student_limit,
+const CENTRE_SQL = `SELECT i.id, i.name, i.owner_user_id, COALESCE(u.phone, NULLIF(i.phone, '')) AS phone, s.plan, s.status, s.expires_at, s.student_limit,
        s.batch_limit
   FROM institutes i JOIN users u ON u.id = i.owner_user_id
   LEFT JOIN subscriptions s ON s.institute_id = i.id`;
@@ -138,6 +138,9 @@ const PAYMENTS_OFF =
   '<p class="note">Online payment is not switched on yet. Write to <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a> and we will help you renew.</p>';
 const PAY_FAILED =
   '<p class="note error">We could not open the payment page just now. Please try again in a minute, or write to <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a>.</p>';
+// Cashfree needs a mobile number; an owner who signed in with Apple or Google may have none
+const PAY_NO_PHONE =
+  '<p class="note error">Online payment needs a mobile number. Add your institute phone in the Chalkpis app (Settings), then open this page again, or write to <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a>.</p>';
 
 /**
  * Where centres pay for their plan, outside the store apps (Apple and Google allow no other way to pay inside them):
@@ -197,7 +200,9 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         { err: e, reason: cause instanceof Error ? cause.message : undefined },
         'pay page: payment link failed',
       );
-      return PAY_FAILED;
+      return cause instanceof Error && cause.message === 'cashfree-no-phone'
+        ? PAY_NO_PHONE
+        : PAY_FAILED;
     }
   };
 

@@ -645,22 +645,26 @@ export async function getPayment(db: Db, instituteId: string, id: string) {
 }
 
 /**
- * A parent's "I've paid" that the tutor confirmed: pays the student's open dues oldest first, up to `amount` (never more
- * than is owed now), one receipt per due, and queues ONE WhatsApp receipt for the total. Inside the caller's
- * transaction, so the report is marked confirmed together with the payments. Returns what was paid (0: nothing owed).
+ * A parent's "I've paid" that the tutor confirmed: pays the dues that were open when the parent reported (`dueIds`;
+ * null for old reports: any open due) oldest first, up to `amount` (never more than is owed now), one receipt per due,
+ * and queues ONE WhatsApp receipt for the total. Inside the caller's transaction, so the report is marked confirmed
+ * together with the payments. Returns what was paid (0: nothing owed, e.g. the tutor already recorded it).
  */
 export async function payReported(
   c: PoolConnection,
   instituteId: string,
   userId: string,
-  r: { studentId: string; amount: number; note: string },
+  r: { studentId: string; amount: number; dueIds: string[] | null; note: string },
   now: Date,
 ) {
+  if (r.dueIds && !r.dueIds.length) return { total: 0, receipts: [] as string[] };
   const [dues] = (await c.query(
     `SELECT ${DUE_COLS} FROM fee_dues d
-      WHERE d.institute_id = ? AND d.student_id = ? AND d.status IN ('pending','partial')
+      WHERE d.institute_id = ? AND d.student_id = ? AND d.status IN ('pending','partial')${
+        r.dueIds ? ` AND d.id IN (${r.dueIds.map(() => '?').join(',')})` : ''
+      }
       ORDER BY d.period, d.due_date FOR UPDATE`,
-    [instituteId, r.studentId],
+    [instituteId, r.studentId, ...(r.dueIds ?? [])],
   )) as unknown as [DueRow[]];
   const paidAt = paidAtFor(todayYmd(now), now);
   let left = r.amount;

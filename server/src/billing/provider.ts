@@ -355,19 +355,30 @@ export class CashfreeProvider implements BillingProvider {
     const o = await this.order(orderId);
     if (o.order_status === 'EXPIRED' || o.order_status?.startsWith('TERMINAT'))
       return { state: 'FAILED', amountPaise: 0, paymentId: null };
-    if (o.order_status !== 'PAID') return { state: 'PENDING', amountPaise: 0, paymentId: null };
+    const payments = async () => {
+      const res = await this.call(`/orders/${encodeURIComponent(orderId)}/payments`, {
+        method: 'GET',
+      });
+      if (!res.ok) throw new Error(`cashfree-payments-${res.status}${await cashfreeReason(res)}`);
+      const list = (await res.json()) as {
+        cf_payment_id?: string | number;
+        payment_status?: string;
+        payment_amount?: number | string;
+      }[];
+      return Array.isArray(list) ? list : [];
+    };
+    if (o.order_status !== 'PAID') {
+      // A failed or abandoned attempt leaves the order ACTIVE (it can still be paid until it expires). When every
+      // attempt so far has failed, say so instead of "in progress"; nothing is stored, so paying again still works.
+      const tried = await payments().catch(() => []);
+      const over = ['FAILED', 'USER_DROPPED', 'CANCELLED', 'VOID'];
+      return tried.length && tried.every((p) => over.includes(p.payment_status ?? ''))
+        ? { state: 'FAILED', amountPaise: 0, paymentId: null }
+        : { state: 'PENDING', amountPaise: 0, paymentId: null };
+    }
     // The successful payment's Cashfree id is the payment id we record: an order has exactly one, so two checks
     // running at once still apply the plan only once.
-    const res = await this.call(`/orders/${encodeURIComponent(orderId)}/payments`, {
-      method: 'GET',
-    });
-    if (!res.ok) throw new Error(`cashfree-payments-${res.status}${await cashfreeReason(res)}`);
-    const list = (await res.json()) as {
-      cf_payment_id?: string | number;
-      payment_status?: string;
-      payment_amount?: number | string;
-    }[];
-    const paid = (Array.isArray(list) ? list : []).find(
+    const paid = (await payments()).find(
       (p) => p.payment_status === 'SUCCESS' && p.cf_payment_id !== undefined,
     );
     if (!paid) return { state: 'PENDING', amountPaise: 0, paymentId: null };

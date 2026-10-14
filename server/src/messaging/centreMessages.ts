@@ -188,6 +188,27 @@ export async function queuePlanReminders(
     const c = await centre(pool, r.institute_id);
     if (!c) continue;
     const type = r.expires_at.getTime() <= now.getTime() ? 'plan_ended' : 'plan_ending';
+    // the same news in the app (informational only: the store apps never point to paying). Sent whether or not the
+    // WhatsApp one can go (an owner without a phone, a template not set yet); push_log keeps it to once per end date.
+    const label =
+      r.plan === 'trial' ? 'free trial' : `${PLANS[r.plan as PlanId]?.name ?? 'Chalkpis'} plan`;
+    await pushToUsers(
+      pool,
+      links.push ?? null,
+      [c.owner_id],
+      `plan_${type}_${r.institute_id}_${r.expires_at.toISOString().slice(0, 10)}`,
+      {
+        title:
+          type === 'plan_ended'
+            ? `Your ${label} has ended`
+            : `Your ${label} ends on ${day(r.expires_at)}`,
+        body:
+          type === 'plan_ended'
+            ? 'Your data is safe, and you can still see everything in Chalkpis.'
+            : 'Open Plans & billing to see your plan details.',
+        screen: 'Billing',
+      },
+    );
     if (links.templates && !templateFor(links.templates, type)) continue;
     const what =
       r.plan === 'trial'
@@ -209,29 +230,7 @@ export async function queuePlanReminders(
       },
       now,
     );
-    if (queued) {
-      n++;
-      // the same news in the app (informational only: the store apps never point to paying)
-      const label =
-        r.plan === 'trial' ? 'free trial' : `${PLANS[r.plan as PlanId]?.name ?? 'Chalkpis'} plan`;
-      await pushToUsers(
-        pool,
-        links.push ?? null,
-        [c.owner_id],
-        `plan_${type}_${r.institute_id}_${r.expires_at.toISOString().slice(0, 10)}`,
-        {
-          title:
-            type === 'plan_ended'
-              ? `Your ${label} has ended`
-              : `Your ${label} ends on ${day(r.expires_at)}`,
-          body:
-            type === 'plan_ended'
-              ? 'Your data is safe, and you can still see everything in Chalkpis.'
-              : 'Open Plans & billing to see your plan details.',
-          screen: 'Billing',
-        },
-      );
-    }
+    if (queued) n++;
   }
   return n;
 }

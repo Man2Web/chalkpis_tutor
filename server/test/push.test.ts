@@ -91,6 +91,15 @@ describe('push notifications', () => {
       body: 'Kids Beginners has not been marked today. It takes a few seconds.',
       data: { screen: 'Attendance' },
     });
+
+    // a later run (19:30 IST) tells only about the batch that ended since
+    h.clock.now = new Date('2026-10-08T14:00:00Z');
+    expect(await attendanceNudges(h.db.pool, push, h.clock.now)).toBe(1);
+    expect(await attendanceNudges(h.db.pool, push, h.clock.now)).toBe(0);
+    expect(push.sent).toHaveLength(2);
+    expect(push.sent[1]).toMatchObject({
+      body: 'Later has not been marked today. It takes a few seconds.',
+    });
   });
 
   it('tells the owner when the trial is ending, alongside the WhatsApp reminder', async () => {

@@ -175,8 +175,12 @@ export async function applyPaid(
       return 'applied' as const;
     });
   } catch (e) {
-    if ((e as { code?: string }).code === 'ER_DUP_ENTRY') return 'duplicate';
-    throw e;
+    if ((e as { code?: string }).code !== 'ER_DUP_ENTRY') throw e;
+    // seen before: still refused if it was refused the first time
+    const [ev] = (await pool.query('SELECT status FROM billing_events WHERE payment_id = ?', [
+      p.paymentId,
+    ])) as unknown as [{ status: string }[]];
+    return ev[0]?.status === 'rejected' ? 'invalid' : 'duplicate';
   }
 }
 
@@ -212,6 +216,9 @@ export async function reconcileOrder(
   )) as unknown as [{ status: 'applied' | 'rejected' }[]];
   if (done[0]?.status === 'applied')
     return { orderId: order.id, state: 'paid', result: 'duplicate' };
+  // refused once (wrong amount): asking again must not turn it into "paid"
+  if (done[0]?.status === 'rejected')
+    return { orderId: order.id, state: 'failed', result: 'invalid' };
   let status;
   try {
     status = await provider.checkStatus(order.link_id);

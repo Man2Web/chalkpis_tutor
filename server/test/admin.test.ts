@@ -116,7 +116,16 @@ describe('managing logins', () => {
     expect((await admin.call('GET', `/admin/api/users/${B.userId}`)).body.user.activeSessions).toBe(
       2,
     );
+    await B.call('POST', '/me/push-token', {
+      token: 'ExponentPushToken[abcdefghij12]',
+      platform: 'ios',
+    });
     expect((await admin.call('POST', `/admin/api/users/${B.userId}/sign-out`)).body.ended).toBe(2);
+    // and the phone stops getting their notifications
+    const [pt] = (await h.db.pool.query('SELECT COUNT(*) AS n FROM push_tokens WHERE user_id = ?', [
+      B.userId,
+    ])) as unknown as [{ n: number }[]];
+    expect(Number(pt[0]!.n)).toBe(0);
     expect(
       (
         await h.app.inject({

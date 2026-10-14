@@ -128,12 +128,26 @@ export function paidRoutes(app: FastifyInstance, deps: Deps) {
         )
           .replace(/[^A-Za-z0-9-]/g, '')
           .slice(0, 40);
+        // the dues this report is about: confirming later pays only these, never a fee added after
+        const [open] = (await pool.query(
+          "SELECT id FROM fee_dues WHERE institute_id = ? AND student_id = ? AND status IN ('pending','partial')",
+          [r.s.institute_id, r.s.id],
+        )) as unknown as [{ id: string }[]];
         // INSERT IGNORE: a double tap (or two parents at once) still makes one pending report
         const reportId = newId();
         const [ins] = (await pool.query(
-          `INSERT IGNORE INTO payment_reports (id, institute_id, student_id, amount, upi_ref, open_key, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [reportId, r.s.institute_id, r.s.id, r.s.owe, ref, r.s.id, now()],
+          `INSERT IGNORE INTO payment_reports (id, institute_id, student_id, amount, due_ids, upi_ref, open_key, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            reportId,
+            r.s.institute_id,
+            r.s.id,
+            r.s.owe,
+            open.map((d) => d.id).join(','),
+            ref,
+            r.s.id,
+            now(),
+          ],
         )) as unknown as [{ affectedRows: number }];
         if (ins.affectedRows === 1)
           void pushToUsers(
@@ -193,9 +207,11 @@ export function paidRoutes(app: FastifyInstance, deps: Deps) {
     if (confirm) await requireActivePlan(pool, instituteId, now());
     return withTransaction(pool, async (c) => {
       const [rows] = (await c.query(
-        "SELECT id, student_id, amount, upi_ref FROM payment_reports WHERE id = ? AND institute_id = ? AND status = 'pending' FOR UPDATE",
+        "SELECT id, student_id, amount, due_ids, upi_ref FROM payment_reports WHERE id = ? AND institute_id = ? AND status = 'pending' FOR UPDATE",
         [id, instituteId],
-      )) as unknown as [{ id: string; student_id: string; amount: number; upi_ref: string }[]];
+      )) as unknown as [
+        { id: string; student_id: string; amount: number; due_ids: string | null; upi_ref: string }[],
+      ];
       const r = rows[0];
       if (!r) throw notFound();
       let paid = { total: 0, receipts: [] as string[] };
@@ -207,6 +223,8 @@ export function paidRoutes(app: FastifyInstance, deps: Deps) {
           {
             studentId: r.student_id,
             amount: Number(r.amount),
+            // reports from before due_ids existed (NULL) keep paying the oldest open dues
+            dueIds: r.due_ids === null ? null : r.due_ids.split(',').filter(Boolean),
             note: `Parent reported paying${r.upi_ref ? ` (UPI ref ${r.upi_ref})` : ''}`,
           },
           now(),
