@@ -5,6 +5,7 @@ import { loadConfig } from './config.js';
 import { createPool } from './db.js';
 import { MockMailer, SmtpMailer, type Mailer } from './auth/mailer.js';
 import { MockBillingProvider, RazorpayProvider, type BillingProvider } from './billing/provider.js';
+import { RevenueCatClient } from './billing/store.js';
 import {
   MetaCloudProvider,
   MockProvider,
@@ -68,6 +69,10 @@ async function main() {
     console.warn(
       'No payment gateway is configured: plan purchases are unavailable until RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are set.',
     );
+  // in-app subscriptions: read from RevenueCat with the secret key; without it the apps cannot sell
+  const store = config.REVENUECAT_SECRET_KEY
+    ? new RevenueCatClient(config.REVENUECAT_SECRET_KEY)
+    : null;
   // Admin dashboard emails: SMTP when set up; locally a stand-in that keeps the mail (use OTP_DEV_ECHO to see codes).
   let mailer: Mailer | null = null;
   if (config.SMTP_HOST && config.SMTP_USER && config.SMTP_PASS)
@@ -83,7 +88,7 @@ async function main() {
   else if (config.NODE_ENV !== 'production') mailer = new MockMailer();
   // push notifications go through Expo's push service; locally nothing is sent
   const push = config.NODE_ENV === 'production' ? new ExpoPushSender() : null;
-  const app = await buildApp({ config, pool, provider, billing, mailer, push });
+  const app = await buildApp({ config, pool, provider, billing, store, mailer, push });
 
   const stopWorker = startWorker(
     {
@@ -115,6 +120,7 @@ async function main() {
           }
         : undefined,
       billing,
+      store,
     ),
   );
 

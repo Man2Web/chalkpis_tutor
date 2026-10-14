@@ -6,7 +6,7 @@ export interface SubInput {
   batchLimit: number | null;
 }
 
-export type BannerKind = 'expired' | 'expiringSoon' | 'trialEnding' | 'trial' | null;
+export type BannerKind = 'expired' | 'expiringSoon' | 'trialEnding' | 'trial' | 'storeIssue' | null;
 
 export interface SubState {
   expired: boolean;
@@ -42,10 +42,22 @@ export function usageLevel(used: number, limit: number | null): UsageLevel {
   return used / limit >= 0.8 ? 'near' : 'ok';
 }
 
-/** What the button on a plan card says. */
+/** What the button on a website plan card says (web app). */
 export function planAction(
   current: { plan: string; expired: boolean },
   planId: string,
 ): 'renew' | 'choose' {
   return !current.expired && current.plan === planId ? 'renew' : 'choose';
+}
+
+/**
+ * What the button on a store plan card does: nothing for the subscription the centre already has, a switch from
+ * another store subscription, or a new subscription.
+ */
+export function storeAction(
+  currentProduct: string | null,
+  productId: string,
+): 'current' | 'switch' | 'subscribe' {
+  if (!currentProduct) return 'subscribe';
+  return currentProduct === productId ? 'current' : 'switch';
 }

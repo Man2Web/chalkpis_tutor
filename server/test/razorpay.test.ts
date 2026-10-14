@@ -154,7 +154,7 @@ describe('Razorpay plan purchases', () => {
   const paid = (orderId: string, paymentId = 'pay_1', plan: keyof typeof PLANS = 'standard') =>
     fake.status.set(linkOf(orderId), {
       state: 'COMPLETED',
-      amountPaise: PLANS[plan].pricePaise,
+      amountPaise: PLANS[plan].prices.year,
       paymentId,
     });
   const history = async (t: Tenant) =>
@@ -167,7 +167,7 @@ describe('Razorpay plan purchases', () => {
     expect(r.body.url).toBe(`https://rzp.io/i/${r.body.orderId}`);
     expect(fake.created[0]).toEqual({
       referenceId: r.body.orderId,
-      amountPaise: PLANS.starter.pricePaise,
+      amountPaise: PLANS.starter.prices.year,
       description: expect.stringContaining('Starter'),
       customerPhone: '+919800000001',
       returnUrl: `https://tutor.chalkpis.com/billing/return?order=${r.body.orderId}`,
@@ -198,7 +198,7 @@ describe('Razorpay plan purchases', () => {
     const raw = JSON.stringify({
       event: 'payment_link.paid',
       payload: {
-        payment_link: { entity: { id: linkOf(orderId), amount_paid: PLANS.standard.pricePaise } },
+        payment_link: { entity: { id: linkOf(orderId), amount_paid: PLANS.standard.prices.year } },
         payment: { entity: { id: 'pay_W' } },
       },
     });
@@ -259,7 +259,7 @@ describe('Razorpay plan purchases', () => {
     expect(r.headers['content-security-policy']).not.toContain('script-src');
     expect(r.body).toContain('Sunrise &lt;Karate&gt;');
     expect(r.body).not.toContain('<Karate>');
-    expect(r.body).toContain('Pay ₹399');
+    expect(r.body).toContain('Pay ₹1,999 for a year');
     expect(r.body).toContain('Razorpay');
     expect(r.body).not.toContain('Cashfree');
     expect((await h.app.inject({ method: 'GET', url: `/pay/${'A'.repeat(38)}` })).statusCode).toBe(
@@ -272,7 +272,7 @@ describe('Razorpay plan purchases', () => {
     const r = await post(payPage(t), 'plan=pro');
     expect(r.statusCode).toBe(200);
     const order = fake.created[0]!;
-    expect(order).toMatchObject({ amountPaise: PLANS.pro.pricePaise });
+    expect(order).toMatchObject({ amountPaise: PLANS.pro.prices.year });
     expect(r.body).toContain(`url=https://rzp.io/i/${order.referenceId}`);
     const [rows] = (await h.db.pool.query(
       'SELECT institute_id, plan_id, provider FROM billing_orders WHERE id = ?',

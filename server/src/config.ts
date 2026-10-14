@@ -109,7 +109,7 @@ const schema = z.object({
   PUBLIC_BASE_URL: z.string().url().optional(),
   /** JSON: { "absent": { "en": "id", "hi": "id" }, ... } for the 5 parent messages (see docs/WHATSAPP-TEMPLATES.md). */
   WA_TEMPLATES: z.string().optional(),
-  /** How long a new institute's free trial lasts. With online payment switched off, this is how long they can write before the app turns read-only. */
+  /** How long a new institute's free trial lasts (no card needed); 14 in production (decision 145). */
   TRIAL_DAYS: z.coerce.number().int().min(1).max(3650).default(7),
   // Admin dashboard emails: sign-in codes, password resets and lockout alerts (SMTP, e.g. the hello@chalkpis.com mailbox).
   SMTP_HOST: z.string().min(1).optional(),
@@ -123,6 +123,14 @@ const schema = z.object({
   RAZORPAY_KEY_ID: z.string().min(1).optional(),
   RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().min(16).optional(),
+  // RevenueCat (in-app App Store / Google Play subscriptions, decision 145): the secret API key (sk_…, Project settings >
+  // API keys) to read a centre's subscription, the Authorization value typed into the webhook (to
+  // /billing/webhooks/revenuecat), and the two public app keys (appl_…, goog_…) the app starts its store SDK with.
+  // Without the public keys the apps sell nothing (a switch on the server, no app release needed).
+  REVENUECAT_SECRET_KEY: z.string().min(1).optional(),
+  REVENUECAT_WEBHOOK_AUTH: z.string().min(16).optional(),
+  REVENUECAT_IOS_KEY: z.string().min(1).optional(),
+  REVENUECAT_ANDROID_KEY: z.string().min(1).optional(),
 
   /**
    * Fee reminders carry the parent's "I've paid" link as a 4th value. Switch on together with WA_TEMPLATES pointing

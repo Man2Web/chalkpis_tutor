@@ -53,10 +53,10 @@ The container build has not been tried yet (Docker is not installed on the devel
 - To confirm with your gateway provider: that `templateinfo` is `<templateId>~<value1>~<value2>~<value3>`, and whether it expects POST or GET (`WA_API_METHOD`). Delivery reports are not tracked yet, so "Sent" means the gateway accepted the message.
 - Test with a student whose parent number is **your own** number before switching messages on for everyone.
 
-## 4. Online payments: Razorpay (plan purchases)
+## 4. Online payments: Razorpay (plan purchases on the website)
 
-Owners pay for Starter / Standard / Pro on the website (`tutor.chalkpis.com/plan`, or their centre's `/pay/` link); the
-store apps only show the plan. The server creates a Razorpay payment link for the order, the owner pays on Razorpay's
+Owners can pay for Starter / Standard / Pro, monthly or yearly, on the website (`tutor.chalkpis.com/plan`, or their
+centre's `/pay/` link); inside the iPhone and Android apps they subscribe through the store (section 4c). The server creates a Razorpay payment link for the order, the owner pays on Razorpay's
 own page (UPI, card, net banking, wallets) and is sent back to `/billing/return`; the plan switches on within seconds.
 
 1. In the Razorpay dashboard (live mode), **Account & Settings > API Keys > Generate Key**: note the **Key ID** and the
@@ -75,6 +75,43 @@ own page (UPI, card, net banking, wallets) and is sent back to `/billing/return`
 
 Without Razorpay keys, production says online payment is not set up (set `TRIAL_DAYS` long meanwhile), and local
 development uses a built-in stand-in.
+
+## 4c. In-app subscriptions: App Store and Google Play (through RevenueCat)
+
+Inside the apps, plans are auto-renewing store subscriptions (Apple and Google allow no other way to sell them there).
+RevenueCat checks the purchases with Apple and Google and tells the server; the buyer is the centre (RevenueCat's app
+user id is the institute id). Prices: Starter ₹199 / ₹1,999, Standard ₹299 / ₹2,999, Pro ₹499 / ₹4,999 (month / year),
+and ₹49 for the first month of a monthly plan for someone who never subscribed.
+
+1. **Apple (App Store Connect, account holder):** Business > accept the **Paid Applications Agreement**, add bank and
+   tax details. Apply for the **App Store Small Business Program** (15% commission instead of 30%).
+2. **Google (Play Console):** Settings > Payments profile: set up the merchant account.
+3. **Products.** Apple: app > Subscriptions > one group "Chalkpis plans" with six auto-renewable subscriptions, levels
+   Pro (1) > Standard (2) > Starter (3): `chalkpis.starter.monthly`, `chalkpis.starter.yearly`,
+   `chalkpis.standard.monthly`, `chalkpis.standard.yearly`, `chalkpis.pro.monthly`, `chalkpis.pro.yearly`, each with
+   its price, a display name, a description and a review screenshot of the Plans screen; on the three monthly ones an
+   introductory offer "Pay as you go, 1 month, ₹49" for new subscribers. Google: Monetize > Subscriptions (only after a
+   build with billing is on a testing track): `chalkpis.starter`, `chalkpis.standard`, `chalkpis.pro`, each with base
+   plans `monthly` and `yearly` (auto-renewing, the same prices) and on `monthly` an offer for new customers: one
+   month at ₹49. Product ids cannot be reused once made, so type them exactly.
+4. **RevenueCat** (free account): a project with the App Store app (bundle `in.chalkpis.tutors`, an In-App Purchase
+   key from App Store Connect > Users and Access > Integrations, uploaded by you) and the Play Store app (package
+   `in.chalkpis.tutors`, a Google Cloud service account with Play Console financial access, its JSON uploaded by you;
+   also turn on Google's real-time notifications as RevenueCat describes). Import the products, make one entitlement
+   per plan (`starter`, `standard`, `pro`) and the **current offering** with all six products. Integrations >
+   Webhooks: see docs/deploy/README.md.
+5. In Coolify set `REVENUECAT_SECRET_KEY`, `REVENUECAT_WEBHOOK_AUTH`, `REVENUECAT_IOS_KEY`, `REVENUECAT_ANDROID_KEY`
+   (type them yourself) and restart. The apps show the store plans from then on.
+6. **Test:** App Store Connect > Users and Access > Sandbox testers (a fresh email), and Play Console > License
+   testing (your Gmail). Buy, upgrade, cancel and restore in the TestFlight / internal-testing build; admin > Payments
+   shows these as "Store tests", not revenue.
+
+How it behaves: a store subscription decides the plan until its expiry date; when it takes over, what was left of the
+trial or a website plan is kept and resumes after it ends (nobody loses paid days). While it renews by itself the
+website and pay links sell nothing, and plan-ending reminders are skipped. A refund, an expiry or a move to another
+centre (Restore on another account) hands back to the kept days. The webhook only says "look again": the server always
+reads the subscription from RevenueCat with the secret key, and an hourly job does the same for subscriptions about to
+end, in case a webhook was missed.
 
 ## 4b. Email for the admin dashboard
 

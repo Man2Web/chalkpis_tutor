@@ -1,5 +1,6 @@
 import type { BillingProvider } from '../billing/provider.js';
 import { reconcilePending } from '../billing/service.js';
+import { resyncEndingStoreSubscriptions, type StoreClient } from '../billing/store.js';
 import type { Pool } from '../db.js';
 import { generateDues } from '../fees/service.js';
 import { expireDueSubscriptions } from '../billing/service.js';
@@ -76,6 +77,7 @@ async function cleanupJob(pool: Pool, now: Date) {
 export const makeJobs = (
   links?: Parameters<typeof queuePlanReminders>[2] & { paidLinks?: boolean },
   billing?: BillingProvider | null,
+  store?: StoreClient | null,
 ): Job[] => [
   ...(billing?.checkStatus
     ? [
@@ -102,6 +104,18 @@ export const makeJobs = (
       ]
     : []),
   { name: 'dues', from: 2, until: 23, every: 'day', run: duesJob },
+  // a store renewal or lapse whose webhook was missed is read from RevenueCat before the expiry job runs
+  ...(store
+    ? [
+        {
+          name: 'store-resync',
+          from: 0,
+          until: 23,
+          every: 'hour',
+          run: (pool: Pool, now: Date) => resyncEndingStoreSubscriptions(pool, store, now),
+        } satisfies Job,
+      ]
+    : []),
   {
     name: 'expire',
     from: 0,

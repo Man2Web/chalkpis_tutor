@@ -81,3 +81,23 @@ jest.mock('@testing-library/react-native', () => {
   // Getters, not a copy: `screen` is replaced on every render, so it has to be read live.
   return new Proxy(actual, { get: (target, key) => (key === 'render' ? render : target[key]) });
 });
+
+// The RevenueCat store SDK has no native side under Jest; tests that buy mock src/lib/purchases instead.
+jest.mock('react-native-purchases', () => ({
+  __esModule: true,
+  default: {
+    isConfigured: jest.fn(async () => false),
+    configure: jest.fn(),
+    logIn: jest.fn(async () => ({})),
+    logOut: jest.fn(async () => ({})),
+    getOfferings: jest.fn(async () => ({ current: null })),
+    purchasePackage: jest.fn(),
+    restorePurchases: jest.fn(async () => ({})),
+    showManageSubscriptions: jest.fn(async () => undefined),
+    getCustomerInfo: jest.fn(async () => ({ managementURL: null })),
+    checkTrialOrIntroductoryPriceEligibility: jest.fn(async () => ({})),
+  },
+  INTRO_ELIGIBILITY_STATUS: { INTRO_ELIGIBILITY_STATUS_ELIGIBLE: 2 },
+  PURCHASES_ERROR_CODE: { PURCHASE_CANCELLED_ERROR: '1', PAYMENT_PENDING_ERROR: '20' },
+  STORE_REPLACEMENT_MODE: { WITH_TIME_PRORATION: 'WITH_TIME_PRORATION', DEFERRED: 'DEFERRED' },
+}));

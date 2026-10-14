@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { stamp, stampYmd, type Stamp } from '../api/stamp';
+import type { PlanId, PlanInfo } from '../features/billing/plans';
 import type { StaffMember } from '../features/staff/api';
 import { useSession } from '../features/auth/session';
 import { normalizeSettings, type NotifySettings } from '../features/messages/settings';
@@ -122,9 +123,22 @@ export interface Limits {
   activeStudentCount: number;
   batchCount: number;
   plan: string;
+  /** How the running plan is paid: monthly, yearly, or null (a trial or an old pack). */
+  cycle: 'month' | 'year' | null;
   status: string;
   expiresAtMs: number;
   active: boolean;
+  /** An App Store / Google Play subscription that decides the plan; null for a trial or a website plan. */
+  store: StoreStatus | null;
+}
+
+export interface StoreStatus {
+  name: 'app_store' | 'play_store';
+  product: string | null;
+  willRenew: boolean;
+  issue: 'billing' | 'paused' | null;
+  /** When the trial or website days that resume after it end. */
+  thenUntilMs: number | null;
 }
 
 export function useLimits() {
@@ -134,11 +148,13 @@ export function useLimits() {
     queryFn: async (): Promise<Limits> => {
       const s = await api<{
         plan: string;
+        cycle?: 'month' | 'year' | null;
         status: string;
         expiresAt: string;
         studentLimit: number | null;
         batchLimit: number | null;
         active: boolean;
+        store?: Omit<StoreStatus, 'thenUntilMs'> & { thenUntil: string | null };
         usage: { students: number; batches: number };
       }>('GET', '/subscription');
       return {
@@ -147,9 +163,19 @@ export function useLimits() {
         activeStudentCount: s.usage.students,
         batchCount: s.usage.batches,
         plan: s.plan,
+        cycle: s.cycle ?? null,
         status: s.status,
         expiresAtMs: Date.parse(s.expiresAt),
         active: s.active,
+        store: s.store
+          ? {
+              name: s.store.name,
+              product: s.store.product,
+              willRenew: s.store.willRenew,
+              issue: s.store.issue,
+              thenUntilMs: s.store.thenUntil ? Date.parse(s.store.thenUntil) : null,
+            }
+          : null,
       };
     },
   });
@@ -377,20 +403,33 @@ export function useStaff() {
 
 // ---------- plan, messages ----------
 
-/** False while the server has no payment provider: the plans screen then hides the buy buttons. */
-export function usePaymentsAvailable() {
+export interface Catalogue {
+  plans: PlanInfo[];
+  popular: PlanId;
+  /** The store apps' first-month price for new subscribers (the store shows its own; this is for the web). */
+  introMonthPaise: number;
+  /** The website gateway is set up (the web app's buy buttons). */
+  paymentsAvailable: boolean;
+  /** Public RevenueCat keys for the phone apps; null: the apps sell nothing and show the plan only. */
+  store: { ios: string | null; android: string | null } | null;
+}
+
+/** The plans and prices, from the server (owners only). */
+export function useBillingCatalogue() {
   const id = useInstituteId();
   return useQuery({
-    queryKey: ['paymentsAvailable', id],
-    queryFn: async (): Promise<boolean> =>
-      (await api<{ paymentsAvailable: boolean }>('GET', '/billing/plans')).paymentsAvailable,
+    queryKey: ['billingPlans', id],
+    queryFn: async (): Promise<Catalogue> => api<Catalogue>('GET', '/billing/plans'),
   });
 }
 
 export interface BillingRecord {
   id: string;
   planId: string;
+  cycle: 'month' | 'year' | null;
   amountPaise: number;
+  currency: string;
+  refunded: boolean;
   provider: string;
   expiresAt: Stamp;
   createdAt: Stamp;
@@ -407,7 +446,10 @@ export function useBillingHistory() {
           history: {
             paymentId: string;
             planId: string;
+            cycle?: 'month' | 'year' | null;
             amountPaise: number;
+            currency?: string;
+            refunded?: boolean;
             provider: string;
             expiresAt: string;
             paidAt: string;
@@ -416,7 +458,10 @@ export function useBillingHistory() {
       ).history.map((h) => ({
         id: h.paymentId,
         planId: h.planId,
+        cycle: h.cycle ?? null,
         amountPaise: h.amountPaise,
+        currency: h.currency ?? 'INR',
+        refunded: !!h.refunded,
         provider: h.provider,
         expiresAt: stamp(h.expiresAt),
         createdAt: stamp(h.paidAt),

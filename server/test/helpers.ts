@@ -11,6 +11,7 @@ import { signToken } from '../src/lib/jwt.js';
 import { runMigrations } from '../src/migrate.js';
 import { MockBillingProvider, type BillingProvider } from '../src/billing/provider.js';
 import type { Mailer } from '../src/auth/mailer.js';
+import type { StoreClient } from '../src/billing/store.js';
 import { MockProvider } from '../src/messaging/provider.js';
 import { createTestDb, testConfig, type TestDb } from './db.js';
 
@@ -77,6 +78,7 @@ const TABLES = [
   'notify_settings',
   'billing_events',
   'billing_orders',
+  'store_events',
   'push_log',
   'push_tokens',
   'payment_reports',
@@ -100,6 +102,7 @@ export async function startHarness(
   extra: Parameters<typeof testConfig>[0] = {},
   opts: {
     billing?: BillingProvider;
+    store?: StoreClient | null;
     mailer?: Mailer | null;
     push?: PushSender | null;
   } = {},
@@ -123,6 +126,7 @@ export async function startHarness(
     pool: db.pool,
     provider,
     billing: opts.billing ?? billing,
+    store: opts.store ?? null,
     mailer: opts.mailer ?? null,
     push: opts.push ?? null,
     clock: () => clock.now,

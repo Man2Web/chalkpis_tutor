@@ -10,9 +10,18 @@ import {
   planSessionCookie,
   readPlanSession,
 } from '../billing/planSession.js';
-import { PLANS, isPlanId, planChange, type Plan } from '../billing/plans.js';
+import {
+  PLANS,
+  POPULAR,
+  isCycle,
+  isPlanId,
+  monthsOf,
+  planChange,
+  type Cycle,
+  type Plan,
+} from '../billing/plans.js';
 import type { BillingProvider } from '../billing/provider.js';
-import { billingHistory, createOrder, reconcilePending } from '../billing/service.js';
+import { billingHistory, createOrder, reconcilePending, storeRenews } from '../billing/service.js';
 import { activeCount } from '../institutes/limits.js';
 import { maskPhone, normalizeIndianPhone } from '../lib/phone.js';
 import type { MessageProvider } from '../messaging/provider.js';
@@ -54,9 +63,11 @@ interface Centre {
   expires_at: Date | null;
   student_limit: number | null;
   batch_limit: number | null;
+  store: 'app_store' | 'play_store' | null;
+  store_will_renew: number | null;
 }
 const CENTRE_SQL = `SELECT i.id, i.name, i.owner_user_id, COALESCE(u.phone, NULLIF(i.phone, '')) AS phone, s.plan, s.status, s.expires_at, s.student_limit,
-       s.batch_limit
+       s.batch_limit, s.store, s.store_will_renew
   FROM institutes i JOIN users u ON u.id = i.owner_user_id
   LEFT JOIN subscriptions s ON s.institute_id = i.id`;
 
@@ -65,7 +76,12 @@ const GATEWAY: Record<string, string> = {
   cashfree: 'Cashfree Payments',
   phonepe: 'PhonePe',
   razorpay: 'Razorpay',
+  apple: 'App Store',
+  google: 'Google Play',
 };
+const STORE_NAME = { app_store: 'the App Store', play_store: 'Google Play' } as const;
+const cycleText = (cycle: Cycle | null, plan: Plan['id']) =>
+  cycle === 'year' ? '1 year' : cycle === 'month' ? '1 month' : `${monthsOf(plan, null)} months`;
 
 function page(
   title: string,
@@ -85,6 +101,10 @@ function status(c: Centre, now: Date): string {
   if (!c.plan || !c.expires_at) return '<p class="status">No plan yet.</p>';
   const active = c.status === 'active' && c.expires_at.getTime() > now.getTime();
   const until = day(c.expires_at);
+  if (active && c.store)
+    return storeRenews(c)
+      ? `<p class="status">${esc(planName(c.plan))} plan, renewing automatically through ${STORE_NAME[c.store]} on ${until}. You can change or cancel it in the Chalkpis app.</p>`
+      : `<p class="status">${esc(planName(c.plan))} plan through ${STORE_NAME[c.store]}, ending on ${until} (it will not renew). You can pay for the time after that here.</p>`;
   if (!active)
     return `<p class="status ended">Your ${c.plan === 'trial' ? 'free trial' : 'plan'} ended on ${until}. Choose a plan to keep adding students, attendance and fees. Nothing you saved is lost.</p>`;
   if (c.plan === 'trial') return `<p class="status">Your free trial runs until ${until}.</p>`;
@@ -92,8 +112,9 @@ function status(c: Centre, now: Date): string {
 }
 
 /**
- * The three plan cards; each Pay button posts the plan (plus any hidden fields) to `action`. With the centre given, the
- * button says Renew or Upgrade, and a lower plan than the running one waits until it ends.
+ * The three plan cards, each payable for a year (the main button) or a month; each button posts the plan and cycle
+ * (plus any hidden fields) to `action`. With the centre given, the buttons say Renew or Upgrade, and a lower plan than
+ * the running one waits until it ends. No scripts, so both choices are plain forms.
  */
 function plansHtml(
   action: string | null,
@@ -101,17 +122,17 @@ function plansHtml(
   c?: Centre,
   now: Date = new Date(),
 ): string {
-  const best = Math.min(...Object.values(PLANS).map((p) => p.pricePaise / p.months));
   const fields = Object.entries(hidden)
     .map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`)
     .join('');
   return `<div class="plans">${Object.values(PLANS)
     .map((p) => {
-      const isBest = p.pricePaise / p.months === best;
-      return `<section class="plan${isBest ? ' best' : ''}">
-${isBest ? '<span class="tag">Best value</span>' : ''}<h2>${esc(p.name)}</h2>
-<p class="price">${rupees(p.pricePaise)} <span>for ${p.months} months</span></p>
-<p class="per">About ₹${Math.round(p.pricePaise / p.months / 100)} a month</p>
+      const popular = p.id === POPULAR;
+      const perDay = Math.round(p.prices.year / 365 / 100);
+      return `<section class="plan${popular ? ' best' : ''}">
+${popular ? '<span class="tag">Most popular</span>' : ''}<h2>${esc(p.name)}</h2>
+<p class="price">${rupees(p.prices.year)} <span>a year</span></p>
+<p class="per">Just ₹${perDay} a day · or ${rupees(p.prices.month)} a month</p>
 <ul><li>${limit(p.studentLimit, 'students')}</li><li>${limit(p.batchLimit, 'batches')}</li><li>Attendance, fees, reports and WhatsApp updates to parents</li></ul>
 ${(() => {
   if (!action) return '';
@@ -129,7 +150,9 @@ ${(() => {
   if (!change.ok)
     return `<p class="note">Available after your current plan ends on ${day(change.until)}.</p>`;
   const verb = change.kind === 'renew' ? 'Renew' : change.kind === 'upgrade' ? 'Upgrade' : 'Pay';
-  return `<form method="post" action="${esc(action)}">${fields}<input type="hidden" name="plan" value="${p.id}"><button type="submit">${verb === 'Pay' ? `Pay ${rupees(p.pricePaise)}` : `${verb} · ${rupees(p.pricePaise)}`}</button></form>`;
+  const button = (cycle: Cycle, cls: string) =>
+    `<form method="post" action="${esc(action)}">${fields}<input type="hidden" name="plan" value="${p.id}"><input type="hidden" name="cycle" value="${cycle}"><button type="submit"${cls ? ` class="${cls}"` : ''}>${verb === 'Pay' ? 'Pay' : verb} ${rupees(p.prices[cycle])} for ${cycle === 'year' ? 'a year' : 'a month'}</button></form>`;
+  return button('year', '') + button('month', 'secondary');
 })()}</section>`;
     })
     .join('')}</div>`;
@@ -137,11 +160,14 @@ ${(() => {
 
 const PAYMENTS_OFF =
   '<p class="note">Online payment is not switched on yet. Write to <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a> and we will help you renew.</p>';
+const STORE_MANAGED =
+  '<p class="note">This plan renews automatically in the Chalkpis app, so there is nothing to pay here. To change it, open Plans &amp; billing in the app.</p>';
 const PAY_FAILED =
   '<p class="note error">We could not open the payment page just now. Please try again in a minute, or write to <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a>.</p>';
 
 /**
- * Where centres pay for their plan, outside the store apps (Apple and Google allow no other way to pay inside them):
+ * Where centres pay for their plan on the web (inside the iPhone and Android apps they subscribe through the store
+ * instead; a centre whose store subscription renews by itself is not sold anything here):
  *
  * - tutor.chalkpis.com/plan: the billing page. The owner signs in with their mobile number and a WhatsApp code (no
  *   new account is ever made here), sees the plan, usage and past payments with receipts, and pays.
@@ -170,12 +196,15 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
     reply: FastifyReply,
     c: Centre,
     planId: Plan['id'],
+    cycle: Cycle,
   ): Promise<string | null> => {
+    if (storeRenews(c)) return STORE_MANAGED;
     try {
       const order = await createOrder(deps.pool, deps.billing!, {
         instituteId: c.id,
         userId: c.owner_user_id,
         planId,
+        cycle,
         ownerPhone: c.phone ?? undefined,
         ...orderUrls(deps.config),
         now: now(),
@@ -187,7 +216,7 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         200,
         page(
           'Opening payment',
-          `<h1>Opening the payment page…</h1><p>${esc(plan.name)} plan for ${esc(c.name)}: ${rupees(plan.pricePaise)} for ${plan.months} months.</p><p><a class="button" href="${esc(order.url)}">Continue to payment</a></p>`,
+          `<h1>Opening the payment page…</h1><p>${esc(plan.name)} plan for ${esc(c.name)}: ${rupees(order.amountPaise)} for ${cycle === 'year' ? 'a year' : 'a month'}.</p><p><a class="button" href="${esc(order.url)}">Continue to payment</a></p>`,
           { refresh: order.url, gateway },
         ),
       );
@@ -248,7 +277,7 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         `Plans for ${c.name}`,
         `<h1>Choose a plan</h1><p class="centre">${esc(c.name)}</p>${status(c, now())}${note}${
           deps.billing ? '' : PAYMENTS_OFF
-        }${plansHtml(deps.billing ? `/pay/${token}` : null, {}, c, now())}<p class="small">One payment, no auto-renewal. Pay by UPI, card or net banking. <a href="/plan">Sign in</a> to see past payments and receipts.</p>`,
+        }${plansHtml(deps.billing && !storeRenews(c) ? `/pay/${token}` : null, {}, c, now())}<p class="small">One payment, no auto-renewal. Pay by UPI, card or net banking. <a href="/plan">Sign in</a> to see past payments and receipts.</p>`,
         { gateway },
       );
 
@@ -273,10 +302,12 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
       async (req, reply) => {
         const c = await byToken(req.params.token);
         if (!c) return tokenNotFound(reply);
-        const planId = formBody(req.body).get('plan');
-        if (!deps.billing || !isPlanId(planId))
+        const f = formBody(req.body);
+        const planId = f.get('plan');
+        const cycle = f.get('cycle') ?? 'year';
+        if (!deps.billing || !isPlanId(planId) || !isCycle(cycle))
           return send(reply, 400, tokenView(req.params.token, c));
-        const failed = await startPayment(req, reply, c, planId);
+        const failed = await startPayment(req, reply, c, planId, cycle);
         if (failed) return send(reply, 502, tokenView(req.params.token, c, failed));
         return reply;
       },
@@ -356,7 +387,7 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         `Plan for ${c.name}`,
         `<h1>${esc(c.name)}</h1>${switcher}${status(c, now())}${note}
 <section class="usage">${meter('Students', students, c.student_limit)}${meter('Batches', batches, c.batch_limit)}</section>
-<h2 class="section">Choose a plan</h2>${deps.billing ? '' : PAYMENTS_OFF}${plansHtml(deps.billing ? '/plan/pay' : null, { centre: c.id }, c, now())}
+<h2 class="section">Choose a plan</h2>${deps.billing ? '' : PAYMENTS_OFF}${plansHtml(deps.billing && !storeRenews(c) ? '/plan/pay' : null, { centre: c.id }, c, now())}
 <p class="small">One payment, no auto-renewal. Pay by UPI, card or net banking.</p>
 <h2 class="section">Payments</h2>${rows}`,
         { gateway, nav: signOutNav },
@@ -463,8 +494,10 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         const centres = await ownedCentres(userId);
         const c = centres.find((x) => x.id === f.get('centre'));
         const planId = f.get('plan');
-        if (!c || !deps.billing || !isPlanId(planId)) return reply.redirect('/plan', 303);
-        const failed = await startPayment(req, reply, c, planId);
+        const cycle = f.get('cycle') ?? 'year';
+        if (!c || !deps.billing || !isPlanId(planId) || !isCycle(cycle))
+          return reply.redirect('/plan', 303);
+        const failed = await startPayment(req, reply, c, planId, cycle);
         if (failed) return send(reply, 502, await accountPage(centres, c, failed));
         return reply;
       },
@@ -487,7 +520,6 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
               '<h1>Receipt not found</h1><p><a href="/plan">Back to your plan</a></p>',
             ),
           );
-        const plan = PLANS[h.planId as Plan['id']];
         return send(
           reply,
           200,
@@ -495,13 +527,13 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
             'Payment receipt',
             `<article class="receipt"><h1>Payment receipt</h1>
 <dl><dt>Received from</dt><dd>${esc(c.name)}${c.phone ? `<br>${esc(maskPhone(c.phone))}` : ''}</dd>
-<dt>For</dt><dd>Chalkpis ${esc(planName(h.planId))} plan${plan ? ` (${plan.months} months)` : ''}</dd>
+<dt>For</dt><dd>Chalkpis ${esc(planName(h.planId))} plan${isPlanId(h.planId) ? ` (${cycleText(h.cycle, h.planId)})` : ''}</dd>
 <dt>Valid until</dt><dd>${day(new Date(h.expiresAt))}</dd>
-<dt>Amount paid</dt><dd><strong>${rupees(h.amountPaise)}</strong></dd>
+<dt>Amount paid</dt><dd><strong>${h.currency === 'INR' ? rupees(h.amountPaise) : `${esc(h.currency)} ${(h.amountPaise / 100).toFixed(2)}`}</strong>${h.refunded ? ' (refunded)' : ''}</dd>
 <dt>Paid on</dt><dd>${day(new Date(h.paidAt))}</dd>
 <dt>Payment ID</dt><dd class="mono">${esc(h.paymentId)}</dd>
 <dt>Paid through</dt><dd>${esc(GATEWAY[h.provider] ?? h.provider)}</dd></dl>
-<p class="small">Issued by M2W Technologies Private Limited, the company behind Chalkpis · hello@chalkpis.com. To save a copy, use your browser's Print or Share.</p>
+<p class="small">${h.provider === 'apple' || h.provider === 'google' ? `This payment was taken by ${GATEWAY[h.provider]}, which also sends its own receipt. ` : ''}Issued by M2W Technologies Private Limited, the company behind Chalkpis · hello@chalkpis.com. To save a copy, use your browser's Print or Share.</p>
 <p class="noprint"><a href="/plan?centre=${c.id}">Back to your plan</a></p></article>`,
           ),
         );

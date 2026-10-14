@@ -247,10 +247,14 @@ describe('messages from Chalkpis to the centre', () => {
   it('a paid plan is confirmed to the owner with its end date, once per payment', async () => {
     await h.db.pool.query('DELETE FROM centre_messages');
     await h.db.pool.query(
-      "INSERT INTO billing_orders (id, institute_id, plan_id, amount, provider, link_id, url, created_by) VALUES (?, ?, 'standard', ?, 'razorpay', 'link_1', '', ?)",
-      [newId(), A.instituteId, PLANS.standard.pricePaise, A.userId],
+      "INSERT INTO billing_orders (id, institute_id, plan_id, cycle, amount, provider, link_id, url, created_by) VALUES (?, ?, 'standard', 'year', ?, 'razorpay', 'link_1', '', ?)",
+      [newId(), A.instituteId, PLANS.standard.prices.year, A.userId],
     );
-    const paid = { paymentId: 'pay_1', linkId: 'link_1', amountPaise: PLANS.standard.pricePaise };
+    const paid = {
+      paymentId: 'pay_1',
+      linkId: 'link_1',
+      amountPaise: PLANS.standard.prices.year,
+    };
     expect(await applyPaid(h.db.pool, 'razorpay', paid, h.clock.now)).toBe('applied');
     expect(await applyPaid(h.db.pool, 'razorpay', paid, h.clock.now)).toBe('duplicate');
     const rows = await centreRows();
@@ -273,7 +277,7 @@ describe('messages from Chalkpis to the centre', () => {
         t.instituteId,
       ]);
     await ends(A, 1.5);
-    await ends(B, 2.5); // a trial 2.5 days out is not yet due
+    await ends(B, 3.5); // a trial 3.5 days out is not yet due
     expect(await queuePlanReminders(h.db.pool, h.clock.now, LINKS)).toBe(1);
     expect(await queuePlanReminders(h.db.pool, h.clock.now, LINKS)).toBe(0);
     const [row] = await centreRows();
@@ -288,6 +292,28 @@ describe('messages from Chalkpis to the centre', () => {
     expect(link).toMatch(/^https:\/\/tutor\.chalkpis\.com\/pay\/[A-Za-z0-9_-]{38}$/);
     expect(parsePayToken(LINKS.secret, link.split('/').pop()!)).toBe(A.instituteId);
 
+    // a trial's last day is reminded once more
+    await ends(A, 0.5);
+    expect(await queuePlanReminders(h.db.pool, h.clock.now, LINKS)).toBe(1);
+    expect(await queuePlanReminders(h.db.pool, h.clock.now, LINKS)).toBe(0);
+    expect((await centreRows()).map((r) => r.ref).sort()).toEqual([
+      '2026-10-08-last',
+      '2026-10-09',
+    ]);
+    await ends(A, 30); // out of the window again
+
+    // a store subscription that renews by itself is not reminded about
+    await ends(B, 2.5, 'standard');
+    await h.db.pool.query(
+      "UPDATE subscriptions SET store = 'app_store', store_will_renew = 1 WHERE institute_id = ?",
+      [B.instituteId],
+    );
+    expect(await queuePlanReminders(h.db.pool, h.clock.now, LINKS)).toBe(0);
+    await h.db.pool.query(
+      'UPDATE subscriptions SET store = NULL, store_will_renew = NULL WHERE institute_id = ?',
+      [B.instituteId],
+    );
+
     // a paid plan is reminded 3 days ahead
     await ends(B, 2.5, 'standard');
     expect(await queuePlanReminders(h.db.pool, h.clock.now, LINKS)).toBe(1);
@@ -295,7 +321,7 @@ describe('messages from Chalkpis to the centre', () => {
     expect(JSON.parse(meena.vars!).slice(1, 2)).toEqual(['Standard plan for Meena Dance']);
 
     // sent with the banner as the header image
-    expect(await sendCentre()).toMatchObject({ sent: 2 });
+    expect(await sendCentre()).toMatchObject({ sent: 3 });
     expect(h.provider.sent.find((m) => m.templateId === '405')).toMatchObject({
       imageUrl: 'https://tutor.chalkpis.com/plan-renew.png',
     });

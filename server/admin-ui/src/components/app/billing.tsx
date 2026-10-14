@@ -35,45 +35,28 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { api, ApiError } from '@/lib/api';
 import { dateOnly, money, ymdIst } from '@/lib/format';
 import { go, useApi } from '@/lib/hooks';
-import type { Tone } from '@/lib/names';
 import { cn } from '@/lib/utils';
 import { Delta, Empty, Kpi } from './bits';
 import { confirmDialog } from './dialogs';
 import { Pill } from './pill';
+import {
+  DAY,
+  METHOD,
+  PLAN_INFO,
+  PLAN_KEYS,
+  STORE_NAME,
+  cycleName,
+  isPlan,
+  limitText,
+  paidVia,
+  planName,
+  planPrice,
+  subscriptionState,
+  type Cycle,
+  type PlanKey,
+  type SubFacts,
+} from '@/lib/plans';
 import { toast } from './toast';
-
-// ---------- the plan catalogue (the server's billing/plans.ts is the authority) ----------
-
-export type PlanKey = 'trial' | 'starter' | 'standard' | 'pro';
-export const PLAN_INFO: Record<PlanKey, { name: string; paise: number; months: number; students: number | null; batches: number | null }> = {
-  trial: { name: 'Free trial', paise: 0, months: 0, students: null, batches: null },
-  starter: { name: 'Starter', paise: 39900, months: 3, students: 50, batches: 3 },
-  standard: { name: 'Standard', paise: 69900, months: 6, students: 100, batches: 5 },
-  pro: { name: 'Pro', paise: 99900, months: 12, students: null, batches: null },
-};
-const PLAN_KEYS = Object.keys(PLAN_INFO) as PlanKey[];
-export const isPlan = (p?: string | null): p is PlanKey => !!p && p in PLAN_INFO;
-export const planName = (p?: string | null) => (isPlan(p) ? PLAN_INFO[p].name : p ? p[0]!.toUpperCase() + p.slice(1) : 'No plan');
-export const planPrice = (p?: string | null) =>
-  isPlan(p) && p !== 'trial' ? `${money(PLAN_INFO[p].paise)} every ${PLAN_INFO[p].months} months` : 'No charge';
-const limitText = (n: number | null | undefined) => (n == null ? 'Unlimited' : String(n));
-
-const DAY = 86_400_000;
-
-// ---------- where a subscription stands, in words anyone understands ----------
-
-export type SubFacts = { plan?: string | null; planActive?: boolean; expiresAt?: string | null };
-export type SubState = { key: 'none' | 'trial' | 'active' | 'ending' | 'ended'; label: string; tone: Tone; daysLeft: number | null };
-
-export function subscriptionState(s: SubFacts, now = Date.now()): SubState {
-  if (!s.plan) return { key: 'none', label: 'No plan', tone: 'neutral', daysLeft: null };
-  const end = s.expiresAt ? Date.parse(s.expiresAt) : 0;
-  if (!s.planActive || end <= now) return { key: 'ended', label: 'Ended', tone: 'red', daysLeft: 0 };
-  const daysLeft = Math.max(0, Math.ceil((end - now) / DAY));
-  if (daysLeft <= 7) return { key: 'ending', label: daysLeft <= 1 ? 'Ends today' : `Ends in ${daysLeft} days`, tone: 'orange', daysLeft };
-  if (s.plan === 'trial') return { key: 'trial', label: 'Trial', tone: 'blue', daysLeft };
-  return { key: 'active', label: 'Active', tone: 'green', daysLeft };
-}
 
 export function StatusBadge({ s, className }: { s: SubFacts; className?: string }) {
   const st = subscriptionState(s);
@@ -84,17 +67,20 @@ export function StatusBadge({ s, className }: { s: SubFacts; className?: string 
   );
 }
 
-/** "Paid via Razorpay", "Cash · recorded by admin"… */
-const GATEWAY: Record<string, string> = { razorpay: 'Razorpay', cashfree: 'Cashfree', phonepe: 'PhonePe', mock: 'Test payment' };
-const METHOD: Record<string, string> = { cash: 'Cash', upi: 'UPI', bank: 'Bank transfer', other: 'Other' };
-export const paidVia = (provider: string, method?: string | null) =>
-  provider === 'manual' ? `${METHOD[method ?? ''] ?? 'Offline'} · recorded by admin` : (GATEWAY[provider] ?? provider);
-
 // ---------- the subscription card on a centre ----------
 
+export type StoreFacts = {
+  name: string;
+  willRenew: boolean;
+  issue: string | null;
+  test: boolean;
+  thenUntil: string | null;
+};
 type CentreBilling = SubFacts & {
   id: string;
   name: string;
+  cycle?: string | null;
+  store?: StoreFacts | null;
   planStatus?: string | null;
   studentLimit?: number | null;
   batchLimit?: number | null;
@@ -131,7 +117,8 @@ export function SubscriptionCard({ c, onDone }: { c: CentreBilling; onDone: () =
   const st = subscriptionState(c);
   const [open, setOpen] = useState<'' | 'extend' | 'change' | 'record'>('');
   const plan = isPlan(c.plan) ? c.plan : null;
-  const period = plan === 'trial' ? 7 : plan ? PLAN_INFO[plan].months * 30.4 : 30;
+  const store = c.store ?? null;
+  const period = plan === 'trial' ? 14 : c.cycle === 'month' ? 30.4 : 365;
   const leftPct = st.daysLeft == null ? 0 : Math.min(100, Math.round((st.daysLeft / period) * 100));
 
   const endNow = async () => {
@@ -172,10 +159,10 @@ export function SubscriptionCard({ c, onDone }: { c: CentreBilling; onDone: () =
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => setOpen('change')}>
+              <DropdownMenuItem disabled={!!store} onSelect={() => setOpen('change')}>
                 <Repeat /> Change plan or dates
               </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" disabled={st.key === 'ended'} onSelect={() => void endNow()}>
+              <DropdownMenuItem variant="destructive" disabled={st.key === 'ended' || !!store} onSelect={() => void endNow()}>
                 <CircleStop /> End subscription now
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -185,12 +172,21 @@ export function SubscriptionCard({ c, onDone }: { c: CentreBilling; onDone: () =
       <CardContent className="grid gap-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <div className="text-2xl font-semibold tracking-tight">{planName(c.plan)}</div>
-            <div className="text-sm text-muted-foreground">{planPrice(c.plan)}</div>
+            <div className="text-2xl font-semibold tracking-tight">
+              {planName(c.plan)}
+              {c.cycle ? <span className="ml-2 text-base font-normal text-muted-foreground">{cycleName(c.cycle)}</span> : null}
+            </div>
+            <div className="text-sm text-muted-foreground">{planPrice(c.plan, c.cycle)}</div>
           </div>
           <div className="text-right">
             <div className="text-sm text-muted-foreground">
-              {st.key === 'ended' ? 'Ended on' : plan === 'trial' ? 'Trial ends' : 'Paid until'}
+              {st.key === 'ended'
+                ? 'Ended on'
+                : plan === 'trial'
+                  ? 'Trial ends'
+                  : store?.willRenew
+                    ? 'Renews on'
+                    : 'Paid until'}
             </div>
             <div className="font-medium">{c.expiresAt ? dateOnly(c.expiresAt) : '—'}</div>
           </div>
@@ -215,6 +211,28 @@ export function SubscriptionCard({ c, onDone }: { c: CentreBilling; onDone: () =
           </p>
         )}
 
+        {store ? (
+          <div
+            className={cn(
+              'grid gap-1 rounded-lg border px-3 py-2 text-sm',
+              store.issue ? 'border-amber-500/30 bg-amber-500/5' : 'bg-muted/40',
+            )}
+          >
+            <span className="font-medium">
+              Paid in the app through {STORE_NAME[store.name] ?? store.name}
+              {store.test ? <Pill tone="neutral" className="ml-2">Test purchase</Pill> : null}
+            </span>
+            <span className="text-muted-foreground">
+              {store.issue === 'billing'
+                ? 'The last renewal payment failed; the store keeps retrying while the owner updates their payment method.'
+                : store.willRenew
+                  ? 'Renews by itself. Apple / Google handle cancelling and refunds, so the plan cannot be changed or ended here.'
+                  : 'Cancelled by the owner: it runs to its end date and does not renew.'}
+              {store.thenUntil ? ` Earlier days resume after it, until ${dateOnly(store.thenUntil)}.` : ''}
+            </span>
+          </div>
+        ) : null}
+
         <div className="grid gap-3 sm:grid-cols-2">
           <Meter label="Students" used={c.students} limit={c.studentLimit} />
           <Meter label="Batches" used={c.batches} limit={c.batchLimit} />
@@ -227,7 +245,7 @@ export function SubscriptionCard({ c, onDone }: { c: CentreBilling; onDone: () =
           <Button variant="outline" onClick={() => setOpen('record')}>
             <IndianRupee /> Record a payment
           </Button>
-          <Button variant="outline" onClick={() => setOpen('change')}>
+          <Button variant="outline" disabled={!!store} onClick={() => setOpen('change')}>
             <Repeat /> Change plan
           </Button>
         </div>
@@ -330,8 +348,17 @@ function ExtendDialog({ c, onClose, onDone }: { c: CentreBilling; onClose: () =>
         <div className="grid gap-4">
           <Choice value={days} onChange={setDays} options={LENGTHS} />
           <Summary>
-            {st.key === 'ended' ? 'Starts today and runs until ' : `Now ends on ${dateOnly(c.expiresAt)}. After this it runs until `}
-            <strong>{dateOnly(until)}</strong>.
+            {c.store ? (
+              <>
+                {c.name} pays through {STORE_NAME[c.store.name] ?? c.store.name}, so these days are added after that
+                subscription ends.
+              </>
+            ) : (
+              <>
+                {st.key === 'ended' ? 'Starts today and runs until ' : `Now ends on ${dateOnly(c.expiresAt)}. After this it runs until `}
+                <strong>{dateOnly(until)}</strong>.
+              </>
+            )}
           </Summary>
           {err ? <p className="text-sm text-destructive">{err}</p> : null}
         </div>
@@ -349,7 +376,7 @@ function ExtendDialog({ c, onClose, onDone }: { c: CentreBilling; onClose: () =>
               })
             }
           >
-            <CalendarPlus /> Extend until {dateOnly(until)}
+            <CalendarPlus /> {c.store ? `Add ${LENGTHS.find((l) => l.value === days)?.label}` : `Extend until ${dateOnly(until)}`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -477,7 +504,8 @@ function ChangePlanDialog({ c, onClose, onDone }: { c: CentreBilling; onClose: (
 function RecordPaymentDialog({ c, onClose, onDone }: { c: CentreBilling; onClose: () => void; onDone: () => void }) {
   const first = isPlan(c.plan) && c.plan !== 'trial' ? c.plan : 'starter';
   const [plan, setPlan] = useState<Exclude<PlanKey, 'trial'>>(first);
-  const [rupees, setRupees] = useState(String(PLAN_INFO[first].paise / 100));
+  const [cycle, setCycle] = useState<Cycle>('year');
+  const [rupees, setRupees] = useState(String(PLAN_INFO[first].prices.year / 100));
   const [method, setMethod] = useState('upi');
   const [reference, setReference] = useState('');
   const [apply, setApply] = useState(true);
@@ -500,13 +528,28 @@ function RecordPaymentDialog({ c, onClose, onDone }: { c: CentreBilling; onClose
               columns={3}
               onChange={(p) => {
                 setPlan(p);
-                setRupees(String(PLAN_INFO[p].paise / 100));
+                setRupees(String(PLAN_INFO[p].prices[cycle] / 100));
               }}
               options={(['starter', 'standard', 'pro'] as const).map((k) => ({
                 value: k,
                 label: PLAN_INFO[k].name,
-                hint: `${money(PLAN_INFO[k].paise)} · ${PLAN_INFO[k].months} months`,
+                hint: `${money(PLAN_INFO[k].prices[cycle])} / ${cycle}`,
               }))}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label>For</Label>
+            <Choice
+              value={cycle}
+              columns={2}
+              onChange={(v) => {
+                setCycle(v);
+                setRupees(String(PLAN_INFO[plan].prices[v] / 100));
+              }}
+              options={[
+                { value: 'year' as const, label: '1 year' },
+                { value: 'month' as const, label: '1 month' },
+              ]}
             />
           </div>
           <div className="grid gap-2">
@@ -538,8 +581,9 @@ function RecordPaymentDialog({ c, onClose, onDone }: { c: CentreBilling; onClose
             <Switch checked={apply} onCheckedChange={setApply} />
           </label>
           <Summary>
-            <strong>{money(paise)}</strong> by {METHOD[method]} for {PLAN_INFO[plan].name}
-            {reference ? ` (${reference})` : ''}. {apply ? 'The plan starts now.' : 'The plan does not change.'}
+            <strong>{money(paise)}</strong> by {METHOD[method]} for {PLAN_INFO[plan].name}, {cycle === 'year' ? '1 year' : '1 month'}
+            {reference ? ` (${reference})` : ''}.{' '}
+            {apply ? (c.store ? 'Added after the store subscription ends.' : 'The plan starts now.') : 'The plan does not change.'}
           </Summary>
           {err ? <p className="text-sm text-destructive">{err}</p> : null}
         </div>
@@ -551,6 +595,7 @@ function RecordPaymentDialog({ c, onClose, onDone }: { c: CentreBilling; onClose
               void run(async () => {
                 const r = await api<{ plan: string; expiresAt: string }>('POST', `/admin/api/institutes/${c.id}/plan-payments`, {
                   planId: plan,
+                  cycle,
                   amountPaise: paise,
                   method,
                   reference,
@@ -576,12 +621,16 @@ export type PaymentRow = {
   instituteId?: string | null;
   centre?: string | null;
   plan: string | null;
+  cycle?: string | null;
   amount: number;
+  currency?: string;
+  net?: number | null;
+  test?: boolean;
   provider: string;
   method?: string | null;
   reference?: string | null;
   note?: string | null;
-  status?: 'paid' | 'refused';
+  status?: 'paid' | 'refused' | 'refunded';
   refusedBecause?: string | null;
   validUntil: string | null;
 };
@@ -597,9 +646,21 @@ export function PaymentsTable({ rows, showCentre = false, empty = 'No payments y
   const status = (r: PaymentRow) =>
     r.status === 'refused' ? (
       <Pill tone="red">Refused{r.refusedBecause ? ` · ${REFUSED[r.refusedBecause] ?? r.refusedBecause}` : ''}</Pill>
+    ) : r.status === 'refunded' ? (
+      <Pill tone="orange">Refunded</Pill>
+    ) : r.test ? (
+      <Pill tone="neutral">Test purchase</Pill>
     ) : (
       <Pill tone="green">Paid</Pill>
     );
+  const amount = (r: PaymentRow) =>
+    !r.currency || r.currency === 'INR' ? money(r.amount) : `${r.currency} ${(r.amount / 100).toFixed(2)}`;
+  // a store payment also shows what is left after the store's tax and commission
+  const net = (r: PaymentRow) =>
+    (r.provider === 'apple' || r.provider === 'google') && r.net != null && r.net !== r.amount && (!r.currency || r.currency === 'INR')
+      ? `${money(r.net)} net`
+      : null;
+  const plan = (r: PaymentRow) => `${planName(r.plan)}${r.cycle ? ` · ${cycleName(r.cycle)}` : ''}`;
   const ref = (r: PaymentRow) => r.reference ?? r.note ?? '';
   return (
     <>
@@ -631,8 +692,11 @@ export function PaymentsTable({ rows, showCentre = false, empty = 'No payments y
                     )}
                   </TableCell>
                 ) : null}
-                <TableCell>{planName(r.plan)}</TableCell>
-                <TableCell className="text-right font-medium tabular">{money(r.amount)}</TableCell>
+                <TableCell>{plan(r)}</TableCell>
+                <TableCell className="text-right font-medium tabular">
+                  {amount(r)}
+                  {net(r) ? <span className="block text-xs font-normal text-muted-foreground">{net(r)}</span> : null}
+                </TableCell>
                 <TableCell>
                   <span className="block">{paidVia(r.provider, r.method)}</span>
                   {ref(r) ? <span className="block max-w-56 truncate text-xs text-muted-foreground" title={ref(r)}>{ref(r)}</span> : null}
@@ -648,12 +712,12 @@ export function PaymentsTable({ rows, showCentre = false, empty = 'No payments y
         {rows.map((r) => (
           <div key={r.paymentId} className="grid gap-1 rounded-lg border p-3 text-sm">
             <div className="flex items-center justify-between gap-2">
-              <span className="font-medium tabular">{money(r.amount)}</span>
+              <span className="font-medium tabular">{amount(r)}</span>
               {status(r)}
             </div>
             {showCentre && r.centre ? <span className="font-medium">{r.centre}</span> : null}
             <span className="text-muted-foreground">
-              {planName(r.plan)} · {paidVia(r.provider, r.method)} · {dateOnly(r.at)}
+              {plan(r)} · {paidVia(r.provider, r.method)} · {dateOnly(r.at)}
               {r.validUntil ? ` · until ${dateOnly(r.validUntil)}` : ''}
             </span>
             {ref(r) ? <span className="truncate text-xs text-muted-foreground">{ref(r)}</span> : null}
@@ -716,16 +780,37 @@ export type BillingSummary = {
   revenueThisMonth: number;
   revenueLastMonth: number;
   revenueAllTime: number;
+  netThisMonth: number;
+  netAllTime: number;
   paymentsThisMonth: number;
   paymentsAllTime: number;
   mrr: number;
+  arr: number;
+  arpu: number;
   paying: number;
+  inStore: number;
   trials: number;
   endingSoon: number;
+  autoRenewing: number;
   ended: number;
   byPlan: Record<string, number>;
+  byCycle: { month: number; year: number; pack: number };
+  churnLastMonth: { paying: number; churned: number; rate: number | null };
 };
-export type BillingData = { summary: BillingSummary; payments: PaymentRow[] };
+export type SourceTotals = {
+  grossThisMonth: number;
+  netThisMonth: number;
+  grossAllTime: number;
+  netAllTime: number;
+  payments: number;
+};
+export type BillingData = {
+  summary: BillingSummary;
+  payments: PaymentRow[];
+  sources: Record<'appStore' | 'googlePlay' | 'website' | 'manual', SourceTotals>;
+  months: { month: string; gross: number; net: number; payments: number }[];
+  conversion: { month: string; signups: number; paid: number }[];
+};
 
 /** Recurring revenue, this month's money, and the subscriptions that need attention. Tapping a count filters the list. */
 export function BillingKpis({ onPick }: { onPick?: (view: 'paying' | 'trial' | 'ending' | 'ended') => void }) {
@@ -737,7 +822,7 @@ export function BillingKpis({ onPick }: { onPick?: (view: 'paying' | 'trial' | '
       <Kpi
         label="Monthly recurring revenue"
         value={v(money(s?.mrr))}
-        hint={s ? `From ${s.paying} paying ${s.paying === 1 ? 'centre' : 'centres'}` : undefined}
+        hint={s ? `${money(s.arr)} a year · from ${s.paying} paying ${s.paying === 1 ? 'centre' : 'centres'}` : undefined}
         onClick={onPick ? () => onPick('paying') : undefined}
       />
       <Kpi
@@ -754,7 +839,7 @@ export function BillingKpis({ onPick }: { onPick?: (view: 'paying' | 'trial' | '
       <Kpi
         label="Ending in 7 days"
         value={v(s?.endingSoon)}
-        hint="Remind them to renew"
+        hint={s?.autoRenewing ? `Not counting ${s.autoRenewing} renewing in the app` : 'Remind them to renew'}
         onClick={onPick ? () => onPick('ending') : undefined}
       />
       <Kpi

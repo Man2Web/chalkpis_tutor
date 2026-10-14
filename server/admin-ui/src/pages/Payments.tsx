@@ -12,13 +12,15 @@ import { cn } from '@/lib/utils';
 const VIEWS = [
   ['all', 'All'],
   ['paid', 'Paid'],
+  ['refunded', 'Refunded'],
   ['refused', 'Refused'],
+  ['test', 'Store tests'],
 ] as const;
 
-/** Every plan payment: through the payment link (Razorpay) or recorded by an admin, with the money it brought in. */
+/** Every plan payment: in the store apps, through the payment link (Razorpay) or recorded by an admin. */
 export function Payments() {
   const [q, setQ] = useState('');
-  const [status, setStatus] = useState<'all' | 'paid' | 'refused'>('all');
+  const [status, setStatus] = useState<(typeof VIEWS)[number][0]>('all');
   const dq = useDebounced(q.trim(), 280);
   const { data, error, loading, reload } = useApi<BillingData>(
     `/admin/api/billing?status=${status}&q=${encodeURIComponent(dq)}&limit=300`,
@@ -28,7 +30,7 @@ export function Payments() {
     <div className="grid gap-6">
       <PageHeader
         title="Payments"
-        description="Every plan payment, newest first: paid online through the payment link, or recorded by an admin (cash, bank, UPI). Refused ones were not applied, usually because the amount did not match the plan."
+        description="Every plan payment, newest first: in the iPhone and Android apps (App Store, Google Play), on the website (Razorpay), or recorded by an admin (cash, bank, UPI). Refused ones were not applied, usually because the amount did not match the plan. Store tests are App Review and tester purchases; they are not revenue."
       />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Kpi

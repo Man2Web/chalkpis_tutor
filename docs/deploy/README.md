@@ -53,7 +53,7 @@ an hour), the payer pays on Razorpay's own page (UPI, cards, net banking, wallet
 return page, the app, the owner's plan page and an hourly job all do), always at the exact plan price and once per
 payment id, so a closed browser or a missed webhook never loses a payment.
 
-Where tutors pay (never inside the store apps, which only show the plan):
+Where tutors pay on the web (inside the iPhone and Android apps they subscribe through the store instead, see below):
 
 - **`/plan`, the billing page.** The owner signs in with their mobile number and a WhatsApp code (it never creates an
   account), sees the plan, usage and past payments with printable receipts, and pays. The session is a signed,
@@ -61,7 +61,20 @@ Where tutors pay (never inside the store apps, which only show the plan):
 - **`/pay/<token>`, one centre's pay page without signing in**, for links sent on WhatsApp (admin dashboard > centre >
   Plan & billing > Payment link).
 
-Without any payment settings both pages say online payment is not switched on. `TRIAL_DAYS` (90) is how long a new tutor can work before the app becomes read-only.
+Without any payment settings both pages say online payment is not switched on. `TRIAL_DAYS` (14) is how long a new tutor can work before the app becomes read-only.
+
+## In-app subscriptions (App Store, Google Play)
+
+Inside the apps, owners subscribe monthly or yearly through Apple or Google, via **RevenueCat** (decision 145). Four
+more settings, set in Coolify like the others (setup steps: docs/SETUP.md 4c):
+
+- `REVENUECAT_SECRET_KEY`: RevenueCat > Project settings > API keys > secret key (`sk_...`). The server reads a
+  centre's subscription with it.
+- `REVENUECAT_WEBHOOK_AUTH`: a secret you make up (16+ characters). In RevenueCat > Integrations > Webhooks: URL
+  `https://tutor.chalkpis.com/billing/webhooks/revenuecat`, Authorization header value the same secret, all events,
+  production and sandbox.
+- `REVENUECAT_IOS_KEY`, `REVENUECAT_ANDROID_KEY`: the public app keys (`appl_...`, `goog_...`). The apps get them from
+  the server; without them the apps show the plan only, so this is also the switch to turn in-app buying off.
 
 ## Backups (running)
 

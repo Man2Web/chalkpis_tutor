@@ -12,7 +12,7 @@ type Props = {
   limit?: number | null;
 };
 
-/** Shown when a plan limit (or an expired plan) blocks an add. Billing arrives in Phase 2. */
+/** Shown when a plan limit (or an expired plan) blocks an add; it opens Plans & billing, where the owner subscribes. */
 export function UpgradePrompt({ visible, onClose, kind, limit }: Props) {
   const { t } = useTranslation();
   const nav = useNavigation<{ navigate: (route: 'Billing') => void }>();

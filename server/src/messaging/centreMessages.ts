@@ -20,8 +20,11 @@ const RETRY_MINUTES = [2, 15];
 /** A message stuck in "sending" this long (the server stopped mid-send) goes back in the queue. */
 const STALE_MINUTES = 10;
 const E164 = /^\+[1-9]\d{9,14}$/;
-/** How many days before a free trial (and a paid plan) ends its owner is reminded, with the pay link. */
-export const PLAN_REMINDER_DAYS = { trial: 2, paid: 3 } as const;
+/**
+ * How many days before a free trial (and a paid plan) ends its owner is reminded, with the pay link. A trial is
+ * reminded once more on its last day.
+ */
+export const PLAN_REMINDER_DAYS = { trial: 3, paid: 3 } as const;
 /**
  * An ended plan is reminded about only if it ended this recently, so the reminder starts with the next plan to end
  * instead of waking up every centre whose plan ended long ago.
@@ -172,9 +175,11 @@ export async function queuePlanReminders(
 ): Promise<number> {
   const DAY = 86_400_000;
   const [rows] = (await pool.query(
+    // a store subscription that renews by itself is not "ending" (it is reminded about if the owner cancels it)
     `SELECT institute_id, plan, expires_at FROM subscriptions
-      WHERE (expires_at > ? AND expires_at <= IF(plan = 'trial', ?, ?))
-         OR (expires_at <= ? AND expires_at > ?)`,
+      WHERE ((expires_at > ? AND expires_at <= IF(plan = 'trial', ?, ?))
+         OR (expires_at <= ? AND expires_at > ?))
+        AND NOT (store IS NOT NULL AND store_will_renew = 1)`,
     [
       now,
       new Date(now.getTime() + PLAN_REMINDER_DAYS.trial * DAY),
@@ -188,7 +193,11 @@ export async function queuePlanReminders(
     const c = await centre(pool, r.institute_id);
     if (!c) continue;
     const type = r.expires_at.getTime() <= now.getTime() ? 'plan_ended' : 'plan_ending';
-    // the same news in the app (informational only: the store apps never point to paying). Sent whether or not the
+    // a trial's last day gets its own reminder (the first one came about three days before)
+    const last =
+      r.plan === 'trial' && type === 'plan_ending' && r.expires_at.getTime() - now.getTime() <= DAY;
+    const ref = `${r.expires_at.toISOString().slice(0, 10)}${last ? '-last' : ''}`;
+    // the same news in the app (it opens Plans & billing, where owners subscribe in the store). Sent whether or not the
     // WhatsApp one can go (an owner without a phone, a template not set yet); push_log keeps it to once per end date.
     const label =
       r.plan === 'trial' ? 'free trial' : `${PLANS[r.plan as PlanId]?.name ?? 'Chalkpis'} plan`;
@@ -196,16 +205,16 @@ export async function queuePlanReminders(
       pool,
       links.push ?? null,
       [c.owner_id],
-      `plan_${type}_${r.institute_id}_${r.expires_at.toISOString().slice(0, 10)}`,
+      `plan_${type}_${r.institute_id}_${ref}`,
       {
         title:
           type === 'plan_ended'
             ? `Your ${label} has ended`
-            : `Your ${label} ends on ${day(r.expires_at)}`,
+            : `${last ? 'Last reminder: your' : 'Your'} ${label} ends on ${day(r.expires_at)}`,
         body:
           type === 'plan_ended'
-            ? 'Your data is safe, and you can still see everything in Chalkpis.'
-            : 'Open Plans & billing to see your plan details.',
+            ? 'Your data is safe. Choose a plan in Plans & billing to keep adding students, attendance and fees.'
+            : 'Choose a plan in Plans & billing to keep everything running. Plans start at ₹5 a day.',
         screen: 'Billing',
       },
     );
@@ -219,7 +228,7 @@ export async function queuePlanReminders(
       {
         instituteId: r.institute_id,
         type,
-        ref: r.expires_at.toISOString().slice(0, 10),
+        ref,
         userId: c.owner_id,
         vars: [
           ownerName(c),

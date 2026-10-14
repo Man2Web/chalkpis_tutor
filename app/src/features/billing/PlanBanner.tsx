@@ -27,17 +27,25 @@ export function PlanBanner() {
     },
     Date.now(),
   );
+  // a store subscription renewing by itself is not "ending"; one whose payment failed needs the owner
+  const issue = !s.expired && l.store?.issue === 'billing';
+  if (issue) s.banner = 'storeIssue';
+  else if (s.banner === 'expiringSoon' && l.store?.willRenew) return null;
   if (!s.banner || s.banner === 'trial') return null;
+  const title = t(`billing.banner.${s.banner}`, {
+    count: s.daysLeft,
+    store: t(`billing.store.${l.store?.name ?? 'app_store'}`),
+  });
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={t(`billing.banner.${s.banner}`, { count: s.daysLeft })}
+      accessibilityLabel={title}
       onPress={() => nav.navigate('Billing')}
     >
       <Alert variant={s.banner === 'expired' ? 'destructive' : 'warning'}>
         <Alert.Indicator />
         <Alert.Content>
-          <Alert.Title>{t(`billing.banner.${s.banner}`, { count: s.daysLeft })}</Alert.Title>
+          <Alert.Title>{title}</Alert.Title>
           <Alert.Description>{t('billing.seePlans')}</Alert.Description>
         </Alert.Content>
       </Alert>

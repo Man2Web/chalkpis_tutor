@@ -121,7 +121,9 @@ describe('admin: full control of a subscription', () => {
       paymentsAllTime: 2,
       paying: 1,
       trials: 1,
-      mrr: Math.round(99900 / 12),
+      mrr: Math.round(499900 / 12), // recorded as Pro for a year: its list price spread over 12 months
+      arr: 499900,
+      byCycle: { month: 0, year: 1, pack: 0 },
     });
     expect(b.payments).toHaveLength(2);
     expect(b.payments[0]).toMatchObject({

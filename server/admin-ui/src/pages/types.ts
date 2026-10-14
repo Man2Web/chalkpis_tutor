@@ -24,6 +24,8 @@ export type CentreRow = {
   planActive: boolean;
   expiresAt: string | null;
   planStatus?: string | null;
+  cycle?: string | null;
+  store?: import('@/components/app/billing').StoreFacts | null;
   studentLimit?: number | null;
   batchLimit?: number | null;
   students: number;

@@ -1,6 +1,17 @@
 import { useIdempotencyKey } from '../../api/idempotency';
 import { useEffect, useRef, useState } from 'react';
-import { AppState, Platform, RefreshControl, ScrollView, Text, View } from 'react-native';
+import {
+  AppState,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
   BottomSheet,
@@ -9,24 +20,43 @@ import {
   Chip,
   EmptyState,
   Screen,
+  Segmented,
   Skeleton,
   toast,
 } from '../../components';
 import {
+  useBillingCatalogue,
   useBillingHistory,
+  useInstituteId,
   useLimits,
-  usePaymentsAvailable,
   useRefreshData,
+  type Limits,
 } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
 import { open } from '../../lib/contact';
 import { toYmd, fullDate } from '../../lib/dates';
 import { formatINR } from '../../lib/money';
+import {
+  buyOffer,
+  manageStore,
+  restoreStore,
+  startStore,
+  storeAvailable,
+  storeOffers,
+  type StoreOffer,
+} from '../../lib/purchases';
+import type { MainStackParams } from '../../navigation/types';
 import { colors, radius, spacing, type, font } from '../../theme';
-import { checkPlanOrder, createPlanLink, mockCompletePayment, type PlanLink } from './api';
+import {
+  checkPlanOrder,
+  createPlanLink,
+  mockCompletePayment,
+  syncStorePlan,
+  type PlanLink,
+} from './api';
 import { billingError } from './errors';
-import { planAction, subscriptionState, usageFraction, usageLevel } from './logic';
-import { PLANS, type PlanId } from './plans';
+import { planAction, storeAction, subscriptionState, usageFraction, usageLevel } from './logic';
+import { rupeesPerDay, type Cycle, type PlanId, type PlanInfo } from './plans';
 
 const LEVEL_COLOR = { ok: colors.primary, near: colors.warning, full: colors.danger } as const;
 
@@ -55,25 +85,106 @@ function Meter({ label, used, limit }: { label: string; used: number; limit: num
   );
 }
 
+/** One plan card: name, price, the small print under it, the limits and its button. */
+function PlanCard({
+  plan,
+  price,
+  per,
+  note,
+  button,
+}: {
+  plan: PlanInfo;
+  price: string;
+  per: string;
+  note: string | null;
+  button: React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Card
+      style={{
+        gap: spacing.sm,
+        borderRadius: radius.xl,
+        ...(plan.popular ? { borderWidth: 2, borderColor: colors.primary } : null),
+      }}
+    >
+      {plan.popular ? (
+        <View style={{ alignSelf: 'flex-start' }}>
+          <Chip label={t('billing.popular')} tone="accent" />
+        </View>
+      ) : null}
+      <View
+        style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}
+      >
+        <Text style={type.heading}>{t(`billing.plan.${plan.id}`)}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+          <Text style={[type.heading, { fontSize: 22, ...font('700') }]}>{price}</Text>
+          <Text style={type.caption}>{per}</Text>
+        </View>
+      </View>
+      {note ? <Text style={[type.caption, { color: colors.primaryDark }]}>{note}</Text> : null}
+      <Text style={type.body}>
+        {plan.studentLimit === null
+          ? t('billing.unlimitedStudents')
+          : t('billing.upToStudents', { count: plan.studentLimit })}
+      </Text>
+      <Text style={type.body}>
+        {plan.batchLimit === null
+          ? t('billing.unlimitedBatches')
+          : t('billing.upToBatches', { count: plan.batchLimit })}
+      </Text>
+      {button}
+    </Card>
+  );
+}
+
+/**
+ * Plans & billing, for the owner: the plan, its usage, and buying.
+ * - iPhone / Android: auto-renewing App Store / Google Play subscriptions (store prices, the ₹49 first month for those
+ *   who can still get it, Restore and Manage), the only way a store app may sell a plan. With no store keys from the
+ *   server it shows the plan only.
+ * - Web: the website's one-time Razorpay payment, for a month or a year.
+ */
 export function BillingScreen() {
   const { t, i18n } = useTranslation();
+  const nav = useNavigation<NativeStackNavigationProp<MainStackParams>>();
   const idem = useIdempotencyKey();
   const locale = i18n.language === 'hi' ? 'hi-IN' : 'en-IN';
+  const instituteId = useInstituteId();
   const limits = useLimits();
   const history = useBillingHistory();
-  const payments = usePaymentsAvailable();
-  // Plans are never bought inside the store apps: Apple (3.1.1) and Google Play only allow their own billing for in-app
-  // purchases, so the iPhone and Android apps show the plan and its limits only. In the browser, unknown while loading
-  // counts as available; only a clear "no" from the server hides the buy buttons.
-  const canPay = Platform.OS === 'web' && payments.data !== false;
+  const catalogue = useBillingCatalogue();
   const refresh = useRefreshData();
-  const [busyPlan, setBusyPlan] = useState<PlanId | null>(null);
-  const [link, setLink] = useState<{ plan: PlanId; data: PlanLink } | null>(null);
+  const [cycle, setCycle] = useState<Cycle>('year');
+
+  const storeKey =
+    Platform.OS === 'ios'
+      ? catalogue.data?.store?.ios
+      : Platform.OS === 'android'
+        ? catalogue.data?.store?.android
+        : null;
+  const inStore = storeAvailable && !!storeKey;
+  // In the browser, unknown while loading counts as available; only a clear "no" from the server hides the buttons.
+  const canPayWeb = Platform.OS === 'web' && catalogue.data?.paymentsAvailable !== false;
+  const offers = useQuery({
+    queryKey: ['storeOffers', instituteId, storeKey],
+    enabled: inStore,
+    staleTime: 5 * 60_000,
+    retry: 1,
+    queryFn: async () => {
+      await startStore(storeKey!, instituteId);
+      return storeOffers();
+    },
+  });
+
+  const [busy, setBusy] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  const [link, setLink] = useState<{ plan: PlanId; cycle: Cycle; data: PlanLink } | null>(null);
   const [paying, setPaying] = useState(false);
   const [checking, setChecking] = useState(false);
 
-  // While a checkout is open, ask the server where the order stands: when the tutor comes back to the app, and every
-  // few seconds for ten minutes. The plan switches on here the moment PhonePe confirms, with no button to press.
+  // Web: while a checkout is open, ask the server where the order stands: when the tutor comes back to the app, and
+  // every few seconds for ten minutes. The plan switches on here the moment Razorpay confirms.
   const pending = link?.data.provider === 'gateway' ? link.data.referenceId : null;
   const settled = useRef(false);
   const check = async (orderId: string, manual = false) => {
@@ -147,18 +258,69 @@ export function BillingScreen() {
     Date.now(),
   );
   const planName = (id: string) => t(`billing.plan.${id}`, { defaultValue: id });
+  const date = (ms: number) => fullDate(toYmd(new Date(ms)), locale);
+  const expiryText = l.expiresAtMs ? date(l.expiresAtMs) : '—';
+  const storeName = (n: NonNullable<Limits['store']>['name']) => t(`billing.store.${n}`);
+  const plans = catalogue.data?.plans ?? [];
+
+  // ---- store (iPhone / Android) ----
+
+  const afterStore = async (done: () => void) => {
+    // the server reads the store subscription at once (its webhook does the same moments later)
+    await syncStorePlan().catch(reportError);
+    await refresh();
+    done();
+  };
+  const buy = async (o: StoreOffer) => {
+    setBusy(o.productId);
+    try {
+      const r = await buyOffer(o, l.store?.product ?? null);
+      if (r === 'cancelled') return;
+      if (r === 'pending') {
+        toast(t('billing.pending'));
+        return;
+      }
+      await afterStore(() => toast(t('billing.activated'), 'success'));
+    } catch (e) {
+      reportError(e);
+      toast(t('billing.storeFailed'), 'error');
+    } finally {
+      setBusy(null);
+    }
+  };
+  const restore = async () => {
+    setRestoring(true);
+    try {
+      await restoreStore();
+      const r = await syncStorePlan();
+      await refresh();
+      toast(t(r.state === 'store' ? 'billing.restored' : 'billing.nothingToRestore'));
+    } catch (e) {
+      reportError(e);
+      toast(t('billing.storeFailed'), 'error');
+    } finally {
+      setRestoring(false);
+    }
+  };
+  const manage = () =>
+    manageStore().catch((e) => {
+      reportError(e);
+      toast(t('students.cannotOpen'), 'error');
+    });
+
+  // ---- website (web app) ----
 
   const choose = async (planId: PlanId) => {
-    setBusyPlan(planId);
+    setBusy(planId);
     try {
-      // per plan: a retry after a lost answer gets the same order, while picking another plan is a new one
-      const data = await createPlanLink(planId, { idempotencyKey: `${idem.key}-${planId}` });
+      // per plan and cycle: a retry after a lost answer gets the same order, another choice is a new one
+      const data = await createPlanLink(planId, cycle, {
+        idempotencyKey: `${idem.key}-${planId}-${cycle}`,
+      });
       idem.reset();
-      if (data.provider === 'mock') setLink({ plan: planId, data });
-      else {
-        setLink({ plan: planId, data });
-        if (!(await open(data.url))) toast(t('students.cannotOpen'), 'error');
-      }
+      setLink({ plan: planId, cycle, data });
+      if (data.provider !== 'mock' && !(await open(data.url)))
+        toast(t('students.cannotOpen'), 'error');
     } catch (e) {
       idem.settle(e);
       if (billingError(e) === 'not-configured') toast(t('billing.notConfigured'), 'error');
@@ -167,10 +329,9 @@ export function BillingScreen() {
         toast(t('billing.failed'), 'error');
       }
     } finally {
-      setBusyPlan(null);
+      setBusy(null);
     }
   };
-
   const simulate = async () => {
     if (!link) return;
     setPaying(true);
@@ -187,11 +348,98 @@ export function BillingScreen() {
     }
   };
 
-  const checkNow = async () => {
-    if (link) await check(link.data.referenceId, true);
+  const cycleSwitch = (
+    <Segmented
+      options={[
+        { value: 'year' as const, label: t('billing.yearly') },
+        { value: 'month' as const, label: t('billing.monthly') },
+      ]}
+      value={cycle}
+      onChange={setCycle}
+    />
+  );
+  // a running trial or website plan is kept for after a new store subscription (the server banks those days)
+  const keptNote =
+    inStore && !l.store && !state.expired
+      ? t(l.plan === 'trial' ? 'billing.keptTrial' : 'billing.keptPaid', { date: expiryText })
+      : null;
+
+  const storeCards = () => {
+    if (offers.isLoading) return <Skeleton height={200} />;
+    const list = (offers.data ?? []).filter((o) => o.cycle === cycle);
+    if (!list.length)
+      return (
+        <Card>
+          <Text style={type.body}>{t('billing.storeUnavailable')}</Text>
+          <Button variant="ghost" title={t('common.retry')} onPress={() => void offers.refetch()} />
+        </Card>
+      );
+    return plans.map((p) => {
+      const o = list.find((x) => x.plan === p.id);
+      if (!o) return null;
+      const action = storeAction(l.store?.product ?? null, o.productId);
+      const note =
+        o.intro && o.cycle === 'month'
+          ? t('billing.intro', { intro: o.intro, price: o.price })
+          : o.currency === 'INR'
+            ? t('billing.perDay', { amount: rupeesPerDay(o.amount * 100, o.cycle) })
+            : null;
+      return (
+        <PlanCard
+          key={p.id}
+          plan={p}
+          price={o.price}
+          per={t(o.cycle === 'year' ? 'billing.perYear' : 'billing.perMonth')}
+          note={note}
+          button={
+            <Button
+              variant={action === 'current' ? 'secondary' : p.popular ? 'primary' : 'secondary'}
+              title={
+                action === 'current'
+                  ? t('billing.currentPlan')
+                  : action === 'switch'
+                    ? t('billing.switchTo', { plan: planName(p.id) })
+                    : o.intro && o.cycle === 'month'
+                      ? t('billing.startFor', { intro: o.intro })
+                      : t('billing.subscribe')
+              }
+              onPress={() => void buy(o)}
+              loading={busy === o.productId}
+              disabled={action === 'current' || busy !== null}
+            />
+          }
+        />
+      );
+    });
   };
 
-  const expiryText = l.expiresAtMs ? fullDate(toYmd(new Date(l.expiresAtMs)), locale) : '—';
+  const webCards = () =>
+    plans.map((p) => {
+      const action = planAction({ plan: l.plan, expired: state.expired }, p.id);
+      const price = p.prices[cycle];
+      return (
+        <PlanCard
+          key={p.id}
+          plan={p}
+          price={formatINR(price)}
+          per={t(cycle === 'year' ? 'billing.perYear' : 'billing.perMonth')}
+          note={t('billing.perDay', { amount: rupeesPerDay(price, cycle) })}
+          button={
+            <Button
+              variant={action === 'renew' || !p.popular ? 'secondary' : 'primary'}
+              title={t(action === 'renew' ? 'billing.renew' : 'billing.choose', {
+                plan: planName(p.id),
+              })}
+              onPress={() => void choose(p.id)}
+              loading={busy === p.id}
+              disabled={busy !== null}
+            />
+          }
+        />
+      );
+    });
+
+  const accountName = Platform.OS === 'ios' ? 'Apple ID' : 'Google Play';
 
   return (
     <Screen padded={false}>
@@ -207,7 +455,10 @@ export function BillingScreen() {
           <View
             style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
           >
-            <Text style={type.heading}>{planName(l.plan)}</Text>
+            <Text style={type.heading}>
+              {planName(l.plan)}
+              {l.cycle ? ` · ${t(l.cycle === 'year' ? 'billing.yearly' : 'billing.monthly')}` : ''}
+            </Text>
             <Chip
               label={t(state.expired ? 'billing.expired' : 'billing.active')}
               tone={state.expired ? 'danger' : 'success'}
@@ -216,8 +467,22 @@ export function BillingScreen() {
           <Text style={type.caption}>
             {state.expired
               ? t('billing.endedOn', { date: expiryText })
-              : t('billing.endsOn', { date: expiryText, count: state.daysLeft })}
+              : l.store?.willRenew
+                ? t('billing.renewsOn', { date: expiryText, store: storeName(l.store.name) })
+                : l.store
+                  ? t('billing.endsNoRenew', { date: expiryText })
+                  : t('billing.endsOn', { date: expiryText, count: state.daysLeft })}
           </Text>
+          {l.store?.issue === 'billing' && !state.expired ? (
+            <Text style={[type.caption, { color: colors.danger }]}>
+              {t('billing.storeIssue', { store: storeName(l.store.name) })}
+            </Text>
+          ) : null}
+          {l.store?.thenUntilMs ? (
+            <Text style={type.caption}>
+              {t('billing.thenUntil', { date: date(l.store.thenUntilMs) })}
+            </Text>
+          ) : null}
           {state.expired ? (
             <Text style={[type.caption, { color: colors.danger }]}>{t('billing.readOnly')}</Text>
           ) : null}
@@ -229,55 +494,72 @@ export function BillingScreen() {
           <Meter label={t('home.batches')} used={l.batchCount} limit={l.batchLimit} />
         </Card>
 
-        {!canPay ? (
+        {inStore || canPayWeb ? (
+          <>
+            <Text style={[type.heading, { fontSize: 20, paddingHorizontal: 4 }]}>
+              {t(l.store ? 'billing.changePlan' : 'billing.choosePlan')}
+            </Text>
+            {cycleSwitch}
+            <Text style={[type.caption, { paddingHorizontal: 4 }]}>
+              {t(cycle === 'year' ? 'billing.yearlySaves' : 'billing.monthlyNote')}
+            </Text>
+            {keptNote ? (
+              <Text style={[type.caption, { paddingHorizontal: 4 }]}>{keptNote}</Text>
+            ) : null}
+            {inStore ? storeCards() : webCards()}
+            {inStore ? (
+              <View style={{ gap: spacing.sm }}>
+                <Text style={[type.caption, { paddingHorizontal: 4 }]}>
+                  {t('billing.autoRenewNote', {
+                    account: accountName,
+                    where: t(Platform.OS === 'ios' ? 'billing.whereIos' : 'billing.whereAndroid'),
+                  })}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: spacing.lg, paddingHorizontal: 4 }}>
+                  <Pressable
+                    accessibilityRole="link"
+                    onPress={() => nav.navigate('Legal', { doc: 'terms' })}
+                    hitSlop={8}
+                  >
+                    <Text style={[type.caption, { color: colors.primaryDark }]}>
+                      {t('billing.terms')}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="link"
+                    onPress={() => nav.navigate('Legal', { doc: 'privacy' })}
+                    hitSlop={8}
+                  >
+                    <Text style={[type.caption, { color: colors.primaryDark }]}>
+                      {t('billing.privacy')}
+                    </Text>
+                  </Pressable>
+                </View>
+                <Button
+                  variant="ghost"
+                  title={t('billing.restore')}
+                  onPress={() => void restore()}
+                  loading={restoring}
+                  disabled={busy !== null}
+                />
+                {l.store ? (
+                  <Button
+                    variant="ghost"
+                    title={t('billing.manage')}
+                    onPress={() => void manage()}
+                  />
+                ) : null}
+              </View>
+            ) : (
+              <Text style={[type.caption, { paddingHorizontal: 4 }]}>{t('billing.webNote')}</Text>
+            )}
+          </>
+        ) : (
           <Card style={{ gap: spacing.xs }}>
             <Text style={type.heading}>{t('billing.paymentsOffTitle')}</Text>
             <Text style={type.body}>{t('billing.paymentsOffMessage')}</Text>
           </Card>
-        ) : (
-          <Text style={[type.heading, { fontSize: 20, paddingHorizontal: 4 }]}>
-            {t('billing.choosePlan')}
-          </Text>
         )}
-        {(canPay ? PLANS : []).map((p) => {
-          const action = planAction({ plan: l.plan, expired: state.expired }, p.id);
-          return (
-            <Card key={p.id} style={{ gap: spacing.sm }}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'baseline',
-                }}
-              >
-                <Text style={type.heading}>{planName(p.id)}</Text>
-                <Text style={[type.heading, { fontSize: 22, ...font('700') }]}>
-                  {formatINR(p.pricePaise)}
-                </Text>
-              </View>
-              <Text style={type.caption}>{t('billing.forMonths', { count: p.months })}</Text>
-              <Text style={type.body}>
-                {p.studentLimit === null
-                  ? t('billing.unlimitedStudents')
-                  : t('billing.upToStudents', { count: p.studentLimit })}
-              </Text>
-              <Text style={type.body}>
-                {p.batchLimit === null
-                  ? t('billing.unlimitedBatches')
-                  : t('billing.upToBatches', { count: p.batchLimit })}
-              </Text>
-              <Button
-                variant={action === 'renew' ? 'secondary' : 'primary'}
-                title={t(action === 'renew' ? 'billing.renew' : 'billing.choose', {
-                  plan: planName(p.id),
-                })}
-                onPress={() => choose(p.id)}
-                loading={busyPlan === p.id}
-                disabled={busyPlan !== null}
-              />
-            </Card>
-          );
-        })}
 
         <Text style={[type.heading, { fontSize: 20, paddingHorizontal: 4, marginTop: spacing.sm }]}>
           {t('billing.history')}
@@ -297,11 +579,32 @@ export function BillingScreen() {
                 borderTopColor: colors.border,
               }}
             >
-              <View>
-                <Text style={type.body}>{planName(r.planId)}</Text>
-                <Text style={type.caption}>{fullDate(toYmd(r.createdAt.toDate()), locale)}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={type.body}>
+                  {planName(r.planId)}
+                  {r.cycle
+                    ? ` · ${t(r.cycle === 'year' ? 'billing.yearly' : 'billing.monthly')}`
+                    : ''}
+                </Text>
+                <Text style={type.caption}>
+                  {fullDate(toYmd(r.createdAt.toDate()), locale)}
+                  {r.provider === 'apple' || r.provider === 'google'
+                    ? ` · ${t(`billing.paidVia.${r.provider}`)}`
+                    : ''}
+                </Text>
               </View>
-              <Text style={type.label}>{formatINR(r.amountPaise)}</Text>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={type.label}>
+                  {r.currency === 'INR'
+                    ? formatINR(r.amountPaise)
+                    : `${r.currency} ${(r.amountPaise / 100).toFixed(2)}`}
+                </Text>
+                {r.refunded ? (
+                  <Text style={[type.caption, { color: colors.danger }]}>
+                    {t('billing.refunded')}
+                  </Text>
+                ) : null}
+              </View>
             </View>
           ))}
         </Card>
@@ -317,7 +620,7 @@ export function BillingScreen() {
             <Text style={type.body}>{t('billing.testMode')}</Text>
             <Button
               title={t('billing.simulatePay', {
-                amount: formatINR(PLANS.find((p) => p.id === link.plan)?.pricePaise ?? 0),
+                amount: formatINR(plans.find((p) => p.id === link.plan)?.prices[link.cycle] ?? 0),
               })}
               onPress={simulate}
               loading={paying}
@@ -332,7 +635,11 @@ export function BillingScreen() {
         ) : (
           <View style={{ gap: spacing.sm }}>
             <Text style={type.body}>{t('billing.completeInBrowser')}</Text>
-            <Button title={t('billing.paidRefresh')} onPress={checkNow} loading={checking} />
+            <Button
+              title={t('billing.paidRefresh')}
+              onPress={() => link && void check(link.data.referenceId, true)}
+              loading={checking}
+            />
             <Button
               variant="ghost"
               title={t('billing.openAgain')}

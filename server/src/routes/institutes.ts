@@ -127,27 +127,48 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
 
   app.get('/subscription', { preHandler: [auth, requireInstitute] }, async (req) => {
     const [rows] = (await deps.pool.query(
-      'SELECT plan, status, starts_at, expires_at, student_limit, batch_limit FROM subscriptions WHERE institute_id = ?',
+      `SELECT plan, cycle, status, starts_at, expires_at, student_limit, batch_limit, store, store_product,
+              store_will_renew, store_issue, banked_ms
+         FROM subscriptions WHERE institute_id = ?`,
       [req.auth!.instituteId],
     )) as unknown as [
       {
         plan: string;
+        cycle: string | null;
         status: string;
         starts_at: Date;
         expires_at: Date;
         student_limit: number | null;
         batch_limit: number | null;
+        store: string | null;
+        store_product: string | null;
+        store_will_renew: number | null;
+        store_issue: string | null;
+        banked_ms: number | string | null;
       }[],
     ];
     const s = rows[0]!;
+    const banked = Number(s.banked_ms ?? 0);
     return {
       plan: s.plan,
+      cycle: s.cycle,
       status: s.status,
       startsAt: s.starts_at,
       expiresAt: s.expires_at,
       studentLimit: s.student_limit,
       batchLimit: s.batch_limit,
       active: s.status === 'active' && s.expires_at.getTime() > now().getTime(),
+      // an App Store / Google Play subscription that decides the plan (null: a trial, or paid on the website)
+      store: s.store
+        ? {
+            name: s.store,
+            product: s.store_product,
+            willRenew: !!s.store_will_renew,
+            issue: s.store_issue,
+            // the trial or website days that resume after it ends
+            thenUntil: banked > 0 ? new Date(s.expires_at.getTime() + banked) : null,
+          }
+        : null,
       usage: {
         students: await activeCount(deps.pool, 'students', req.auth!.instituteId!),
         batches: await activeCount(deps.pool, 'batches', req.auth!.instituteId!),

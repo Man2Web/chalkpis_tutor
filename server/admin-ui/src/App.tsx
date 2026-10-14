@@ -20,6 +20,7 @@ import { Leaders } from '@/pages/Leaders';
 import { Logins } from '@/pages/Logins';
 import { Overview } from '@/pages/Overview';
 import { Payments } from '@/pages/Payments';
+import { Revenue } from '@/pages/Revenue';
 import { Signins } from '@/pages/Signins';
 import { Subscriptions } from '@/pages/Subscriptions';
 import { System } from '@/pages/System';
@@ -72,6 +73,7 @@ export default function App() {
     centre: id ? <Centre key={id} id={id} tab={route.query.tab} onName={setCentreName} /> : <Overview />,
     subscriptions: <Subscriptions key={route.key} query={route.query} />,
     payments: <Payments />,
+    revenue: <Revenue />,
     logins: <Logins />,
     leaders: <Leaders />,
     activity: <Activity />,

@@ -4,7 +4,7 @@
   "email": "hello@chalkpis.com",
   "privacy": {
     "title": "Privacy Policy",
-    "updated": "12 October 2026",
+    "updated": "15 October 2026",
     "intro": "Chalkpis (\"we\", \"us\") is built and run by M2W Technologies Private Limited (Man2Web), India. This policy explains what information the Chalkpis app and website handle, why, and the choices you have. If anything here is unclear, write to hello@chalkpis.com.",
     "sections": [
       {
@@ -37,7 +37,7 @@
         "p": [
           "WhatsApp messages are sent from our business number through the WhatsApp Business Platform (Meta) and our messaging partner ValueFirst Digital Media. They receive the parent's number and the message text needed to deliver it.",
           "Our servers are hosted by our cloud provider. App updates are delivered through Expo (EAS).",
-          "Plan payments are handled by Razorpay; we never see your card, UPI or bank details.",
+          "Plan payments on our website are handled by Razorpay. Subscriptions in the iPhone and Android apps are handled by Apple (App Store) or Google (Google Play), and their status reaches us through RevenueCat, which receives your centre's account number in Chalkpis and the purchase details (never your card, UPI or bank details). We never see your card, UPI or bank details.",
           "Tuition fees go straight from parents to your own UPI id or payment page. Chalkpis never receives or holds that money.",
           "We share information with authorities only when the law requires it."
         ]
@@ -85,7 +85,7 @@
   },
   "terms": {
     "title": "Terms and Conditions",
-    "updated": "12 October 2026",
+    "updated": "15 October 2026",
     "intro": "These terms are an agreement between you and M2W Technologies Private Limited (Man2Web), India, who build and run Chalkpis. By creating an account or using the app you accept them. Questions: hello@chalkpis.com.",
     "sections": [
       {
@@ -118,8 +118,10 @@
       {
         "h": "Plans and billing",
         "p": [
-          "New accounts start with a free trial. If paid plans are available, their prices and limits are shown in the app before you pay. A plan covers the period shown and does not renew by itself unless the app clearly says so.",
-          "When a plan ends, your records stay readable but you cannot add or change them until you renew."
+          "New accounts start with a free trial; no payment details are needed for it. Prices and limits of each plan are shown before you pay.",
+          "In the iPhone and Android apps, plans are monthly or yearly subscriptions bought through the App Store or Google Play. They renew automatically at the price shown until you cancel, and are charged to your Apple ID or Google account. You can cancel or change a subscription at any time in your Apple ID or Google Play settings, at least 24 hours before it renews; the plan then runs to the end of the period already paid. If an introductory price is shown (for example a lower first month), it applies once and the subscription then renews at the normal price. Refunds for these purchases are handled by Apple or Google under their own policies.",
+          "On our website you can instead pay once for a month or a year (UPI, card or net banking). That payment does not renew by itself. If you have days left on a free trial or a website plan when you subscribe in the app, those days are kept and resume after the subscription ends.",
+          "When a plan ends, your records stay readable but you cannot add or change them until you choose a plan again."
         ]
       },
       {

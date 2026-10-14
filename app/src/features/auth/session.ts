@@ -1,4 +1,5 @@
 import { unregisterPush } from '../../lib/push';
+import { endStore } from '../../lib/purchases';
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { api, ApiError, setSignedOutHandler } from '../../api/client';
@@ -100,6 +101,7 @@ export function logout(): Promise<void> {
     try {
       const refreshToken = await tokens.getRefresh();
       await unregisterPush();
+      await endStore().catch(() => undefined); // the next person on this phone is not this centre's buyer
       try {
         if (refreshToken) await api('POST', '/auth/logout', { refreshToken });
       } catch {

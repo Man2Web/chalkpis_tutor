@@ -274,7 +274,12 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
   );
   app.get('/admin/api/announcements', guard, async () => listForAdmin(pool, now()));
   app.post('/admin/api/announcements', guard, async (req, reply) => {
-    const created = await createAnnouncement(pool, actor(req), parse(announcementInput, req.body), now());
+    const created = await createAnnouncement(
+      pool,
+      actor(req),
+      parse(announcementInput, req.body),
+      now(),
+    );
     // a push that is due now (not scheduled, not in quiet hours) goes out straight away; the rest go from the worker
     await dispatchDuePushes(pool, deps.push ?? null, now()).catch(() => 0);
     return reply.code(201).send(created);

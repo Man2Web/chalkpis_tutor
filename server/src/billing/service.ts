@@ -1,12 +1,101 @@
 import { AppError } from '../errors.js';
-import { withTransaction, type Pool } from '../db.js';
+import { withTransaction, type Pool, type PoolConnection } from '../db.js';
 import { newId } from '../lib/ids.js';
 import { withNamedLock } from '../lib/lock.js';
 import { queuePlanActive } from '../messaging/centreMessages.js';
-import { PLANS, computeSubscription, planChange, type PlanId } from './plans.js';
+import {
+  PLANS,
+  computeSubscription,
+  isPlanId,
+  planChange,
+  priceOf,
+  type Cycle,
+  type PlanId,
+} from './plans.js';
 import type { BillingProvider, PaidEvent, ProviderName } from './provider.js';
 
 export type PurchaseResult = 'applied' | 'duplicate' | 'invalid';
+
+/** A centre's subscription row, as the purchase rules need it. */
+export interface SubRow {
+  plan: string;
+  cycle: Cycle | null;
+  status: string;
+  expires_at: Date;
+  store: 'app_store' | 'play_store' | null;
+  store_will_renew: number | null;
+  banked_plan: string | null;
+  banked_cycle: Cycle | null;
+  banked_ms: number | string | null;
+}
+export const SUB_COLUMNS =
+  'plan, cycle, status, expires_at, store, store_will_renew, banked_plan, banked_cycle, banked_ms';
+
+/** The store subscription renews by itself: the website and pay links sell nothing meanwhile. */
+export const storeRenews = (row: Pick<SubRow, 'store' | 'store_will_renew'> | undefined) =>
+  !!row?.store && !!row.store_will_renew;
+
+/**
+ * Applies one paid cycle of a plan to a centre (inside a transaction, the row locked FOR UPDATE). Normally the plan
+ * changes by the purchase rules (renew, upgrade with credit, start after the trial). While an App Store / Google Play
+ * subscription decides the plan, the purchase is banked instead: it is added to the days that resume when the store
+ * subscription ends. Returns the plan and the date to show as "valid until".
+ */
+export async function applyPurchase(
+  c: PoolConnection,
+  instituteId: string,
+  row: SubRow | undefined,
+  planId: PlanId,
+  cycle: Cycle | null,
+  now: Date,
+): Promise<{ plan: PlanId; expiresAt: Date }> {
+  if (row?.store) {
+    const banked = Number(row.banked_ms ?? 0);
+    const next = computeSubscription(
+      banked > 0 && row.banked_plan
+        ? {
+            plan: row.banked_plan,
+            cycle: row.banked_cycle,
+            status: 'active',
+            expiresAt: new Date(now.getTime() + banked),
+          }
+        : undefined,
+      planId,
+      cycle,
+      now,
+    );
+    const ms = next.expiresAt.getTime() - now.getTime();
+    await c.query(
+      'UPDATE subscriptions SET banked_plan = ?, banked_cycle = ?, banked_ms = ? WHERE institute_id = ?',
+      [next.plan, next.cycle, ms, instituteId],
+    );
+    return { plan: next.plan, expiresAt: new Date(row.expires_at.getTime() + ms) };
+  }
+  const next = computeSubscription(
+    row
+      ? { plan: row.plan, cycle: row.cycle, status: row.status, expiresAt: row.expires_at }
+      : undefined,
+    planId,
+    cycle,
+    now,
+  );
+  await c.query(
+    `INSERT INTO subscriptions (institute_id, plan, cycle, status, starts_at, expires_at, student_limit, batch_limit)
+     VALUES (?, ?, ?, 'active', ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE plan = VALUES(plan), cycle = VALUES(cycle), status = 'active', starts_at = VALUES(starts_at),
+       expires_at = VALUES(expires_at), student_limit = VALUES(student_limit), batch_limit = VALUES(batch_limit)`,
+    [
+      instituteId,
+      next.plan,
+      next.cycle,
+      next.startsAt,
+      next.expiresAt,
+      next.studentLimit,
+      next.batchLimit,
+    ],
+  );
+  return { plan: next.plan, expiresAt: next.expiresAt };
+}
 
 /**
  * Asks the provider for a payment link and remembers it as our own order. Works even when the plan has expired.
@@ -20,6 +109,7 @@ export async function createOrder(
     instituteId: string;
     userId: string;
     planId: PlanId;
+    cycle: Cycle;
     ownerPhone?: string;
     /** The page the payer returns to, given our order id. */
     returnUrl?: (orderId: string) => string;
@@ -28,10 +118,17 @@ export async function createOrder(
 ) {
   return withNamedLock(pool, `billing:${a.instituteId}`, async (conn) => {
     const plan = PLANS[a.planId];
+    const amount = priceOf(a.planId, a.cycle);
     const [cur] = (await conn.query(
-      'SELECT plan, status, expires_at FROM subscriptions WHERE institute_id = ?',
+      `SELECT ${SUB_COLUMNS} FROM subscriptions WHERE institute_id = ?`,
       [a.instituteId],
-    )) as unknown as [{ plan: string; status: string; expires_at: Date }[]];
+    )) as unknown as [SubRow[]];
+    // paying twice for the same months: the store subscription already renews by itself
+    if (storeRenews(cur[0]))
+      throw new AppError(409, 'store_managed', {
+        store: cur[0]!.store,
+        until: cur[0]!.expires_at.toISOString(),
+      });
     const change = planChange(
       cur[0]
         ? { plan: cur[0].plan, status: cur[0].status, expiresAt: cur[0].expires_at }
@@ -43,24 +140,26 @@ export async function createOrder(
       throw new AppError(409, 'plan_downgrade', { until: change.until.toISOString() });
     const [recent] = (await conn.query(
       `SELECT o.id, o.url FROM billing_orders o
-      WHERE o.institute_id = ? AND o.plan_id = ? AND o.provider = ? AND o.created_at > NOW(3) - INTERVAL 15 MINUTE
+      WHERE o.institute_id = ? AND o.plan_id = ? AND o.cycle = ? AND o.provider = ?
+        AND o.created_at > NOW(3) - INTERVAL 15 MINUTE
         AND NOT EXISTS (SELECT 1 FROM billing_events e WHERE e.order_id = o.id)
       ORDER BY o.created_at DESC LIMIT 1`,
-      [a.instituteId, a.planId, provider.name],
+      [a.instituteId, a.planId, a.cycle, provider.name],
     )) as unknown as [{ id: string; url: string }[]];
     if (recent[0])
       return {
         orderId: recent[0].id,
         url: recent[0].url,
         planId: a.planId,
-        amountPaise: plan.pricePaise,
+        cycle: a.cycle,
+        amountPaise: amount,
       };
     const orderId = newId();
     let link;
     try {
       link = await provider.createPaymentLink({
-        amountPaise: plan.pricePaise,
-        description: `Chalkpis ${plan.name} plan (${plan.months} months)`,
+        amountPaise: amount,
+        description: `Chalkpis ${plan.name} plan (${a.cycle === 'year' ? '1 year' : '1 month'})`,
         referenceId: orderId,
         customerPhone: a.ownerPhone,
         returnUrl: a.returnUrl?.(orderId),
@@ -70,19 +169,20 @@ export async function createOrder(
       throw Object.assign(new AppError(502, 'payment_provider_error'), { cause: e });
     }
     await conn.query(
-      'INSERT INTO billing_orders (id, institute_id, plan_id, amount, provider, link_id, url, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO billing_orders (id, institute_id, plan_id, cycle, amount, provider, link_id, url, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         orderId,
         a.instituteId,
         a.planId,
-        plan.pricePaise,
+        a.cycle,
+        amount,
         provider.name,
         link.id,
         link.url,
         a.userId,
       ],
     );
-    return { orderId, url: link.url, planId: a.planId, amountPaise: plan.pricePaise };
+    return { orderId, url: link.url, planId: a.planId, cycle: a.cycle, amountPaise: amount };
   });
 }
 
@@ -100,19 +200,28 @@ export async function applyPaid(
   try {
     return await withTransaction(pool, async (c) => {
       const [orders] = (await c.query(
-        'SELECT id, institute_id, plan_id, amount FROM billing_orders WHERE provider = ? AND link_id = ?',
+        'SELECT id, institute_id, plan_id, cycle, amount FROM billing_orders WHERE provider = ? AND link_id = ?',
         [provider, p.linkId],
-      )) as unknown as [{ id: string; institute_id: string; plan_id: PlanId; amount: number }[]];
+      )) as unknown as [
+        {
+          id: string;
+          institute_id: string;
+          plan_id: PlanId;
+          cycle: Cycle | null;
+          amount: number;
+        }[],
+      ];
       const order = orders[0];
       const reject = async (reason: string) => {
         await c.query(
-          "INSERT INTO billing_events (payment_id, provider, order_id, institute_id, plan_id, amount, status, reason) VALUES (?, ?, ?, ?, ?, ?, 'rejected', ?)",
+          "INSERT INTO billing_events (payment_id, provider, order_id, institute_id, plan_id, cycle, amount, status, reason) VALUES (?, ?, ?, ?, ?, ?, ?, 'rejected', ?)",
           [
             p.paymentId,
             provider,
             order?.id ?? null,
             order?.institute_id ?? null,
             order?.plan_id ?? null,
+            order?.cycle ?? null,
             p.amountPaise,
             reason,
           ],
@@ -120,53 +229,43 @@ export async function applyPaid(
         return 'invalid' as const;
       };
       if (!order) return reject('unknown_link');
+      // the price the order was made at: a pack ordered before monthly and yearly plans keeps its old price
       if (
         Number(order.amount) !== p.amountPaise ||
-        PLANS[order.plan_id].pricePaise !== p.amountPaise
+        priceOf(order.plan_id, order.cycle) !== p.amountPaise
       )
         return reject('amount_mismatch');
 
       const [subs] = (await c.query(
-        'SELECT plan, status, expires_at FROM subscriptions WHERE institute_id = ? FOR UPDATE',
+        `SELECT ${SUB_COLUMNS} FROM subscriptions WHERE institute_id = ? FOR UPDATE`,
         [order.institute_id],
-      )) as unknown as [{ plan: string; status: string; expires_at: Date }[]];
-      const next = computeSubscription(
-        subs[0]
-          ? { plan: subs[0].plan, status: subs[0].status, expiresAt: subs[0].expires_at }
-          : undefined,
+      )) as unknown as [SubRow[]];
+      const next = await applyPurchase(
+        c,
+        order.institute_id,
+        subs[0],
         order.plan_id,
+        order.cycle,
         now,
       );
       await c.query(
-        "INSERT INTO billing_events (payment_id, provider, order_id, institute_id, plan_id, amount, status, expires_at) VALUES (?, ?, ?, ?, ?, ?, 'applied', ?)",
+        "INSERT INTO billing_events (payment_id, provider, order_id, institute_id, plan_id, cycle, amount, net_amount, status, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'applied', ?)",
         [
           p.paymentId,
           provider,
           order.id,
           order.institute_id,
           order.plan_id,
+          order.cycle,
+          p.amountPaise,
           p.amountPaise,
           next.expiresAt,
-        ],
-      );
-      await c.query(
-        `INSERT INTO subscriptions (institute_id, plan, status, starts_at, expires_at, student_limit, batch_limit)
-         VALUES (?, ?, 'active', ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE plan = VALUES(plan), status = 'active', starts_at = VALUES(starts_at),
-           expires_at = VALUES(expires_at), student_limit = VALUES(student_limit), batch_limit = VALUES(batch_limit)`,
-        [
-          order.institute_id,
-          next.plan,
-          next.startsAt,
-          next.expiresAt,
-          next.studentLimit,
-          next.batchLimit,
         ],
       );
       await queuePlanActive(
         c,
         order.institute_id,
-        { paymentId: p.paymentId, planId: next.plan as PlanId, expiresAt: next.expiresAt },
+        { paymentId: p.paymentId, planId: next.plan, expiresAt: next.expiresAt },
         now,
       );
       return 'applied' as const;
@@ -275,15 +374,18 @@ export async function reconcilePending(
 
 export async function billingHistory(pool: Pool, instituteId: string) {
   const [rows] = (await pool.query(
-    "SELECT payment_id, provider, plan_id, amount, expires_at, created_at FROM billing_events WHERE institute_id = ? AND status = 'applied' ORDER BY created_at DESC, payment_id LIMIT 50",
+    "SELECT payment_id, provider, plan_id, cycle, amount, currency, status, expires_at, created_at FROM billing_events WHERE institute_id = ? AND status IN ('applied', 'refunded') ORDER BY created_at DESC, payment_id LIMIT 50",
     [instituteId],
   )) as unknown as [
     {
       payment_id: string;
       provider: string;
       plan_id: string;
+      cycle: Cycle | null;
       amount: number;
-      expires_at: Date;
+      currency: string;
+      status: 'applied' | 'refunded';
+      expires_at: Date | null;
       created_at: Date;
     }[],
   ];
@@ -291,14 +393,69 @@ export async function billingHistory(pool: Pool, instituteId: string) {
     paymentId: r.payment_id,
     provider: r.provider,
     planId: r.plan_id,
+    cycle: r.cycle,
     amountPaise: Number(r.amount),
-    expiresAt: r.expires_at.toISOString(),
+    currency: r.currency,
+    refunded: r.status === 'refunded',
+    expiresAt: (r.expires_at ?? r.created_at).toISOString(),
     paidAt: r.created_at.toISOString(),
   }));
 }
 
-/** Marks subscriptions past their end date as expired (data is kept; the app becomes read-only). */
+const STORE_CLEARED =
+  'store = NULL, store_product = NULL, store_will_renew = NULL, store_issue = NULL, store_sandbox = 0, banked_plan = NULL, banked_cycle = NULL, banked_ms = NULL';
+
+/**
+ * The store subscription no longer decides the plan (it ended, was refunded or moved to another centre): the banked
+ * days (trial or website plan) resume from now, or else the plan ends. Inside a transaction, the row locked.
+ */
+export async function leaveStore(
+  c: PoolConnection | Pool,
+  instituteId: string,
+  row: SubRow,
+  now: Date,
+): Promise<{ plan: string; status: 'active' | 'expired'; expiresAt: Date }> {
+  const banked = Number(row.banked_ms ?? 0);
+  if (banked > 0 && row.banked_plan) {
+    const plan = row.banked_plan;
+    const limits = isPlanId(plan) ? PLANS[plan] : { studentLimit: null, batchLimit: null };
+    const expiresAt = new Date(now.getTime() + banked);
+    await c.query(
+      `UPDATE subscriptions SET plan = ?, cycle = ?, status = 'active', starts_at = ?, expires_at = ?,
+         student_limit = ?, batch_limit = ?, ${STORE_CLEARED} WHERE institute_id = ?`,
+      [plan, row.banked_cycle, now, expiresAt, limits.studentLimit, limits.batchLimit, instituteId],
+    );
+    return { plan, status: 'active', expiresAt };
+  }
+  // ended on its own date, or cut short now (a refund, a move to another centre)
+  const expiresAt = row.expires_at.getTime() < now.getTime() ? row.expires_at : now;
+  await c.query(
+    `UPDATE subscriptions SET status = 'expired', expires_at = ?, ${STORE_CLEARED} WHERE institute_id = ?`,
+    [expiresAt, instituteId],
+  );
+  return { plan: row.plan, status: 'expired', expiresAt };
+}
+
+/**
+ * Marks subscriptions past their end date as expired (data is kept; the app becomes read-only). A store subscription
+ * that ran out without a word from the store (its renewal is checked by the store-resync job first) hands back to the
+ * banked days, if any.
+ */
 export async function expireDueSubscriptions(pool: Pool, now: Date): Promise<number> {
+  const [stale] = (await pool.query(
+    "SELECT institute_id FROM subscriptions WHERE status = 'active' AND expires_at < ? AND store IS NOT NULL",
+    [now],
+  )) as unknown as [{ institute_id: string }[]];
+  for (const r of stale)
+    await withTransaction(pool, async (c) => {
+      const [rows] = (await c.query(
+        `SELECT ${SUB_COLUMNS} FROM subscriptions WHERE institute_id = ? FOR UPDATE`,
+        [r.institute_id],
+      )) as unknown as [SubRow[]];
+      const row = rows[0];
+      if (row?.store && row.status === 'active' && row.expires_at < now)
+        await leaveStore(c, r.institute_id, row, now);
+    });
   const [res] = (await pool.query(
     "UPDATE subscriptions SET status = 'expired' WHERE status = 'active' AND expires_at < ?",
     [now],

@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
-import { PLANS, isPlanId } from '../billing/plans.js';
+import { INTRO_MONTH_PAISE, POPULAR, catalogue, isCycle, isPlanId } from '../billing/plans.js';
 import {
   parsePaymentLinkPaid,
   verifyWebhookSignature,
@@ -16,15 +16,27 @@ import {
   reconcilePending,
   type OrderState,
 } from '../billing/service.js';
+import {
+  handleStoreEvent,
+  storeEventBody,
+  storeWebhookAuthorized,
+  syncStore,
+  type StoreClient,
+} from '../billing/store.js';
 import { AppError } from '../errors.js';
 import { parse } from '../lib/params.js';
 
 type Deps = Pick<AppDeps, 'config' | 'pool'> & {
   billing: BillingProvider | null;
+  store?: StoreClient | null;
   clock?: () => Date;
 };
 
-const linkBody = z.object({ planId: z.string().refine(isPlanId, { message: 'plan' }) });
+const linkBody = z.object({
+  planId: z.string().refine(isPlanId, { message: 'plan' }),
+  // the 1.1 web app sends no cycle; a year is closest to the packs it showed
+  cycle: z.string().refine(isCycle, { message: 'cycle' }).default('year'),
+});
 
 /** The return page for a new order; none without a public address. */
 export function orderUrls(config: AppDeps['config']): { returnUrl?: (orderId: string) => string } {
@@ -39,11 +51,46 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
   const owner = { preHandler: [authenticate(deps), requireInstitute, requireOwner] };
   const now = () => (deps.clock ?? (() => new Date()))();
 
-  // `paymentsAvailable` is false while no payment provider is set up: the app then hides the buy buttons.
-  app.get('/billing/plans', read, async () => ({
-    plans: Object.values(PLANS),
-    paymentsAvailable: !!deps.billing,
-  }));
+  // `paymentsAvailable` is false while no payment provider is set up: the web app then hides the buy buttons.
+  // `store` holds the public RevenueCat keys the phone apps start their store SDK with; null (no keys, or no secret key
+  // to read purchases back) means the apps sell nothing and show the plan only.
+  app.get('/billing/plans', read, async () => {
+    const c = deps.config;
+    return {
+      plans: catalogue(),
+      popular: POPULAR,
+      introMonthPaise: INTRO_MONTH_PAISE,
+      paymentsAvailable: !!deps.billing,
+      store:
+        deps.store && (c.REVENUECAT_IOS_KEY || c.REVENUECAT_ANDROID_KEY)
+          ? { ios: c.REVENUECAT_IOS_KEY ?? null, android: c.REVENUECAT_ANDROID_KEY ?? null }
+          : null,
+    };
+  });
+
+  // Right after a purchase or "Restore purchases" in the app: reads the centre's store subscription from RevenueCat
+  // so the plan switches on at once (the webhook does the same moments later, and for every renewal).
+  app.post(
+    '/billing/store/sync',
+    {
+      ...owner,
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+    },
+    async (req) => {
+      if (!deps.store) throw new AppError(503, 'store_unavailable');
+      let r;
+      try {
+        r = await syncStore(deps.pool, deps.store, req.auth!.instituteId!, now());
+      } catch (e) {
+        throw Object.assign(new AppError(502, 'store_error'), { cause: e });
+      }
+      return {
+        state: r.state,
+        plan: r.plan ?? null,
+        expiresAt: r.expiresAt?.toISOString() ?? null,
+      };
+    },
+  );
   app.get('/billing', owner, async (req) => {
     // a payment made on the website but never confirmed back (browser closed, webhook missed) is picked up here
     await reconcilePending(
@@ -69,7 +116,10 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
     },
     async (req, reply) => {
       if (!deps.billing) throw new AppError(503, 'billing_unavailable');
-      const { planId } = parse(linkBody, req.body) as { planId: 'starter' | 'standard' | 'pro' };
+      const { planId, cycle } = parse(linkBody, req.body) as {
+        planId: 'starter' | 'standard' | 'pro';
+        cycle: 'month' | 'year';
+      };
       const [u] = (await deps.pool.query('SELECT phone FROM users WHERE id = ?', [
         req.auth!.userId,
       ])) as unknown as [{ phone: string }[]];
@@ -77,6 +127,7 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
         instituteId: req.auth!.instituteId!,
         userId: req.auth!.userId,
         planId,
+        cycle,
         ownerPhone: u[0]?.phone,
         ...orderUrls(deps.config),
         now: now(),
@@ -187,6 +238,24 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
       const paid = parsePaymentLinkPaid(json);
       if (!paid) return { ok: true, ignored: true }; // some other event: acknowledge so it is not retried
       return { ok: true, result: await applyPaid(deps.pool, 'razorpay', paid, now()) };
+    });
+
+    // RevenueCat: every App Store / Google Play subscription change (purchase, renewal, cancel, refund, expiry,
+    // transfer). Checked by the Authorization value set in RevenueCat; the centre's state is then read back from
+    // RevenueCat itself. An error answer makes RevenueCat try again later (5 times, up to 80 minutes apart).
+    hook.post('/billing/webhooks/revenuecat', async (req, reply) => {
+      const secret = deps.config.REVENUECAT_WEBHOOK_AUTH;
+      if (!secret || !deps.store) return reply.code(503).send({ error: 'webhook_unavailable' });
+      const auth = req.headers.authorization;
+      if (!storeWebhookAuthorized(typeof auth === 'string' ? auth : undefined, secret))
+        return reply.code(401).send({ error: 'unauthorized' });
+      let body;
+      try {
+        body = storeEventBody.parse(JSON.parse(typeof req.body === 'string' ? req.body : ''));
+      } catch {
+        return reply.code(400).send({ error: 'bad_request' });
+      }
+      return { ok: true, result: await handleStoreEvent(deps.pool, deps.store, body.event, now()) };
     });
   });
 }

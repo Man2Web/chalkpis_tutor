@@ -317,3 +317,13 @@ table.history {
     padding: 0;
   }
 }
+.plan form + form {
+  margin-top: 8px;
+}
+button.secondary {
+  background: var(--card);
+  color: var(--brand);
+  border: 1px solid var(--brand);
+  font-size: 15px;
+  padding: 11px 16px;
+}

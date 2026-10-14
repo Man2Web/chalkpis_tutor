@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { withTransaction, type Pool } from '../db.js';
 import { AppError, notFound } from '../errors.js';
-import { PLANS, computeSubscription, isPlanId, type PlanId } from '../billing/plans.js';
+import { PLANS, isPlanId } from '../billing/plans.js';
+import { applyPurchase, SUB_COLUMNS, type SubRow } from '../billing/service.js';
 import { queuePlanActive } from '../messaging/centreMessages.js';
 import { newId } from '../lib/ids.js';
 
@@ -292,10 +293,32 @@ export async function setPlan(
   now: Date,
 ) {
   const [rows] = (await pool.query(
-    'SELECT s.expires_at, s.status FROM subscriptions s WHERE s.institute_id = ?',
+    'SELECT s.expires_at, s.status, s.store, s.banked_plan, s.banked_ms FROM subscriptions s WHERE s.institute_id = ?',
     [instituteId],
-  )) as unknown as [{ expires_at: Date; status: string }[]];
+  )) as unknown as [
+    {
+      expires_at: Date;
+      status: string;
+      store: string | null;
+      banked_plan: string | null;
+      banked_ms: number | string | null;
+    }[],
+  ];
   if (!rows[0]) throw notFound();
+  if (rows[0].store) {
+    // an App Store / Google Play subscription decides the plan: the days are added to what resumes after it ends
+    const ms = Number(rows[0].banked_ms ?? 0) + b.days * DAY;
+    await pool.query(
+      'UPDATE subscriptions SET banked_plan = ?, banked_cycle = NULL, banked_ms = ? WHERE institute_id = ?',
+      [b.plan, ms, instituteId],
+    );
+    const after = new Date(rows[0].expires_at.getTime() + ms);
+    await audit(pool, actor, 'set-plan', {
+      instituteId,
+      detail: `${b.plan} +${b.days} days, after the store subscription (until about ${after.toISOString().slice(0, 10)})`,
+    });
+    return { plan: b.plan, expiresAt: after.toISOString(), afterStore: true };
+  }
   const from = rows[0].status === 'active' && rows[0].expires_at > now ? rows[0].expires_at : now;
   const expires = new Date(from.getTime() + b.days * DAY);
   // a trial has no limits; a plan gets its own (an admin's custom limits are set with setSubscription)
@@ -303,7 +326,7 @@ export async function setPlan(
     ? { students: PLANS[b.plan].studentLimit, batches: PLANS[b.plan].batchLimit }
     : { students: null, batches: null };
   await pool.query(
-    `UPDATE subscriptions SET plan = ?, status = 'active', expires_at = ?, student_limit = ?, batch_limit = ?
+    `UPDATE subscriptions SET plan = ?, cycle = NULL, status = 'active', expires_at = ?, student_limit = ?, batch_limit = ?
       WHERE institute_id = ?`,
     [b.plan, expires, limits.students, limits.batches, instituteId],
   );
@@ -358,6 +381,11 @@ export async function setSubscription(
 ) {
   const expires = endOfIstDay(b.endsOn);
   if (Number.isNaN(expires.getTime())) throw new AppError(400, 'bad_date');
+  // the store's own subscription would overwrite it at the next renewal; days can still be added with setPlan
+  const [cur] = (await pool.query('SELECT store FROM subscriptions WHERE institute_id = ?', [
+    instituteId,
+  ])) as unknown as [{ store: string | null }[]];
+  if (cur[0]?.store) throw new AppError(409, 'store_managed', { store: cur[0].store });
   const [r] = (await pool.query(
     `UPDATE subscriptions SET plan = ?, status = ?, expires_at = ?, student_limit = ?, batch_limit = ?
       WHERE institute_id = ?`,
@@ -374,6 +402,7 @@ export async function setSubscription(
 
 export const planPaymentBody = z.object({
   planId: z.enum(['starter', 'standard', 'pro']),
+  cycle: z.enum(['month', 'year']).default('year'),
   amountPaise: z.number().int().min(0).max(10_000_000),
   method: z.enum(['cash', 'upi', 'bank', 'other']),
   reference: z.string().trim().max(80).default(''),
@@ -395,42 +424,36 @@ export async function recordPlanPayment(
 ) {
   return withTransaction(pool, async (c) => {
     const [subs] = (await c.query(
-      'SELECT plan, status, expires_at FROM subscriptions WHERE institute_id = ? FOR UPDATE',
+      `SELECT ${SUB_COLUMNS} FROM subscriptions WHERE institute_id = ? FOR UPDATE`,
       [instituteId],
-    )) as unknown as [{ plan: string; status: string; expires_at: Date }[]];
+    )) as unknown as [SubRow[]];
     if (!subs[0]) throw notFound();
-    const next = computeSubscription(
-      { plan: subs[0].plan, status: subs[0].status, expiresAt: subs[0].expires_at },
-      b.planId,
-      now,
-    );
+    const next = b.apply
+      ? await applyPurchase(c, instituteId, subs[0], b.planId, b.cycle, now)
+      : { plan: subs[0].plan, expiresAt: subs[0].expires_at };
     const paymentId = `manual_${newId()}`;
     await c.query(
-      `INSERT INTO billing_events (payment_id, provider, institute_id, plan_id, amount, status, reason, note, expires_at)
-       VALUES (?, 'manual', ?, ?, ?, 'applied', ?, ?, ?)`,
+      `INSERT INTO billing_events (payment_id, provider, institute_id, plan_id, cycle, amount, net_amount, status, reason, note, expires_at)
+       VALUES (?, 'manual', ?, ?, ?, ?, ?, 'applied', ?, ?, ?)`,
       [
         paymentId,
         instituteId,
         b.planId,
+        b.cycle,
+        b.amountPaise,
         b.amountPaise,
         b.method,
         b.reference || null,
-        b.apply ? next.expiresAt : subs[0].expires_at,
+        next.expiresAt,
       ],
     );
-    if (b.apply) {
-      await c.query(
-        `UPDATE subscriptions SET plan = ?, status = 'active', starts_at = ?, expires_at = ?, student_limit = ?,
-           batch_limit = ? WHERE institute_id = ?`,
-        [next.plan, next.startsAt, next.expiresAt, next.studentLimit, next.batchLimit, instituteId],
-      );
+    if (b.apply && isPlanId(next.plan))
       await queuePlanActive(
         c,
         instituteId,
-        { paymentId, planId: next.plan as PlanId, expiresAt: next.expiresAt },
+        { paymentId, planId: next.plan, expiresAt: next.expiresAt },
         now,
       );
-    }
     await c.query(
       'INSERT INTO admin_audit (id, admin_user_id, admin_phone, action, target_institute_id, detail) VALUES (?, ?, ?, ?, ?, ?)',
       [
@@ -439,16 +462,12 @@ export async function recordPlanPayment(
         actor.phone,
         'plan-payment',
         instituteId,
-        `${b.planId} ₹${b.amountPaise / 100} by ${b.method}${b.reference ? ` (${b.reference})` : ''}${b.apply ? `, applied until ${next.expiresAt.toISOString().slice(0, 10)}` : ', not applied'}`.slice(
+        `${b.planId} (${b.cycle}) ₹${b.amountPaise / 100} by ${b.method}${b.reference ? ` (${b.reference})` : ''}${b.apply ? `, applied until ${next.expiresAt.toISOString().slice(0, 10)}` : ', not applied'}`.slice(
           0,
           250,
         ),
       ],
     );
-    return {
-      paymentId,
-      plan: b.apply ? next.plan : subs[0].plan,
-      expiresAt: (b.apply ? next.expiresAt : subs[0].expires_at).toISOString(),
-    };
+    return { paymentId, plan: next.plan, expiresAt: next.expiresAt.toISOString() };
   });
 }

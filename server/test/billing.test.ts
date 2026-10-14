@@ -1,7 +1,15 @@
 import { createHmac } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
-import { PLANS, addMonths, computeSubscription, planChange } from '../src/billing/plans.js';
+import {
+  PLANS,
+  addMonths,
+  computeSubscription,
+  monthsOf,
+  planChange,
+  priceOf,
+  storeProduct,
+} from '../src/billing/plans.js';
 import {
   RazorpayProvider,
   parsePaymentLinkPaid,
@@ -29,8 +37,8 @@ beforeEach(async () => {
 });
 
 const sub = async (t: Tenant) => (await t.call('GET', '/subscription')).body;
-const order = async (t: Tenant, planId = 'starter') => {
-  const r = await t.call('POST', '/billing/links', { planId });
+const order = async (t: Tenant, planId = 'starter', cycle = 'month') => {
+  const r = await t.call('POST', '/billing/links', { planId, cycle });
   expect(r.status, JSON.stringify(r.body)).toBe(201);
   return r.body as { orderId: string; url: string; amountPaise: number };
 };
@@ -86,62 +94,101 @@ describe('plan catalogue and pure rules', () => {
   });
   it('renewing while active adds on top of the remaining time; expired starts from now', () => {
     const now = new Date('2026-10-08T00:00:00Z');
+    const running = {
+      status: 'active',
+      plan: 'starter',
+      cycle: 'month' as const,
+      expiresAt: new Date('2026-11-08T00:00:00Z'),
+    };
+    const end = (c: ReturnType<typeof computeSubscription>) =>
+      c.expiresAt.toISOString().slice(0, 10);
+    expect(end(computeSubscription(running, 'starter', 'month', now))).toBe('2026-12-08');
+    // switching the same plan to yearly adds a year after the current end
+    const yearly = computeSubscription(running, 'starter', 'year', now);
+    expect([end(yearly), yearly.cycle]).toEqual(['2027-11-08', 'year']);
     expect(
-      computeSubscription(
-        { status: 'active', plan: 'starter', expiresAt: new Date('2026-11-08T00:00:00Z') },
-        'starter',
-        now,
-      )
-        .expiresAt.toISOString()
-        .slice(0, 10),
-    ).toBe('2027-02-08');
-    expect(
-      computeSubscription(
-        { status: 'active', plan: 'starter', expiresAt: new Date('2026-10-01T00:00:00Z') },
-        'starter',
-        now,
-      )
-        .expiresAt.toISOString()
-        .slice(0, 10),
-    ).toBe('2027-01-08');
-    expect(computeSubscription(undefined, 'pro', now)).toMatchObject({
+      end(
+        computeSubscription(
+          { ...running, expiresAt: new Date('2026-10-01T00:00:00Z') },
+          'starter',
+          'month',
+          now,
+        ),
+      ),
+    ).toBe('2026-11-08');
+    expect(computeSubscription(undefined, 'pro', 'year', now)).toMatchObject({
       studentLimit: null,
       batchLimit: null,
+      cycle: 'year',
     });
+  });
+  it('prices: monthly and yearly, a year costs about ten months; old packs keep their terms', () => {
+    expect(PLANS.starter.prices).toEqual({ month: 19900, year: 199900 });
+    expect(PLANS.standard.prices).toEqual({ month: 29900, year: 299900 });
+    expect(PLANS.pro.prices).toEqual({ month: 49900, year: 499900 });
+    expect([priceOf('pro', null), monthsOf('pro', null)]).toEqual([99900, 12]);
+    expect(storeProduct('chalkpis.standard.monthly')).toEqual({ plan: 'standard', cycle: 'month' });
+    expect(storeProduct('chalkpis.pro:yearly')).toEqual({ plan: 'pro', cycle: 'year' });
+    for (const bad of ['chalkpis.gold.monthly', 'pro.yearly', 'chalkpis.pro.weekly', 'x'])
+      expect(storeProduct(bad)).toBeNull();
   });
   it('an upgrade starts now and credits the days left at their value; a stray downgrade payment adds days', () => {
     const now = new Date('2026-10-08T00:00:00Z');
     const day = 86_400_000;
-    // 61 days of Starter left (₹399 / 3 months) become Pro days worth the same (₹999 / 12 months)
+    // 20 days of Starter monthly (₹199 a month) become Pro yearly days worth the same (₹4,999 a year)
     const up = computeSubscription(
+      {
+        status: 'active',
+        plan: 'starter',
+        cycle: 'month',
+        expiresAt: new Date(now.getTime() + 20 * day),
+      },
+      'pro',
+      'year',
+      now,
+    );
+    expect([up.plan, up.cycle]).toEqual(['pro', 'year']);
+    const credit = (up.expiresAt.getTime() - addMonths(now, 12).getTime()) / day;
+    expect(credit).toBeCloseTo((20 * (19900 / 30.4375)) / (499900 / (12 * 30.4375)), 3);
+    expect(up.studentLimit).toBeNull();
+    // an old pack (no cycle) is credited at its own price: ₹399 for 3 months
+    const fromPack = computeSubscription(
       { status: 'active', plan: 'starter', expiresAt: new Date(now.getTime() + 61 * day) },
       'pro',
+      'month',
       now,
     );
-    expect(up.plan).toBe('pro');
-    const credit = (up.expiresAt.getTime() - addMonths(now, 12).getTime()) / day;
-    expect(credit).toBeCloseTo((61 * (39900 / (3 * 30.4375))) / (99900 / (12 * 30.4375)), 3);
-    expect(up.studentLimit).toBeNull();
+    expect((fromPack.expiresAt.getTime() - addMonths(now, 1).getTime()) / day).toBeCloseTo(
+      (61 * (39900 / (3 * 30.4375))) / (49900 / 30.4375),
+      3,
+    );
 
     const down = computeSubscription(
-      { status: 'active', plan: 'pro', expiresAt: new Date(now.getTime() + 100 * day) },
+      {
+        status: 'active',
+        plan: 'pro',
+        cycle: 'year',
+        expiresAt: new Date(now.getTime() + 100 * day),
+      },
       'starter',
+      'month',
       now,
     );
-    expect(down.plan).toBe('pro'); // the higher plan stays
+    expect([down.plan, down.cycle]).toEqual(['pro', 'year']); // the higher plan stays
     expect((down.expiresAt.getTime() - now.getTime()) / day).toBeCloseTo(
-      100 + 39900 / (99900 / (12 * 30.4375)),
+      100 + 19900 / (499900 / (12 * 30.4375)),
       3,
     );
     // during a trial the plan starts when the trial ends
-    const trialEnd = new Date(now.getTime() + 60 * day);
+    const trialEnd = new Date(now.getTime() + 10 * day);
     expect(
       computeSubscription(
         { status: 'active', plan: 'trial', expiresAt: trialEnd },
         'starter',
+        'month',
         now,
       ).expiresAt.toISOString(),
-    ).toBe(addMonths(trialEnd, 3).toISOString());
+    ).toBe(addMonths(trialEnd, 1).toISOString());
   });
 
   it('a lower plan cannot be bought while a higher one runs', async () => {
@@ -169,32 +216,50 @@ describe('plan catalogue and pure rules', () => {
     expect((await A.call('POST', '/billing/links', { planId: 'pro' })).status).toBe(201);
   });
 
-  it('lists the plans for any signed-in member', async () => {
+  it('lists the plans, monthly and yearly, with the popular one and the intro price', async () => {
     const r = await A.call('GET', '/billing/plans');
     expect(r.body.plans.map((p: { id: string }) => p.id)).toEqual(['starter', 'standard', 'pro']);
-    expect(r.body.plans[0]).toMatchObject({ pricePaise: 39900, months: 3 });
+    expect(r.body.plans[0]).toMatchObject({
+      prices: { month: 19900, year: 199900 },
+      studentLimit: 50,
+      popular: false,
+    });
+    expect(r.body.plans[1].popular).toBe(true);
+    expect([r.body.popular, r.body.introMonthPaise]).toEqual(['standard', 4900]);
     expect(r.body.paymentsAvailable).toBe(true); // the test harness has a (mock) payment provider
+    expect(r.body.store).toBeNull(); // no RevenueCat set up: the phone apps sell nothing
   });
 });
 
 describe('payment links', () => {
   it('creates a link for the owner and remembers the order', async () => {
-    const o = await order(A, 'standard');
-    expect(o).toMatchObject({ amountPaise: 69900, url: expect.stringMatching(/^mock:\/\/pay\//) });
+    const o = await order(A, 'standard', 'year');
+    expect(o).toMatchObject({
+      amountPaise: 299900,
+      cycle: 'year',
+      url: expect.stringMatching(/^mock:\/\/pay\//),
+    });
     expect(h.billing.created[0]).toMatchObject({
-      amountPaise: 69900,
+      amountPaise: 299900,
+      description: 'Chalkpis Standard plan (1 year)',
       referenceId: o.orderId,
       customerPhone: '+919876543210',
     });
     const [[row]] = (await h.db.pool.query(
-      'SELECT institute_id, plan_id, amount FROM billing_orders WHERE id = ?',
+      'SELECT institute_id, plan_id, cycle, amount FROM billing_orders WHERE id = ?',
       [o.orderId],
-    )) as unknown as [[{ institute_id: string; plan_id: string; amount: number }]];
-    expect([row.institute_id, row.plan_id, Number(row.amount)]).toEqual([
+    )) as unknown as [[{ institute_id: string; plan_id: string; cycle: string; amount: number }]];
+    expect([row.institute_id, row.plan_id, row.cycle, Number(row.amount)]).toEqual([
       A.instituteId,
       'standard',
-      69900,
+      'year',
+      299900,
     ]);
+    // no cycle (the 1.1 web app) means a year
+    expect((await A.call('POST', '/billing/links', { planId: 'pro' })).body).toMatchObject({
+      cycle: 'year',
+      amountPaise: 499900,
+    });
   });
 
   it('the price comes from the server, never from the request', async () => {
@@ -203,13 +268,16 @@ describe('payment links', () => {
       amount: 1,
       amountPaise: 1,
       price: 1,
+      cycle: 'month',
     });
-    expect(r.body.amountPaise).toBe(99900);
+    expect(r.body.amountPaise).toBe(49900);
   });
 
   it('rejects unknown plans, including prototype names', async () => {
     for (const planId of ['gold', 'constructor', '__proto__', '', 5])
       expect((await A.call('POST', '/billing/links', { planId })).status).toBe(400);
+    for (const cycle of ['week', 'quarter', '', 3])
+      expect((await A.call('POST', '/billing/links', { planId: 'pro', cycle })).status).toBe(400);
     expect((await A.call('POST', '/billing/links', {})).status).toBe(400);
   });
 
@@ -313,9 +381,10 @@ describe('the mock payment (local try-out)', () => {
       studentLimit: 50,
       batchLimit: 3,
     });
-    expect(s.expiresAt.slice(0, 10)).toBe('2027-01-16'); // 8 Oct + 8 days + 3 months
+    expect(s.expiresAt.slice(0, 10)).toBe('2027-10-16'); // 8 Oct + 8 days + a year
+    expect(s.cycle).toBe('year');
     expect((await call('GET', '/billing')).body.history).toMatchObject([
-      { planId: 'starter', amountPaise: 39900, provider: 'mock' },
+      { planId: 'starter', cycle: 'year', amountPaise: 199900, provider: 'mock' },
     ]);
     expect(
       (await call('POST', '/students', { name: 'Back In', parentPhone: '9876543210' })).status,
@@ -346,7 +415,7 @@ describe('the mock payment (local try-out)', () => {
 describe('razorpay webhook', () => {
   it('a correctly signed payment applies the plan the ORDER names', async () => {
     const o = await order(A, 'pro');
-    const raw = paidBody(await linkIdOf(o.orderId), 'pay_1', 99900);
+    const raw = paidBody(await linkIdOf(o.orderId), 'pay_1', 49900);
     const r = await hook(raw);
     expect([r.statusCode, r.json()]).toEqual([200, { ok: true, result: 'applied' }]);
     expect(await sub(A)).toMatchObject({ plan: 'pro', status: 'active', studentLimit: null });
@@ -359,7 +428,7 @@ describe('razorpay webhook', () => {
 
   it('rejects a missing, wrong or tampered signature and changes nothing', async () => {
     const o = await order(A, 'pro');
-    const raw = paidBody(await linkIdOf(o.orderId), 'pay_1', 99900);
+    const raw = paidBody(await linkIdOf(o.orderId), 'pay_1', 49900);
     for (const sig of [
       null, // no signature header at all
       '',
@@ -371,13 +440,13 @@ describe('razorpay webhook', () => {
       const r = await hook(raw, sig);
       expect([sig, r.statusCode]).toEqual([sig, 401]);
     }
-    expect((await hook(raw.replace('99900', '10'), sign(raw))).statusCode).toBe(401); // body changed after signing
+    expect((await hook(raw.replace('49900', '10'), sign(raw))).statusCode).toBe(401); // body changed after signing
     expect((await sub(A)).plan).toBe('trial');
   });
 
   it('a repeated delivery is applied once (Razorpay retries)', async () => {
     const o = await order(A);
-    const raw = paidBody(await linkIdOf(o.orderId), 'pay_1', 39900);
+    const raw = paidBody(await linkIdOf(o.orderId), 'pay_1', 19900);
     const results = await Promise.all(Array.from({ length: 5 }, () => hook(raw)));
     expect(results.map((r) => r.json().result ?? r.body).sort()).toEqual([
       'applied',
@@ -387,7 +456,7 @@ describe('razorpay webhook', () => {
       'duplicate',
     ]);
     const s = await sub(A);
-    expect(s.expiresAt.slice(0, 10)).toBe('2027-01-15'); // 3 months on top of the 7 trial days left, not 15 months
+    expect(s.expiresAt.slice(0, 10)).toBe('2026-11-15'); // a month on top of the 7 trial days left, not 5 months
     const [[n]] = (await h.db.pool.query(
       "SELECT COUNT(*) AS n FROM billing_events WHERE status = 'applied'",
     )) as unknown as [[{ n: number }]];
@@ -400,7 +469,7 @@ describe('razorpay webhook', () => {
     expect((await hook(paidBody(link, 'pay_cheap', 100))).json().result).toBe('invalid');
     // the same refused payment again is still refused (not "duplicate", which reads as paid)
     expect((await hook(paidBody(link, 'pay_cheap', 100))).json().result).toBe('invalid');
-    expect((await hook(paidBody('plink_never_issued', 'pay_ghost', 99900))).json().result).toBe(
+    expect((await hook(paidBody('plink_never_issued', 'pay_ghost', 49900))).json().result).toBe(
       'invalid',
     );
     expect((await sub(A)).plan).toBe('trial');
@@ -415,7 +484,7 @@ describe('razorpay webhook', () => {
 
   it('notes in the webhook cannot redirect the plan to another institute or plan', async () => {
     const o = await order(A, 'starter');
-    const raw = paidBody(await linkIdOf(o.orderId), 'pay_1', 39900, {
+    const raw = paidBody(await linkIdOf(o.orderId), 'pay_1', 19900, {
       instituteId: B.instituteId,
       planId: 'pro',
     });
@@ -453,10 +522,21 @@ describe('razorpay webhook', () => {
 
   it('renewing early stacks months on the remaining time', async () => {
     const o1 = await order(A, 'starter');
-    await hook(paidBody(await linkIdOf(o1.orderId), 'pay_1', 39900));
+    await hook(paidBody(await linkIdOf(o1.orderId), 'pay_1', 19900));
     const o2 = await order(A, 'starter');
-    await hook(paidBody(await linkIdOf(o2.orderId), 'pay_2', 39900));
-    expect((await sub(A)).expiresAt.slice(0, 10)).toBe('2027-04-15'); // two purchases = 6 months on top of the trial days left
+    await hook(paidBody(await linkIdOf(o2.orderId), 'pay_2', 19900));
+    expect((await sub(A)).expiresAt.slice(0, 10)).toBe('2026-12-15'); // two purchases = 2 months on top of the trial days left
+  });
+
+  it('an order made before monthly and yearly plans is still paid at its old price and terms', async () => {
+    const o = await order(A, 'starter');
+    const link = await linkIdOf(o.orderId);
+    await h.db.pool.query('UPDATE billing_orders SET cycle = NULL, amount = 39900 WHERE id = ?', [
+      o.orderId,
+    ]);
+    expect((await hook(paidBody(link, 'pay_old', 19900))).json().result).toBe('invalid');
+    expect((await hook(paidBody(link, 'pay_old2', 39900))).json().result).toBe('applied');
+    expect((await sub(A)).expiresAt.slice(0, 10)).toBe('2027-01-15'); // 3 months after the trial
   });
 });
 
@@ -480,7 +560,7 @@ describe('expiry job and the provider client', () => {
     const paid = {
       paymentId: 'pay_x',
       linkId: rows[0]!.link_id,
-      amountPaise: PLANS.starter.pricePaise,
+      amountPaise: PLANS.starter.prices.month,
     };
     expect(await applyPaid(h.db.pool, 'razorpay', paid, h.clock.now)).toBe('invalid');
     expect((await sub(A)).plan).toBe('trial');

@@ -1,5 +1,12 @@
-import { PLANS } from '../plans';
-import { planAction, subscriptionState, usageFraction, usageLevel, type SubInput } from '../logic';
+import { rupeesPerDay, storeProduct } from '../plans';
+import {
+  planAction,
+  storeAction,
+  subscriptionState,
+  usageFraction,
+  usageLevel,
+  type SubInput,
+} from '../logic';
 
 const NOW = Date.parse('2026-10-08T06:00:00Z');
 const day = 86_400_000;
@@ -12,13 +19,22 @@ const sub = (over: Partial<SubInput> = {}): SubInput => ({
   ...over,
 });
 
-describe('plan catalogue (must match functions/src/lib/plans.ts)', () => {
-  it('has the agreed prices, durations and limits', () => {
-    expect(PLANS).toEqual([
-      { id: 'starter', pricePaise: 39900, months: 3, studentLimit: 50, batchLimit: 3 },
-      { id: 'standard', pricePaise: 69900, months: 6, studentLimit: 100, batchLimit: 5 },
-      { id: 'pro', pricePaise: 99900, months: 12, studentLimit: null, batchLimit: null },
-    ]);
+describe('store products and prices (the same rule as server/src/billing/plans.ts)', () => {
+  it('reads Apple and Google product ids, and nothing else', () => {
+    expect(storeProduct('chalkpis.standard.monthly')).toEqual({ plan: 'standard', cycle: 'month' });
+    expect(storeProduct('chalkpis.pro:yearly')).toEqual({ plan: 'pro', cycle: 'year' });
+    for (const bad of ['chalkpis.gold.monthly', 'pro.yearly', 'chalkpis.pro.weekly'])
+      expect(storeProduct(bad)).toBeNull();
+  });
+  it('a price as so much a day', () => {
+    expect(rupeesPerDay(299900, 'year')).toBe(8);
+    expect(rupeesPerDay(199900, 'year')).toBe(5);
+    expect(rupeesPerDay(29900, 'month')).toBe(10);
+  });
+  it('the store button: the current subscription, a switch, or a new one', () => {
+    expect(storeAction(null, 'chalkpis.pro.yearly')).toBe('subscribe');
+    expect(storeAction('chalkpis.pro.yearly', 'chalkpis.pro.yearly')).toBe('current');
+    expect(storeAction('chalkpis.starter.monthly', 'chalkpis.pro.yearly')).toBe('switch');
   });
 });
 

@@ -29,7 +29,7 @@ with `eas fingerprint:compare --build-id <id>` before publishing. Publish with t
 | Package / bundle id | `in.chalkpis.tutors` |
 | Developer | M2W Technologies Private Limited |
 | Category | Play: **Business**. App Store: primary **Business**, secondary **Education** |
-| Price | Free (no in-app purchases in the store apps; plans are not sold inside the app) |
+| Price | Free to download, with in-app purchases: auto-renewing subscriptions Starter, Standard and Pro, monthly or yearly (section "In-app subscriptions") |
 | Contains ads | No |
 | Support email | hello@chalkpis.com |
 | Website / support URL | https://tutor.chalkpis.com |
@@ -106,10 +106,26 @@ Sign-in uses a one-time code sent on WhatsApp. For review, use:
   Code: <REVIEW_CODE>
 Tap "Continue with WhatsApp", enter the mobile number, then the code. No WhatsApp message is sent to this review number.
 After signing in, choose what you teach, enter a name and a class name, create a batch and add a student to see attendance, fees and reports.
-There are no purchases in the app.
+In-app subscriptions: Account > Plans & billing lists the plans (monthly and yearly auto-renewing subscriptions in one group) with Restore purchases and Manage subscription. The review account is a centre owner and can buy in the sandbox; the plan switches on within seconds.
 ```
 
 Remove the two settings again when the review is over.
+
+## In-app subscriptions
+
+One subscription group "Chalkpis plans" (Apple) / three subscriptions with monthly and yearly base plans (Google):
+Starter ₹199 a month or ₹1,999 a year (50 students, 3 batches), Standard ₹299 / ₹2,999 (100 students, 5 batches),
+Pro ₹499 / ₹4,999 (unlimited). New subscribers to a monthly plan pay ₹49 for the first month. Product ids are in
+docs/SETUP.md 4c.
+
+- **Description (both stores) must end with** the subscription terms and links, e.g. "Chalkpis is free to try for 14
+  days. Plans are monthly or yearly subscriptions that renew automatically until cancelled in your account settings.
+  Terms: https://tutor.chalkpis.com/terms · Privacy: https://tutor.chalkpis.com/privacy". On the App Store also put the
+  Terms URL in the "License Agreement" (EULA) field or keep Apple's standard EULA and the link in the description.
+- Each Apple subscription needs a review screenshot (the Plans & billing screen) and is submitted together with the app
+  version (App Store Connect > the version > In-App Purchases and Subscriptions).
+- The app never links to paying on the website (Apple 3.1.1 / 3.1.3, Google Play payments); announcement buttons to
+  `/pay` or `/plan` are refused by the server.
 
 ## Google Play: Data safety
 

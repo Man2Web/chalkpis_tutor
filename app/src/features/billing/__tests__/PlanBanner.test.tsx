@@ -62,3 +62,22 @@ it('tapping goes to Plans & billing', async () => {
   await fireEvent.press(screen.getByRole('button'));
   expect(mockNavigate).toHaveBeenCalledWith('Billing');
 });
+
+it('a store subscription that renews by itself is not "ending"', async () => {
+  set({
+    expiresAtMs: Date.now() + 2 * day,
+    store: { name: 'app_store', willRenew: true, issue: null },
+  });
+  await render(<PlanBanner />);
+  expect(screen.queryByRole('button')).toBeNull();
+});
+
+it('a store payment problem asks the owner to fix it in the store', async () => {
+  set({ store: { name: 'play_store', willRenew: true, issue: 'billing' } });
+  await render(<PlanBanner />);
+  expect(
+    screen.getByText(
+      'Payment problem: update your payment method in Google Play to keep your plan',
+    ),
+  ).toBeTruthy();
+});

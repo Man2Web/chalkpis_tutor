@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronRight, Search } from 'lucide-react';
-import { BillingKpis, PLAN_INFO, StatusBadge, isPlan, planName, subscriptionState } from '@/components/app/billing';
+import { BillingKpis, StatusBadge } from '@/components/app/billing';
+import { STORE_NAME, isPlan, planName, planPrice, subscriptionState } from '@/lib/plans';
 import { Empty, ErrorBox, Loading, PageHeader } from '@/components/app/bits';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -109,7 +110,8 @@ export function Subscriptions({ query = {} }: { query?: Record<string, string> }
                             <span className="block">{planName(c.plan)}</span>
                             {isPlan(c.plan) && c.plan !== 'trial' ? (
                               <span className="block text-xs text-muted-foreground">
-                                ₹{PLAN_INFO[c.plan].paise / 100} / {PLAN_INFO[c.plan].months} months
+                                {c.cycle ? planPrice(c.plan, c.cycle) : 'Set by admin or an older pack'}
+                                {c.store ? ` · ${STORE_NAME[c.store.name] ?? c.store.name}${c.store.willRenew ? ', renews' : ''}` : ''}
                               </span>
                             ) : null}
                           </TableCell>

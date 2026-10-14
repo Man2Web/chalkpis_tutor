@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Download, Search } from 'lucide-react';
 import { Empty, ErrorBox, Health, Loading, PageHeader } from '@/components/app/bits';
-import { StatusBadge, planName, subscriptionState } from '@/components/app/billing';
+import { StatusBadge } from '@/components/app/billing';
+import { planName, subscriptionState } from '@/lib/plans';
 import { Tag } from '@/components/app/tags';
 import { toast } from '@/components/app/toast';
 import { Button } from '@/components/ui/button';

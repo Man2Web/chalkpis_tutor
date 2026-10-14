@@ -34,6 +34,10 @@ const httpsLink = z
   .trim()
   .max(300)
   .refine((v) => v === '' || /^https:\/\/[^\s<>"]+$/i.test(v))
+  // the store apps must never point to paying outside the store (Apple 3.1.1, Google Play payments): no pay pages
+  .refine((v) => !/^https:\/\/[^/]*chalkpis\.com\/(pay|plan)(\/|\?|#|$)/i.test(v), {
+    message: 'pay_link',
+  })
   .default('');
 
 export const audienceInput = z.object({

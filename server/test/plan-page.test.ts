@@ -79,7 +79,9 @@ describe('billing page (/plan)', () => {
     expect(page.body).toContain('Sunrise &lt;Dance&gt;');
     expect(page.body).not.toContain('<Dance>');
     expect(page.body).toContain('Your free trial runs until');
-    expect(page.body).toContain('Pay ₹699');
+    expect(page.body).toContain('Pay ₹2,999 for a year');
+    expect(page.body).toContain('Pay ₹299 for a month');
+    expect(page.body).toContain('Most popular');
     expect(page.body).toContain('No payments yet.');
   });
 
@@ -113,7 +115,7 @@ describe('billing page (/plan)', () => {
     const r = await form('/plan/pay', { plan: 'standard', centre: t.instituteId }, { cookie });
     expect(r.statusCode).toBe(200);
     expect(gateway.created[0]).toMatchObject({
-      amountPaise: PLANS.standard.pricePaise,
+      amountPaise: PLANS.standard.prices.year,
       customerPhone: '+919800000001',
     });
     expect(r.body).toContain(`url=https://rzp.io/i/`);

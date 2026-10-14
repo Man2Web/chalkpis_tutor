@@ -7,6 +7,7 @@ import { AppError } from './errors.js';
 import { ping, type Pool } from './db.js';
 import { safeUrl } from './logging.js';
 import type { BillingProvider } from './billing/provider.js';
+import type { StoreClient } from './billing/store.js';
 import type { MessageProvider } from './messaging/provider.js';
 import { authRoutes } from './routes/auth.js';
 import type { Mailer } from './auth/mailer.js';
@@ -41,6 +42,8 @@ export interface AppDeps {
   provider?: MessageProvider | null;
   /** Creates plan payment links. Null means not configured: buying answers 503. */
   billing?: BillingProvider | null;
+  /** Reads in-app (App Store / Google Play) subscriptions from RevenueCat. Null: the apps sell nothing. */
+  store?: StoreClient | null;
   /** Sends the admin dashboard's sign-in codes and alerts by email. Null means not configured. */
   mailer?: Mailer | null;
   /** Push notifications to the app. Null means none are sent. */
@@ -56,6 +59,7 @@ export async function buildApp({
   logStream,
   provider = null,
   billing = null,
+  store = null,
   mailer = null,
   push = null,
   clock,
@@ -138,7 +142,7 @@ export async function buildApp({
   taskRoutes(app, { config, pool, clock });
   legalRoutes(app);
   adminRoutes(app, { config, pool, clock, mailer, push, providerName: provider?.name ?? 'none' });
-  billingRoutes(app, { config, pool, billing, clock });
+  billingRoutes(app, { config, pool, billing, store, clock });
   payRoutes(app, { config, pool, billing, provider, clock });
   paidRoutes(app, { config, pool, push, clock });
   pushRoutes(app, { config, pool, clock });

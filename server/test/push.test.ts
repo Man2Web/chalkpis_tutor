@@ -113,7 +113,7 @@ describe('push notifications', () => {
       push,
     });
     expect(push.sent[0]).toMatchObject({
-      title: 'Your free trial ends on 9 Oct 2026',
+      title: 'Last reminder: your free trial ends on 9 Oct 2026', // within its last day
       data: { screen: 'Billing' },
     });
   });

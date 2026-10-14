@@ -175,6 +175,12 @@ interface InstRow {
   plan: string | null;
   plan_status: string | null;
   expires_at: Date | null;
+  cycle: string | null;
+  store: string | null;
+  store_will_renew: number | null;
+  store_issue: string | null;
+  store_sandbox: number | null;
+  banked_ms: number | string | null;
   students: number;
   batches: number;
   staff: number;
@@ -214,6 +220,7 @@ export function healthScore(i: {
 const INST_SELECT = `SELECT i.id, i.name, i.category, i.created_at, i.upi_id, i.payment_link,
     u.name AS owner_name, u.phone AS owner_phone, u.id AS owner_id,
     s.plan, s.status AS plan_status, s.expires_at, s.student_limit, s.batch_limit, ns.enabled AS messages_on,
+    s.cycle, s.store, s.store_will_renew, s.store_issue, s.store_sandbox, s.banked_ms,
     (SELECT COUNT(*) FROM students st WHERE st.institute_id = i.id AND st.status = 'active') AS students,
     (SELECT COUNT(*) FROM batches b WHERE b.institute_id = i.id AND b.status = 'active') AS batches,
     (SELECT COUNT(*) FROM memberships m WHERE m.institute_id = i.id AND m.role = 'staff') AS staff,
@@ -246,6 +253,20 @@ function toInstitute(r: InstRow, now: Date) {
     planActive: r.plan_status === 'active' && !!r.expires_at && r.expires_at > now,
     expiresAt: r.expires_at?.toISOString() ?? null,
     planStatus: r.plan_status ?? null,
+    cycle: r.cycle ?? null,
+    // an App Store / Google Play subscription deciding the plan, and the days that resume after it
+    store: r.store
+      ? {
+          name: r.store,
+          willRenew: !!r.store_will_renew,
+          issue: r.store_issue,
+          test: !!r.store_sandbox,
+          thenUntil:
+            r.expires_at && Number(r.banked_ms ?? 0) > 0
+              ? new Date(r.expires_at.getTime() + Number(r.banked_ms)).toISOString()
+              : null,
+        }
+      : null,
     studentLimit:
       r.student_limit === null || r.student_limit === undefined ? null : Number(r.student_limit),
     batchLimit:
