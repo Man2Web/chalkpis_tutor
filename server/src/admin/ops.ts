@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Pool } from '../db.js';
 import { AppError, notFound } from '../errors.js';
 import { newId } from '../lib/ids.js';
+import { queueCentreWelcome } from '../messaging/centreMessages.js';
 import type { AdminActor } from './service.js';
 
 const DAY = 86_400_000;
@@ -81,6 +82,134 @@ export async function messagesMonitor(pool: Pool, q: z.infer<typeof messagesQuer
     summary: summary.map((s) => ({ type: s.type, status: s.status, count: n(s.c) })),
     topErrors: errors.map((e) => ({ error: e.e, count: n(e.c) })),
   };
+}
+
+export const ownerMessagesQuery = z.object({
+  status: z.enum(['all', 'queued', 'sending', 'sent', 'failed', 'skipped']).default('all'),
+  type: z.string().max(30).default(''),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+});
+
+/**
+ * Every message Chalkpis sends to a centre's own people (newest first): the owner's welcome, plan active, plan ending
+ * and ended, and helper invites; a 7-day summary by type and status; and the centres made in the last 30 days whose
+ * owner was never even queued a welcome (an owner without a mobile number, for example).
+ */
+export async function ownerMessages(pool: Pool, q: z.infer<typeof ownerMessagesQuery>, now: Date) {
+  const where: string[] = [];
+  const args: unknown[] = [];
+  if (q.status !== 'all') {
+    where.push('m.status = ?');
+    args.push(q.status);
+  }
+  if (q.type) {
+    where.push('m.type = ?');
+    args.push(q.type);
+  }
+  const [rows] = (await pool.query(
+    `SELECT m.institute_id, m.type, m.ref, m.status, m.reason, m.error, m.attempts, m.to_last4, m.created_at,
+            m.sent_at, i.name AS institute, u.name AS recipient, m.user_id = i.owner_user_id AS to_owner
+       FROM centre_messages m JOIN institutes i ON i.id = m.institute_id
+       LEFT JOIN users u ON u.id = m.user_id
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ORDER BY m.created_at DESC LIMIT ?`,
+    [...args, q.limit],
+  )) as unknown as [
+    {
+      institute_id: string;
+      type: string;
+      ref: string;
+      status: string;
+      reason: string | null;
+      error: string | null;
+      attempts: number;
+      to_last4: string;
+      created_at: Date;
+      sent_at: Date | null;
+      institute: string;
+      recipient: string | null;
+      to_owner: number;
+    }[],
+  ];
+  const since = new Date(now.getTime() - 7 * DAY);
+  const [summary] = (await pool.query(
+    'SELECT type, status, COUNT(*) c FROM centre_messages WHERE created_at >= ? GROUP BY type, status',
+    [since],
+  )) as unknown as [{ type: string; status: string; c: number }[]];
+  const [errors] = (await pool.query(
+    `SELECT COALESCE(error, reason, 'unknown') e, COUNT(*) c FROM centre_messages
+      WHERE status IN ('failed','skipped') AND created_at >= ? GROUP BY e ORDER BY c DESC LIMIT 10`,
+    [since],
+  )) as unknown as [{ e: string; c: number }[]];
+  const [missing] = (await pool.query(
+    `SELECT i.id, i.name, i.created_at, u.name AS owner, u.phone IS NOT NULL AND u.phone <> '' AS has_phone
+       FROM institutes i JOIN users u ON u.id = i.owner_user_id
+      WHERE i.created_at >= ?
+        AND NOT EXISTS (SELECT 1 FROM centre_messages m WHERE m.institute_id = i.id AND m.type = 'centre_welcome')
+      ORDER BY i.created_at DESC LIMIT 50`,
+    [new Date(now.getTime() - 30 * DAY)],
+  )) as unknown as [
+    { id: string; name: string; created_at: Date; owner: string | null; has_phone: number }[],
+  ];
+  return {
+    messages: rows.map((r) => ({
+      instituteId: r.institute_id,
+      type: r.type,
+      ref: r.ref,
+      status: r.status,
+      why: r.error ?? r.reason ?? '',
+      attempts: n(r.attempts),
+      to: `•••• ${r.to_last4}`,
+      recipient: r.recipient ?? '',
+      toOwner: !!n(r.to_owner),
+      institute: r.institute,
+      createdAt: r.created_at.toISOString(),
+      sentAt: r.sent_at?.toISOString() ?? null,
+    })),
+    summary: summary.map((x) => ({ type: x.type, status: x.status, count: n(x.c) })),
+    topErrors: errors.map((e) => ({ error: e.e, count: n(e.c) })),
+    noWelcome: missing.map((m) => ({
+      instituteId: m.id,
+      name: m.name,
+      owner: m.owner ?? '',
+      createdAt: m.created_at.toISOString(),
+      hasPhone: !!n(m.has_phone),
+    })),
+  };
+}
+
+/**
+ * Sends a centre's welcome to its owner again (or for the first time, if it was never queued): the earlier one is
+ * replaced by a fresh one with today's details, queued for the worker. Not while one is still on its way.
+ */
+export async function resendWelcome(pool: Pool, actor: AdminActor, instituteId: string, now: Date) {
+  const [inst] = (await pool.query('SELECT id FROM institutes WHERE id = ?', [
+    instituteId,
+  ])) as unknown as [{ id: string }[]];
+  if (!inst[0]) throw notFound();
+  const [cur] = (await pool.query(
+    "SELECT status FROM centre_messages WHERE institute_id = ? AND type = 'centre_welcome' AND ref = ''",
+    [instituteId],
+  )) as unknown as [{ status: string }[]];
+  if (cur[0] && (cur[0].status === 'queued' || cur[0].status === 'sending'))
+    throw new AppError(409, 'in_progress');
+  await pool.query(
+    "DELETE FROM centre_messages WHERE institute_id = ? AND type = 'centre_welcome' AND ref = ''",
+    [instituteId],
+  );
+  if (!(await queueCentreWelcome(pool, instituteId, now))) throw new AppError(409, 'no_phone');
+  await pool.query(
+    'INSERT INTO admin_audit (id, admin_user_id, admin_phone, action, target_institute_id, detail) VALUES (?, ?, ?, ?, ?, ?)',
+    [
+      newId(),
+      actor.userId,
+      actor.phone,
+      'resend-welcome',
+      instituteId,
+      cur[0] ? `was ${cur[0].status}` : 'never queued',
+    ],
+  );
+  return { ok: true };
 }
 
 /**

@@ -14,6 +14,7 @@ import { useApi } from '@/lib/hooks';
 import { MESSAGE_TYPES, msgType, type Tone } from '@/lib/names';
 import { cn } from '@/lib/utils';
 import { ByType } from './Centre';
+import { OwnerMessages } from './OwnerMessages';
 import { Ring } from './Overview';
 
 type Msg = {
@@ -41,7 +42,35 @@ const STATUS = [
 ] as const;
 const TONE: Record<string, Tone> = { sent: 'green', failed: 'red', skipped: 'neutral', queued: 'blue', sending: 'blue' };
 
+/** Parent messages, or the messages to centre owners and helpers. */
 export function WhatsApp() {
+  const [who, setWho] = useState<'parents' | 'owners'>('parents');
+  return (
+    <div className="grid gap-6">
+      <PageHeader
+        title="WhatsApp"
+        description={
+          who === 'parents'
+            ? 'Every message Chalkpis sends to parents: what went out, what failed and why. Failed ones can be retried.'
+            : "Messages to centre owners and their helpers: welcome, plan active, plan ending and ended, helper invites. A welcome that did not arrive can be sent again."
+        }
+      />
+      <Tabs value={who} onValueChange={(v) => setWho(v as typeof who)}>
+        <TabsList>
+          <TabsTrigger value="parents">Parents</TabsTrigger>
+          <TabsTrigger value="owners">Owners &amp; helpers</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      {who === 'parents' ? <ParentMessages /> : <OwnerMessages />}
+    </div>
+  );
+}
+
+const PARENT_TYPES = Object.entries(MESSAGE_TYPES).filter(
+  ([k]) => !['centre_welcome', 'trial_ending', 'plan_active', 'helper_invite', 'plan_ending', 'plan_ended'].includes(k),
+);
+
+function ParentMessages() {
   const [status, setStatus] = useState('all');
   const [type, setType] = useState('any');
   const params = new URLSearchParams({ limit: '150' });
@@ -69,7 +98,6 @@ export function WhatsApp() {
   };
   return (
     <div className="grid gap-6">
-      <PageHeader title="WhatsApp" description="Every message Chalkpis sends to parents: what went out, what failed and why. Failed ones can be retried." />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi label="Sent · 7 d" value={sent} hint="accepted by the WhatsApp gateway" />
         <Kpi label="Failed · 7 d" value={<span className={cn(tot('failed') && 'text-rose-600 dark:text-rose-400')}>{tot('failed')}</span>} hint="the gateway refused them" />
@@ -114,7 +142,7 @@ export function WhatsApp() {
           <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="any">Every type</SelectItem>
-            {Object.entries(MESSAGE_TYPES).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
+            {PARENT_TYPES.map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>

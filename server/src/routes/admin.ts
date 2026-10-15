@@ -46,6 +46,9 @@ import { payUrl } from '../billing/payLink.js';
 import {
   messagesMonitor,
   messagesQuery,
+  ownerMessages,
+  ownerMessagesQuery,
+  resendWelcome,
   quickSearch,
   retryMessage,
   systemHealth,
@@ -252,6 +255,12 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
   );
   app.get('/admin/api/messages', guard, async (req) =>
     messagesMonitor(pool, parse(messagesQuery, req.query), now()),
+  );
+  app.get('/admin/api/owner-messages', guard, async (req) =>
+    ownerMessages(pool, parse(ownerMessagesQuery, req.query), now()),
+  );
+  app.post('/admin/api/institutes/:id/welcome', guard, async (req) =>
+    resendWelcome(pool, actor(req), id(req), now()),
   );
   app.post('/admin/api/messages/:id/retry', guard, async (req) => {
     await retryMessage(pool, actor(req), id(req), now());
