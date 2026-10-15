@@ -129,6 +129,13 @@ export async function createOrder(
         store: cur[0]!.store,
         until: cur[0]!.expires_at.toISOString(),
       });
+    // nor while auto-renew on the website is on (it charges the next cycle itself)
+    const [auto] = (await conn.query(
+      `SELECT id FROM web_subscriptions WHERE institute_id = ? AND cancel_at_cycle_end = 0
+          AND status IN ('authenticated','active','pending') LIMIT 1`,
+      [a.instituteId],
+    )) as unknown as [{ id: string }[]];
+    if (auto[0]) throw new AppError(409, 'auto_renew_on');
     const change = planChange(
       cur[0]
         ? { plan: cur[0].plan, status: cur[0].status, expiresAt: cur[0].expires_at }

@@ -785,7 +785,20 @@
     "pending": "Your payment is waiting for confirmation. Your plan switches on by itself once it is confirmed.",
     "storeFailed": "The purchase could not be completed. Please try again.",
     "storeUnavailable": "Plans could not be loaded just now. Check your connection and try again.",
-    "webNote": "One payment for a month or a year, by UPI, card or net banking. It does not renew by itself."
+    "autoRenewOn": "Renews automatically on {{date}}",
+    "autoPayRetrying": "The last automatic payment did not go through. It will be tried again; make sure your UPI app or card allows it.",
+    "approveAutopay": "Approve UPI Autopay or a card on the next page. Auto-renew shows here once you are back.",
+    "alreadyRenewing": "This plan already renews automatically.",
+    "downgradeAtRenewal": "A lower plan starts at renewal: turn auto-renew off first, then choose it when your plan ends.",
+    "autoRenewOff": "Auto-renew is off. Your plan runs to its end date.",
+    "turnOffAuto": "Turn off auto-renew",
+    "atRenewal": "At renewal",
+    "startAuto": "Start {{price}} {{per}}",
+    "upgradeAuto": "Upgrade · {{price}} {{per}}",
+    "payOnce": "or pay once for 1 year (no auto-renew)",
+    "webAutoNote": "Plans renew automatically by UPI Autopay or card until you turn it off. You are told before each payment.",
+    "webFirstTrial": "Your free trial runs until {{date}}. Start auto-renew any time: the first payment is taken when the trial ends.",
+    "webFirstPaid": "Your plan is paid until {{date}}. Start auto-renew any time: the first payment is taken when it ends."
   },
   "messages": {
     "settingsTitle": "Parent messages",

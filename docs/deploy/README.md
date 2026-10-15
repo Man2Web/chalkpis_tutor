@@ -44,8 +44,9 @@ current version":
 - `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`: dashboard.razorpay.com > Account & Settings > API Keys > Generate Key
   (live mode; the secret is shown once).
 - `RAZORPAY_WEBHOOK_SECRET`: a secret you make up (16+ characters). In Razorpay > Account & Settings > Webhooks >
-  Add New Webhook: URL `https://tutor.chalkpis.com/billing/webhooks/razorpay`, the same secret, event
-  **payment_link.paid**.
+  Add New Webhook: URL `https://tutor.chalkpis.com/billing/webhooks/razorpay`, the same secret, events
+  **payment_link.paid** and the **subscription.*** events (authenticated, activated, charged, pending, halted,
+  cancelled, completed, paused, resumed, updated) for website auto-renew (decision 146).
 
 How a payment runs: the pay page creates a Razorpay payment link (our order id is its `reference_id`, it expires after
 an hour), the payer pays on Razorpay's own page (UPI, cards, net banking, wallets) and Razorpay sends them back to

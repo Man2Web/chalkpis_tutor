@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Pool } from '../db.js';
 import { isCycle, isPlanId, monthsOf, priceOf } from '../billing/plans.js';
+import { RENEWS_SQL } from '../billing/webSubscriptions.js';
 
 const IST = 5.5 * 3_600_000;
 const DAY = 86_400_000;
@@ -71,13 +72,14 @@ export async function billingOverview(pool: Pool, q: z.infer<typeof billingQuery
     [now],
   )) as unknown as [{ plan: string; cycle: string | null; in_store: number; n: number }[]];
   const [[ends]] = (await pool.query(
-    `SELECT COALESCE(SUM(status = 'active' AND expires_at > ? AND expires_at <= ?
-              AND NOT (store IS NOT NULL AND store_will_renew = 1)), 0) AS soon,
-            COALESCE(SUM(status = 'expired' OR expires_at <= ?), 0) AS ended,
-            COALESCE(SUM(status = 'active' AND expires_at > ? AND store IS NOT NULL AND store_will_renew = 1), 0) AS renewing
-       FROM subscriptions`,
-    [now, new Date(now.getTime() + 7 * DAY), now, now],
-  )) as unknown as [[{ soon: number; ended: number; renewing: number }]];
+    `SELECT COALESCE(SUM(s.status = 'active' AND s.expires_at > ? AND s.expires_at <= ? AND NOT ${RENEWS_SQL}), 0) AS soon,
+            COALESCE(SUM(s.status = 'expired' OR s.expires_at <= ?), 0) AS ended,
+            COALESCE(SUM(s.status = 'active' AND s.expires_at > ? AND ${RENEWS_SQL}), 0) AS renewing,
+            COALESCE(SUM(s.status = 'active' AND s.expires_at > ? AND NOT (s.store IS NOT NULL AND s.store_will_renew = 1)
+              AND ${RENEWS_SQL}), 0) AS renewing_web
+       FROM subscriptions s`,
+    [now, new Date(now.getTime() + 7 * DAY), now, now, now],
+  )) as unknown as [[{ soon: number; ended: number; renewing: number; renewing_web: number }]];
 
   let paying = 0;
   let trials = 0;
@@ -197,6 +199,7 @@ export async function billingOverview(pool: Pool, q: z.infer<typeof billingQuery
       trials,
       endingSoon: Number(ends.soon),
       autoRenewing: Number(ends.renewing),
+      autoRenewingWeb: Number(ends.renewing_web),
       ended: Number(ends.ended),
       byPlan,
       byCycle,

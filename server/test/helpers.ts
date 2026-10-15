@@ -79,6 +79,8 @@ const TABLES = [
   'billing_events',
   'billing_orders',
   'store_events',
+  'web_subscriptions',
+  'razorpay_plans',
   'push_log',
   'push_tokens',
   'payment_reports',

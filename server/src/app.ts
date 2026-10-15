@@ -141,7 +141,15 @@ export async function buildApp({
   staffRoutes(app, { config, pool, clock });
   taskRoutes(app, { config, pool, clock });
   legalRoutes(app);
-  adminRoutes(app, { config, pool, clock, mailer, push, providerName: provider?.name ?? 'none' });
+  adminRoutes(app, {
+    config,
+    pool,
+    clock,
+    mailer,
+    push,
+    billing,
+    providerName: provider?.name ?? 'none',
+  });
   billingRoutes(app, { config, pool, billing, store, clock });
   payRoutes(app, { config, pool, billing, provider, clock });
   paidRoutes(app, { config, pool, push, clock });

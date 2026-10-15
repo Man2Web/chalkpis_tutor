@@ -181,6 +181,11 @@ interface InstRow {
   store_issue: string | null;
   store_sandbox: number | null;
   banked_ms: number | string | null;
+  web_status: string | null;
+  web_plan: string | null;
+  web_cycle: string | null;
+  web_amount: number | string | null;
+  web_charge_at: Date | null;
   students: number;
   batches: number;
   staff: number;
@@ -221,6 +226,8 @@ const INST_SELECT = `SELECT i.id, i.name, i.category, i.created_at, i.upi_id, i.
     u.name AS owner_name, u.phone AS owner_phone, u.id AS owner_id,
     s.plan, s.status AS plan_status, s.expires_at, s.student_limit, s.batch_limit, ns.enabled AS messages_on,
     s.cycle, s.store, s.store_will_renew, s.store_issue, s.store_sandbox, s.banked_ms,
+    w.status AS web_status, w.plan_id AS web_plan, w.cycle AS web_cycle, w.amount AS web_amount,
+    COALESCE(w.charge_at, w.start_at) AS web_charge_at,
     (SELECT COUNT(*) FROM students st WHERE st.institute_id = i.id AND st.status = 'active') AS students,
     (SELECT COUNT(*) FROM batches b WHERE b.institute_id = i.id AND b.status = 'active') AS batches,
     (SELECT COUNT(*) FROM memberships m WHERE m.institute_id = i.id AND m.role = 'staff') AS staff,
@@ -233,7 +240,11 @@ const INST_SELECT = `SELECT i.id, i.name, i.category, i.created_at, i.upi_id, i.
   FROM institutes i
   LEFT JOIN users u ON u.id = i.owner_user_id
   LEFT JOIN subscriptions s ON s.institute_id = i.id
-  LEFT JOIN notify_settings ns ON ns.institute_id = i.id`;
+  LEFT JOIN notify_settings ns ON ns.institute_id = i.id
+  LEFT JOIN web_subscriptions w ON w.id = (
+    SELECT w2.id FROM web_subscriptions w2 WHERE w2.institute_id = i.id
+       AND w2.status IN ('authenticated','active','pending') AND w2.cancel_at_cycle_end = 0
+     ORDER BY w2.created_at DESC LIMIT 1)`;
 
 const latest = (...d: (Date | null)[]) =>
   d.filter((x): x is Date => !!x).sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
@@ -265,6 +276,16 @@ function toInstitute(r: InstRow, now: Date) {
             r.expires_at && Number(r.banked_ms ?? 0) > 0
               ? new Date(r.expires_at.getTime() + Number(r.banked_ms)).toISOString()
               : null,
+        }
+      : null,
+    // auto-renew on the website (Razorpay: UPI Autopay or card)
+    webAutoRenew: r.web_status
+      ? {
+          status: r.web_status,
+          plan: r.web_plan,
+          cycle: r.web_cycle,
+          amount: Number(r.web_amount ?? 0),
+          nextChargeAt: r.web_charge_at?.toISOString() ?? null,
         }
       : null,
     studentLimit:

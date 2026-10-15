@@ -69,7 +69,9 @@ own page (UPI, card, net banking, wallets) and is sent back to `/billing/return`
    | `RAZORPAY_WEBHOOK_SECRET` | a long secret you make up (16+ characters, used in step 3) |
    | `PUBLIC_BASE_URL` | `https://tutor.chalkpis.com` (where Razorpay sends the payer back) |
 3. In Razorpay, **Account & Settings > Webhooks > Add New Webhook**: URL
-   `https://tutor.chalkpis.com/billing/webhooks/razorpay`, the same secret, active event **payment_link.paid**.
+   `https://tutor.chalkpis.com/billing/webhooks/razorpay`, the same secret, active events **payment_link.paid** and,
+   for auto-renew, **subscription.authenticated, activated, charged, pending, halted, cancelled, completed, paused,
+   resumed, updated**. Auto-renew needs Razorpay Subscriptions (UPI Autopay and cards), which is on for the account.
 4. Restart, then buy the cheapest plan once from `/plan` to check the whole path (refund it from the Razorpay dashboard
    afterwards if you like).
 

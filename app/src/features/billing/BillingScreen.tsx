@@ -51,12 +51,15 @@ import {
   checkPlanOrder,
   createPlanLink,
   mockCompletePayment,
+  startAutoRenew,
+  stopAutoRenew,
   syncStorePlan,
   type PlanLink,
 } from './api';
 import { billingError } from './errors';
-import { planAction, storeAction, subscriptionState, usageFraction, usageLevel } from './logic';
-import { rupeesPerDay, type Cycle, type PlanId, type PlanInfo } from './plans';
+import { storeAction, subscriptionState, usageFraction, usageLevel } from './logic';
+import { PLAN_RANK, rupeesPerDay, type Cycle, type PlanId, type PlanInfo } from './plans';
+import { ApiError } from '../../api/client';
 
 const LEVEL_COLOR = { ok: colors.primary, near: colors.warning, full: colors.danger } as const;
 
@@ -259,6 +262,9 @@ export function BillingScreen() {
   );
   const planName = (id: string) => t(`billing.plan.${id}`, { defaultValue: id });
   const date = (ms: number) => fullDate(toYmd(new Date(ms)), locale);
+  // auto-renew on the website (UPI Autopay / card): the phone apps then sell nothing and show when it renews
+  const webAuto = l.autoRenew?.via === 'website' ? l.autoRenew : null;
+  const sellInStore = inStore && !webAuto;
   const expiryText = l.expiresAtMs ? date(l.expiresAtMs) : '—';
   const storeName = (n: NonNullable<Limits['store']>['name']) => t(`billing.store.${n}`);
   const plans = catalogue.data?.plans ?? [];
@@ -310,6 +316,42 @@ export function BillingScreen() {
 
   // ---- website (web app) ----
 
+  // auto-renew on the website: approve UPI Autopay or a card on Razorpay's page; the plan shows it once back here
+  const autoRenew = async (planId: PlanId) => {
+    setBusy(`auto-${planId}`);
+    try {
+      const r = await startAutoRenew(planId, cycle);
+      if (!(await open(r.url))) toast(t('students.cannotOpen'), 'error');
+      else toast(t('billing.approveAutopay'));
+    } catch (e) {
+      const code = e instanceof ApiError ? e.code : '';
+      if (code === 'already_renewing' || code === 'downgrade_at_renewal')
+        toast(
+          t(`billing.${code === 'already_renewing' ? 'alreadyRenewing' : 'downgradeAtRenewal'}`),
+        );
+      else if (billingError(e) === 'not-configured') toast(t('billing.notConfigured'), 'error');
+      else {
+        reportError(e);
+        toast(t('billing.failed'), 'error');
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
+  const turnOff = async () => {
+    setBusy('off');
+    try {
+      await stopAutoRenew();
+      await refresh();
+      toast(t('billing.autoRenewOff'), 'success');
+    } catch (e) {
+      reportError(e);
+      toast(t('billing.failed'), 'error');
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const choose = async (planId: PlanId) => {
     setBusy(planId);
     try {
@@ -360,9 +402,13 @@ export function BillingScreen() {
   );
   // a running trial or website plan is kept for after a new store subscription (the server banks those days)
   const keptNote =
-    inStore && !l.store && !state.expired
+    sellInStore && !l.store && !state.expired
       ? t(l.plan === 'trial' ? 'billing.keptTrial' : 'billing.keptPaid', { date: expiryText })
-      : null;
+      : canPayWeb && !webAuto && !state.expired
+        ? t(l.plan === 'trial' ? 'billing.webFirstTrial' : 'billing.webFirstPaid', {
+            date: expiryText,
+          })
+        : null;
 
   const storeCards = () => {
     if (offers.isLoading) return <Skeleton height={200} />;
@@ -415,8 +461,10 @@ export function BillingScreen() {
 
   const webCards = () =>
     plans.map((p) => {
-      const action = planAction({ plan: l.plan, expired: state.expired }, p.id);
       const price = p.prices[cycle];
+      const current = webAuto && webAuto.plan === p.id && webAuto.cycle === cycle;
+      const lower = webAuto && PLAN_RANK[p.id] < PLAN_RANK[webAuto.plan as PlanId];
+      const upgrade = webAuto && !current && !lower;
       return (
         <PlanCard
           key={p.id}
@@ -425,15 +473,39 @@ export function BillingScreen() {
           per={t(cycle === 'year' ? 'billing.perYear' : 'billing.perMonth')}
           note={t('billing.perDay', { amount: rupeesPerDay(price, cycle) })}
           button={
-            <Button
-              variant={action === 'renew' || !p.popular ? 'secondary' : 'primary'}
-              title={t(action === 'renew' ? 'billing.renew' : 'billing.choose', {
-                plan: planName(p.id),
-              })}
-              onPress={() => void choose(p.id)}
-              loading={busy === p.id}
-              disabled={busy !== null}
-            />
+            <View style={{ gap: spacing.xs }}>
+              <Button
+                variant={current || lower || !p.popular ? 'secondary' : 'primary'}
+                title={
+                  current
+                    ? t('billing.currentPlan')
+                    : lower
+                      ? t('billing.atRenewal')
+                      : t(upgrade ? 'billing.upgradeAuto' : 'billing.startAuto', {
+                          plan: planName(p.id),
+                          price: formatINR(price),
+                          per: t(cycle === 'year' ? 'billing.perYear' : 'billing.perMonth'),
+                        })
+                }
+                onPress={() => void autoRenew(p.id)}
+                loading={busy === `auto-${p.id}`}
+                disabled={!!current || !!lower || busy !== null}
+              />
+              {!webAuto && cycle === 'year' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => void choose(p.id)}
+                  disabled={busy !== null}
+                  hitSlop={6}
+                >
+                  <Text
+                    style={[type.caption, { textAlign: 'center', textDecorationLine: 'underline' }]}
+                  >
+                    {t('billing.payOnce')}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           }
         />
       );
@@ -465,13 +537,19 @@ export function BillingScreen() {
             />
           </View>
           <Text style={type.caption}>
-            {state.expired
-              ? t('billing.endedOn', { date: expiryText })
-              : l.store?.willRenew
-                ? t('billing.renewsOn', { date: expiryText, store: storeName(l.store.name) })
-                : l.store
-                  ? t('billing.endsNoRenew', { date: expiryText })
-                  : t('billing.endsOn', { date: expiryText, count: state.daysLeft })}
+            {webAuto
+              ? webAuto.status === 'pending'
+                ? t('billing.autoPayRetrying')
+                : t('billing.autoRenewOn', {
+                    date: webAuto.nextChargeAtMs ? date(webAuto.nextChargeAtMs) : expiryText,
+                  })
+              : state.expired
+                ? t('billing.endedOn', { date: expiryText })
+                : l.store?.willRenew
+                  ? t('billing.renewsOn', { date: expiryText, store: storeName(l.store.name) })
+                  : l.store
+                    ? t('billing.endsNoRenew', { date: expiryText })
+                    : t('billing.endsOn', { date: expiryText, count: state.daysLeft })}
           </Text>
           {l.store?.issue === 'billing' && !state.expired ? (
             <Text style={[type.caption, { color: colors.danger }]}>
@@ -494,20 +572,29 @@ export function BillingScreen() {
           <Meter label={t('home.batches')} used={l.batchCount} limit={l.batchLimit} />
         </Card>
 
-        {inStore || canPayWeb ? (
+        {webAuto && !canPayWeb ? null : sellInStore || canPayWeb ? (
           <>
             <Text style={[type.heading, { fontSize: 20, paddingHorizontal: 4 }]}>
-              {t(l.store ? 'billing.changePlan' : 'billing.choosePlan')}
+              {t(l.store || webAuto ? 'billing.changePlan' : 'billing.choosePlan')}
             </Text>
             {cycleSwitch}
             <Text style={[type.caption, { paddingHorizontal: 4 }]}>
               {t(cycle === 'year' ? 'billing.yearlySaves' : 'billing.monthlyNote')}
             </Text>
+            {webAuto && canPayWeb ? (
+              <Button
+                variant="ghost"
+                title={t('billing.turnOffAuto')}
+                onPress={() => void turnOff()}
+                loading={busy === 'off'}
+                disabled={busy !== null}
+              />
+            ) : null}
             {keptNote ? (
               <Text style={[type.caption, { paddingHorizontal: 4 }]}>{keptNote}</Text>
             ) : null}
-            {inStore ? storeCards() : webCards()}
-            {inStore ? (
+            {sellInStore ? storeCards() : webCards()}
+            {sellInStore ? (
               <View style={{ gap: spacing.sm }}>
                 <Text style={[type.caption, { paddingHorizontal: 4 }]}>
                   {t('billing.autoRenewNote', {
@@ -551,7 +638,9 @@ export function BillingScreen() {
                 ) : null}
               </View>
             ) : (
-              <Text style={[type.caption, { paddingHorizontal: 4 }]}>{t('billing.webNote')}</Text>
+              <Text style={[type.caption, { paddingHorizontal: 4 }]}>
+                {t('billing.webAutoNote')}
+              </Text>
             )}
           </>
         ) : (

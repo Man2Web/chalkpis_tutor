@@ -38,6 +38,8 @@ function toCsv(d: BillingData): string {
     ['Paying centres', s.paying],
     ['Paying in the app (App Store / Google Play)', s.inStore],
     ['On free trial', s.trials],
+    ['Renewing automatically', s.autoRenewing],
+    ['  of them on the website (UPI Autopay / card)', s.autoRenewingWeb],
     ['Monthly plans', s.byCycle.month],
     ['Yearly plans', s.byCycle.year],
     ['Older packs', s.byCycle.pack],
@@ -95,7 +97,7 @@ export function Revenue() {
           </Button>
         }
       />
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Kpi label="Monthly recurring revenue" value={money(s.mrr)} hint="List price of the plans running now, per month" />
         <Kpi label="Annual run rate (ARR)" value={money(s.arr)} hint="MRR × 12" />
         <Kpi label="Average per paying centre" value={money(s.arpu)} hint="ARPU, per month" />
@@ -103,6 +105,11 @@ export function Revenue() {
           label="Paying centres"
           value={s.paying}
           hint={`${s.inStore} paying in the app · ${s.trials} on free trial`}
+        />
+        <Kpi
+          label="Renewing automatically"
+          value={`${s.autoRenewing} (${pct(s.autoRenewing, s.paying)})`}
+          hint={`${s.autoRenewingWeb} by UPI Autopay or card on the website · ${s.autoRenewing - s.autoRenewingWeb} in the apps`}
         />
         <Kpi
           label="Trial to paid"

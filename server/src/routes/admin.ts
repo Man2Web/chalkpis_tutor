@@ -79,6 +79,9 @@ import {
 } from '../admin/auth.js';
 import { parseTemplates } from '../messaging/templates.js';
 import { idParam, parse } from '../lib/params.js';
+import type { BillingProvider } from '../billing/provider.js';
+import { stopAutoRenew } from '../billing/webSubscriptions.js';
+import { AppError } from '../errors.js';
 
 type Deps = Pick<AppDeps, 'config' | 'pool'> & {
   clock?: () => Date;
@@ -88,6 +91,8 @@ type Deps = Pick<AppDeps, 'config' | 'pool'> & {
   providerName?: string;
   /** Push notifications (announcements can go out as one too). */
   push?: PushSender | null;
+  /** The payment gateway, to stop a centre's website auto-renew. */
+  billing?: BillingProvider | null;
 };
 
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'public');
@@ -259,6 +264,10 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
   app.get('/admin/api/owner-messages', guard, async (req) =>
     ownerMessages(pool, parse(ownerMessagesQuery, req.query), now()),
   );
+  app.post('/admin/api/institutes/:id/autorenew/off', guard, async (req) => {
+    if (!deps.billing) throw new AppError(503, 'billing_unavailable');
+    return { stopped: await stopAutoRenew(pool, deps.billing, id(req), actor(req)) };
+  });
   app.post('/admin/api/institutes/:id/welcome', guard, async (req) =>
     resendWelcome(pool, actor(req), id(req), now()),
   );

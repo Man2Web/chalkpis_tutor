@@ -76,11 +76,19 @@ export type StoreFacts = {
   test: boolean;
   thenUntil: string | null;
 };
+export type WebAutoRenew = {
+  status: string;
+  plan: string | null;
+  cycle: string | null;
+  amount: number;
+  nextChargeAt: string | null;
+};
 type CentreBilling = SubFacts & {
   id: string;
   name: string;
   cycle?: string | null;
   store?: StoreFacts | null;
+  webAutoRenew?: WebAutoRenew | null;
   planStatus?: string | null;
   studentLimit?: number | null;
   batchLimit?: number | null;
@@ -138,6 +146,23 @@ export function SubscriptionCard({ c, onDone }: { c: CentreBilling; onDone: () =
         batchLimit: c.batchLimit ?? null,
       });
       toast('Subscription ended');
+      onDone();
+    } catch (e) {
+      toast((e as Error).message, false);
+    }
+  };
+
+  const stopAuto = async () => {
+    const ok = await confirmDialog({
+      title: `Stop ${c.name}'s auto-renew?`,
+      body: 'The plan runs to its paid end date and is not charged again. The owner can turn auto-renew on again on the website.',
+      action: 'Stop auto-renew',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      const r = await api<{ stopped: boolean }>('POST', `/admin/api/institutes/${c.id}/autorenew/off`);
+      toast(r.stopped ? 'Auto-renew stopped' : 'Auto-renew was already off');
       onDone();
     } catch (e) {
       toast((e as Error).message, false);
@@ -210,6 +235,31 @@ export function SubscriptionCard({ c, onDone }: { c: CentreBilling; onDone: () =
             subscription.
           </p>
         )}
+
+        {c.webAutoRenew ? (
+          <div
+            className={cn(
+              'flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm',
+              c.webAutoRenew.status === 'pending' ? 'border-amber-500/30 bg-amber-500/5' : 'bg-muted/40',
+            )}
+          >
+            <span className="grid gap-0.5">
+              <span className="font-medium">
+                Auto-renew on the website · {planName(c.webAutoRenew.plan)} {cycleName(c.webAutoRenew.cycle).toLowerCase()}
+              </span>
+              <span className="text-muted-foreground">
+                {c.webAutoRenew.status === 'pending'
+                  ? 'The last automatic payment failed; Razorpay is retrying.'
+                  : c.webAutoRenew.status === 'authenticated'
+                    ? `Approved. First payment ${money(c.webAutoRenew.amount)}${c.webAutoRenew.nextChargeAt ? ` on ${dateOnly(c.webAutoRenew.nextChargeAt)}` : ''} by UPI Autopay or card.`
+                    : `Next payment ${money(c.webAutoRenew.amount)}${c.webAutoRenew.nextChargeAt ? ` on ${dateOnly(c.webAutoRenew.nextChargeAt)}` : ''} by UPI Autopay or card.`}
+              </span>
+            </span>
+            <Button variant="outline" size="sm" onClick={() => void stopAuto()}>
+              <CircleStop /> Stop auto-renew
+            </Button>
+          </div>
+        ) : null}
 
         {store ? (
           <div
@@ -792,6 +842,7 @@ export type BillingSummary = {
   trials: number;
   endingSoon: number;
   autoRenewing: number;
+  autoRenewingWeb: number;
   ended: number;
   byPlan: Record<string, number>;
   byCycle: { month: number; year: number; pack: number };

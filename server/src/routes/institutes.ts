@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { autoRenewFor } from '../billing/webSubscriptions.js';
 import type { AppDeps } from '../app.js';
 import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
 import { logoUrl } from './files.js';
@@ -169,6 +170,8 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
             thenUntil: banked > 0 ? new Date(s.expires_at.getTime() + banked) : null,
           }
         : null,
+      // the plan renews by itself: through the store, or auto-renew on the website (UPI Autopay / card)
+      autoRenew: await autoRenewFor(deps.pool, req.auth!.instituteId!),
       usage: {
         students: await activeCount(deps.pool, 'students', req.auth!.instituteId!),
         batches: await activeCount(deps.pool, 'batches', req.auth!.instituteId!),

@@ -175,11 +175,14 @@ export async function queuePlanReminders(
 ): Promise<number> {
   const DAY = 86_400_000;
   const [rows] = (await pool.query(
-    // a store subscription that renews by itself is not "ending" (it is reminded about if the owner cancels it)
-    `SELECT institute_id, plan, expires_at FROM subscriptions
-      WHERE ((expires_at > ? AND expires_at <= IF(plan = 'trial', ?, ?))
-         OR (expires_at <= ? AND expires_at > ?))
-        AND NOT (store IS NOT NULL AND store_will_renew = 1)`,
+    // a plan that renews by itself (in-app store, or auto-renew on the website) is not "ending"; it is reminded about
+    // once the owner turns that off, or the automatic payment finally fails
+    `SELECT s.institute_id, s.plan, s.expires_at FROM subscriptions s
+      WHERE ((s.expires_at > ? AND s.expires_at <= IF(s.plan = 'trial', ?, ?))
+         OR (s.expires_at <= ? AND s.expires_at > ?))
+        AND NOT (s.store IS NOT NULL AND s.store_will_renew = 1)
+        AND NOT EXISTS (SELECT 1 FROM web_subscriptions w WHERE w.institute_id = s.institute_id
+          AND w.status IN ('authenticated','active','pending') AND w.cancel_at_cycle_end = 0)`,
     [
       now,
       new Date(now.getTime() + PLAN_REMINDER_DAYS.trial * DAY),

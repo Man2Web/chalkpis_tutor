@@ -5,9 +5,15 @@ import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
 import { INTRO_MONTH_PAISE, POPULAR, catalogue, isCycle, isPlanId } from '../billing/plans.js';
 import {
   parsePaymentLinkPaid,
+  parseSubscriptionEvent,
   verifyWebhookSignature,
   type BillingProvider,
 } from '../billing/provider.js';
+import {
+  handleSubscriptionEvent,
+  startWebSubscription,
+  stopAutoRenew,
+} from '../billing/webSubscriptions.js';
 import {
   applyPaid,
   billingHistory,
@@ -45,6 +51,10 @@ export function orderUrls(config: AppDeps['config']): { returnUrl?: (orderId: st
   return { returnUrl: (id) => `${base}/billing/return?order=${id}` };
 }
 const mockBody = z.object({ orderId: z.string().uuid() });
+const subscribeBody = z.object({
+  planId: z.string().refine(isPlanId, { message: 'plan' }),
+  cycle: z.string().refine(isCycle, { message: 'cycle' }),
+});
 
 export function billingRoutes(app: FastifyInstance, deps: Deps) {
   const read = { preHandler: [authenticate(deps), requireInstitute, requireOwner] };
@@ -135,6 +145,48 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
       return reply.code(201).send(order);
     },
   );
+
+  // Auto-renew on the website (the web app; the phone apps sell through the store): the page where the owner approves
+  // UPI Autopay or a card mandate. The first charge is when the trial or plan ends (an upgrade: now).
+  app.post(
+    '/billing/subscriptions',
+    {
+      ...owner,
+      config: {
+        rateLimit: {
+          max: Math.max(10, Math.floor(deps.config.RATE_LIMIT_PER_MIN / 30)),
+          timeWindow: '1 minute',
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!deps.billing?.createSubscription) throw new AppError(503, 'billing_unavailable');
+      const b = parse(subscribeBody, req.body) as {
+        planId: 'starter' | 'standard' | 'pro';
+        cycle: 'month' | 'year';
+      };
+      const r = await startWebSubscription(deps.pool, deps.billing, {
+        instituteId: req.auth!.instituteId!,
+        userId: req.auth!.userId,
+        planId: b.planId,
+        cycle: b.cycle,
+        now: now(),
+      });
+      return reply.code(201).send({
+        id: r.id,
+        url: r.url,
+        startAt: r.startAt?.toISOString() ?? null,
+        amountPaise: r.amountPaise,
+      });
+    },
+  );
+  // Turns auto-renew off: the plan runs to its paid end and is not charged again.
+  app.post('/billing/subscriptions/cancel', owner, async (req) => {
+    if (!deps.billing) throw new AppError(503, 'billing_unavailable');
+    return {
+      stopped: await stopAutoRenew(deps.pool, deps.billing, req.auth!.instituteId!, null),
+    };
+  });
 
   // The app asks this after the owner comes back from the checkout page; it confirms with the provider itself.
   app.get('/billing/orders/:id', owner, async (req) => {
@@ -235,6 +287,13 @@ export function billingRoutes(app: FastifyInstance, deps: Deps) {
       } catch {
         return reply.code(400).send({ error: 'bad_request' });
       }
+      // auto-renew: the subscription's status, and each charge it takes
+      const subEvent = parseSubscriptionEvent(json);
+      if (subEvent)
+        return {
+          ok: true,
+          result: await handleSubscriptionEvent(deps.pool, deps.billing, subEvent, now()),
+        };
       const paid = parsePaymentLinkPaid(json);
       if (!paid) return { ok: true, ignored: true }; // some other event: acknowledge so it is not retried
       return { ok: true, result: await applyPaid(deps.pool, 'razorpay', paid, now()) };

@@ -12,6 +12,7 @@ import {
 } from '../billing/planSession.js';
 import {
   PLANS,
+  PLAN_RANK,
   POPULAR,
   isCycle,
   isPlanId,
@@ -22,6 +23,8 @@ import {
 } from '../billing/plans.js';
 import type { BillingProvider } from '../billing/provider.js';
 import { billingHistory, createOrder, reconcilePending, storeRenews } from '../billing/service.js';
+import { autoRenewFor, startWebSubscription, stopAutoRenew } from '../billing/webSubscriptions.js';
+import { AppError } from '../errors.js';
 import { activeCount } from '../institutes/limits.js';
 import { maskPhone, normalizeIndianPhone } from '../lib/phone.js';
 import type { MessageProvider } from '../messaging/provider.js';
@@ -97,10 +100,20 @@ ${body}
 </main></body></html>`;
 }
 
-function status(c: Centre, now: Date): string {
+type AutoRenew = Awaited<ReturnType<typeof autoRenewFor>>;
+const cycleWord = (c: Cycle | null | undefined) => (c === 'month' ? 'monthly' : 'yearly');
+
+function status(c: Centre, now: Date, auto: AutoRenew = null): string {
   if (!c.plan || !c.expires_at) return '<p class="status">No plan yet.</p>';
   const active = c.status === 'active' && c.expires_at.getTime() > now.getTime();
   const until = day(c.expires_at);
+  if (auto?.via === 'website') {
+    const next = auto.nextChargeAt ? day(new Date(auto.nextChargeAt)) : until;
+    const what = `${esc(planName(auto.plan))} plan (${cycleWord(auto.cycle)})`;
+    return auto.status === 'pending'
+      ? `<p class="status ended">${what}: the last automatic payment did not go through. Razorpay is trying again; make sure your UPI app or card allows it, or turn auto-renew off and choose a plan.</p>`
+      : `<p class="status">${what}, auto-renew is on. ${active ? `Paid until ${until}. ` : ''}Next payment ${rupees(auto.amountPaise ?? 0)} on ${next} by UPI Autopay or card.</p>`;
+  }
   if (active && c.store)
     return storeRenews(c)
       ? `<p class="status">${esc(planName(c.plan))} plan, renewing automatically through ${STORE_NAME[c.store]} on ${until}. You can change or cancel it in the Chalkpis app.</p>`
@@ -112,30 +125,50 @@ function status(c: Centre, now: Date): string {
 }
 
 /**
- * The three plan cards, each payable for a year (the main button) or a month; each button posts the plan and cycle
- * (plus any hidden fields) to `action`. With the centre given, the buttons say Renew or Upgrade, and a lower plan than
- * the running one waits until it ends. No scripts, so both choices are plain forms.
+ * The three plan cards. With auto-renew available (Razorpay Subscriptions), each plan starts as a subscription: yearly
+ * (the main button) or monthly, plus a small "pay once for 1 year" link; with auto-renew already on, the same plan
+ * says so, a higher one is an upgrade (charged now) and a lower one waits for the renewal. Without it (or for a
+ * one-time year), the buttons pay once. Each button posts plan, cycle and mode (plus any hidden fields) to `action`.
+ * No scripts, so every choice is a plain form.
  */
 function plansHtml(
   action: string | null,
   hidden: Record<string, string> = {},
   c?: Centre,
   now: Date = new Date(),
+  opts: { subscribe?: boolean; auto?: AutoRenew } = {},
 ): string {
   const fields = Object.entries(hidden)
     .map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`)
     .join('');
+  const form = (p: Plan, cycle: Cycle, mode: 'subscribe' | 'once', label: string, cls = '') =>
+    `<form method="post" action="${esc(action ?? '')}">${fields}<input type="hidden" name="plan" value="${p.id}"><input type="hidden" name="cycle" value="${cycle}"><input type="hidden" name="mode" value="${mode}"><button type="submit"${cls ? ` class="${cls}"` : ''}>${label}</button></form>`;
+  const auto = opts.auto?.via === 'website' ? opts.auto : null;
   return `<div class="plans">${Object.values(PLANS)
     .map((p) => {
       const popular = p.id === POPULAR;
       const perDay = Math.round(p.prices.year / 365 / 100);
+      const yearly = rupees(p.prices.year);
+      const monthly = rupees(p.prices.month);
       return `<section class="plan${popular ? ' best' : ''}">
 ${popular ? '<span class="tag">Most popular</span>' : ''}<h2>${esc(p.name)}</h2>
-<p class="price">${rupees(p.prices.year)} <span>a year</span></p>
-<p class="per">Just ₹${perDay} a day · or ${rupees(p.prices.month)} a month</p>
+<p class="price">${yearly} <span>a year</span></p>
+<p class="per">Just ₹${perDay} a day · or ${monthly} a month</p>
 <ul><li>${limit(p.studentLimit, 'students')}</li><li>${limit(p.batchLimit, 'batches')}</li><li>Attendance, fees, reports and WhatsApp updates to parents</li></ul>
 ${(() => {
   if (!action) return '';
+  if (opts.subscribe && auto) {
+    if (p.id === auto.plan) {
+      const other: Cycle = auto.cycle === 'month' ? 'year' : 'month';
+      return `<p class="note">Your plan: auto-renews ${cycleWord(auto.cycle)}.</p>${form(p, other, 'subscribe', `Switch to ${cycleWord(other)} · ${rupees(p.prices[other])}/${other}`, 'secondary')}`;
+    }
+    if (PLAN_RANK[p.id] < (PLAN_RANK[auto.plan as Plan['id']] ?? 0))
+      return '<p class="note">To move to this plan, turn auto-renew off; then choose it once your plan ends.</p>';
+    return (
+      form(p, 'year', 'subscribe', `Upgrade · ${yearly}/year`) +
+      form(p, 'month', 'subscribe', `Upgrade · ${monthly}/month`, 'secondary')
+    );
+  }
   const change = c
     ? planChange(
         {
@@ -149,10 +182,19 @@ ${(() => {
     : ({ ok: true, kind: 'new' } as const);
   if (!change.ok)
     return `<p class="note">Available after your current plan ends on ${day(change.until)}.</p>`;
+  if (opts.subscribe) {
+    const verb = change.kind === 'upgrade' ? 'Upgrade' : 'Start';
+    return (
+      form(p, 'year', 'subscribe', `${verb} yearly · ${yearly}/year`) +
+      form(p, 'month', 'subscribe', `${verb} monthly · ${monthly}/month`, 'secondary') +
+      form(p, 'year', 'once', 'or pay once for 1 year (no auto-renew)', 'link once')
+    );
+  }
   const verb = change.kind === 'renew' ? 'Renew' : change.kind === 'upgrade' ? 'Upgrade' : 'Pay';
-  const button = (cycle: Cycle, cls: string) =>
-    `<form method="post" action="${esc(action)}">${fields}<input type="hidden" name="plan" value="${p.id}"><input type="hidden" name="cycle" value="${cycle}"><button type="submit"${cls ? ` class="${cls}"` : ''}>${verb === 'Pay' ? 'Pay' : verb} ${rupees(p.prices[cycle])} for ${cycle === 'year' ? 'a year' : 'a month'}</button></form>`;
-  return button('year', '') + button('month', 'secondary');
+  return (
+    form(p, 'year', 'once', `${verb} ${yearly} for a year`) +
+    form(p, 'month', 'once', `${verb} ${monthly} for a month`, 'secondary')
+  );
 })()}</section>`;
     })
     .join('')}</div>`;
@@ -162,6 +204,17 @@ const PAYMENTS_OFF =
   '<p class="note">Online payment is not switched on yet. Write to <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a> and we will help you renew.</p>';
 const STORE_MANAGED =
   '<p class="note">This plan renews automatically in the Chalkpis app, so there is nothing to pay here. To change it, open Plans &amp; billing in the app.</p>';
+const AUTO_RENEW_NOTE =
+  '<p class="small">Plans renew automatically until you turn auto-renew off (here, or in your UPI app). The first payment is taken when your free trial or current plan ends, then every month or year, by UPI Autopay or card. You are told before each payment.</p>';
+const ONCE_NOTE =
+  '<p class="small">One payment, no auto-renewal. Pay by UPI, card or net banking.</p>';
+const SUBSCRIBE_REFUSED: Record<string, string> = {
+  already_renewing: 'This plan already renews automatically.',
+  downgrade_at_renewal:
+    'A lower plan starts at renewal: turn auto-renew off first, then choose it once your plan ends.',
+  auto_renew_on:
+    'Auto-renew is on, so there is nothing to pay now. Turn it off first to pay once instead.',
+};
 const PAY_FAILED =
   '<p class="note error">We could not open the payment page just now. Please try again in a minute, or write to <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a>.</p>';
 
@@ -222,6 +275,8 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
       );
       return null;
     } catch (e) {
+      const code = e instanceof AppError ? e.code : '';
+      if (SUBSCRIBE_REFUSED[code]) return `<p class="note">${SUBSCRIBE_REFUSED[code]}</p>`;
       const cause = (e as { cause?: unknown }).cause;
       req.log.warn(
         { err: e, reason: cause instanceof Error ? cause.message : undefined },
@@ -230,6 +285,74 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
       return PAY_FAILED;
     }
   };
+
+  const canSubscribe = !!deps.billing?.createSubscription;
+
+  /**
+   * Starts auto-renew and sends the owner to Razorpay to approve UPI Autopay or a card mandate; an error comes back as
+   * a note. The first payment is when the trial or current plan ends (an upgrade: now).
+   */
+  const startSubscription = async (
+    req: FastifyRequest,
+    reply: FastifyReply,
+    c: Centre,
+    planId: Plan['id'],
+    cycle: Cycle,
+  ): Promise<string | null> => {
+    if (storeRenews(c)) return STORE_MANAGED;
+    try {
+      const r = await startWebSubscription(deps.pool, deps.billing!, {
+        instituteId: c.id,
+        userId: c.owner_user_id,
+        planId,
+        cycle,
+        now: now(),
+      });
+      if (!/^https:\/\//.test(r.url)) throw new Error('not-https');
+      const first = r.startAt
+        ? `The first payment of ${rupees(r.amountPaise)} is on ${day(r.startAt)}, when your ${c.plan === 'trial' ? 'free trial' : 'current plan'} ends`
+        : `The first payment of ${rupees(r.amountPaise)} is taken now`;
+      await send(
+        reply,
+        200,
+        page(
+          'Turning on auto-renew',
+          `<h1>Turning on auto-renew…</h1><p>${esc(PLANS[planId].name)} plan (${cycleWord(cycle)}) for ${esc(c.name)}. ${first}, then every ${cycle}.</p><p>On the next page, approve UPI Autopay in your UPI app, or use a card. You can turn auto-renew off at any time. Come back to this page afterwards to see it on.</p><p><a class="button" href="${esc(r.url)}">Continue</a></p>`,
+          { refresh: r.url, gateway },
+        ),
+      );
+      return null;
+    } catch (e) {
+      const code = e instanceof AppError ? e.code : '';
+      if (code === 'store_managed') return STORE_MANAGED;
+      if (SUBSCRIBE_REFUSED[code]) return `<p class="note">${SUBSCRIBE_REFUSED[code]}</p>`;
+      const cause = (e as { cause?: unknown }).cause;
+      req.log.warn(
+        { err: e, reason: cause instanceof Error ? cause.message : undefined },
+        'pay page: subscription failed',
+      );
+      return PAY_FAILED;
+    }
+  };
+
+  /** A plan button's form: auto-renew or pay once (a month is only sold as auto-renew when that is available). */
+  const choice = (f: URLSearchParams) => {
+    const planId = f.get('plan');
+    const cycle = f.get('cycle') ?? 'year';
+    const mode = f.get('mode') === 'subscribe' && canSubscribe ? 'subscribe' : 'once';
+    if (!isPlanId(planId) || !isCycle(cycle)) return null;
+    if (mode === 'once' && cycle === 'month' && canSubscribe) return null;
+    return { planId, cycle, mode } as const;
+  };
+  const go = (
+    req: FastifyRequest,
+    reply: FastifyReply,
+    c: Centre,
+    x: { planId: Plan['id']; cycle: Cycle; mode: 'subscribe' | 'once' },
+  ) =>
+    x.mode === 'subscribe'
+      ? startSubscription(req, reply, c, x.planId, x.cycle)
+      : startPayment(req, reply, c, x.planId, x.cycle);
 
   // The banner WhatsApp shows above plan reminders (the gateway fetches it by this address).
   const banner = readFileSync(
@@ -272,14 +395,16 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
           '<h1>This payment link does not work</h1><p>Sign in on <a href="/plan">tutor.chalkpis.com/plan</a> with your mobile number to see your plan and pay, or write to <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a>.</p>',
         ),
       );
-    const tokenView = (token: string, c: Centre, note = '') =>
-      page(
+    const tokenView = async (token: string, c: Centre, note = '') => {
+      const auto = await autoRenewFor(deps.pool, c.id);
+      return page(
         `Plans for ${c.name}`,
-        `<h1>Choose a plan</h1><p class="centre">${esc(c.name)}</p>${status(c, now())}${note}${
+        `<h1>Choose a plan</h1><p class="centre">${esc(c.name)}</p>${status(c, now(), auto)}${note}${
           deps.billing ? '' : PAYMENTS_OFF
-        }${plansHtml(deps.billing && !storeRenews(c) ? `/pay/${token}` : null, {}, c, now())}<p class="small">One payment, no auto-renewal. Pay by UPI, card or net banking. <a href="/plan">Sign in</a> to see past payments and receipts.</p>`,
+        }${plansHtml(deps.billing && !storeRenews(c) ? `/pay/${token}` : null, {}, c, now(), { subscribe: canSubscribe, auto })}${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}<p class="small"><a href="/plan">Sign in</a> to see past payments and receipts${auto?.via === 'website' ? ', or to turn auto-renew off' : ''}.</p>`,
         { gateway },
       );
+    };
 
     scope.get<{ Params: { token: string } }>('/pay/:token', async (req, reply) => {
       let c = await byToken(req.params.token);
@@ -293,7 +418,7 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         )
       )
         c = (await byToken(req.params.token))!;
-      return send(reply, 200, tokenView(req.params.token, c));
+      return send(reply, 200, await tokenView(req.params.token, c));
     });
 
     scope.post<{ Params: { token: string } }>(
@@ -302,13 +427,10 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
       async (req, reply) => {
         const c = await byToken(req.params.token);
         if (!c) return tokenNotFound(reply);
-        const f = formBody(req.body);
-        const planId = f.get('plan');
-        const cycle = f.get('cycle') ?? 'year';
-        if (!deps.billing || !isPlanId(planId) || !isCycle(cycle))
-          return send(reply, 400, tokenView(req.params.token, c));
-        const failed = await startPayment(req, reply, c, planId, cycle);
-        if (failed) return send(reply, 502, tokenView(req.params.token, c, failed));
+        const x = choice(formBody(req.body));
+        if (!deps.billing || !x) return send(reply, 400, await tokenView(req.params.token, c));
+        const failed = await go(req, reply, c, x);
+        if (failed) return send(reply, 502, await tokenView(req.params.token, c, failed));
         return reply;
       },
     );
@@ -358,10 +480,11 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
 
     const accountPage = async (centres: Centre[], selected: Centre, note = '') => {
       const c = selected;
-      const [students, batches, history] = await Promise.all([
+      const [students, batches, history, auto] = await Promise.all([
         activeCount(deps.pool, 'students', c.id),
         activeCount(deps.pool, 'batches', c.id),
         billingHistory(deps.pool, c.id),
+        autoRenewFor(deps.pool, c.id),
       ]);
       const meter = (label: string, used: number, max: number | null) =>
         `<div class="meter"><span>${label}</span><strong>${max === null ? `${used} (unlimited)` : `${used} / ${max}`}</strong></div>`;
@@ -385,10 +508,15 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         : '<p class="small">No payments yet.</p>';
       return page(
         `Plan for ${c.name}`,
-        `<h1>${esc(c.name)}</h1>${switcher}${status(c, now())}${note}
+        `<h1>${esc(c.name)}</h1>${switcher}${status(c, now(), auto)}${note}
 <section class="usage">${meter('Students', students, c.student_limit)}${meter('Batches', batches, c.batch_limit)}</section>
-<h2 class="section">Choose a plan</h2>${deps.billing ? '' : PAYMENTS_OFF}${plansHtml(deps.billing && !storeRenews(c) ? '/plan/pay' : null, { centre: c.id }, c, now())}
-<p class="small">One payment, no auto-renewal. Pay by UPI, card or net banking.</p>
+${
+  auto?.via === 'website'
+    ? `<form class="nav" method="post" action="/plan/autorenew/off"><input type="hidden" name="centre" value="${c.id}"><button type="submit" class="link">Turn off auto-renew</button></form>`
+    : ''
+}
+<h2 class="section">${auto?.via === 'website' ? 'Change plan' : 'Choose a plan'}</h2>${deps.billing ? '' : PAYMENTS_OFF}${plansHtml(deps.billing && !storeRenews(c) ? '/plan/pay' : null, { centre: c.id }, c, now(), { subscribe: canSubscribe, auto })}
+${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}
 <h2 class="section">Payments</h2>${rows}`,
         { gateway, nav: signOutNav },
       );
@@ -493,13 +621,34 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         const f = formBody(req.body);
         const centres = await ownedCentres(userId);
         const c = centres.find((x) => x.id === f.get('centre'));
-        const planId = f.get('plan');
-        const cycle = f.get('cycle') ?? 'year';
-        if (!c || !deps.billing || !isPlanId(planId) || !isCycle(cycle))
-          return reply.redirect('/plan', 303);
-        const failed = await startPayment(req, reply, c, planId, cycle);
+        const x = choice(f);
+        if (!c || !deps.billing || !x) return reply.redirect('/plan', 303);
+        const failed = await go(req, reply, c, x);
         if (failed) return send(reply, 502, await accountPage(centres, c, failed));
         return reply;
+      },
+    );
+
+    // The owner turns auto-renew off: the plan runs to its paid end and is not charged again.
+    scope.post(
+      '/plan/autorenew/off',
+      { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
+      async (req, reply) => {
+        const userId = await signedIn(req);
+        if (!userId || !sameOrigin(req)) return reply.redirect('/plan', 303);
+        const centres = await ownedCentres(userId);
+        const c = centres.find((x) => x.id === formBody(req.body).get('centre'));
+        if (!c || !deps.billing) return reply.redirect('/plan', 303);
+        let note: string;
+        try {
+          note = (await stopAutoRenew(deps.pool, deps.billing, c.id, null))
+            ? `<p class="status">Auto-renew is off. ${c.expires_at && c.expires_at > now() ? `Your plan runs until ${day(c.expires_at)} and` : 'Your plan'} is not charged again. You can turn it back on by choosing a plan.</p>`
+            : '<p class="note">Auto-renew was already off.</p>';
+        } catch (e) {
+          req.log.warn({ err: e }, 'pay page: stop auto-renew failed');
+          note = PAY_FAILED;
+        }
+        return send(reply, 200, await accountPage(await ownedCentres(userId), c, note));
       },
     );
 

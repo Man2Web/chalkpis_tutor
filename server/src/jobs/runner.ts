@@ -1,6 +1,7 @@
 import type { BillingProvider } from '../billing/provider.js';
 import { reconcilePending } from '../billing/service.js';
 import { resyncEndingStoreSubscriptions, type StoreClient } from '../billing/store.js';
+import { reconcileWebSubscriptions } from '../billing/webSubscriptions.js';
 import type { Pool } from '../db.js';
 import { generateDues } from '../fees/service.js';
 import { expireDueSubscriptions } from '../billing/service.js';
@@ -88,6 +89,18 @@ export const makeJobs = (
           every: 'hour',
           run: (pool: Pool, now: Date) =>
             reconcilePending(pool, billing, { sinceMinutes: 6 * 60 }, now),
+        } satisfies Job,
+      ]
+    : []),
+  // website auto-renew: a charge or status change whose webhook was missed is read from Razorpay
+  ...(billing?.getSubscription
+    ? [
+        {
+          name: 'web-subscriptions-reconcile',
+          from: 0,
+          until: 23,
+          every: 'hour',
+          run: (pool: Pool, now: Date) => reconcileWebSubscriptions(pool, billing, now),
         } satisfies Job,
       ]
     : []),

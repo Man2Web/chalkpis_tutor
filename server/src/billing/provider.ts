@@ -27,12 +27,67 @@ export interface OrderStatus {
  */
 export type ProviderName = 'razorpay' | 'mock';
 
+/** A recurring subscription at the gateway, as far as we use it. Times are Unix seconds. */
+export interface GatewaySubscription {
+  id: string;
+  status: string;
+  planId: string;
+  currentEnd: number | null;
+  chargeAt: number | null;
+  shortUrl: string;
+}
+/** One invoice (one cycle's charge) of a subscription. */
+export interface GatewayInvoice {
+  status: string;
+  paymentId: string | null;
+  amountPaise: number;
+}
+export interface SubscriptionRequest {
+  /** The gateway's plan (price and period). */
+  rpPlanId: string;
+  /** How many cycles the mandate covers. */
+  totalCount: number;
+  /** First charge at this time (Unix seconds); none = straight after the owner approves. */
+  startAt?: number;
+  notes: Record<string, string>;
+}
+
 /** Anything that can turn a plan purchase into a URL the owner can pay at. */
 export interface BillingProvider {
   name: ProviderName;
   createPaymentLink(req: LinkRequest): Promise<PaymentLink>;
   /** Asks the provider about an order (the return page, the app, the reconcile job). */
   checkStatus?(linkId: string): Promise<OrderStatus>;
+  // Recurring plans (website auto-renew).
+  createPlan?(p: {
+    period: 'monthly' | 'yearly';
+    amountPaise: number;
+    name: string;
+  }): Promise<string>;
+  createSubscription?(r: SubscriptionRequest): Promise<GatewaySubscription>;
+  getSubscription?(id: string): Promise<GatewaySubscription>;
+  cancelSubscription?(id: string, atCycleEnd: boolean): Promise<GatewaySubscription>;
+  subscriptionInvoices?(id: string): Promise<GatewayInvoice[]>;
+}
+
+type RpSub = {
+  id?: string;
+  status?: string;
+  plan_id?: string;
+  current_end?: number | null;
+  charge_at?: number | null;
+  short_url?: string | null;
+};
+/** Razorpay's subscription entity in our shape (webhooks and API answers alike). */
+export function toGatewaySubscription(s: RpSub): GatewaySubscription {
+  return {
+    id: String(s.id ?? ''),
+    status: String(s.status ?? ''),
+    planId: String(s.plan_id ?? ''),
+    currentEnd: typeof s.current_end === 'number' ? s.current_end : null,
+    chargeAt: typeof s.charge_at === 'number' ? s.charge_at : null,
+    shortUrl: typeof s.short_url === 'string' ? s.short_url : '',
+  };
 }
 
 const RAZORPAY_API = 'https://api.razorpay.com/v1';
@@ -122,15 +177,126 @@ export class RazorpayProvider implements BillingProvider {
       paymentId: paid.payment_id!.slice(0, 80),
     };
   }
+
+  /** A Razorpay plan: the price per month or per year. Made once per price and kept (razorpay_plans). */
+  async createPlan(p: { period: 'monthly' | 'yearly'; amountPaise: number; name: string }) {
+    const res = await this.call('/plans', {
+      method: 'POST',
+      body: JSON.stringify({
+        period: p.period,
+        interval: 1,
+        item: { name: p.name.slice(0, 100), amount: p.amountPaise, currency: 'INR' },
+      }),
+    });
+    if (!res.ok) throw new Error(`razorpay-plan-${res.status}${await razorpayReason(res)}`);
+    const body = (await res.json()) as { id?: string };
+    if (!body.id) throw new Error('razorpay-bad-response');
+    return body.id;
+  }
+
+  /**
+   * A subscription the owner approves on Razorpay's page (UPI Autopay or a card mandate). We send the owner there
+   * ourselves, so Razorpay sends no link by SMS or email.
+   */
+  async createSubscription(r: SubscriptionRequest) {
+    const res = await this.call('/subscriptions', {
+      method: 'POST',
+      body: JSON.stringify({
+        plan_id: r.rpPlanId,
+        total_count: r.totalCount,
+        quantity: 1,
+        customer_notify: 0,
+        ...(r.startAt ? { start_at: r.startAt } : {}),
+        notes: r.notes,
+      }),
+    });
+    if (!res.ok) throw new Error(`razorpay-subscription-${res.status}${await razorpayReason(res)}`);
+    const sub = toGatewaySubscription((await res.json()) as RpSub);
+    if (!sub.id || !sub.shortUrl) throw new Error('razorpay-bad-response');
+    return sub;
+  }
+
+  async getSubscription(id: string) {
+    const res = await this.call(`/subscriptions/${encodeURIComponent(id)}`, { method: 'GET' });
+    if (!res.ok) throw new Error(`razorpay-subscription-${res.status}${await razorpayReason(res)}`);
+    return toGatewaySubscription((await res.json()) as RpSub);
+  }
+
+  /** Stops the renewals: at the end of the paid cycle, or at once (nothing paid yet, or replaced by an upgrade). */
+  async cancelSubscription(id: string, atCycleEnd: boolean) {
+    const res = await this.call(`/subscriptions/${encodeURIComponent(id)}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ cancel_at_cycle_end: atCycleEnd ? 1 : 0 }),
+    });
+    if (!res.ok) throw new Error(`razorpay-cancel-${res.status}${await razorpayReason(res)}`);
+    return toGatewaySubscription((await res.json()) as RpSub);
+  }
+
+  async subscriptionInvoices(id: string) {
+    const res = await this.call(`/invoices?subscription_id=${encodeURIComponent(id)}&count=50`, {
+      method: 'GET',
+    });
+    if (!res.ok) throw new Error(`razorpay-invoices-${res.status}${await razorpayReason(res)}`);
+    const body = (await res.json()) as {
+      items?: {
+        status?: string;
+        payment_id?: string | null;
+        amount_paid?: number;
+        amount?: number;
+      }[];
+    };
+    return (body.items ?? []).map((i) => ({
+      status: String(i.status ?? ''),
+      paymentId: typeof i.payment_id === 'string' ? i.payment_id.slice(0, 80) : null,
+      amountPaise: Number(i.amount_paid ?? i.amount ?? 0),
+    }));
+  }
 }
 
 /** Local stand-in so the whole purchase flow can be tried without keys. Never built in production. */
 export class MockBillingProvider implements BillingProvider {
   name = 'mock' as const;
   created: LinkRequest[] = [];
+  plans: { period: string; amountPaise: number; name: string }[] = [];
+  subscriptions = new Map<string, GatewaySubscription & { request: SubscriptionRequest }>();
+  invoices = new Map<string, GatewayInvoice[]>();
+  cancelled: { id: string; atCycleEnd: boolean }[] = [];
+  private seq = 0;
   async createPaymentLink(req: LinkRequest): Promise<PaymentLink> {
     this.created.push(req);
     return { id: `mock_${req.referenceId}`, url: `mock://pay/${req.referenceId}` };
+  }
+  async createPlan(p: { period: 'monthly' | 'yearly'; amountPaise: number; name: string }) {
+    this.plans.push(p);
+    return `plan_mock${++this.seq}`;
+  }
+  async createSubscription(r: SubscriptionRequest) {
+    const id = `sub_mock${++this.seq}`;
+    const sub = {
+      id,
+      status: 'created',
+      planId: r.rpPlanId,
+      currentEnd: null,
+      chargeAt: r.startAt ?? null,
+      shortUrl: `https://rzp.io/mock/${id}`,
+      request: r,
+    };
+    this.subscriptions.set(id, sub);
+    return sub;
+  }
+  async getSubscription(id: string) {
+    const s = this.subscriptions.get(id);
+    if (!s) throw new Error('mock-no-subscription');
+    return s;
+  }
+  async cancelSubscription(id: string, atCycleEnd: boolean) {
+    this.cancelled.push({ id, atCycleEnd });
+    const s = await this.getSubscription(id);
+    if (!atCycleEnd) s.status = 'cancelled';
+    return s;
+  }
+  async subscriptionInvoices(id: string) {
+    return this.invoices.get(id) ?? [];
   }
 }
 
@@ -151,6 +317,31 @@ export interface PaidEvent {
   paymentId: string;
   linkId: string;
   amountPaise: number;
+}
+
+/** A Razorpay `subscription.*` webhook: the subscription as it is now, and the payment for `subscription.charged`. */
+export interface SubscriptionEvent {
+  event: string;
+  subscription: GatewaySubscription;
+  payment: { id: string; amountPaise: number; status: string } | null;
+}
+export function parseSubscriptionEvent(body: unknown): SubscriptionEvent | null {
+  const b = body as {
+    event?: string;
+    payload?: {
+      subscription?: { entity?: RpSub };
+      payment?: { entity?: { id?: string; amount?: number; status?: string } };
+    };
+  };
+  if (typeof b?.event !== 'string' || !b.event.startsWith('subscription.')) return null;
+  const entity = b.payload?.subscription?.entity;
+  if (!entity || typeof entity.id !== 'string' || !entity.id || entity.id.length > 40) return null;
+  const p = b.payload?.payment?.entity;
+  const payment =
+    p && typeof p.id === 'string' && p.id.length <= 80 && typeof p.amount === 'number'
+      ? { id: p.id, amountPaise: p.amount, status: String(p.status ?? '') }
+      : null;
+  return { event: b.event, subscription: toGatewaySubscription(entity), payment };
 }
 
 /** Reads a `payment_link.paid` webhook body; null for any other event or a malformed one. */

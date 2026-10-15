@@ -130,6 +130,18 @@ export interface Limits {
   active: boolean;
   /** An App Store / Google Play subscription that decides the plan; null for a trial or a website plan. */
   store: StoreStatus | null;
+  /** The plan renews by itself: through the store, or auto-renew on the website (UPI Autopay / card). */
+  autoRenew: AutoRenew | null;
+}
+
+export interface AutoRenew {
+  via: 'website' | 'app_store' | 'play_store';
+  /** website: authenticated (approved, first charge to come), active, or pending (a failed charge being retried) */
+  status: string;
+  nextChargeAtMs: number | null;
+  plan: string;
+  cycle: 'month' | 'year' | null;
+  amountPaise: number | null;
 }
 
 export interface StoreStatus {
@@ -155,6 +167,7 @@ export function useLimits() {
         batchLimit: number | null;
         active: boolean;
         store?: Omit<StoreStatus, 'thenUntilMs'> & { thenUntil: string | null };
+        autoRenew?: (Omit<AutoRenew, 'nextChargeAtMs'> & { nextChargeAt: string | null }) | null;
         usage: { students: number; batches: number };
       }>('GET', '/subscription');
       return {
@@ -174,6 +187,18 @@ export function useLimits() {
               willRenew: s.store.willRenew,
               issue: s.store.issue,
               thenUntilMs: s.store.thenUntil ? Date.parse(s.store.thenUntil) : null,
+            }
+          : null,
+        autoRenew: s.autoRenew
+          ? {
+              via: s.autoRenew.via,
+              status: s.autoRenew.status,
+              nextChargeAtMs: s.autoRenew.nextChargeAt
+                ? Date.parse(s.autoRenew.nextChargeAt)
+                : null,
+              plan: s.autoRenew.plan,
+              cycle: s.autoRenew.cycle,
+              amountPaise: s.autoRenew.amountPaise,
             }
           : null,
       };

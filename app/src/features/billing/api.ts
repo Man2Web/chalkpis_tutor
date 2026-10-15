@@ -49,3 +49,19 @@ export async function checkPlanOrder(referenceId: string): Promise<'paid' | 'pen
 export async function syncStorePlan(): Promise<{ state: 'store' | 'left' | 'none' | 'missing' }> {
   return api('POST', '/billing/store/sync');
 }
+
+/**
+ * Web app: turns on auto-renew for a plan (UPI Autopay or a card mandate, approved on Razorpay's page at `url`). The
+ * first charge is when the trial or current plan ends (an upgrade: now).
+ */
+export async function startAutoRenew(
+  planId: PlanId,
+  cycle: Cycle,
+): Promise<{ url: string; startAt: string | null }> {
+  return api('POST', '/billing/subscriptions', { planId, cycle });
+}
+
+/** Turns auto-renew on the website off: the plan runs to its paid end. */
+export async function stopAutoRenew(): Promise<{ stopped: boolean }> {
+  return api('POST', '/billing/subscriptions/cancel');
+}

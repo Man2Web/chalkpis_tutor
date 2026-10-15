@@ -3,7 +3,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import '../../../i18n';
 import { BillingScreen } from '../BillingScreen';
-import { checkPlanOrder, createPlanLink, mockCompletePayment, syncStorePlan } from '../api';
+import {
+  checkPlanOrder,
+  createPlanLink,
+  mockCompletePayment,
+  startAutoRenew,
+  stopAutoRenew,
+  syncStorePlan,
+} from '../api';
 import { useBillingCatalogue, useBillingHistory, useLimits } from '../../../data/hooks';
 import { ApiError } from '../../../api/client';
 import { open } from '../../../lib/contact';
@@ -33,6 +40,8 @@ jest.mock('../api', () => ({
   mockCompletePayment: jest.fn().mockResolvedValue(undefined),
   checkPlanOrder: jest.fn().mockResolvedValue('pending'),
   syncStorePlan: jest.fn().mockResolvedValue({ state: 'store' }),
+  startAutoRenew: jest.fn().mockResolvedValue({ url: 'https://rzp.io/i/sub1', startAt: null }),
+  stopAutoRenew: jest.fn().mockResolvedValue({ stopped: true }),
 }));
 jest.mock('../../../lib/purchases', () => ({
   storeAvailable: true,
@@ -69,6 +78,7 @@ const limits = (over = {}) =>
     batchCount: 3,
     active: true,
     store: null,
+    autoRenew: null,
     ...over,
   });
 const PLANS = [
@@ -147,7 +157,19 @@ beforeEach(() => {
   (storeOffers as jest.Mock).mockResolvedValue(OFFERS);
 });
 
-describe('web app: one-time website payments', () => {
+const webAuto = (over = {}) => ({
+  autoRenew: {
+    via: 'website',
+    status: 'active',
+    nextChargeAtMs: Date.parse('2026-11-15T06:00:00Z'),
+    plan: 'standard',
+    cycle: 'year',
+    amountPaise: 299900,
+    ...over,
+  },
+});
+
+describe('web app: website payments', () => {
   it('shows the trial, usage, and the plans yearly first, with the popular one and a per-day price', async () => {
     await show();
     expect(screen.getByText('Free trial')).toBeTruthy();
@@ -180,17 +202,50 @@ describe('web app: one-time website payments', () => {
     expect(screen.getByText('3 / 3')).toBeTruthy();
     expect(screen.getByText('Expired')).toBeTruthy();
     expect(screen.getByText(/read-only/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Choose Starter' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Start ₹1,999 / year' })).toBeTruthy();
   });
 
-  it('an active paid plan offers Renew for itself and Choose for the others', async () => {
+  it('every plan starts as auto-renew (first payment when the trial ends); yearly can also be paid once', async () => {
+    await show();
+    expect(screen.getByText(/the first payment is taken when the trial ends/)).toBeTruthy();
+    expect(screen.getAllByText('or pay once for 1 year (no auto-renew)')).toHaveLength(3);
+    await fireEvent.press(screen.getByRole('button', { name: 'Start ₹2,999 / year' }));
+    await waitFor(() => expect(startAutoRenew).toHaveBeenCalledWith('standard', 'year'));
+    expect(open).toHaveBeenCalledWith('https://rzp.io/i/sub1');
+    expect(toast).toHaveBeenCalledWith(expect.stringContaining('Approve UPI Autopay'));
+    // monthly is auto-renew only
+    await fireEvent.press(screen.getByText('Monthly'));
+    expect(await screen.findByRole('button', { name: 'Start ₹299 / month' })).toBeTruthy();
+    expect(screen.queryByText('or pay once for 1 year (no auto-renew)')).toBeNull();
+  });
+
+  it('with auto-renew on: when it renews, the current plan, upgrades, and turning it off', async () => {
     (useLimits as jest.Mock).mockReturnValue(
-      limits({ plan: 'starter', cycle: 'year', expiresAtMs: Date.now() + 40 * day }),
+      limits({
+        plan: 'standard',
+        cycle: 'year',
+        expiresAtMs: Date.now() + 200 * day,
+        ...webAuto(),
+      }),
     );
     await show();
-    expect(screen.getByText('Starter · Yearly')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Renew Starter' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Choose Pro' })).toBeTruthy();
+    expect(screen.getByText(/Renews automatically on/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Your current plan' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'At renewal' })).toBeTruthy(); // Starter is lower
+    expect(screen.queryByText('or pay once for 1 year (no auto-renew)')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Upgrade · ₹4,999 / year' }));
+    await waitFor(() => expect(startAutoRenew).toHaveBeenCalledWith('pro', 'year'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Turn off auto-renew' }));
+    await waitFor(() => expect(stopAutoRenew).toHaveBeenCalled());
+    expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  it('a failed automatic payment is shown', async () => {
+    (useLimits as jest.Mock).mockReturnValue(
+      limits({ plan: 'standard', cycle: 'year', ...webAuto({ status: 'pending' }) }),
+    );
+    await show();
+    expect(screen.getByText(/did not go through/)).toBeTruthy();
   });
 
   it('test mode: choosing a plan opens the test sheet for that cycle, and paying activates it', async () => {
@@ -200,7 +255,7 @@ describe('web app: one-time website payments', () => {
       provider: 'mock',
     });
     await show();
-    await fireEvent.press(screen.getByRole('button', { name: 'Choose Starter' }));
+    await fireEvent.press(screen.getAllByText('or pay once for 1 year (no auto-renew)')[0]!);
     await waitFor(() =>
       expect(createPlanLink).toHaveBeenCalledWith('starter', 'year', {
         idempotencyKey: expect.stringMatching(/-starter-year$/),
@@ -219,7 +274,7 @@ describe('web app: one-time website payments', () => {
       provider: 'gateway',
     });
     await show();
-    await fireEvent.press(screen.getByRole('button', { name: 'Choose Pro' }));
+    await fireEvent.press(screen.getAllByText('or pay once for 1 year (no auto-renew)')[2]!);
     await waitFor(() => expect(open).toHaveBeenCalledWith('https://rzp.io/i/abc'));
     (checkPlanOrder as jest.Mock).mockResolvedValueOnce('pending').mockResolvedValueOnce('paid');
     await fireEvent.press(await screen.findByRole('button', { name: 'I have paid, check now' }));
@@ -233,7 +288,7 @@ describe('web app: one-time website payments', () => {
   it('tells the owner plainly when online payments are not set up', async () => {
     (createPlanLink as jest.Mock).mockRejectedValue(new ApiError(503, 'billing_unavailable'));
     await show();
-    await fireEvent.press(screen.getByRole('button', { name: 'Choose Starter' }));
+    await fireEvent.press(screen.getAllByText('or pay once for 1 year (no auto-renew)')[0]!);
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
         'Online payments are not set up yet. Please contact support.',
@@ -246,7 +301,7 @@ describe('web app: one-time website payments', () => {
     (useBillingCatalogue as jest.Mock).mockReturnValue(catalogue({ paymentsAvailable: false }));
     await show();
     expect(screen.getByText('About your plan')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Choose Starter' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Start ₹1,999 / year' })).toBeNull();
     expect(screen.getByText('Free trial')).toBeTruthy();
   });
 
@@ -384,6 +439,17 @@ describe.each(['ios', 'android'] as const)('%s app: store subscriptions', (os) =
     );
     await fireEvent.press(screen.getByRole('button', { name: 'Manage subscription' }));
     expect(manageStore).toHaveBeenCalled();
+  });
+
+  it('with auto-renew on the website it sells nothing in the app and shows when it renews', async () => {
+    withStore();
+    (useLimits as jest.Mock).mockReturnValue(
+      limits({ plan: 'standard', cycle: 'year', ...webAuto() }),
+    );
+    await show();
+    expect(screen.getByText(/Renews automatically on/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Subscribe' })).toBeNull();
+    expect(screen.queryByText(/UPI/)).toBeNull();
   });
 
   it('Restore purchases asks the store, then the server', async () => {
