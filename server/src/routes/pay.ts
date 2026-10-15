@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { AppDeps } from '../app.js';
-import { confirmPhoneOwnership, requestOtp } from '../auth/otp.js';
+import { requestOtp, verifyOtp } from '../auth/otp.js';
 import { parsePayToken } from '../billing/payLink.js';
 import {
   clearPlanSessionCookie,
@@ -25,7 +25,9 @@ import type { BillingProvider } from '../billing/provider.js';
 import { billingHistory, createOrder, reconcilePending, storeRenews } from '../billing/service.js';
 import { autoRenewFor, startWebSubscription, stopAutoRenew } from '../billing/webSubscriptions.js';
 import { AppError } from '../errors.js';
+import { CATEGORIES, type Category } from '../institutes/category.js';
 import { activeCount } from '../institutes/limits.js';
+import { createInstitute } from '../institutes/service.js';
 import { maskPhone, normalizeIndianPhone } from '../lib/phone.js';
 import type { MessageProvider } from '../messaging/provider.js';
 import { orderUrls } from './billing.js';
@@ -68,9 +70,16 @@ interface Centre {
   batch_limit: number | null;
   store: 'app_store' | 'play_store' | null;
   store_will_renew: number | null;
+  /** 1 while the free trial waits for the owner's first sign-in in the app (an iPhone owner who signed up here) */
+  trial_waits: number;
+  /** null until the owner first signs in in the app */
+  first_app_at: Date | null;
+  /** the phone chosen when signing up on the website (null: set up in the app) */
+  signup_phone: 'android' | 'ios' | null;
 }
 const CENTRE_SQL = `SELECT i.id, i.name, i.owner_user_id, COALESCE(u.phone, NULLIF(i.phone, '')) AS phone, s.plan, s.status, s.expires_at, s.student_limit,
-       s.batch_limit, s.store, s.store_will_renew
+       s.batch_limit, s.store, s.store_will_renew, (s.plan = 'trial' AND i.trial_on_first_app_use = 1) AS trial_waits,
+       i.first_app_sign_in_at AS first_app_at, i.signup_phone
   FROM institutes i JOIN users u ON u.id = i.owner_user_id
   LEFT JOIN subscriptions s ON s.institute_id = i.id`;
 
@@ -85,6 +94,64 @@ const GATEWAY: Record<string, string> = {
 const STORE_NAME = { app_store: 'the App Store', play_store: 'Google Play' } as const;
 const cycleText = (cycle: Cycle | null, plan: Plan['id']) =>
   cycle === 'year' ? '1 year' : cycle === 'month' ? '1 month' : `${monthsOf(plan, null)} months`;
+
+const PLAY_URL = 'https://play.google.com/store/apps/details?id=in.chalkpis.tutors';
+/**
+ * Where someone who signed up from chalkpis.com (/start) lands: a page there counts the sign-up (Google Analytics, the
+ * Meta Pixel) and shows the app links. These pages run no scripts, so they could not count it themselves.
+ */
+const WELCOME_URL = 'https://chalkpis.com/welcome';
+
+const CATEGORY_LABEL: Record<Category, string> = {
+  tuition: 'Tuition',
+  coaching: 'Coaching',
+  abacus: 'Abacus',
+  karate: 'Karate or martial arts',
+  dance: 'Dance or music',
+  yoga: 'Yoga or fitness',
+  sports: 'Sports',
+  other: 'Something else',
+};
+
+/** Which page the sign-in steps return to, and the ad campaign (utm_* only) they keep along the way. */
+interface Flow {
+  next: 'start' | 'plan';
+  src: string;
+}
+const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+const cleanSrc = (raw: string | null | undefined) => {
+  const q = new URLSearchParams(raw ?? '');
+  const out = new URLSearchParams();
+  for (const k of UTM_KEYS) {
+    const v = q.get(k)?.trim();
+    if (v) out.set(k, v.slice(0, 80));
+  }
+  return out.toString().slice(0, 400);
+};
+const flowOf = (f: URLSearchParams): Flow => ({
+  next: f.get('next') === 'start' ? 'start' : 'plan',
+  src: cleanSrc(f.get('src')),
+});
+const flowFields = (flow: Flow) =>
+  `<input type="hidden" name="next" value="${flow.next}"><input type="hidden" name="src" value="${esc(flow.src)}">`;
+const flowQuery = (flow: Flow) =>
+  new URLSearchParams({ next: flow.next, src: flow.src }).toString();
+
+/**
+ * "Use Chalkpis on your phone": the Google Play link, and the iPhone app still to come. An owner who chose iPhone when
+ * signing up sees the iPhone part first.
+ */
+function appBox(
+  c: { phone: string | null; trial_waits?: number; signup_phone?: 'android' | 'ios' | null },
+  heading = 'Use Chalkpis on your phone',
+): string {
+  const number = c.phone ? `<strong>${esc(maskPhone(c.phone))}</strong>` : 'this WhatsApp number';
+  const play = `${PLAY_URL}&amp;referrer=utm_source%3Dtutor.chalkpis.com%26utm_medium%3Dwebsite%26utm_campaign%3Dsignup`;
+  const waits = Number(c.trial_waits) ? ', and your free trial starts when you first open it' : '';
+  if (c.signup_phone === 'ios')
+    return `<section class="app"><h2>${esc(heading)}</h2><p>The Chalkpis iPhone app is coming soon to the App Store. We will send you a WhatsApp message on ${number} when it is ready${waits}.</p><p class="small">Have an Android phone too? <a href="${play}">Get the app on Google Play</a> and sign in with the same number.</p></section>`;
+  return `<section class="app"><h2>${esc(heading)}</h2><p>Install the app and sign in with ${number}. Everything you set up here is already there.</p><a class="button" href="${play}">Get it on Google Play</a><p class="small"><strong>iPhone:</strong> the Chalkpis app is coming soon to the App Store. We will send you a WhatsApp message when it is ready${waits}.</p></section>`;
+}
 
 function page(
   title: string,
@@ -105,6 +172,8 @@ const cycleWord = (c: Cycle | null | undefined) => (c === 'month' ? 'monthly' : 
 
 function status(c: Centre, now: Date, auto: AutoRenew = null): string {
   if (!c.plan || !c.expires_at) return '<p class="status">No plan yet.</p>';
+  if (Number(c.trial_waits))
+    return '<p class="status">Your free trial starts when you first open the Chalkpis app on your phone.</p>';
   const active = c.status === 'active' && c.expires_at.getTime() > now.getTime();
   const until = day(c.expires_at);
   if (auto?.via === 'website') {
@@ -465,20 +534,43 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
       return !base || new URL(base).origin === origin;
     };
 
-    const signInPage = (note = '', phone = '') =>
+    const signInPage = (note = '', phone = '', flow: Flow = { next: 'plan', src: '' }) =>
       page(
-        'Your plan',
-        `<h1>Your Chalkpis plan</h1><p>Sign in with the mobile number you use in the Chalkpis app. We will send a code on WhatsApp.</p>${note}<form class="signin" method="post" action="/plan/code"><label for="phone">Mobile number</label><input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="16" required value="${esc(phone)}" placeholder="98765 43210"><button type="submit">Send code on WhatsApp</button></form>`,
+        flow.next === 'start' ? 'Start your free trial' : 'Your plan',
+        `${
+          flow.next === 'start'
+            ? `<h1>Start your free trial</h1><p>Create your Chalkpis account with your WhatsApp number. It is free for ${deps.config.TRIAL_DAYS} days, no card needed. Already have an account? This signs you in.</p>`
+            : '<h1>Your Chalkpis plan</h1><p>Sign in with your WhatsApp number to see your plan and pay. New to Chalkpis? Enter your number and we will set up your account.</p>'
+        }${note}<form class="signin" method="post" action="/plan/code">${flowFields(flow)}<label for="phone">WhatsApp number</label><input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="16" required value="${esc(phone)}" placeholder="98765 43210"><button type="submit">Send code on WhatsApp</button></form>`,
       );
-    const codePage = (phone: string, note = '') =>
+    const codePage = (phone: string, note = '', flow: Flow = { next: 'plan', src: '' }) =>
       page(
         'Enter the code',
-        `<h1>Enter the code</h1><p>We sent a 6-digit code on WhatsApp to ${esc(maskPhone(phone))}.</p>${note}<form class="signin" method="post" action="/plan/verify"><input type="hidden" name="phone" value="${esc(phone)}"><label for="code">Code</label><input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required autofocus><button type="submit">Sign in</button></form><p class="small"><a href="/plan">Use another number</a></p>`,
+        `<h1>Enter the code</h1><p>We sent a 6-digit code on WhatsApp to ${esc(maskPhone(phone))}.</p>${note}<form class="signin" method="post" action="/plan/verify">${flowFields(flow)}<input type="hidden" name="phone" value="${esc(phone)}"><label for="code">Code</label><input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required autofocus><button type="submit">Continue</button></form><p class="small"><a href="${flow.next === 'start' ? '/start' : '/plan'}">Use another number</a></p>`,
+      );
+    const setupPage = (flow: Flow, note = '', v: Record<string, string> = {}) =>
+      page(
+        'Set up your centre',
+        `<h1>Set up your centre</h1><p>A few details and you are in. You can change them later in the app.</p>${note}<form class="signin" method="post" action="/plan/setup">${flowFields(flow)}
+<label for="tutorName">Your name</label><input id="tutorName" name="tutorName" autocomplete="name" minlength="2" maxlength="80" required value="${esc(v.tutorName ?? '')}" placeholder="Your name">
+<label for="instituteName">Name of your class or centre</label><input id="instituteName" name="instituteName" minlength="2" maxlength="120" required value="${esc(v.instituteName ?? '')}" placeholder="Vidya Tuition Centre">
+<label for="category">What do you teach?</label><select id="category" name="category">${CATEGORIES.map(
+          (k) =>
+            `<option value="${k}"${(v.category ?? 'tuition') === k ? ' selected' : ''}>${CATEGORY_LABEL[k]}</option>`,
+        ).join('')}</select>
+<fieldset class="choice"><legend>Which phone will you use Chalkpis on?</legend><label><input type="radio" name="phone" value="android" required${v.phone === 'android' ? ' checked' : ''}> Android</label><label><input type="radio" name="phone" value="ios"${v.phone === 'ios' ? ' checked' : ''}> iPhone</label></fieldset>
+<p class="small">The iPhone app is coming soon. If you choose iPhone, your ${deps.config.TRIAL_DAYS}-day free trial starts when you first open the app, not today.</p>
+<button type="submit">Create my account</button></form>`,
       );
     const signOutNav =
       '<form class="nav" method="post" action="/plan/logout"><button type="submit" class="link">Sign out</button></form>';
 
-    const accountPage = async (centres: Centre[], selected: Centre, note = '') => {
+    const accountPage = async (
+      centres: Centre[],
+      selected: Centre,
+      note = '',
+      opts: { welcome?: boolean } = {},
+    ) => {
       const c = selected;
       const [students, batches, history, auto] = await Promise.all([
         activeCount(deps.pool, 'students', c.id),
@@ -508,7 +600,8 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         : '<p class="small">No payments yet.</p>';
       return page(
         `Plan for ${c.name}`,
-        `<h1>${esc(c.name)}</h1>${switcher}${status(c, now(), auto)}${note}
+        `<h1>${esc(c.name)}</h1>${switcher}${opts.welcome ? '<p class="status">Your account is ready. Choose a plan now, or start with the free trial.</p>' : ''}${status(c, now(), auto)}${note}
+${opts.welcome || !c.first_app_at ? appBox(c, opts.welcome ? 'Next: get the app' : 'Use Chalkpis on your phone') : ''}
 <section class="usage">${meter('Students', students, c.student_limit)}${meter('Batches', batches, c.batch_limit)}</section>
 ${
   auto?.via === 'website'
@@ -525,33 +618,69 @@ ${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}
       centres.find((x) => x.id === id) ?? centres[0];
     const noCentre = page(
       'No centre',
-      '<h1>No centre on this number</h1><p>Only the owner of a centre can see and pay for its plan. Sign up in the Chalkpis app first, or sign in with the owner&#39;s mobile number.</p><p><a class="button" href="/plan">Use another number</a></p>',
+      '<h1>This number is a helper</h1><p>It is a helper at a centre on Chalkpis. Only the centre&#39;s owner can see and pay for its plan, so sign in with the owner&#39;s number. To set up a centre of your own, use a different WhatsApp number.</p><p><a class="button" href="/plan">Use another number</a></p>',
       { nav: signOutNav },
     );
 
-    scope.get<{ Querystring: { centre?: string } }>('/plan', async (req, reply) => {
-      const userId = await signedIn(req);
-      if (!userId) return send(reply, 200, signInPage());
-      let centres = await ownedCentres(userId);
-      // a payment made here but never confirmed back (browser closed, webhook missed) switches the plan on now
-      let found = 0;
-      for (const c of centres)
-        found += await reconcilePending(
-          deps.pool,
-          deps.billing,
-          { instituteId: c.id, sinceMinutes: 24 * 60 },
-          now(),
+    /** Signed in but no centre of their own: a helper, or a new owner who still has to set one up. */
+    const isMember = async (userId: string) =>
+      (
+        (await deps.pool.query('SELECT 1 FROM memberships WHERE user_id = ? LIMIT 1', [
+          userId,
+        ])) as unknown as [unknown[]]
+      )[0].length > 0;
+
+    scope.get<{ Querystring: { centre?: string; welcome?: string } }>(
+      '/plan',
+      async (req, reply) => {
+        const userId = await signedIn(req);
+        if (!userId) return send(reply, 200, signInPage());
+        let centres = await ownedCentres(userId);
+        // a payment made here but never confirmed back (browser closed, webhook missed) switches the plan on now
+        let found = 0;
+        for (const c of centres)
+          found += await reconcilePending(
+            deps.pool,
+            deps.billing,
+            { instituteId: c.id, sinceMinutes: 24 * 60 },
+            now(),
+          );
+        if (found) centres = await ownedCentres(userId);
+        if (!centres.length)
+          return (await isMember(userId))
+            ? send(reply, 200, noCentre)
+            : reply.redirect('/plan/setup', 303);
+        return send(
+          reply,
+          200,
+          await accountPage(centres, pick(centres, req.query.centre ?? null)!, '', {
+            welcome: req.query.welcome === '1',
+          }),
         );
-      if (found) centres = await ownedCentres(userId);
-      if (!centres.length) return send(reply, 200, noCentre);
-      return send(reply, 200, await accountPage(centres, pick(centres, req.query.centre ?? null)!));
+      },
+    );
+
+    // Sign-up from chalkpis.com: the same steps as /plan, then on to chalkpis.com/welcome (decision 147)
+    scope.get<{ Querystring: Record<string, string> }>('/start', async (req, reply) => {
+      const flow: Flow = {
+        next: 'start',
+        src: cleanSrc(new URLSearchParams(req.query).toString()),
+      };
+      const userId = await signedIn(req);
+      if (userId) {
+        if ((await ownedCentres(userId)).length) return reply.redirect('/plan', 303);
+        if (!(await isMember(userId))) return reply.redirect(`/plan/setup?${flowQuery(flow)}`, 303);
+      }
+      return send(reply, 200, signInPage('', '', flow));
     });
 
     scope.post(
       '/plan/code',
       { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
       async (req, reply) => {
-        const raw = formBody(req.body).get('phone') ?? '';
+        const f = formBody(req.body);
+        const flow = flowOf(f);
+        const raw = f.get('phone') ?? '';
         const phone = normalizeIndianPhone(raw);
         if (!phone)
           return send(
@@ -560,18 +689,12 @@ ${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}
             signInPage(
               '<p class="note error">Enter a 10-digit Indian mobile number.</p>',
               raw.slice(0, 16),
+              flow,
             ),
           );
-        // Only a number that owns a centre gets a code here (this page is only for owners). Anyone else sees the same
-        // "code sent" page, so the page tells nobody who is registered and cannot be used to send codes to strangers.
-        const [owner] = (await deps.pool.query(
-          'SELECT 1 FROM users u JOIN institutes i ON i.owner_user_id = u.id WHERE u.phone = ? LIMIT 1',
-          [phone],
-        )) as unknown as [unknown[]];
-        if (!owner.length) return send(reply, 200, codePage(phone));
+        // Any number gets a code: a new one is signing up, the same as in the app (which has the same limits).
         const r = await requestOtp(otpDeps, phone);
-        if (r.ok) return send(reply, 200, codePage(phone));
-        if (r.error === 'too_soon') return send(reply, 200, codePage(phone)); // the last code still works
+        if (r.ok || r.error === 'too_soon') return send(reply, 200, codePage(phone, '', flow)); // the last code still works
         const why =
           r.error === 'too_many'
             ? 'Too many codes for this number. Please try again in an hour.'
@@ -579,7 +702,7 @@ ${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}
         return send(
           reply,
           r.error === 'too_many' ? 429 : 503,
-          signInPage(`<p class="note error">${why}</p>`, raw.slice(0, 16)),
+          signInPage(`<p class="note error">${why}</p>`, raw.slice(0, 16), flow),
         );
       },
     );
@@ -589,10 +712,11 @@ ${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}
       { config: { rateLimit: { max: 20, timeWindow: '10 minutes' } } },
       async (req, reply) => {
         const f = formBody(req.body);
+        const flow = flowOf(f);
         const phone = normalizeIndianPhone(f.get('phone') ?? '');
-        if (!phone) return reply.redirect('/plan', 303);
-        // checks the code without ever creating an account
-        const r = await confirmPhoneOwnership(otpDeps, phone, (f.get('code') ?? '').trim());
+        if (!phone) return reply.redirect(flow.next === 'start' ? '/start' : '/plan', 303);
+        // a new number gets its account here, as in the app
+        const r = await verifyOtp(otpDeps, phone, (f.get('code') ?? '').trim());
         if (!r.ok)
           return send(
             reply,
@@ -600,15 +724,71 @@ ${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}
             codePage(
               phone,
               '<p class="note error">That code is not right or has expired. Check WhatsApp and try again.</p>',
+              flow,
             ),
           );
-        if (!r.userId) return send(reply, 200, noCentre);
+        const owner = (await ownedCentres(r.userId)).length > 0;
+        const to = owner || (await isMember(r.userId)) ? '/plan' : `/plan/setup?${flowQuery(flow)}`;
         return reply
           .header(
             'Set-Cookie',
             planSessionCookie(deps.config.JWT_SECRET, r.userId, now().getTime(), secure),
           )
-          .redirect('/plan', 303);
+          .redirect(to, 303);
+      },
+    );
+
+    scope.get<{ Querystring: Record<string, string> }>('/plan/setup', async (req, reply) => {
+      const flow = flowOf(new URLSearchParams(req.query));
+      const userId = await signedIn(req);
+      if (!userId) return reply.redirect(flow.next === 'start' ? '/start' : '/plan', 303);
+      if ((await ownedCentres(userId)).length || (await isMember(userId)))
+        return reply.redirect('/plan', 303);
+      return send(reply, 200, setupPage(flow));
+    });
+
+    scope.post(
+      '/plan/setup',
+      { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
+      async (req, reply) => {
+        const f = formBody(req.body);
+        const flow = flowOf(f);
+        const userId = await signedIn(req);
+        if (!userId || !sameOrigin(req))
+          return reply.redirect(flow.next === 'start' ? '/start' : '/plan', 303);
+        const v = {
+          tutorName: (f.get('tutorName') ?? '').trim().slice(0, 80),
+          instituteName: (f.get('instituteName') ?? '').trim().slice(0, 120),
+          category: f.get('category') ?? '',
+          phone: f.get('phone') ?? '',
+        };
+        const category = (CATEGORIES as readonly string[]).includes(v.category)
+          ? (v.category as Category)
+          : null;
+        const os = v.phone === 'android' || v.phone === 'ios' ? v.phone : null;
+        if (v.tutorName.length < 2 || v.instituteName.length < 2 || !category || !os)
+          return send(
+            reply,
+            400,
+            setupPage(
+              flow,
+              '<p class="note error">Please fill in your name, your centre&#39;s name and the phone you will use.</p>',
+              v,
+            ),
+          );
+        const r = await createInstitute(
+          deps.pool,
+          userId,
+          { tutorName: v.tutorName, instituteName: v.instituteName, category, language: 'en' },
+          now(),
+          deps.config.TRIAL_DAYS,
+          { phone: os, source: flow.src, trialOnFirstAppUse: os === 'ios' },
+        );
+        if (!r.created) return reply.redirect('/plan', 303);
+        return reply.redirect(
+          flow.next === 'start' ? `${WELCOME_URL}?os=${os}` : '/plan?welcome=1',
+          303,
+        );
       },
     );
 

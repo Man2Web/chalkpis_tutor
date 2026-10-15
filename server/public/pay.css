@@ -226,9 +226,68 @@ button.link {
   background: var(--card);
   color: var(--text);
 }
-.signin input:focus {
+.signin input,
+.signin select {
+  font: inherit;
+  font-size: 18px;
+  padding: 13px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+}
+.signin input:focus,
+.signin select:focus {
   outline: 3px solid var(--soft);
   border-color: var(--brand);
+}
+/* Android / iPhone: two large choices */
+.choice {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  border: 0;
+  padding: 0;
+  margin: 4px 0 0;
+}
+.choice legend {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+.signin .choice label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  cursor: pointer;
+}
+.signin .choice input {
+  width: auto;
+  padding: 0;
+  accent-color: var(--brand);
+}
+.signin .choice label:has(input:checked) {
+  border-color: var(--brand);
+  outline: 2px solid var(--soft);
+}
+/* Get the app */
+.app {
+  margin: 24px 0 8px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+}
+.app h2 {
+  font-size: 18px;
+  margin: 0 0 6px;
+}
+.app .button {
+  margin: 14px 0 10px;
 }
 h2.section {
   font-size: 20px;

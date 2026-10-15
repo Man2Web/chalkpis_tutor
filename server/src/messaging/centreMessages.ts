@@ -46,11 +46,14 @@ interface Centre {
   owner_id: string;
   owner_name: string;
   expires_at: Date | null;
+  /** 1 while an iPhone owner's free trial waits for their first sign-in in the app */
+  trial_waits: number | null;
 }
 
 async function centre(db: Db, instituteId: string): Promise<Centre | null> {
   const [rows] = (await db.query(
-    `SELECT i.name, i.owner_user_id AS owner_id, u.name AS owner_name, s.expires_at
+    `SELECT i.name, i.owner_user_id AS owner_id, u.name AS owner_name, s.expires_at,
+            (s.plan = 'trial' AND i.trial_on_first_app_use = 1) AS trial_waits
        FROM institutes i JOIN users u ON u.id = i.owner_user_id
        LEFT JOIN subscriptions s ON s.institute_id = i.id
       WHERE i.id = ?`,
@@ -92,7 +95,7 @@ async function queueCentre(
 }
 
 /** A new centre: "Hi Kiran, your Chalkpis account for Kiran Karate Academy is ready. Your free trial runs until …". */
-export async function queueCentreWelcome(db: Db, instituteId: string, now: Date) {
+export async function queueCentreWelcome(db: Db, instituteId: string, now: Date, trialDays = 14) {
   const c = await centre(db, instituteId);
   if (!c) return false;
   return queueCentre(
@@ -105,7 +108,12 @@ export async function queueCentreWelcome(db: Db, instituteId: string, now: Date)
       vars: [
         ownerName(c),
         cleanVar(c.name),
-        c.expires_at ? day(c.expires_at) : 'the end of your trial',
+        // an iPhone owner who signed up on the website: the trial starts with their first sign-in in the app
+        c.trial_waits
+          ? `${trialDays} days after you first open the app`
+          : c.expires_at
+            ? day(c.expires_at)
+            : 'the end of your trial',
       ],
     },
     now,
@@ -181,6 +189,8 @@ export async function queuePlanReminders(
       WHERE ((s.expires_at > ? AND s.expires_at <= IF(s.plan = 'trial', ?, ?))
          OR (s.expires_at <= ? AND s.expires_at > ?))
         AND NOT (s.store IS NOT NULL AND s.store_will_renew = 1)
+        AND NOT (s.plan = 'trial' AND EXISTS (SELECT 1 FROM institutes i WHERE i.id = s.institute_id
+          AND i.trial_on_first_app_use = 1))
         AND NOT EXISTS (SELECT 1 FROM web_subscriptions w WHERE w.institute_id = s.institute_id
           AND w.status IN ('authenticated','active','pending') AND w.cancel_at_cycle_end = 0)`,
     [

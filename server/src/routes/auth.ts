@@ -5,6 +5,7 @@ import type { AppDeps } from '../app.js';
 import { authenticate } from '../auth/guard.js';
 import { confirmPhoneOwnership, requestOtp, verifyOtp } from '../auth/otp.js';
 import { endSession, refreshSession, startSession } from '../auth/sessions.js';
+import { noteAppSignIn } from '../institutes/service.js';
 import type { MessageProvider } from '../messaging/provider.js';
 
 const phoneBody = z.object({ phone: z.string().max(32) });
@@ -123,6 +124,8 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
       // a new number gets its account here: signing up and signing in are the same step
       const v = await verifyOtp(otpDeps, body.data.phone, body.data.code);
       if (!v.ok) return reply.code(401).send({ error: 'invalid_code' });
+      // a centre set up on the website: its free trial may be waiting for this first sign-in in the app
+      if (!v.isNew) await noteAppSignIn(deps.pool, v.userId, now(), deps.config.TRIAL_DAYS);
       return signIn(v.userId, req, reply);
     },
   );
