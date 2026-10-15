@@ -75,20 +75,19 @@ The two plan reminders replace `cp_trial_ending` (text only; deleted on 14 Oct 2
 Footer: "Chalkpis by M2W Technologies". Meta classes the plan reminders as **Marketing** (they ask the owner to buy): they
 still send, but WhatsApp limits how many marketing messages one person receives.
 
-## Open problem: text templates are not delivered (13 Oct 2026)
+## Text templates go as type 1 (solved 15 Oct 2026)
 
-Templates with an image header (`cp_fee_qr`) and the login code (`tutor_desk`) reach the phone. Every template with
-only a text body is accepted by the gateway (`{"status":"Success"}` with a guid) and then never delivered, to the same
-number that does receive the QR reminder. Ruled out: template approval (all approved), variables (they match), the
-footer (`cp_payment_receipt_nf` has none and also fails), and the request format (msgtype 1; msgtype 3 with an empty
-`type`; msgtype 3 with `type: "text"` and `templateid` as in the gateway's sample, which is what the server sends now).
-The gateway's delivery reports reach `/webhooks/wa-dlr/<secret>` as GET requests without any parameters, so WhatsApp's
-reason is not visible to us. Waiting on wa.adsme.in support for the error code and the right payload for a text-only
-Utility template.
+The gateway has four message types: 1 = transactional template (text only), 2 = promotional, 3 = template with a media
+header and/or buttons, 4 = promotional with media. A **text-only** template must go as **type 1**; sent as type 3 the
+gateway answers HTTP 200 `"status":"Success"` but lists `errors: [{"errorcode":28698,"errortext":"Invalid WhatsApp
+Media Template"}]` against the message, and WhatsApp never gets it. From 13 Oct 19:50 to 15 Oct every text template
+(absent, late, fee due/overdue, receipts, payment link, parent page, student and centre welcome, class cancelled,
+helper invite, plan active) went as type 3 and was dropped this way, while the server counted it as sent. Templates
+with an image header (UPI QR, plan banner) and the login code stay on type 3 with `type: "image"` / the copy code.
 
-**14 Oct 2026:** WhatsApp Manager's insights now show text templates delivered and read (`cp_payment_receipt` 5,
-`cp_payment_receipt_nf` 2, `cp_late_alert` 1, besides `cp_fee_qr` 5), so the problem may be fixed or intermittent; a
-fresh test (mark a student late, record a payment) will tell.
+The server now reads that answer: a status other than "Success", or any error listed against the message, makes the
+send fail with the gateway's code and text (for example `wa-28698 Invalid WhatsApp Media Template`), so the admin
+WhatsApp pages show it as failed with the reason, and the usual retries apply.
 
 The same WhatsApp account also has `erp_otp` (Authentication, from 6 Oct), which is not Chalkpis's: another system sends
 it, so it stays.

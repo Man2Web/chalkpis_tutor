@@ -59,6 +59,30 @@ export const dlrToken = (secret: string) =>
 const ymd = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, '');
 
 /**
+ * Why the gateway refused a message it answered with HTTP 200, or null when it took it: a status other than
+ * "Success", or an error listed against the message (`messageack.guids[].errors`, e.g. 28698 "Invalid WhatsApp Media
+ * Template"). An answer that is not JSON counts as taken, as before.
+ */
+export function gatewayRefusal(answer: string): string | null {
+  let a: {
+    status?: string;
+    statuscode?: number | string;
+    messageack?: { guids?: { errors?: { errorcode?: number | string; errortext?: string }[] }[] };
+  };
+  try {
+    a = JSON.parse(answer) as typeof a;
+  } catch {
+    return null;
+  }
+  if (!a || typeof a !== 'object') return null;
+  const error = (a.messageack?.guids ?? []).flatMap((g) => g.errors ?? [])[0];
+  if (error)
+    return maskDigits(`wa-${error.errorcode ?? '?'} ${error.errortext ?? ''}`.trim()).slice(0, 80);
+  if (a.status && a.status !== 'Success') return `wa-${a.statuscode ?? a.status}`.slice(0, 80);
+  return null;
+}
+
+/**
  * Template sender for the "unified v2" WhatsApp gateway (body shape from the provider's sample).
  * To confirm with the provider: `templateinfo` = `<templateId>~<value1>~<value2>...`, POST vs GET.
  */
@@ -81,16 +105,16 @@ export class WhatsAppProvider implements MessageProvider {
           {
             coding: '1',
             id,
-            // Every template goes as type 3, as in the gateway's documented template sample. Plain text templates
-            // sent as type 1, or as type 3 without `type: "text"` and `templateid`, were accepted but never delivered.
-            msgtype: '3',
+            // The gateway's types: 1 = transactional template (text only), 3 = template with a media header and/or
+            // buttons (the UPI QR and the plan banner as image headers, the login code with its copy-code button). A
+            // text-only template sent as 3 is answered "Success" with error 28698 "Invalid WhatsApp Media Template"
+            // inside, and never sent; as 1 it is delivered (WhatsApp Manager showed them delivered and read).
+            msgtype: m.imageUrl || m.otp ? '3' : '1',
             text: '',
-            ...(m.imageUrl || m.otp ? {} : { templateid: m.templateId }),
             templateinfo: [m.templateId, ...m.vars].join('~'),
-            // A header picture (the UPI QR) needs all three, as in the gateway's documentation: the media type, its
-            // MIME type and a public URL. Without `type` the gateway accepts the message but WhatsApp drops it.
-            // The login code keeps the empty type it has always worked with.
-            type: m.imageUrl ? 'image' : m.otp ? '' : 'text',
+            // A header picture needs all three, as in the gateway's documentation: the media type, its MIME type and a
+            // public URL. Without `type` the gateway accepts the message but WhatsApp drops it.
+            type: m.imageUrl ? 'image' : '',
             ...(m.imageUrl ? { contenttype: 'image/png' } : {}),
             mediadata: m.imageUrl ?? '',
             b_urlinfo: '1',
@@ -121,9 +145,9 @@ export class WhatsAppProvider implements MessageProvider {
         },
         body: JSON.stringify(body),
       });
+      // The gateway can answer 200 "Success" and still refuse the message in its body, so read what it said.
+      const answer = await res.text().catch(() => '');
       if (this.cfg.log) {
-        // The gateway can answer 200 and still refuse the message in its body, so keep what it said.
-        const answer = await res.text().catch(() => '');
         this.cfg.log({
           wa: 'send',
           ref: m.reference,
@@ -134,6 +158,8 @@ export class WhatsAppProvider implements MessageProvider {
         });
       }
       if (!res.ok) return { ok: false, error: `http-${res.status}` };
+      const refused = gatewayRefusal(answer);
+      if (refused) return { ok: false, error: refused };
       return { ok: true, providerId: body.whatsapp.messages[0]?.id };
     } catch (e) {
       // Never put the request (phone numbers, credentials) into the error text.

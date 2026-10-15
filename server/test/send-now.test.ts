@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { dlrToken, MetaCloudProvider, WhatsAppProvider } from '../src/messaging/provider.js';
+import {
+  dlrToken,
+  gatewayRefusal,
+  MetaCloudProvider,
+  WhatsAppProvider,
+} from '../src/messaging/provider.js';
 import { testConfig } from './db.js';
 import { parseTemplates } from '../src/messaging/templates.js';
 import { processQueue } from '../src/messaging/worker.js';
@@ -156,7 +161,7 @@ describe('wa.adsme.in gateway request', () => {
     });
   });
 
-  it('sends a text-only template as a text template (type 3, type text, templateid)', () => {
+  it('sends a text-only template as a transactional template (type 1, no media)', () => {
     const msg = p.body({
       to: '+919876500001',
       templateId: '1815393',
@@ -164,13 +169,13 @@ describe('wa.adsme.in gateway request', () => {
       reference: 'm2',
     }).whatsapp.messages[0]!;
     expect(msg).toMatchObject({
-      msgtype: '3',
-      type: 'text',
-      templateid: '1815393',
+      msgtype: '1',
+      type: '',
       templateinfo: '1815393~A~B~C',
       mediadata: '',
     });
     expect(msg).not.toHaveProperty('contenttype');
+    expect(msg).not.toHaveProperty('templateid');
   });
 
   it('keeps the login code on the template-with-buttons type (its copy-code button)', () => {
@@ -230,11 +235,47 @@ describe('gateway delivery reports', () => {
       wa: 'send',
       ref: 'm9',
       template: '1815389',
-      msgtype: '3',
+      msgtype: '1',
       http: 200,
     });
     expect(String(lines[0]!.answer)).toContain('••••0001');
     expect(String(lines[0]!.answer)).not.toContain('919876500001');
+  });
+
+  it('a refusal inside a 200 "Success" answer is a failure with its reason, not a send', async () => {
+    const answer = (body: unknown) =>
+      (async () => new Response(JSON.stringify(body), { status: 200 })) as unknown as typeof fetch;
+    const send = (fetchFn: typeof fetch) =>
+      new WhatsAppProvider(
+        {
+          baseUrl: 'https://gw.example',
+          clientId: 'id',
+          clientPassword: 'pw',
+          from: '916384009225',
+        },
+        fetchFn,
+      ).send({ to: '+919876500001', templateId: '1815396', vars: ['A'], reference: 'c1' });
+    const ack = (errors?: unknown[]) => ({
+      status: 'Success',
+      statuscode: 200,
+      messageack: { guids: [{ guid: 'g1', id: 'x', ...(errors ? { errors } : {}) }] },
+    });
+    expect(
+      await send(answer(ack([{ errorcode: 28698, errortext: 'Invalid WhatsApp Media Template' }]))),
+    ).toEqual({ ok: false, error: 'wa-28698 Invalid WhatsApp Media Template' });
+    expect(await send(answer({ status: 'Failure', statuscode: 401 }))).toEqual({
+      ok: false,
+      error: 'wa-401',
+    });
+    expect((await send(answer(ack()))).ok).toBe(true);
+    expect(
+      (await send((async () => new Response('OK', { status: 200 })) as unknown as typeof fetch)).ok,
+    ).toBe(true);
+    expect(
+      gatewayRefusal(
+        '{"messageack":{"guids":[{"errors":[{"errorcode":1,"errortext":"bad 919876500001"}]}]}}',
+      ),
+    ).toBe('wa-1 bad ••••0001');
   });
 
   it('accepts reports only on the secret address', async () => {
