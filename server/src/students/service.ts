@@ -19,7 +19,7 @@ interface StudentRow {
   joined_at: Date;
   status: 'active' | 'inactive';
   monthly_fee: number;
-  fee_cycle: 'monthly' | 'quarterly' | 'one-time';
+  fee_cycle: 'monthly' | 'quarterly' | 'one-time' | 'yearly';
   due_day: number;
   discount: number;
   notify_parent: number;

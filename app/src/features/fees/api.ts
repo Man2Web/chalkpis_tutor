@@ -2,7 +2,15 @@ import { api, ApiError, type ApiOptions } from '../../api/client';
 import type { FeeCycle, PayMode } from '../../lib/types';
 
 export type FeeApiError =
-  'amount' | 'exceeds' | 'waived' | 'notFound' | 'alreadyReversed' | 'notReversible' | 'tooBig';
+  | 'amount'
+  | 'exceeds'
+  | 'waived'
+  | 'notFound'
+  | 'alreadyReversed'
+  | 'notReversible'
+  | 'tooBig'
+  | 'planExists'
+  | 'partsOrder';
 
 /** The server's short reasons, in the words the screens already translate. Anything else stays an ApiError. */
 const MAP: Record<string, FeeApiError> = {
@@ -14,6 +22,8 @@ const MAP: Record<string, FeeApiError> = {
   already_reversed: 'alreadyReversed',
   not_reversible: 'notReversible',
   discount_too_big: 'tooBig',
+  plan_exists: 'planExists',
+  parts_out_of_order: 'partsOrder',
 };
 
 async function run<T>(fn: () => Promise<T>): Promise<T> {
@@ -127,4 +137,31 @@ export async function updateFeePlan(a: {
     dueDay: a.dueDay,
     discount: a.discount,
   });
+}
+
+/**
+ * A yearly (or any multi-part) fee for one or more students: each part becomes its own due with its own date, and the
+ * students stop getting monthly dues. Students who already have a plan with this title are skipped (`skipped`).
+ */
+export function createFeePlans(
+  a: { studentIds: string[]; title: string; parts: { amount: number; dueYmd: string }[] },
+  opts?: ApiOptions,
+): Promise<{ planIds: string[]; created: number; skipped: string[] }> {
+  return run(() =>
+    api<{ planIds: string[]; created: number; skipped: string[] }>(
+      'POST',
+      '/fees/plans',
+      {
+        studentIds: a.studentIds,
+        title: a.title.trim(),
+        parts: a.parts.map((p) => ({ amount: p.amount, dueDate: p.dueYmd })),
+      },
+      opts,
+    ),
+  );
+}
+
+/** Removes a plan's parts that nothing was ever paid on; parts with payments stay. */
+export function removeFeePlan(planId: string): Promise<{ removed: number; kept: number }> {
+  return run(() => api<{ removed: number; kept: number }>('DELETE', `/fees/plans/${planId}`));
 }

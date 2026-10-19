@@ -31,7 +31,7 @@ import { formatINR, parseRupeesToPaise } from '../../lib/money';
 import type { FeeDue } from '../../lib/types';
 import type { MainStackParams } from '../../navigation/types';
 import { colors, spacing, type } from '../../theme';
-import { addCharge, setDiscount, setWaived, type FeeApiError } from './api';
+import { addCharge, removeFeePlan, setDiscount, setWaived, type FeeApiError } from './api';
 import { isOverdue, netDue, outstanding, periodLabel, reversedIds } from './logic';
 
 const PRESETS = ['admission', 'books', 'other'] as const;
@@ -56,6 +56,7 @@ export function FeeLedgerScreen({
   const [amount, setAmount] = useState('');
   const [chargeDate, setChargeDate] = useState(today);
   const [selected, setSelected] = useState<FeeDue | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [discount, setDiscountText] = useState('');
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string>();
@@ -160,6 +161,27 @@ export function FeeLedgerScreen({
     if (ok) setSelected(null);
   };
 
+  /** Takes back a yearly plan set up by mistake: its unpaid parts go, paid ones stay with their receipts. */
+  const removePlan = async () => {
+    const planId = selected?.planId;
+    if (!planId) return;
+    let msg = '';
+    const ok = await run(async () => {
+      const r = await removeFeePlan(planId);
+      msg = [
+        t('fees.yearly.removed', { count: r.removed }),
+        r.kept ? t('fees.yearly.kept', { count: r.kept }) : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+    });
+    if (ok) {
+      toast(msg, 'success');
+      setConfirmRemove(false);
+      setSelected(null);
+    }
+  };
+
   const toggleWaive = async () => {
     if (!selected) return;
     const ok = await run(
@@ -191,7 +213,9 @@ export function FeeLedgerScreen({
         <Avatar name={student.name} uri={student.photoUrl} size={64} />
         <Text style={[type.title3, { textAlign: 'center' }]}>{student.name}</Text>
         <Text style={type.footnote}>
-          {t('fees.monthlyIs', { fee: formatINR(student.monthlyFee) })}
+          {t(student.feeCycle === 'yearly' ? 'fees.yearlyIs' : 'fees.monthlyIs', {
+            fee: formatINR(student.monthlyFee),
+          })}
         </Text>
       </View>
 
@@ -254,6 +278,7 @@ export function FeeLedgerScreen({
             right={statusChip(d)}
             onPress={() => {
               setSelected(d);
+              setConfirmRemove(false);
               setDiscountText(String(d.discount / 100));
               setFormError(undefined);
             }}
@@ -364,6 +389,26 @@ export function FeeLedgerScreen({
               onPress={toggleWaive}
               disabled={busy}
             />
+            {selected.planId ? (
+              confirmRemove ? (
+                <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
+                  <Text style={type.footnote}>{t('fees.yearly.removeHelp')}</Text>
+                  <Button
+                    variant="danger"
+                    title={t('fees.yearly.removeConfirm')}
+                    onPress={removePlan}
+                    loading={busy}
+                  />
+                </View>
+              ) : (
+                <Button
+                  variant="secondary"
+                  title={t('fees.yearly.remove')}
+                  onPress={() => setConfirmRemove(true)}
+                  disabled={busy}
+                />
+              )
+            ) : null}
           </View>
         ) : null}
       </BottomSheet>

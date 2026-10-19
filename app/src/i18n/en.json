@@ -275,7 +275,8 @@
     "cycle": {
       "monthly": "Monthly",
       "quarterly": "Quarterly",
-      "oneTime": "One-time"
+      "oneTime": "One-time",
+      "yearly": "Yearly"
     },
     "dueDay": "Fee due day of month",
     "joinedOn": "Joining date",
@@ -586,7 +587,43 @@
     "billed": "Billed",
     "collected": "Collected",
     "sortBy": "Sort",
-    "collectedThisMonth": "collected"
+    "collectedThisMonth": "collected",
+    "yearlyIs": "Yearly fee {{fee}}",
+    "yearlyFee": "Yearly fee (₹)",
+    "yearly": {
+      "defaultTitle": "Yearly fee",
+      "hint": "Split the year's fee into parts. Each part becomes a due with its own date: you collect it, send receipts, and parents get the usual WhatsApp reminders. {{name}} will not get monthly dues any more.",
+      "title": "Plan name",
+      "total": "Fee for the year (₹)",
+      "parts": "Paid in",
+      "partsCount_one": "1 part",
+      "partsCount_other": "{{count}} parts",
+      "firstDue": "First part due on",
+      "partAmount": "Part {{n}} (₹)",
+      "sum": "Parts add up to {{amount}}",
+      "for": "For",
+      "onlyStudent": "Only {{name}}",
+      "wholeBatch": "Everyone in {{batch}}",
+      "save_one": "Create plan",
+      "save_other": "Create plan for {{count}} students",
+      "created_one": "Yearly plan added",
+      "created_other": "Yearly plan added for {{count}} students",
+      "createdSkipped_one": "Plan added for 1 student. {{skipped}} already had it.",
+      "createdSkipped_other": "Plan added for {{count}} students. {{skipped}} already had it.",
+      "remove": "Remove this yearly plan",
+      "removeHelp": "Parts with no payment will be deleted. Parts that were paid stay, with their receipts.",
+      "removeConfirm": "Yes, remove the unpaid parts",
+      "removed_one": "Removed 1 unpaid part.",
+      "removed_other": "Removed {{count}} unpaid parts.",
+      "kept_one": "1 paid part kept.",
+      "kept_other": "{{count}} paid parts kept.",
+      "errors": {
+        "amount": "Enter an amount for every part",
+        "date": "Enter every date as YYYY-MM-DD",
+        "order": "Parts must be in date order",
+        "exists": "This student already has a plan with this name. Change the name (for example, the year)."
+      }
+    }
   },
   "home": {
     "hello": "Hello, {{name}}",

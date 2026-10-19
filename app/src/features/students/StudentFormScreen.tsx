@@ -87,7 +87,7 @@ export function StudentFormScreen({
           },
     [existing],
   );
-  const { control, handleSubmit, setValue, getValues, formState } = useForm<StudentForm>({
+  const { control, handleSubmit, setValue, getValues, formState, watch } = useForm<StudentForm>({
     resolver: zodResolver(studentSchema),
     values: defaults,
   });
@@ -240,7 +240,7 @@ export function StudentFormScreen({
       <FormInput
         control={control}
         name="monthlyFee"
-        label={t('onboarding.monthlyFee')}
+        label={t(watch('feeCycle') === 'yearly' ? 'fees.yearlyFee' : 'onboarding.monthlyFee')}
         keyboardType="decimal-pad"
       />
       <Text style={type.fieldLabel}>{t('students.feeCycle')}</Text>
@@ -256,14 +256,16 @@ export function StudentFormScreen({
               marginBottom: spacing.md,
             }}
           >
-            {CYCLES.map((c) => (
-              <Chip
-                key={c}
-                label={t(`students.cycle.${cycleKey(c)}`)}
-                selected={field.value === c}
-                onPress={() => field.onChange(c)}
-              />
-            ))}
+            {(existing?.feeCycle === 'yearly' ? [...CYCLES, 'yearly' as const] : CYCLES).map(
+              (c) => (
+                <Chip
+                  key={c}
+                  label={t(`students.cycle.${cycleKey(c)}`)}
+                  selected={field.value === c}
+                  onPress={() => field.onChange(c)}
+                />
+              ),
+            )}
           </View>
         )}
       />

@@ -204,6 +204,8 @@ export const ACTIVITY_TEXT: Record<string, string> = {
   'fee.advance': 'recorded an advance from {s}',
   'fee.reverse': 'reversed a payment from {s}',
   'fee.charge': 'added a charge for {s}',
+  'fee.plan': 'set up a yearly fee plan for {s}',
+  'fee.plan-remove': 'removed a fee plan',
   'fee.discount': 'gave {s} a discount',
   'fee.waive': 'changed a waiver for {s}',
   'message.remind': 'sent a fee reminder to the parent of {s}',

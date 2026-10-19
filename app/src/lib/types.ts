@@ -30,7 +30,8 @@ export interface Batch {
   studentCount: number;
 }
 
-export type FeeCycle = 'monthly' | 'quarterly' | 'one-time';
+/** 'yearly': the fee comes from instalment plans (Fee plan → Yearly), not from the monthly dues. */
+export type FeeCycle = 'monthly' | 'quarterly' | 'one-time' | 'yearly';
 
 export interface Student {
   id: string;
@@ -80,7 +81,8 @@ export interface FeeDue {
   status: DueStatus;
   dueDate: Timestamp;
   description: string;
-  kind?: 'charge'; // one-off charge (admission, books)
+  kind?: 'charge' | 'instalment'; // one-off charge (admission, books), or one part of a yearly plan
+  planId?: string; // the yearly plan an instalment belongs to
   waivedNote?: string;
 }
 

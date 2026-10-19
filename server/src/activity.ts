@@ -116,6 +116,30 @@ export const RULES: Record<string, Rule> = {
     subject: STUDENT_FROM_BODY,
     detail: (b) => [String(b.description ?? ''), rupees(b.amount)].filter(Boolean).join(' · '),
   },
+  'POST /fees/plans': {
+    action: 'fee.plan',
+    subject: {
+      ...STUDENT,
+      param: (_p, b) => (Array.isArray(b.studentIds) ? b.studentIds[0] : undefined),
+    },
+    detail: (b) =>
+      [
+        String(b.title ?? ''),
+        Array.isArray(b.parts) ? `${b.parts.length} parts` : '',
+        Array.isArray(b.studentIds) && b.studentIds.length > 1
+          ? `${b.studentIds.length} students`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' · '),
+  },
+  'DELETE /fees/plans/:id': {
+    action: 'fee.plan-remove',
+    subject: {
+      sql: 'SELECT s.name FROM fee_plans x JOIN students s ON s.institute_id = x.institute_id AND s.id = x.student_id WHERE x.institute_id = ? AND x.id = ?',
+      param: (p) => p.id,
+    },
+  },
   'PATCH /fees/dues/:id/discount': {
     action: 'fee.discount',
     subject: DUE_STUDENT,

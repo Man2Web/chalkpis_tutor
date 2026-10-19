@@ -19,6 +19,16 @@ export const chargeInput = z.object({
   dueDate: ymd,
 });
 
+/** A yearly (or any multi-part) fee for one or more students: the same parts for each. */
+export const planInput = z.object({
+  studentIds: z.array(z.string().uuid()).min(1).max(200),
+  title: z.string().trim().min(1).max(60),
+  parts: z
+    .array(z.object({ amount: money, dueDate: ymd }))
+    .min(1)
+    .max(12),
+});
+
 export const discountInput = z.object({ discount: z.number().int().min(0).max(100_000_000) });
 export const waiveInput = z.object({
   waived: z.boolean(),

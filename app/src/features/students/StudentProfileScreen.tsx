@@ -166,9 +166,14 @@ export function StudentProfileScreen({
           title={t('students.feesAndPayments')}
           onPress={() => navigation.navigate('FeeLedger', { studentId: s.id })}
         />
-        <Row title={t('onboarding.monthlyFee')} value={formatINR(s.monthlyFee)} />
+        <Row
+          title={t(s.feeCycle === 'yearly' ? 'fees.yearlyFee' : 'onboarding.monthlyFee')}
+          value={formatINR(s.monthlyFee)}
+        />
         <Row title={t('students.feeCycle')} value={t(`students.cycle.${cycleKey}`)} />
-        <Row title={t('students.dueDay')} value={String(s.dueDay)} />
+        {s.feeCycle === 'yearly' ? null : (
+          <Row title={t('students.dueDay')} value={String(s.dueDay)} />
+        )}
       </Section>
 
       <Section title={t('students.details')}>

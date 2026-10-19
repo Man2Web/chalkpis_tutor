@@ -37,9 +37,10 @@ interface ServerStudent extends Omit<Student, 'joinedAt'> {
 }
 const toStudent = (s: ServerStudent): Student => ({ ...s, joinedAt: stamp(s.joinedAt) });
 
-interface ServerDue extends Omit<FeeDue, 'dueDate' | 'kind'> {
+interface ServerDue extends Omit<FeeDue, 'dueDate' | 'kind' | 'planId'> {
   dueDate: string;
-  kind: 'regular' | 'charge';
+  kind: 'regular' | 'charge' | 'instalment';
+  planId?: string | null;
 }
 const toDue = (d: ServerDue): FeeDue => ({
   id: d.id,
@@ -52,7 +53,8 @@ const toDue = (d: ServerDue): FeeDue => ({
   status: d.status,
   dueDate: stampYmd(d.dueDate),
   description: d.description,
-  ...(d.kind === 'charge' ? { kind: 'charge' as const } : {}),
+  ...(d.kind === 'regular' ? {} : { kind: d.kind }),
+  ...(d.planId ? { planId: d.planId } : {}),
   ...(d.waivedNote ? { waivedNote: d.waivedNote } : {}),
 });
 

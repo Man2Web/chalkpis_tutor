@@ -11,9 +11,11 @@ import {
   dueDateFor,
   descriptionFor,
   formatReceiptNo,
+  instalmentDescription,
   isDueInPeriod,
   netDue,
   outstanding,
+  partsInOrder,
   statusFor,
   type DueStatus,
   type FeeCycle,
@@ -32,11 +34,12 @@ interface DueRow {
   status: DueStatus;
   due_date: string;
   description: string;
-  kind: 'regular' | 'charge';
+  kind: 'regular' | 'charge' | 'instalment';
+  plan_id: string | null;
   waived_note: string;
 }
 const DUE_COLS =
-  "d.id, d.student_id, d.batch_id, d.period, d.amount, d.discount, d.paid, d.status, DATE_FORMAT(d.due_date, '%Y-%m-%d') AS due_date, d.description, d.kind, d.waived_note";
+  "d.id, d.student_id, d.batch_id, d.period, d.amount, d.discount, d.paid, d.status, DATE_FORMAT(d.due_date, '%Y-%m-%d') AS due_date, d.description, d.kind, d.plan_id, d.waived_note";
 
 const money = (r: Pick<DueRow, 'amount' | 'discount' | 'paid' | 'status'>) => ({
   amount: Number(r.amount),
@@ -60,6 +63,7 @@ export const toDue = (r: DueRow, today: string) => {
     overdue: owe > 0 && r.due_date < today,
     description: r.description,
     kind: r.kind,
+    planId: r.plan_id,
     waivedNote: r.waived_note,
   };
 };
@@ -508,6 +512,126 @@ export async function addCharge(
     [id, instituteId, c.studentId, todayYmd(now).slice(0, 7), c.amount, c.dueDate, c.description],
   );
   return id;
+}
+
+const PLAN_ERRORS = {
+  student: new AppError(400, 'unknown_student'),
+  order: new AppError(400, 'parts_out_of_order'),
+  exists: new AppError(409, 'plan_exists'),
+} as const;
+
+const marks = (n: number) => Array.from({ length: n }, () => '?').join(',');
+
+/**
+ * Gives each student the same fee plan, in one transaction: one 'instalment' due per part, with the part's own amount
+ * and due date. A student who already has a plan with this title is skipped (a batch applied twice must not bill
+ * anyone twice); when every student is skipped nothing changes and the answer is plan_exists. The students move to
+ * fee_cycle 'yearly', with monthly_fee holding the plan's total, so the monthly job stops billing them.
+ */
+export async function createFeePlans(
+  pool: Pool,
+  instituteId: string,
+  userId: string,
+  p: { studentIds: string[]; title: string; parts: { amount: number; dueDate: string }[] },
+  now: Date,
+) {
+  await requireActivePlan(pool, instituteId, now);
+  if (!partsInOrder(p.parts.map((x) => x.dueDate))) throw PLAN_ERRORS.order;
+  const ids = [...new Set(p.studentIds)];
+  const total = p.parts.reduce((s, x) => s + x.amount, 0);
+  return withTransaction(pool, async (c) => {
+    const [students] = (await c.query(
+      `SELECT s.id,
+              (SELECT MIN(sb.batch_id) FROM student_batches sb WHERE sb.institute_id = s.institute_id AND sb.student_id = s.id) AS batch_id
+         FROM students s WHERE s.institute_id = ? AND s.id IN (${marks(ids.length)}) FOR UPDATE`,
+      [instituteId, ...ids],
+    )) as unknown as [{ id: string; batch_id: string | null }[]];
+    if (students.length !== ids.length) throw PLAN_ERRORS.student;
+    const [have] = (await c.query(
+      `SELECT student_id FROM fee_plans WHERE institute_id = ? AND title = ? AND student_id IN (${marks(ids.length)})`,
+      [instituteId, p.title, ...ids],
+    )) as unknown as [{ student_id: string }[]];
+    const skipped = new Set(have.map((r) => r.student_id));
+    const todo = students.filter((s) => !skipped.has(s.id));
+    if (!todo.length) throw PLAN_ERRORS.exists;
+
+    const plans: unknown[][] = [];
+    const dues: unknown[][] = [];
+    for (const s of todo) {
+      const planId = newId();
+      plans.push([planId, instituteId, s.id, p.title, total, p.parts.length, userId]);
+      p.parts.forEach((part, i) =>
+        dues.push([
+          newId(),
+          instituteId,
+          s.id,
+          s.batch_id,
+          part.dueDate.slice(0, 7),
+          part.amount,
+          part.dueDate,
+          instalmentDescription(p.title, i + 1, p.parts.length),
+          'instalment',
+          planId,
+          `${planId}_${i + 1}`,
+        ]),
+      );
+    }
+    await c.query(
+      'INSERT INTO fee_plans (id, institute_id, student_id, title, total, parts, created_by) VALUES ?',
+      [plans],
+    );
+    for (let i = 0; i < dues.length; i += 500)
+      await c.query(
+        `INSERT INTO fee_dues (id, institute_id, student_id, batch_id, period, amount, due_date, description, kind, plan_id, due_key) VALUES ?`,
+        [dues.slice(i, i + 500)],
+      );
+    await c.query(
+      `UPDATE students SET fee_cycle = 'yearly', monthly_fee = ? WHERE institute_id = ? AND id IN (${marks(todo.length)})`,
+      [total, instituteId, ...todo.map((s) => s.id)],
+    );
+    return {
+      planIds: plans.map((r) => r[0] as string),
+      created: todo.length,
+      skipped: [...skipped],
+    };
+  });
+}
+
+/**
+ * Takes back a plan set up by mistake: deletes its parts that were never paid (no payment at all, not even one that was
+ * later reversed, so no receipt ever disappears). Parts with payments stay as they are; the plan itself goes once none
+ * of its parts are left. Returns how many parts went and how many stayed.
+ */
+export async function removeFeePlan(pool: Pool, instituteId: string, planId: string, now: Date) {
+  await requireActivePlan(pool, instituteId, now);
+  return withTransaction(pool, async (c) => {
+    const [plans] = (await c.query(
+      'SELECT id FROM fee_plans WHERE institute_id = ? AND id = ? FOR UPDATE',
+      [instituteId, planId],
+    )) as unknown as [{ id: string }[]];
+    if (!plans[0]) throw notFound();
+    const [dues] = (await c.query(
+      `SELECT d.id, d.paid,
+              EXISTS (SELECT 1 FROM payments p WHERE p.institute_id = d.institute_id AND p.due_id = d.id) AS has_payments
+         FROM fee_dues d WHERE d.institute_id = ? AND d.plan_id = ? FOR UPDATE`,
+      [instituteId, planId],
+    )) as unknown as [{ id: string; paid: number; has_payments: number }[]];
+    const unpaid = dues
+      .filter((d) => Number(d.paid) === 0 && !Number(d.has_payments))
+      .map((d) => d.id);
+    if (unpaid.length)
+      await c.query(
+        `DELETE FROM fee_dues WHERE institute_id = ? AND id IN (${marks(unpaid.length)})`,
+        [instituteId, ...unpaid],
+      );
+    const kept = dues.length - unpaid.length;
+    if (!kept)
+      await c.query('DELETE FROM fee_plans WHERE institute_id = ? AND id = ?', [
+        instituteId,
+        planId,
+      ]);
+    return { removed: unpaid.length, kept };
+  });
 }
 
 async function changeDue(

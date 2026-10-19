@@ -11,7 +11,7 @@ export const studentSchema = z.object({
   parentPhone: phone(),
   class: z.string().trim().max(30, 'tooLong'),
   monthlyFee: z.string().refine((v) => parseRupeesToPaise(v) !== null, 'amount'),
-  feeCycle: z.enum(['monthly', 'quarterly', 'one-time']),
+  feeCycle: z.enum(['monthly', 'quarterly', 'one-time', 'yearly']),
   dueDay: z.number().int('dueDay').min(1, 'dueDay').max(31, 'dueDay'),
   notifyParent: z.boolean(),
   notes: z.string().max(500, 'tooLong').optional(),

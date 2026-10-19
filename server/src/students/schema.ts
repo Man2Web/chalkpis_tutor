@@ -26,7 +26,7 @@ const fields = {
   parentPhone,
   class: z.string().trim().max(30),
   monthlyFee: z.number().int().min(0).max(100_000_000),
-  feeCycle: z.enum(['monthly', 'quarterly', 'one-time']),
+  feeCycle: z.enum(['monthly', 'quarterly', 'one-time', 'yearly']),
   dueDay: z.number().int().min(1).max(31),
   discount: z.number().int().min(0).max(100_000_000),
   notifyParent: z.boolean(),

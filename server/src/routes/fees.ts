@@ -10,11 +10,13 @@ import {
   generateInput,
   paymentInput,
   paymentsQuery,
+  planInput,
   rangeQuery,
   waiveInput,
 } from '../fees/schema.js';
 import {
   addCharge,
+  createFeePlans,
   feesOverview,
   generateDues,
   getDue,
@@ -23,6 +25,7 @@ import {
   listPayments,
   recordAdvance,
   recordPayment,
+  removeFeePlan,
   reversePayment,
   setDiscount,
   setWaived,
@@ -103,6 +106,22 @@ export function feeRoutes(app: FastifyInstance, deps: Deps) {
     reply
       .code(201)
       .send({ id: await addCharge(deps.pool, inst(req), parse(chargeInput, req.body), now()) }),
+  );
+  app.post('/fees/plans', write, async (req, reply) =>
+    reply
+      .code(201)
+      .send(
+        await createFeePlans(
+          deps.pool,
+          inst(req),
+          req.auth!.userId,
+          parse(planInput, req.body),
+          now(),
+        ),
+      ),
+  );
+  app.delete('/fees/plans/:id', write, async (req) =>
+    removeFeePlan(deps.pool, inst(req), id(req), now()),
   );
   app.patch('/fees/dues/:id/discount', write, async (req) => {
     await setDiscount(

@@ -1,5 +1,6 @@
 /** Pure fee rules (money in integer paise). Same rules the app and the old Firebase functions used. */
-export type FeeCycle = 'monthly' | 'quarterly' | 'one-time';
+/** 'yearly': the fee comes from the student's instalment plans (fee_plans), never from the monthly job. */
+export type FeeCycle = 'monthly' | 'quarterly' | 'one-time' | 'yearly';
 export type DueStatus = 'pending' | 'partial' | 'paid' | 'waived';
 export interface DueMoney {
   amount: number;
@@ -64,7 +65,7 @@ const monthNumber = (period: string) => {
 /** Is a regular due created for a student who joined in `joinedPeriod`, for `period`? */
 export function isDueInPeriod(feeCycle: FeeCycle, joinedPeriod: string, period: string): boolean {
   const diff = monthNumber(period) - monthNumber(joinedPeriod);
-  if (diff < 0) return false;
+  if (diff < 0 || feeCycle === 'yearly') return false;
   if (feeCycle === 'one-time') return diff === 0;
   if (feeCycle === 'quarterly') return diff % 3 === 0;
   return true;
@@ -79,4 +80,18 @@ export function dueDateFor(period: string, dueDay: number): string {
 }
 
 export const descriptionFor = (c: FeeCycle) =>
-  c === 'quarterly' ? 'Quarterly fee' : c === 'one-time' ? 'One-time fee' : 'Monthly fee';
+  c === 'quarterly'
+    ? 'Quarterly fee'
+    : c === 'one-time'
+      ? 'One-time fee'
+      : c === 'yearly'
+        ? 'Yearly fee'
+        : 'Monthly fee';
+
+/** What a plan's part is called on the ledger, the receipt and the parent page: "Yearly fee 2026-27 (1 of 3)". */
+export const instalmentDescription = (title: string, part: number, parts: number) =>
+  parts === 1 ? title : `${title} (${part} of ${parts})`;
+
+/** Parts must be due in order: each on or after the one before. */
+export const partsInOrder = (dates: string[]) =>
+  dates.every((d, i) => i === 0 || d >= dates[i - 1]!);
