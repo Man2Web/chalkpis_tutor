@@ -16,7 +16,8 @@ import { Button } from '../../components';
 import { useInstitute, useInstituteId } from '../../data/hooks';
 import { haptic } from '../../lib/haptics';
 import { readFlag, setFlag } from '../../lib/onceFlag';
-import { colors, spacing, type } from '../../theme';
+import { colors, radius, spacing, type } from '../../theme';
+import { useDesktop } from '../../desktop/useDesktop';
 
 const SLIDES = [
   { key: 'start', icon: 'albums-outline' },
@@ -27,6 +28,8 @@ const SLIDES = [
 
 /** Only centres set up this recently see the tour; everyone else already knows the app. */
 const NEW_CENTRE_MS = 3 * 86_400_000;
+/** On a laptop or desktop the tour is a dialog of this width over the page, not a full screen. */
+const DIALOG_WIDTH = 520;
 
 /**
  * A short tour the first time the owner of a NEW centre opens Home: four quiet slides (swipe or Next), Skip at any
@@ -36,7 +39,9 @@ export function WelcomeTour() {
   const { t } = useTranslation();
   const id = useInstituteId();
   const flag = `tour_${id}`;
-  const { width } = useWindowDimensions();
+  const desktop = useDesktop();
+  const window = useWindowDimensions().width;
+  const width = desktop ? DIALOG_WIDTH : window;
   const insets = useSafeAreaInsets();
   const scroller = useRef<ScrollView>(null);
   const [open, setOpen] = useState(false);
@@ -69,94 +74,129 @@ export function WelcomeTour() {
   const last = page === SLIDES.length - 1;
 
   return (
-    <Modal visible={open} animationType="fade" onRequestClose={close} statusBarTranslucent>
+    <Modal
+      visible={open}
+      animationType="fade"
+      onRequestClose={close}
+      statusBarTranslucent
+      transparent={desktop}
+    >
       <View
-        style={{
-          flex: 1,
-          backgroundColor: colors.bg,
-          paddingTop: insets.top,
-          paddingBottom: insets.bottom,
-        }}
+        style={
+          desktop
+            ? {
+                flex: 1,
+                backgroundColor: colors.overlay,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }
+            : { flex: 1 }
+        }
       >
         <View
-          style={{ alignItems: 'flex-end', paddingHorizontal: spacing.lg, paddingTop: spacing.sm }}
+          style={
+            desktop
+              ? {
+                  width: DIALOG_WIDTH,
+                  height: 500,
+                  borderRadius: radius.xl,
+                  overflow: 'hidden',
+                  backgroundColor: colors.bg,
+                }
+              : {
+                  flex: 1,
+                  backgroundColor: colors.bg,
+                  paddingTop: insets.top,
+                  paddingBottom: insets.bottom,
+                }
+          }
         >
-          {last ? (
-            <View style={{ height: 36 }} />
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              onPress={close}
-              hitSlop={12}
-              style={{ padding: spacing.sm }}
-            >
-              <Text style={[type.subhead, { color: colors.textMuted }]}>{t('tour.skip')}</Text>
-            </Pressable>
-          )}
-        </View>
-        <ScrollView
-          ref={scroller}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={onScroll}
-          scrollEventThrottle={32}
-          style={{ flex: 1 }}
-        >
-          {SLIDES.map((s) => (
-            <View
-              key={s.key}
-              style={{
-                width,
-                flex: 1,
-                justifyContent: 'center',
-                paddingHorizontal: spacing.xl * 1.5,
-                gap: spacing.lg,
-              }}
-            >
-              <View
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Ionicons name={s.icon} size={30} color={colors.text} />
-              </View>
-              <Text style={[type.title1, { color: colors.text }]} accessibilityRole="header">
-                {t(`tour.${s.key}.title`)}
-              </Text>
-              <Text style={[type.body, { color: colors.textMuted, lineHeight: 24 }]}>
-                {t(`tour.${s.key}.text`)}
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
-        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, gap: spacing.lg }}>
           <View
-            style={{ flexDirection: 'row', gap: 6, justifyContent: 'center' }}
-            accessibilityElementsHidden
+            style={{
+              alignItems: 'flex-end',
+              paddingHorizontal: spacing.lg,
+              paddingTop: spacing.sm,
+            }}
           >
-            {SLIDES.map((s, i) => (
+            {last ? (
+              <View style={{ height: 36 }} />
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                onPress={close}
+                hitSlop={12}
+                style={{ padding: spacing.sm }}
+              >
+                <Text style={[type.subhead, { color: colors.textMuted }]}>{t('tour.skip')}</Text>
+              </Pressable>
+            )}
+          </View>
+          <ScrollView
+            ref={scroller}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={onScroll}
+            scrollEventThrottle={32}
+            style={{ flex: 1 }}
+          >
+            {SLIDES.map((s) => (
               <View
                 key={s.key}
                 style={{
-                  width: i === page ? 18 : 6,
-                  height: 6,
-                  borderRadius: 3,
-                  backgroundColor: i === page ? colors.text : colors.border,
+                  width,
+                  flex: 1,
+                  justifyContent: 'center',
+                  paddingHorizontal: spacing.xl * 1.5,
+                  gap: spacing.lg,
                 }}
-              />
+              >
+                <View
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 18,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Ionicons name={s.icon} size={30} color={colors.text} />
+                </View>
+                <Text style={[type.title1, { color: colors.text }]} accessibilityRole="header">
+                  {t(`tour.${s.key}.title`)}
+                </Text>
+                <Text style={[type.body, { color: colors.textMuted, lineHeight: 24 }]}>
+                  {t(`tour.${s.key}.text`)}
+                </Text>
+              </View>
             ))}
+          </ScrollView>
+          <View
+            style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, gap: spacing.lg }}
+          >
+            <View
+              style={{ flexDirection: 'row', gap: 6, justifyContent: 'center' }}
+              accessibilityElementsHidden
+            >
+              {SLIDES.map((s, i) => (
+                <View
+                  key={s.key}
+                  style={{
+                    width: i === page ? 18 : 6,
+                    height: 6,
+                    borderRadius: 3,
+                    backgroundColor: i === page ? colors.text : colors.border,
+                  }}
+                />
+              ))}
+            </View>
+            <Button
+              title={t(last ? 'tour.done' : 'tour.next')}
+              onPress={() => (last ? close() : go(page + 1))}
+            />
           </View>
-          <Button
-            title={t(last ? 'tour.done' : 'tour.next')}
-            onPress={() => (last ? close() : go(page + 1))}
-          />
         </View>
       </View>
     </Modal>

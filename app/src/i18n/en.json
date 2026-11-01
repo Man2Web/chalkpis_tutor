@@ -1101,6 +1101,69 @@
     "androidButton": "Open Google Play",
     "dismiss": "Not now"
   },
+  "desktop": {
+    "search": "Search students",
+    "noStudent": "No student found",
+    "markAttendance": "Mark attendance",
+    "collectFee": "Collect fee",
+    "addStudent": "Add student",
+    "mark": "Mark",
+    "view": "View",
+    "collect": "Collect",
+    "viewAll": "View all {{count}}",
+    "showAll": "Show all {{count}}",
+    "groups": {
+      "run": "Your classes",
+      "grow": "Grow",
+      "manage": "Manage"
+    },
+    "col": {
+      "batch": "Batch",
+      "batches": "Batches",
+      "time": "Days and time",
+      "students": "Students",
+      "student": "Student",
+      "status": "Status",
+      "due": "Due",
+      "outstanding": "Outstanding",
+      "parent": "Parent",
+      "fee": "Monthly fee",
+      "fees": "Fees"
+    },
+    "home": {
+      "subtitle": "Here's how your classes are doing today.",
+      "todaysClasses": "Today's classes",
+      "feesToCollect": "Fees to collect",
+      "studentsOwe_one": "{{count}} student owes fees",
+      "studentsOwe_other": "{{count}} students owe fees",
+      "studentsOverdue_one": "{{count}} student is overdue",
+      "studentsOverdue_other": "{{count}} students are overdue",
+      "inBatches_one": "in {{count}} batch",
+      "inBatches_other": "in {{count}} batches"
+    },
+    "students": {
+      "subtitle_one": "{{count}} student",
+      "subtitle_other": "{{count}} students",
+      "import": "Import",
+      "allBatches": "All batches",
+      "allLevels": "Any {{level}}",
+      "pending": "Pending",
+      "paidUp": "Paid up"
+    },
+    "fees": {
+      "subtitle": "Who owes what, oldest first. Collect or remind in one click.",
+      "search": "Search by student name",
+      "payments_one": "{{count}} payment",
+      "payments_other": "{{count}} payments"
+    },
+    "attendance": {
+      "marked": "{{marked}} of {{total}} batches marked",
+      "students_one": "{{count}} student",
+      "students_other": "{{count}} students",
+      "mark": "Mark attendance",
+      "edit": "Edit attendance"
+    }
+  },
   "updates": {
     "title": "Updates",
     "unread": "Unread",

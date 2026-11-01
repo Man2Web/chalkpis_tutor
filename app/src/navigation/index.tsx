@@ -50,6 +50,14 @@ import { StudentFormScreen } from '../features/students/StudentFormScreen';
 import { StudentProfileScreen } from '../features/students/StudentProfileScreen';
 import { StudentsListScreen } from '../features/students/StudentsListScreen';
 import type { AuthStackParams, MainStackParams, OnboardingStackParams } from './types';
+import {
+  DesktopAttendance,
+  DesktopFees,
+  DesktopHome,
+  DesktopShell,
+  DesktopStudents,
+} from '../desktop';
+import { useDesktop } from '../desktop/useDesktop';
 import { UpdatesScreen } from '../features/announcements/UpdatesScreen';
 
 const Auth = createNativeStackNavigator<AuthStackParams>();
@@ -129,6 +137,8 @@ function MainTabs() {
   const insets = useSafeAreaInsets();
   const bottom = Math.max(insets.bottom, Platform.OS === 'android' ? 8 : 6);
   const narrow = useWindowDimensions().width < 350;
+  // a laptop or desktop browser moves between places with the sidebar (DesktopShell) and gets its own pages
+  const desktop = useDesktop();
   return (
     <>
       <Tabs.Navigator
@@ -137,16 +147,18 @@ function MainTabs() {
           headerShown: false,
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textFaint,
-          tabBarStyle: {
-            backgroundColor: colors.surface,
-            borderTopWidth: 1,
-            borderTopColor: colors.border,
-            elevation: 0,
-            // icon (28) + label line (16) + the tab's own padding (10), with breathing room
-            height: 64 + bottom,
-            paddingTop: 4,
-            paddingBottom: bottom,
-          },
+          tabBarStyle: desktop
+            ? { display: 'none' }
+            : {
+                backgroundColor: colors.surface,
+                borderTopWidth: 1,
+                borderTopColor: colors.border,
+                elevation: 0,
+                // icon (28) + label line (16) + the tab's own padding (10), with breathing room
+                height: 64 + bottom,
+                paddingTop: 4,
+                paddingBottom: bottom,
+              },
           tabBarLabel: ({ color, children }) => (
             <Text
               numberOfLines={1}
@@ -177,24 +189,28 @@ function MainTabs() {
       >
         {/* A helper (staff) only takes attendance: no home numbers, student list or fees. */}
         {!staff && (
-          <Tabs.Screen name="Home" component={HomeScreen} options={{ title: t('tabs.home') }} />
+          <Tabs.Screen
+            name="Home"
+            component={desktop ? DesktopHome : HomeScreen}
+            options={{ title: t('tabs.home') }}
+          />
         )}
         {!staff && (
           <Tabs.Screen
             name="Students"
-            component={StudentsListScreen}
+            component={desktop ? DesktopStudents : StudentsListScreen}
             options={{ title: t('tabs.students') }}
           />
         )}
         <Tabs.Screen
           name="Attendance"
-          component={AttendanceHomeScreen}
+          component={desktop ? DesktopAttendance : AttendanceHomeScreen}
           options={{ title: t('tabs.attendance') }}
         />
         {!staff && (
           <Tabs.Screen
             name="Fees"
-            component={FeesOverviewScreen}
+            component={desktop ? DesktopFees : FeesOverviewScreen}
             options={{ title: t('tabs.fees') }}
           />
         )}
@@ -212,137 +228,144 @@ function MainTabs() {
 function MainStack() {
   usePushSetup();
   const { t } = useTranslation();
+  const desktop = useDesktop();
   return (
-    <Main.Navigator screenOptions={stackHeader}>
-      <Main.Screen name="Tabs" component={MainTabs} options={{ headerShown: false }} />
-      <Main.Screen
-        name="StudentForm"
-        component={StudentFormScreen}
-        options={{ title: t('students.formTitle') }}
-      />
-      <Main.Screen
-        name="StudentProfile"
-        component={StudentProfileScreen}
-        options={{ title: t('students.profile') }}
-      />
-      <Main.Screen
-        name="StudentImport"
-        component={ImportScreen}
-        options={{ title: t('import.title') }}
-      />
-      <Main.Screen
-        name="Batches"
-        component={BatchesScreen}
-        options={{ title: t('batches.title'), headerTitle: '' }} // the screen shows its own large title
-      />
-      <Main.Screen
-        name="BatchForm"
-        component={BatchFormScreen}
-        options={{ title: t('batches.formTitle') }}
-      />
-      <Main.Screen
-        name="MarkAttendance"
-        component={MarkAttendanceScreen}
-        options={{ title: t('attendance.markTitle') }}
-      />
-      <Main.Screen
-        name="FeeLedger"
-        component={FeeLedgerScreen}
-        options={{ title: t('fees.ledgerTitle') }}
-      />
-      <Main.Screen
-        name="CollectFee"
-        component={CollectFeeScreen}
-        options={{ title: t('fees.collectTitle') }}
-      />
-      <Main.Screen
-        name="Receipt"
-        component={ReceiptScreen}
-        options={{ title: t('fees.receipt') }}
-      />
-      <Main.Screen
-        name="FeePlan"
-        component={FeePlanScreen}
-        options={{ title: t('fees.planTitle') }}
-      />
-      <Main.Screen
-        name="Reminder"
-        component={ReminderScreen}
-        options={{ title: t('fees.remind') }}
-      />
-      <Main.Screen name="Poster" component={PosterScreen} options={{ title: t('poster.title') }} />
-      <Main.Screen
-        name="Legal"
-        component={LegalScreen}
-        // the document shows its own title; the browser tab still gets one
-        options={({ route }) => ({
-          title: route.params.doc === 'privacy' ? t('legal.privacy') : t('legal.terms'),
-          headerTitle: '',
-        })}
-      />
-      <Main.Screen
-        name="AdvancePayment"
-        component={AdvancePaymentScreen}
-        options={{ title: t('fees.advanceTitle') }}
-      />
-      <Main.Screen
-        name="Reports"
-        component={ReportsScreen}
-        options={{ title: t('reports.title') }}
-      />
-      <Main.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{ title: t('settings.instituteTitle') }}
-      />
-      <Main.Screen
-        name="EditProfile"
-        component={EditProfileScreen}
-        options={{ title: t('settings.editProfile') }}
-      />
-      <Main.Screen
-        name="AddPhone"
-        component={AddPhoneScreen}
-        // the brand step layout has its own back button and title; this one names the page for screen readers
-        options={{ title: t('addPhone.title'), headerShown: false }}
-      />
-      <Main.Screen
-        name="PaymentSettings"
-        component={PaymentSettingsScreen}
-        options={{ title: t('settings.paymentsTitle') }}
-      />
-      <Main.Screen
-        name="Billing"
-        component={BillingScreen}
-        options={{ title: t('billing.title'), headerTitle: '' }} // the screen shows its own large title
-      />
-      <Main.Screen
-        name="NotificationSettings"
-        component={NotificationSettingsScreen}
-        options={{ title: t('messages.settingsTitle') }}
-      />
-      <Main.Screen name="Staff" component={StaffScreen} options={{ title: t('staff.title') }} />
-      <Main.Screen
-        name="Updates"
-        component={UpdatesScreen}
-        options={{ title: t('updates.title'), headerTitle: '' }} // the screen shows its own large title
-      />
-      <Main.Screen
-        name="MessageLog"
-        component={MessageLogScreen}
-        options={{ title: t('messages.logTitle'), headerTitle: '' }} // the screen shows its own large title
-      />
-      <Main.Screen
-        name="AttendanceReport"
-        component={AttendanceReportScreen}
-        options={{ title: t('more.attendanceReport') }}
-      />
-      <Main.Screen
-        name="BatchDetail"
-        component={BatchDetailScreen}
-        options={{ title: t('batches.detail') }}
-      />
-    </Main.Navigator>
+    <DesktopShell enabled={desktop}>
+      <Main.Navigator screenOptions={stackHeader}>
+        <Main.Screen name="Tabs" component={MainTabs} options={{ headerShown: false }} />
+        <Main.Screen
+          name="StudentForm"
+          component={StudentFormScreen}
+          options={{ title: t('students.formTitle') }}
+        />
+        <Main.Screen
+          name="StudentProfile"
+          component={StudentProfileScreen}
+          options={{ title: t('students.profile') }}
+        />
+        <Main.Screen
+          name="StudentImport"
+          component={ImportScreen}
+          options={{ title: t('import.title') }}
+        />
+        <Main.Screen
+          name="Batches"
+          component={BatchesScreen}
+          options={{ title: t('batches.title'), headerTitle: '' }} // the screen shows its own large title
+        />
+        <Main.Screen
+          name="BatchForm"
+          component={BatchFormScreen}
+          options={{ title: t('batches.formTitle') }}
+        />
+        <Main.Screen
+          name="MarkAttendance"
+          component={MarkAttendanceScreen}
+          options={{ title: t('attendance.markTitle') }}
+        />
+        <Main.Screen
+          name="FeeLedger"
+          component={FeeLedgerScreen}
+          options={{ title: t('fees.ledgerTitle') }}
+        />
+        <Main.Screen
+          name="CollectFee"
+          component={CollectFeeScreen}
+          options={{ title: t('fees.collectTitle') }}
+        />
+        <Main.Screen
+          name="Receipt"
+          component={ReceiptScreen}
+          options={{ title: t('fees.receipt') }}
+        />
+        <Main.Screen
+          name="FeePlan"
+          component={FeePlanScreen}
+          options={{ title: t('fees.planTitle') }}
+        />
+        <Main.Screen
+          name="Reminder"
+          component={ReminderScreen}
+          options={{ title: t('fees.remind') }}
+        />
+        <Main.Screen
+          name="Poster"
+          component={PosterScreen}
+          options={{ title: t('poster.title') }}
+        />
+        <Main.Screen
+          name="Legal"
+          component={LegalScreen}
+          // the document shows its own title; the browser tab still gets one
+          options={({ route }) => ({
+            title: route.params.doc === 'privacy' ? t('legal.privacy') : t('legal.terms'),
+            headerTitle: '',
+          })}
+        />
+        <Main.Screen
+          name="AdvancePayment"
+          component={AdvancePaymentScreen}
+          options={{ title: t('fees.advanceTitle') }}
+        />
+        <Main.Screen
+          name="Reports"
+          component={ReportsScreen}
+          options={{ title: t('reports.title') }}
+        />
+        <Main.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{ title: t('settings.instituteTitle') }}
+        />
+        <Main.Screen
+          name="EditProfile"
+          component={EditProfileScreen}
+          options={{ title: t('settings.editProfile') }}
+        />
+        <Main.Screen
+          name="AddPhone"
+          component={AddPhoneScreen}
+          // the brand step layout has its own back button and title; this one names the page for screen readers
+          options={{ title: t('addPhone.title'), headerShown: false }}
+        />
+        <Main.Screen
+          name="PaymentSettings"
+          component={PaymentSettingsScreen}
+          options={{ title: t('settings.paymentsTitle') }}
+        />
+        <Main.Screen
+          name="Billing"
+          component={BillingScreen}
+          options={{ title: t('billing.title'), headerTitle: '' }} // the screen shows its own large title
+        />
+        <Main.Screen
+          name="NotificationSettings"
+          component={NotificationSettingsScreen}
+          options={{ title: t('messages.settingsTitle') }}
+        />
+        <Main.Screen name="Staff" component={StaffScreen} options={{ title: t('staff.title') }} />
+        <Main.Screen
+          name="Updates"
+          component={UpdatesScreen}
+          options={{ title: t('updates.title'), headerTitle: '' }} // the screen shows its own large title
+        />
+        <Main.Screen
+          name="MessageLog"
+          component={MessageLogScreen}
+          options={{ title: t('messages.logTitle'), headerTitle: '' }} // the screen shows its own large title
+        />
+        <Main.Screen
+          name="AttendanceReport"
+          component={AttendanceReportScreen}
+          options={{ title: t('more.attendanceReport') }}
+        />
+        <Main.Screen
+          name="BatchDetail"
+          component={BatchDetailScreen}
+          options={{ title: t('batches.detail') }}
+        />
+      </Main.Navigator>
+    </DesktopShell>
   );
 }
 
