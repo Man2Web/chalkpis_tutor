@@ -13,6 +13,6 @@ CREATE TABLE IF NOT EXISTS calendar_events (
   notes VARCHAR(500) NOT NULL DEFAULT '',
   created_by CHAR(36) NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  KEY ix_events_range (institute_id, starts_on, ends_on),
-  CONSTRAINT fk_events_institute FOREIGN KEY (institute_id) REFERENCES institutes (id) ON DELETE CASCADE
+  KEY ix_calendar_events_range (institute_id, starts_on, ends_on),
+  CONSTRAINT fk_calendar_events_institute FOREIGN KEY (institute_id) REFERENCES institutes (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
