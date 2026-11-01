@@ -41,3 +41,4 @@
 - [ ] v2.1 SMS fallback and plans/message cap; v2.2 AI Assistant and Paper Checking; v2.3 Google/email login, website, iPhone
 - [x] The app in the browser at tutor.chalkpis.com/app (decision 149): served by the server, Add to Home Screen, install hint, iPhone sign-ups sent there; 510 server tests, 366 app tests
 - [x] Laptop and desktop layout for the browser version (decision 150): sidebar, top bar with search, dashboard, Students and Fees tables, Attendance cards; 371 app tests
+- [x] Tests & marks (decision 151): tests per batch, marks entry with live rank and grade, WhatsApp results and toppers, report card PDF, parent page results; 9 server tests, 7 app tests

@@ -214,6 +214,12 @@ function AccountContent({ go, onDelete }: { go: Nav['navigate']; onDelete: () =>
 
       <Section title={t('more.tools')}>
         <Row
+          icon="school"
+          iconColor={colors.indigo}
+          title={t('exams.title')}
+          onPress={() => go('Exams')}
+        />
+        <Row
           icon="bar-chart"
           iconColor={colors.infoFill}
           title={t('more.feeReport')}

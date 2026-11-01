@@ -7,6 +7,7 @@ export type Section =
   | 'students'
   | 'batches'
   | 'attendance'
+  | 'tests'
   | 'fees'
   | 'reports'
   | 'messages'
@@ -54,6 +55,7 @@ export const SECTIONS: SectionItem[] = [
     staff: true,
     group: 'run',
   },
+  { key: 'tests', label: 'exams.title', icon: 'school-outline', route: 'Exams', group: 'run' },
   { key: 'fees', label: 'tabs.fees', icon: 'wallet-outline', tab: 'Fees', group: 'run' },
   {
     key: 'reports',
@@ -115,6 +117,9 @@ const ROUTE_SECTION: Partial<Record<keyof MainStackParams, Section>> = {
   BatchDetail: 'batches',
   MarkAttendance: 'attendance',
   AttendanceReport: 'attendance',
+  Exams: 'tests',
+  ExamForm: 'tests',
+  ExamMarks: 'tests',
   FeeLedger: 'fees',
   CollectFee: 'fees',
   Receipt: 'fees',

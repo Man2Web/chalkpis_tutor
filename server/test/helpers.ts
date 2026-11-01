@@ -71,6 +71,8 @@ const TABLES = [
   'announcements',
   'admin_audit',
   'tasks',
+  'exam_marks',
+  'exams',
   'job_runs',
   'staff_batches',
   'parent_links',

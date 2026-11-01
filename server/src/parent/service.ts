@@ -7,6 +7,7 @@ import { sha256 } from '../lib/ids.js';
 import { addDays, todayYmd, ymdOf } from '../lib/ist.js';
 import { netDue, outstanding, type DueStatus } from '../fees/logic.js';
 import { toStat } from '../attendance/stats.js';
+import { studentExams } from '../exams/service.js';
 
 export const DEFAULT_LINK_DAYS = 30;
 export const MAX_LINK_DAYS = 90;
@@ -89,7 +90,8 @@ export async function parentLinkStatus(
 type Mark = 'P' | 'A' | 'L';
 
 /**
- * Everything one parent link may show: that student's last 30 days of attendance, their fees and recent receipts.
+ * Everything one parent link may show: that student's last 30 days of attendance, their fees, recent receipts and
+ * their last 10 test results.
  * Null for an unknown, expired or revoked link (all look the same from outside). Never includes phone numbers of
  * parents or students, notes, or anything about other students.
  */
@@ -190,6 +192,20 @@ export async function buildParentView(
       days: att.map((d) => ({ date: d.day, mark: d.mark })),
     },
     fees: { outstanding: items.reduce((t, d) => t + d.outstanding, 0), items },
+    // the student's own results only: rank and class average say nothing about anyone else by name
+    tests: (await studentExams(pool, inst, sid, 10)).map((e) => ({
+      name: e.name,
+      subject: e.subject,
+      date: e.date,
+      maxMarks: e.maxMarks,
+      marks: e.marks,
+      absent: e.absent,
+      percent: e.percent,
+      rank: e.rank,
+      of: e.of,
+      classAverage: e.classAverage,
+      remark: e.remark,
+    })),
     payments: pays.map((p) => ({
       receiptNo: p.receipt_no,
       amount: Number(p.amount),

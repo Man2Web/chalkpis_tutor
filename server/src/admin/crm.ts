@@ -225,6 +225,10 @@ export const ACTIVITY_TEXT: Record<string, string> = {
   'task.add': 'added a task',
   'task.edit': 'updated a task',
   'task.delete': 'deleted a task',
+  'exam.add': 'added a test for {s}',
+  'exam.edit': 'changed the test {s}',
+  'exam.delete': 'deleted a test',
+  'exam.marks': 'entered marks for {s}',
 };
 
 /** "recorded a fee from Riya Sharma · ₹1,500 · upi": a sentence, falling back gracefully for new actions. */

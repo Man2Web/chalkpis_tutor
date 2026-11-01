@@ -29,6 +29,10 @@ export type MainStackParams = {
   Reminder: { studentId: string };
   AdvancePayment: { studentId: string };
   Poster: undefined;
+  /** Tests & marks (decision 151). */
+  Exams: undefined;
+  ExamForm: { id?: string; batchId?: string } | undefined;
+  ExamMarks: { id: string };
   Legal: { doc: 'privacy' | 'terms' };
   Reports: undefined;
   Settings: undefined;

@@ -28,6 +28,9 @@ import { ReceiptScreen } from '../features/fees/ReceiptScreen';
 import { ReminderScreen } from '../features/fees/ReminderScreen';
 import { AdvancePaymentScreen } from '../features/fees/AdvancePaymentScreen';
 import { PosterScreen } from '../features/poster/PosterScreen';
+import { ExamFormScreen } from '../features/exams/ExamFormScreen';
+import { ExamMarksScreen } from '../features/exams/ExamMarksScreen';
+import { ExamsScreen } from '../features/exams/ExamsScreen';
 import { LegalScreen } from '../features/legal/LegalScreen';
 import { BillingScreen } from '../features/billing/BillingScreen';
 import { MessageLogScreen } from '../features/messages/MessageLogScreen';
@@ -52,6 +55,7 @@ import { StudentsListScreen } from '../features/students/StudentsListScreen';
 import type { AuthStackParams, MainStackParams, OnboardingStackParams } from './types';
 import {
   DesktopAttendance,
+  DesktopExams,
   DesktopFees,
   DesktopHome,
   DesktopShell,
@@ -292,6 +296,24 @@ function MainStack() {
           name="Poster"
           component={PosterScreen}
           options={{ title: t('poster.title') }}
+        />
+        <Main.Screen
+          name="Exams"
+          component={desktop ? DesktopExams : ExamsScreen}
+          // the desktop page shows its own large title
+          options={{ title: t('exams.title'), headerShown: !desktop }}
+        />
+        <Main.Screen
+          name="ExamForm"
+          component={ExamFormScreen}
+          options={({ route }) => ({
+            title: t(route.params?.id ? 'exams.editTitle' : 'exams.new'),
+          })}
+        />
+        <Main.Screen
+          name="ExamMarks"
+          component={ExamMarksScreen}
+          options={{ title: t('exams.marksTitle') }}
         />
         <Main.Screen
           name="Legal"

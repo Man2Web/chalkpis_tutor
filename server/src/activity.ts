@@ -52,6 +52,10 @@ const REPORT_STUDENT: Lookup = {
   sql: 'SELECT s.name FROM payment_reports r JOIN students s ON s.id = r.student_id WHERE r.institute_id = ? AND r.id = ?',
   param: (p) => p.id,
 };
+const EXAM: Lookup = {
+  sql: 'SELECT name FROM exams WHERE institute_id = ? AND id = ?',
+  param: (p) => p.id,
+};
 const STAFF: Lookup = {
   sql: 'SELECT u.name FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.institute_id = ? AND m.user_id = ?',
   param: (p) => p.id,
@@ -180,6 +184,19 @@ export const RULES: Record<string, Rule> = {
     detail: (b) => (b.done === true ? 'done' : b.done === false ? 'not done' : ''),
   },
   'DELETE /tasks/:id': { action: 'task.delete' },
+
+  'POST /exams': {
+    action: 'exam.add',
+    subject: { ...BATCH, param: (_p, b) => b.batchId },
+    detail: (b) => [String(b.name ?? ''), String(b.subject ?? '')].filter(Boolean).join(' · '),
+  },
+  'PATCH /exams/:id': { action: 'exam.edit', subject: EXAM },
+  'DELETE /exams/:id': { action: 'exam.delete' },
+  'PUT /exams/:id/marks': {
+    action: 'exam.marks',
+    subject: EXAM,
+    detail: (b) => (Array.isArray(b.marks) ? `${b.marks.length} students` : ''),
+  },
 };
 
 /** What the action was about, when the rule can look it up; never fails the log. */
