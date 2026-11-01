@@ -14,6 +14,11 @@
       rankOf: 'Rank {r} of {n}',
       classAvg: 'Class average',
       wasAbsent: 'Absent',
+      homework: 'Homework',
+      noHomework: 'No homework yet.',
+      dueBy: 'Due',
+      hwDone: 'Done',
+      hwMissing: 'Not handed in',
       present: 'Present',
       late: 'Late',
       absent: 'Absent',
@@ -55,6 +60,11 @@
       rankOf: '{n} में से रैंक {r}',
       classAvg: 'कक्षा का औसत',
       wasAbsent: 'अनुपस्थित',
+      homework: 'गृहकार्य',
+      noHomework: 'अभी कोई गृहकार्य नहीं।',
+      dueBy: 'जमा करने की तारीख',
+      hwDone: 'पूरा',
+      hwMissing: 'जमा नहीं किया',
       present: 'उपस्थित',
       late: 'देर से',
       absent: 'अनुपस्थित',
@@ -314,6 +324,27 @@
     return c;
   }
 
+  function homeworkCard(list) {
+    var c = card();
+    c.appendChild(el('h2', null, t('homework')));
+    if (!list || !list.length) {
+      c.appendChild(el('p', 'muted', t('noHomework')));
+      return c;
+    }
+    list.forEach(function (h) {
+      var row = el('div', 'row');
+      var left = el('div');
+      left.appendChild(el('div', 'title', h.subject ? h.subject + ' · ' + h.title : h.title));
+      left.appendChild(el('div', 'sub', t('dueBy') + ' ' + dateText(h.dueOn, true)));
+      if (h.details) left.appendChild(el('div', 'sub', h.details));
+      row.appendChild(left);
+      if (h.status === 'done') row.appendChild(chip('ok', t('hwDone')));
+      else if (h.status === 'missing') row.appendChild(chip('bad', t('hwMissing')));
+      c.appendChild(row);
+    });
+    return c;
+  }
+
   function footer(v) {
     var f = el('div', 'foot');
     f.appendChild(
@@ -362,6 +393,7 @@
       who.appendChild(el('div', 'muted', t('classN') + ' ' + view.student.className));
     app.appendChild(who);
     app.appendChild(attendanceCard(view.attendance));
+    app.appendChild(homeworkCard(view.homework));
     app.appendChild(testsCard(view.tests));
     app.appendChild(feesCard(view.fees));
     app.appendChild(paymentsCard(view.payments));

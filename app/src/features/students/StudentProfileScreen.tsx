@@ -18,6 +18,7 @@ import { useBatches, usePendingStudentIds, useStudents } from '../../data/hooks'
 import { AttendanceSummary } from '../attendance/AttendanceSummary';
 import { ParentLinkCard } from '../parentView/ParentLinkCard';
 import { StudentExamsCard } from '../exams/StudentExamsCard';
+import { StudentHomeworkCard } from '../homework/StudentHomeworkCard';
 import { callUrl, open, whatsappUrl } from '../../lib/contact';
 import { formatINR } from '../../lib/money';
 import { nationalNumber } from '../../lib/phone';
@@ -204,6 +205,9 @@ export function StudentProfileScreen({
 
       <View style={{ marginBottom: spacing.xl }}>
         <StudentExamsCard student={s} />
+      </View>
+      <View style={{ marginBottom: spacing.xl }}>
+        <StudentHomeworkCard studentId={s.id} />
       </View>
       <View style={{ marginBottom: spacing.xl }}>
         <AttendanceSummary studentId={s.id} />

@@ -229,6 +229,10 @@ export const ACTIVITY_TEXT: Record<string, string> = {
   'exam.edit': 'changed the test {s}',
   'exam.delete': 'deleted a test',
   'exam.marks': 'entered marks for {s}',
+  'homework.add': 'set homework for {s}',
+  'homework.edit': 'changed the homework {s}',
+  'homework.delete': 'deleted homework',
+  'homework.check': 'checked the homework {s}',
 };
 
 /** "recorded a fee from Riya Sharma · ₹1,500 · upi": a sentence, falling back gracefully for new actions. */

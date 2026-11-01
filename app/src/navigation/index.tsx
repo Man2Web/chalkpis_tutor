@@ -31,6 +31,9 @@ import { PosterScreen } from '../features/poster/PosterScreen';
 import { ExamFormScreen } from '../features/exams/ExamFormScreen';
 import { ExamMarksScreen } from '../features/exams/ExamMarksScreen';
 import { ExamsScreen } from '../features/exams/ExamsScreen';
+import { HomeworkCheckScreen } from '../features/homework/HomeworkCheckScreen';
+import { HomeworkFormScreen } from '../features/homework/HomeworkFormScreen';
+import { HomeworkScreen } from '../features/homework/HomeworkScreen';
 import { LegalScreen } from '../features/legal/LegalScreen';
 import { BillingScreen } from '../features/billing/BillingScreen';
 import { MessageLogScreen } from '../features/messages/MessageLogScreen';
@@ -57,6 +60,7 @@ import {
   DesktopAttendance,
   DesktopExams,
   DesktopFees,
+  DesktopHomework,
   DesktopHome,
   DesktopShell,
   DesktopStudents,
@@ -314,6 +318,24 @@ function MainStack() {
           name="ExamMarks"
           component={ExamMarksScreen}
           options={{ title: t('exams.marksTitle') }}
+        />
+        <Main.Screen
+          name="Homework"
+          component={desktop ? DesktopHomework : HomeworkScreen}
+          // the desktop page shows its own large title
+          options={{ title: t('homework.title'), headerShown: !desktop }}
+        />
+        <Main.Screen
+          name="HomeworkForm"
+          component={HomeworkFormScreen}
+          options={({ route }) => ({
+            title: t(route.params?.id ? 'homework.editTitle' : 'homework.new'),
+          })}
+        />
+        <Main.Screen
+          name="HomeworkCheck"
+          component={HomeworkCheckScreen}
+          options={{ title: t('homework.checkTitle') }}
         />
         <Main.Screen
           name="Legal"

@@ -33,6 +33,10 @@ export type MainStackParams = {
   Exams: undefined;
   ExamForm: { id?: string; batchId?: string } | undefined;
   ExamMarks: { id: string };
+  /** Homework (decision 152). */
+  Homework: undefined;
+  HomeworkForm: { id?: string; batchId?: string } | undefined;
+  HomeworkCheck: { id: string };
   Legal: { doc: 'privacy' | 'terms' };
   Reports: undefined;
   Settings: undefined;

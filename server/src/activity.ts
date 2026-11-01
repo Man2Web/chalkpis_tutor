@@ -56,6 +56,10 @@ const EXAM: Lookup = {
   sql: 'SELECT name FROM exams WHERE institute_id = ? AND id = ?',
   param: (p) => p.id,
 };
+const HOMEWORK: Lookup = {
+  sql: 'SELECT title AS name FROM homework WHERE institute_id = ? AND id = ?',
+  param: (p) => p.id,
+};
 const STAFF: Lookup = {
   sql: 'SELECT u.name FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.institute_id = ? AND m.user_id = ?',
   param: (p) => p.id,
@@ -196,6 +200,19 @@ export const RULES: Record<string, Rule> = {
     action: 'exam.marks',
     subject: EXAM,
     detail: (b) => (Array.isArray(b.marks) ? `${b.marks.length} students` : ''),
+  },
+
+  'POST /homework': {
+    action: 'homework.add',
+    subject: { ...BATCH, param: (_p, b) => b.batchId },
+    detail: (b) => [String(b.title ?? ''), String(b.dueOn ?? '')].filter(Boolean).join(' · due '),
+  },
+  'PATCH /homework/:id': { action: 'homework.edit', subject: HOMEWORK },
+  'DELETE /homework/:id': { action: 'homework.delete' },
+  'PUT /homework/:id/checks': {
+    action: 'homework.check',
+    subject: HOMEWORK,
+    detail: (b) => (Array.isArray(b.checks) ? `${b.checks.length} students` : ''),
   },
 };
 

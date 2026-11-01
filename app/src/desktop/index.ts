@@ -13,3 +13,4 @@ export const DesktopStudents = none;
 export const DesktopAttendance = none;
 export const DesktopFees = none;
 export const DesktopExams = none;
+export const DesktopHomework = none;

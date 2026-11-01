@@ -73,6 +73,8 @@ const TABLES = [
   'tasks',
   'exam_marks',
   'exams',
+  'homework_checks',
+  'homework',
   'job_runs',
   'staff_batches',
   'parent_links',

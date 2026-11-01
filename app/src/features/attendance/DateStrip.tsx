@@ -7,7 +7,12 @@ import { haptic } from '../../lib/haptics';
 import { addDays, prettyDate, todayYmd } from '../../lib/dates';
 import { colors, radius, spacing, TAP, type } from '../../theme';
 
-type Props = { date: string; onChange: (date: string) => void };
+type Props = {
+  date: string;
+  onChange: (date: string) => void;
+  /** Days after today can be picked too (a homework due day); attendance never allows it. */
+  allowFuture?: boolean;
+};
 
 /** "2026-10-11" as a local Date (midnight), and back. */
 const toDate = (ymd: string) => {
@@ -21,7 +26,7 @@ const toYmdLocal = (d: Date) =>
  * The day being looked at: step a day back or forward with the arrows, or tap the date to open a PanelUI calendar
  * and jump to any day. Future days cannot be picked (attendance is never marked ahead).
  */
-export function DateStrip({ date, onChange }: Props) {
+export function DateStrip({ date, onChange, allowFuture = false }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const today = todayYmd();
@@ -97,7 +102,7 @@ export function DateStrip({ date, onChange }: Props) {
             {isToday ? t('attendance.today') : t('attendance.pickDate')}
           </Text>
         </Pressable>
-        {arrow(1, isToday)}
+        {arrow(1, !allowFuture && isToday)}
       </View>
 
       {open ? (
@@ -106,7 +111,7 @@ export function DateStrip({ date, onChange }: Props) {
             mode="single"
             selected={toDate(date)}
             defaultMonth={toDate(date)}
-            maxDate={toDate(today)}
+            maxDate={allowFuture ? undefined : toDate(today)}
             weekStartsOn={1}
             onSelect={(d) => {
               if (!d) return;

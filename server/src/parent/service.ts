@@ -8,6 +8,7 @@ import { addDays, todayYmd, ymdOf } from '../lib/ist.js';
 import { netDue, outstanding, type DueStatus } from '../fees/logic.js';
 import { toStat } from '../attendance/stats.js';
 import { studentExams } from '../exams/service.js';
+import { studentHomework } from '../homework/service.js';
 
 export const DEFAULT_LINK_DAYS = 30;
 export const MAX_LINK_DAYS = 90;
@@ -91,7 +92,7 @@ type Mark = 'P' | 'A' | 'L';
 
 /**
  * Everything one parent link may show: that student's last 30 days of attendance, their fees, recent receipts and
- * their last 10 test results.
+ * their last 10 test results and homework.
  * Null for an unknown, expired or revoked link (all look the same from outside). Never includes phone numbers of
  * parents or students, notes, or anything about other students.
  */
@@ -205,6 +206,13 @@ export async function buildParentView(
       of: e.of,
       classAverage: e.classAverage,
       remark: e.remark,
+    })),
+    homework: (await studentHomework(pool, inst, sid, 10)).map((h) => ({
+      title: h.title,
+      subject: h.subject,
+      details: h.details,
+      dueOn: h.dueOn,
+      status: h.status,
     })),
     payments: pays.map((p) => ({
       receiptNo: p.receipt_no,

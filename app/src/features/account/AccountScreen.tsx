@@ -220,6 +220,12 @@ function AccountContent({ go, onDelete }: { go: Nav['navigate']; onDelete: () =>
           onPress={() => go('Exams')}
         />
         <Row
+          icon="book"
+          iconColor={colors.teal}
+          title={t('homework.title')}
+          onPress={() => go('Homework')}
+        />
+        <Row
           icon="bar-chart"
           iconColor={colors.infoFill}
           title={t('more.feeReport')}

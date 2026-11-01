@@ -42,3 +42,4 @@
 - [x] The app in the browser at tutor.chalkpis.com/app (decision 149): served by the server, Add to Home Screen, install hint, iPhone sign-ups sent there; 510 server tests, 366 app tests
 - [x] Laptop and desktop layout for the browser version (decision 150): sidebar, top bar with search, dashboard, Students and Fees tables, Attendance cards; 371 app tests
 - [x] Tests & marks (decision 151): tests per batch, marks entry with live rank and grade, WhatsApp results and toppers, report card PDF, parent page results; 9 server tests, 7 app tests
+- [x] Homework (decision 152): set per batch with a due day, share to the group, tick who handed it in, note to parents, parent page; 6 server tests, 4 app tests

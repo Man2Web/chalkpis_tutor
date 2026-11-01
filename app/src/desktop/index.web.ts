@@ -5,3 +5,4 @@ export { DesktopStudents } from './DesktopStudents';
 export { DesktopAttendance } from './DesktopAttendance';
 export { DesktopFees } from './DesktopFees';
 export { DesktopExams } from './DesktopExams';
+export { DesktopHomework } from './DesktopHomework';

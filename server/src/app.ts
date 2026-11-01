@@ -27,6 +27,7 @@ import { accountRoutes } from './routes/account.js';
 import { staffRoutes } from './routes/staff.js';
 import { taskRoutes } from './routes/tasks.js';
 import { examRoutes } from './routes/exams.js';
+import { homeworkRoutes } from './routes/homework.js';
 import { legalRoutes } from './routes/legal.js';
 import { webhookRoutes } from './routes/webhooks.js';
 import { adminRoutes } from './routes/admin.js';
@@ -143,6 +144,7 @@ export async function buildApp({
   staffRoutes(app, { config, pool, clock });
   taskRoutes(app, { config, pool, clock });
   examRoutes(app, { config, pool, clock });
+  homeworkRoutes(app, { config, pool, clock });
   legalRoutes(app);
   adminRoutes(app, {
     config,
