@@ -20,6 +20,8 @@ import { BRAND } from '../../components';
 import { KeyboardAvoid } from '../../components/KeyboardScroll';
 import { haptic } from '../../lib/haptics';
 import { column, font, spacing } from '../../theme';
+import { useDesktop } from '../../desktop/useDesktop';
+import { AuthSplit } from './AuthSplit';
 import { useReducedMotion } from './brand';
 
 /**
@@ -58,6 +60,33 @@ export function SignInLayout({
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const desktop = useDesktop();
+  const back = onBack ? (
+    <Pressable
+      onPress={onBack}
+      accessibilityRole="button"
+      accessibilityLabel={t('common.back')}
+      hitSlop={8}
+      style={({ pressed }) => [styles.back, pressed && { opacity: 0.6 }]}
+    >
+      <Ionicons name="arrow-back" size={22} color={INK} />
+    </Pressable>
+  ) : null;
+
+  // a laptop has no keyboard to ride above: the button simply follows the form, beside the brand panel
+  if (desktop)
+    return (
+      <AuthSplit>
+        {back}
+        <Text style={styles.title} accessibilityRole="header">
+          {title}
+        </Text>
+        {subtitle ? <View style={{ marginTop: spacing.sm }}>{subtitle}</View> : null}
+        <View style={{ marginTop: spacing.xl, gap: spacing.md }}>{children}</View>
+        {footer ? <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>{footer}</View> : null}
+      </AuthSplit>
+    );
+
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
       <StatusBar style="dark" />
@@ -71,17 +100,7 @@ export function SignInLayout({
           }}
         >
           <View style={[column, styles.page]}>
-            {onBack ? (
-              <Pressable
-                onPress={onBack}
-                accessibilityRole="button"
-                accessibilityLabel={t('common.back')}
-                hitSlop={8}
-                style={({ pressed }) => [styles.back, pressed && { opacity: 0.6 }]}
-              >
-                <Ionicons name="arrow-back" size={22} color={INK} />
-              </Pressable>
-            ) : null}
+            {back}
             <Text style={styles.title} accessibilityRole="header" maxFontSizeMultiplier={1.4}>
               {title}
             </Text>
@@ -334,13 +353,7 @@ export function CodeBoxes({
       <Pressable onPress={() => ref.current?.focus()} accessible={false} style={styles.codeRow}>
         {cells.map((c, i) => {
           const isActive = focused && i === active && value.length < 6;
-          const borderColor = error
-            ? SIGNIN.error
-            : isActive
-              ? BRAND
-              : c
-                ? INK
-                : SIGNIN.line;
+          const borderColor = error ? SIGNIN.error : isActive ? BRAND : c ? INK : SIGNIN.line;
           return (
             <View
               key={i}

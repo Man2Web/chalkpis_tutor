@@ -1162,6 +1162,10 @@
       "students_other": "{{count}} students",
       "mark": "Mark attendance",
       "edit": "Edit attendance"
+    },
+    "signin": {
+      "title": "Welcome to ChalkPis",
+      "pitch": "Students, attendance, fees and WhatsApp updates to parents, for tuition, coaching, abacus, karate, dance and yoga classes. On your phone, or right here on your laptop."
     }
   },
   "updates": {

@@ -8,21 +8,10 @@ import { Logo } from '../../components';
 import { haptic } from '../../lib/haptics';
 import type { AuthStackParams } from '../../navigation/types';
 import { colors, column, font, spacing, type } from '../../theme';
+import { useDesktop } from '../../desktop/useDesktop';
+import { AuthSplit, WELCOME_CARDS as CARDS } from './AuthSplit';
 import { BrandBackdrop, BRAND_DEEP, Float, PreviewCard } from './brand';
 import { CountryChip, PrimaryButton, SIGNIN } from './signin';
-
-/** What a tutor's day looks like in Chalkpis, as three little cards floating in the hero. */
-const CARDS = [
-  {
-    icon: 'checkmark-circle',
-    tint: '#16A34A',
-    key: 'Attendance',
-    rotate: '-3deg',
-    align: 'flex-start',
-  },
-  { icon: 'cash-outline', tint: '#0E77BE', key: 'Fee', rotate: '2.5deg', align: 'flex-end' },
-  { icon: 'logo-whatsapp', tint: '#1DA851', key: 'Parent', rotate: '-1.5deg', align: 'center' },
-] as const;
 
 /**
  * First screen, for new and returning teachers alike (tuition, coaching, abacus, karate, dance, yoga, sports): what
@@ -37,6 +26,90 @@ export function LanguageScreen({
   // the cards only show when the hero has room for them (they are illustration, never needed to sign in)
   const [heroH, setHeroH] = useState(0);
   const cards = heroH >= 430 ? 3 : heroH >= 340 ? 2 : heroH >= 260 ? 1 : 0;
+  const desktop = useDesktop();
+
+  // the way in, sign-up and sign-in alike: the white sheet on a phone, the form beside the brand panel on a laptop
+  const signIn = (
+    <View style={[column, { width: '100%', gap: spacing.md }]}>
+      {desktop ? (
+        <Text
+          accessibilityRole="header"
+          style={{
+            fontSize: 30,
+            lineHeight: 36,
+            ...font('800'),
+            color: colors.text,
+            marginBottom: spacing.sm,
+          }}
+        >
+          {t('desktop.signin.title')}
+        </Text>
+      ) : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <View style={{ flex: 1, height: 1, backgroundColor: SIGNIN.line }} />
+        <Text
+          accessibilityRole="header"
+          style={{ fontSize: 15, ...font('700'), color: SIGNIN.muted }}
+        >
+          {t('auth.loginOrSignup')}
+        </Text>
+        <View style={{ flex: 1, height: 1, backgroundColor: SIGNIN.line }} />
+      </View>
+      {/* looks like the number field; the real one opens on the next screen with the keyboard up */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('auth.enterMobile')}
+        onPress={() => {
+          haptic.tap();
+          navigation.navigate('Phone');
+        }}
+        style={({ pressed }) => ({
+          flexDirection: 'row',
+          alignItems: 'center',
+          minHeight: 60,
+          borderRadius: 14,
+          borderWidth: 1.5,
+          borderColor: SIGNIN.line,
+          backgroundColor: pressed ? SIGNIN.field : '#FFFFFF',
+        })}
+      >
+        <CountryChip />
+        <View
+          style={{ width: 1.5, height: 26, backgroundColor: SIGNIN.line, marginHorizontal: 12 }}
+        />
+        <Text style={{ flex: 1, fontSize: 17, ...font('500'), color: '#9CA3AF' }}>
+          {t('auth.enterMobile')}
+        </Text>
+      </Pressable>
+      <PrimaryButton
+        title={t('auth.continueWhatsApp')}
+        icon="logo-whatsapp"
+        onPress={() => navigation.navigate('Phone')}
+      />
+      <Text style={[type.footnote, { textAlign: 'center' }]}>{t('auth.newHere')}</Text>
+      <Text style={[type.caption2, { textAlign: 'center', marginTop: spacing.sm }]}>
+        {t('legal.agreePrefix')}{' '}
+        <Text
+          style={{ color: colors.text, ...font('600') }}
+          onPress={() => navigation.navigate('Legal', { doc: 'terms' })}
+          accessibilityRole="link"
+        >
+          {t('legal.terms')}
+        </Text>{' '}
+        {t('legal.and')}{' '}
+        <Text
+          style={{ color: colors.text, ...font('600') }}
+          onPress={() => navigation.navigate('Legal', { doc: 'privacy' })}
+          accessibilityRole="link"
+        >
+          {t('legal.privacy')}
+        </Text>
+        .
+      </Text>
+    </View>
+  );
+
+  if (desktop) return <AuthSplit>{signIn}</AuthSplit>;
 
   return (
     <View style={{ flex: 1, backgroundColor: BRAND_DEEP }}>
@@ -111,69 +184,7 @@ export function LanguageScreen({
             paddingBottom: insets.bottom + spacing.md,
           }}
         >
-          <View style={[column, { width: '100%', gap: spacing.md }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-              <View style={{ flex: 1, height: 1, backgroundColor: SIGNIN.line }} />
-              <Text
-                accessibilityRole="header"
-                style={{ fontSize: 15, ...font('700'), color: SIGNIN.muted }}
-              >
-                {t('auth.loginOrSignup')}
-              </Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: SIGNIN.line }} />
-            </View>
-            {/* looks like the number field; the real one opens on the next screen with the keyboard up */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('auth.enterMobile')}
-              onPress={() => {
-                haptic.tap();
-                navigation.navigate('Phone');
-              }}
-              style={({ pressed }) => ({
-                flexDirection: 'row',
-                alignItems: 'center',
-                minHeight: 60,
-                borderRadius: 14,
-                borderWidth: 1.5,
-                borderColor: SIGNIN.line,
-                backgroundColor: pressed ? SIGNIN.field : '#FFFFFF',
-              })}
-            >
-              <CountryChip />
-              <View
-                style={{ width: 1.5, height: 26, backgroundColor: SIGNIN.line, marginHorizontal: 12 }}
-              />
-              <Text style={{ flex: 1, fontSize: 17, ...font('500'), color: '#9CA3AF' }}>
-                {t('auth.enterMobile')}
-              </Text>
-            </Pressable>
-            <PrimaryButton
-              title={t('auth.continueWhatsApp')}
-              icon="logo-whatsapp"
-              onPress={() => navigation.navigate('Phone')}
-            />
-            <Text style={[type.footnote, { textAlign: 'center' }]}>{t('auth.newHere')}</Text>
-            <Text style={[type.caption2, { textAlign: 'center', marginTop: spacing.sm }]}>
-              {t('legal.agreePrefix')}{' '}
-              <Text
-                style={{ color: colors.text, ...font('600') }}
-                onPress={() => navigation.navigate('Legal', { doc: 'terms' })}
-                accessibilityRole="link"
-              >
-                {t('legal.terms')}
-              </Text>{' '}
-              {t('legal.and')}{' '}
-              <Text
-                style={{ color: colors.text, ...font('600') }}
-                onPress={() => navigation.navigate('Legal', { doc: 'privacy' })}
-                accessibilityRole="link"
-              >
-                {t('legal.privacy')}
-              </Text>
-              .
-            </Text>
-          </View>
+          {signIn}
         </View>
       </ScrollView>
     </View>
