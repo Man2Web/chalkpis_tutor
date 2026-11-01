@@ -6,9 +6,11 @@ export type Section =
   | 'home'
   | 'students'
   | 'batches'
+  | 'timetable'
   | 'attendance'
   | 'tests'
   | 'homework'
+  | 'enquiries'
   | 'fees'
   | 'reports'
   | 'messages'
@@ -49,6 +51,13 @@ export const SECTIONS: SectionItem[] = [
     group: 'run',
   },
   {
+    key: 'timetable',
+    label: 'calendar.title',
+    icon: 'calendar-outline',
+    route: 'Timetable',
+    group: 'run',
+  },
+  {
     key: 'attendance',
     label: 'tabs.attendance',
     icon: 'checkmark-circle-outline',
@@ -71,6 +80,13 @@ export const SECTIONS: SectionItem[] = [
     icon: 'bar-chart-outline',
     route: 'Reports',
     group: 'run',
+  },
+  {
+    key: 'enquiries',
+    label: 'enquiries.title',
+    icon: 'person-add-outline',
+    route: 'Enquiries',
+    group: 'grow',
   },
   {
     key: 'messages',
@@ -131,6 +147,11 @@ const ROUTE_SECTION: Partial<Record<keyof MainStackParams, Section>> = {
   Homework: 'homework',
   HomeworkForm: 'homework',
   HomeworkCheck: 'homework',
+  Enquiries: 'enquiries',
+  EnquiryForm: 'enquiries',
+  Enquiry: 'enquiries',
+  Timetable: 'timetable',
+  EventForm: 'timetable',
   FeeLedger: 'fees',
   CollectFee: 'fees',
   Receipt: 'fees',

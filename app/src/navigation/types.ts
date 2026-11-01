@@ -37,6 +37,13 @@ export type MainStackParams = {
   Homework: undefined;
   HomeworkForm: { id?: string; batchId?: string } | undefined;
   HomeworkCheck: { id: string };
+  /** Enquiries and admissions (decision 153). */
+  Enquiries: undefined;
+  EnquiryForm: { id?: string } | undefined;
+  Enquiry: { id: string };
+  /** Timetable and calendar (decision 154). `date` starts a new event on that day. */
+  Timetable: undefined;
+  EventForm: { id?: string; date?: string } | undefined;
   Legal: { doc: 'privacy' | 'terms' };
   Reports: undefined;
   Settings: undefined;

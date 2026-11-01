@@ -6,3 +6,5 @@ export { DesktopAttendance } from './DesktopAttendance';
 export { DesktopFees } from './DesktopFees';
 export { DesktopExams } from './DesktopExams';
 export { DesktopHomework } from './DesktopHomework';
+export { DesktopEnquiries } from './DesktopEnquiries';
+export { DesktopTimetable } from './DesktopTimetable';

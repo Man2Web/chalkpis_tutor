@@ -34,6 +34,11 @@ import { ExamsScreen } from '../features/exams/ExamsScreen';
 import { HomeworkCheckScreen } from '../features/homework/HomeworkCheckScreen';
 import { HomeworkFormScreen } from '../features/homework/HomeworkFormScreen';
 import { HomeworkScreen } from '../features/homework/HomeworkScreen';
+import { EnquiriesScreen } from '../features/enquiries/EnquiriesScreen';
+import { EnquiryFormScreen } from '../features/enquiries/EnquiryFormScreen';
+import { EnquiryScreen } from '../features/enquiries/EnquiryScreen';
+import { EventFormScreen } from '../features/calendar/EventFormScreen';
+import { TimetableScreen } from '../features/calendar/TimetableScreen';
 import { LegalScreen } from '../features/legal/LegalScreen';
 import { BillingScreen } from '../features/billing/BillingScreen';
 import { MessageLogScreen } from '../features/messages/MessageLogScreen';
@@ -58,12 +63,14 @@ import { StudentsListScreen } from '../features/students/StudentsListScreen';
 import type { AuthStackParams, MainStackParams, OnboardingStackParams } from './types';
 import {
   DesktopAttendance,
+  DesktopEnquiries,
   DesktopExams,
   DesktopFees,
   DesktopHomework,
   DesktopHome,
   DesktopShell,
   DesktopStudents,
+  DesktopTimetable,
 } from '../desktop';
 import { useDesktop } from '../desktop/useDesktop';
 import { UpdatesScreen } from '../features/announcements/UpdatesScreen';
@@ -336,6 +343,37 @@ function MainStack() {
           name="HomeworkCheck"
           component={HomeworkCheckScreen}
           options={{ title: t('homework.checkTitle') }}
+        />
+        <Main.Screen
+          name="Enquiries"
+          component={desktop ? DesktopEnquiries : EnquiriesScreen}
+          // the desktop page shows its own large title
+          options={{ title: t('enquiries.title'), headerShown: !desktop }}
+        />
+        <Main.Screen
+          name="EnquiryForm"
+          component={EnquiryFormScreen}
+          options={({ route }) => ({
+            title: t(route.params?.id ? 'enquiries.editTitle' : 'enquiries.add'),
+          })}
+        />
+        <Main.Screen
+          name="Enquiry"
+          component={EnquiryScreen}
+          options={{ title: t('enquiries.oneTitle') }}
+        />
+        <Main.Screen
+          name="Timetable"
+          component={desktop ? DesktopTimetable : TimetableScreen}
+          // the desktop page shows its own large title
+          options={{ title: t('calendar.title'), headerShown: !desktop }}
+        />
+        <Main.Screen
+          name="EventForm"
+          component={EventFormScreen}
+          options={({ route }) => ({
+            title: t(route.params?.id ? 'calendar.editTitle' : 'calendar.add'),
+          })}
         />
         <Main.Screen
           name="Legal"

@@ -214,6 +214,12 @@ function AccountContent({ go, onDelete }: { go: Nav['navigate']; onDelete: () =>
 
       <Section title={t('more.tools')}>
         <Row
+          icon="calendar"
+          iconColor={colors.infoFill}
+          title={t('calendar.title')}
+          onPress={() => go('Timetable')}
+        />
+        <Row
           icon="school"
           iconColor={colors.indigo}
           title={t('exams.title')}
@@ -224,6 +230,12 @@ function AccountContent({ go, onDelete }: { go: Nav['navigate']; onDelete: () =>
           iconColor={colors.teal}
           title={t('homework.title')}
           onPress={() => go('Homework')}
+        />
+        <Row
+          icon="person-add"
+          iconColor={colors.successFill}
+          title={t('enquiries.title')}
+          onPress={() => go('Enquiries')}
         />
         <Row
           icon="bar-chart"

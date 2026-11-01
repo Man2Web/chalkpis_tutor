@@ -14,3 +14,5 @@ export const DesktopAttendance = none;
 export const DesktopFees = none;
 export const DesktopExams = none;
 export const DesktopHomework = none;
+export const DesktopEnquiries = none;
+export const DesktopTimetable = none;

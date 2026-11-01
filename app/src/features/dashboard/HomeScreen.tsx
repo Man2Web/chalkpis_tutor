@@ -18,6 +18,7 @@ import { PlanBanner } from '../billing/PlanBanner';
 import { PaymentReportsCard } from '../fees/PaymentReportsCard';
 import { GettingStartedCard } from '../onboarding/GettingStartedCard';
 import { InstallHint } from '../onboarding/InstallHint';
+import { EnquiriesDueCard } from '../enquiries/EnquiriesDueCard';
 import { WelcomeTour } from '../onboarding/WelcomeTour';
 import { AnnouncementBanner } from '../announcements/AnnouncementBanner';
 import { UpdatesBell } from '../announcements/UpdatesScreen';
@@ -116,6 +117,7 @@ export function HomeScreen() {
         <PaymentReportsCard />
         <GettingStartedCard hasAttendance={(week.data?.length ?? 0) > 0} />
         <InstallHint />
+        <EnquiriesDueCard />
 
         {loading ? (
           <Skeleton height={210} />

@@ -60,6 +60,10 @@ const HOMEWORK: Lookup = {
   sql: 'SELECT title AS name FROM homework WHERE institute_id = ? AND id = ?',
   param: (p) => p.id,
 };
+const ENQUIRY: Lookup = {
+  sql: 'SELECT name FROM enquiries WHERE institute_id = ? AND id = ?',
+  param: (p) => p.id,
+};
 const STAFF: Lookup = {
   sql: 'SELECT u.name FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.institute_id = ? AND m.user_id = ?',
   param: (p) => p.id,
@@ -214,6 +218,35 @@ export const RULES: Record<string, Rule> = {
     subject: HOMEWORK,
     detail: (b) => (Array.isArray(b.checks) ? `${b.checks.length} students` : ''),
   },
+
+  'POST /enquiries': {
+    action: 'enquiry.add',
+    detail: (b) => [String(b.name ?? ''), String(b.source ?? '')].filter(Boolean).join(' · '),
+  },
+  'PATCH /enquiries/:id': {
+    action: 'enquiry.edit',
+    subject: ENQUIRY,
+    detail: (b) => (typeof b.status === 'string' ? b.status : ''),
+  },
+  'DELETE /enquiries/:id': { action: 'enquiry.delete' },
+  'POST /enquiries/:id/notes': { action: 'enquiry.note', subject: ENQUIRY },
+  'POST /enquiries/:id/convert': { action: 'enquiry.join', subject: ENQUIRY },
+
+  'POST /calendar/events': {
+    action: 'calendar.add',
+    detail: (b) =>
+      [String(b.title ?? ''), String(b.kind ?? ''), String(b.startsOn ?? '')]
+        .filter(Boolean)
+        .join(' · '),
+  },
+  'PATCH /calendar/events/:id': {
+    action: 'calendar.edit',
+    subject: {
+      sql: 'SELECT title AS name FROM calendar_events WHERE institute_id = ? AND id = ?',
+      param: (p) => p.id,
+    },
+  },
+  'DELETE /calendar/events/:id': { action: 'calendar.delete' },
 };
 
 /** What the action was about, when the rule can look it up; never fails the log. */

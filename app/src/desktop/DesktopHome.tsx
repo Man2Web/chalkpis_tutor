@@ -26,6 +26,7 @@ import { greetingKey } from '../features/dashboard/greeting';
 import { dashboardStats, weekAttendance } from '../features/dashboard/logic';
 import { WeekChart } from '../features/dashboard/WeekChart';
 import { PaymentReportsCard } from '../features/fees/PaymentReportsCard';
+import { EnquiriesDueCard } from '../features/enquiries/EnquiriesDueCard';
 import { groupByStudent } from '../features/fees/logic';
 import { GettingStartedCard } from '../features/onboarding/GettingStartedCard';
 import { WelcomeTour } from '../features/onboarding/WelcomeTour';
@@ -114,6 +115,7 @@ export function DesktopHome() {
       <AnnouncementBanner />
       <PlanBanner />
       <PaymentReportsCard />
+      <EnquiriesDueCard />
 
       {loading ? (
         <Skeleton height={132} />

@@ -23,6 +23,7 @@ jest.mock('../../announcements/UpdatesScreen', () => ({ UpdatesBell: () => null 
 jest.mock('../../fees/PaymentReportsCard', () => ({ PaymentReportsCard: () => null }));
 jest.mock('../../onboarding/GettingStartedCard', () => ({ GettingStartedCard: () => null }));
 jest.mock('../../onboarding/WelcomeTour', () => ({ WelcomeTour: () => null }));
+jest.mock('../../enquiries/EnquiriesDueCard', () => ({ EnquiriesDueCard: () => null }));
 jest.mock('../../tasks/api', () => ({
   useTasks: () => ({ data: [], isLoading: false }),
   useTaskActions: () => ({

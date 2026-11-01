@@ -233,6 +233,14 @@ export const ACTIVITY_TEXT: Record<string, string> = {
   'homework.edit': 'changed the homework {s}',
   'homework.delete': 'deleted homework',
   'homework.check': 'checked the homework {s}',
+  'enquiry.add': 'added an enquiry',
+  'enquiry.edit': 'updated the enquiry for {s}',
+  'enquiry.delete': 'deleted an enquiry',
+  'enquiry.note': 'noted a follow-up with {s}',
+  'enquiry.join': 'admitted {s} from an enquiry',
+  'calendar.add': 'added to the calendar',
+  'calendar.edit': 'changed {s} on the calendar',
+  'calendar.delete': 'removed an event from the calendar',
 };
 
 /** "recorded a fee from Riya Sharma · ₹1,500 · upi": a sentence, falling back gracefully for new actions. */

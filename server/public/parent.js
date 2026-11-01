@@ -14,6 +14,11 @@
       rankOf: 'Rank {r} of {n}',
       classAvg: 'Class average',
       wasAbsent: 'Absent',
+      upcoming: 'Coming up',
+      kind_holiday: 'Holiday',
+      kind_exam: 'Exam',
+      kind_event: 'Event',
+      kind_meeting: 'Parent meeting',
       homework: 'Homework',
       noHomework: 'No homework yet.',
       dueBy: 'Due',
@@ -60,6 +65,11 @@
       rankOf: '{n} में से रैंक {r}',
       classAvg: 'कक्षा का औसत',
       wasAbsent: 'अनुपस्थित',
+      upcoming: 'आगामी',
+      kind_holiday: 'छुट्टी',
+      kind_exam: 'परीक्षा',
+      kind_event: 'कार्यक्रम',
+      kind_meeting: 'अभिभावक बैठक',
       homework: 'गृहकार्य',
       noHomework: 'अभी कोई गृहकार्य नहीं।',
       dueBy: 'जमा करने की तारीख',
@@ -324,6 +334,28 @@
     return c;
   }
 
+  // nothing to say when nothing is coming up: the card only shows with something in it
+  function upcomingCard(list) {
+    if (!list || !list.length) return null;
+    var c = card();
+    c.appendChild(el('h2', null, t('upcoming')));
+    list.forEach(function (e) {
+      var row = el('div', 'row');
+      var left = el('div');
+      left.appendChild(el('div', 'title', e.title));
+      var when =
+        e.endsOn && e.endsOn !== e.startsOn
+          ? dateText(e.startsOn, false) + ' – ' + dateText(e.endsOn, true)
+          : dateText(e.startsOn, true);
+      left.appendChild(el('div', 'sub', when));
+      if (e.notes) left.appendChild(el('div', 'sub', e.notes));
+      row.appendChild(left);
+      row.appendChild(chip(e.kind === 'holiday' ? 'warn' : 'neutral', t('kind_' + e.kind)));
+      c.appendChild(row);
+    });
+    return c;
+  }
+
   function homeworkCard(list) {
     var c = card();
     c.appendChild(el('h2', null, t('homework')));
@@ -393,6 +425,8 @@
       who.appendChild(el('div', 'muted', t('classN') + ' ' + view.student.className));
     app.appendChild(who);
     app.appendChild(attendanceCard(view.attendance));
+    var up = upcomingCard(view.upcoming);
+    if (up) app.appendChild(up);
     app.appendChild(homeworkCard(view.homework));
     app.appendChild(testsCard(view.tests));
     app.appendChild(feesCard(view.fees));

@@ -43,3 +43,5 @@
 - [x] Laptop and desktop layout for the browser version (decision 150): sidebar, top bar with search, dashboard, Students and Fees tables, Attendance cards; 371 app tests
 - [x] Tests & marks (decision 151): tests per batch, marks entry with live rank and grade, WhatsApp results and toppers, report card PDF, parent page results; 9 server tests, 7 app tests
 - [x] Homework (decision 152): set per batch with a due day, share to the group, tick who handed it in, note to parents, parent page; 6 server tests, 4 app tests
+- [x] Enquiries & admissions (decision 153): stages, follow-ups, notes, call / WhatsApp, admit as student, Home card, desktop pipeline board; 6 server tests, 4 app tests
+- [x] Timetable & calendar (decision 154): week and month views from the batches, clash check, holidays / exams / events / parent meetings, tests and homework due on the calendar, WhatsApp notice, parent page Coming up, desktop week board and month grid; 5 server tests, 10 app tests

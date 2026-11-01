@@ -13,6 +13,7 @@ describe('desktop sidebar', () => {
     expect(sectionOf('MarkAttendance', 'Home')).toBe('attendance');
     expect(sectionOf('BatchDetail', 'Attendance')).toBe('batches');
     expect(sectionOf('PaymentSettings', 'Fees')).toBe('settings');
+    expect(sectionOf('EventForm', 'Home')).toBe('timetable');
   });
 
   it('falls back to the tab for a screen it does not know', () => {
