@@ -1,4 +1,6 @@
 node_modules/
+# the browser version keeps its fonts and icons under assets/node_modules (npm run web:build)
+!server/public/app/assets/node_modules/
 .expo/
 dist/
 /functions/lib/

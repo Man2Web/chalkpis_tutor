@@ -1093,6 +1093,14 @@
       "text": "Absent alerts, reminders and receipts for parents"
     }
   },
+  "installHint": {
+    "iphoneTitle": "Keep ChalkPis on your Home Screen",
+    "iphoneText": "In Safari, tap Share, then \"Add to Home Screen\". ChalkPis then opens like an app.",
+    "androidTitle": "Get the ChalkPis app",
+    "androidText": "Faster, and you get reminders as notifications. Sign in with the same number; everything is there.",
+    "androidButton": "Open Google Play",
+    "dismiss": "Not now"
+  },
   "updates": {
     "title": "Updates",
     "unread": "Unread",

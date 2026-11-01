@@ -184,6 +184,7 @@ describe('billing page (/plan)', () => {
     expect(welcome.body).toContain('Your account is ready');
     expect(welcome.body).toContain('Your free trial starts when you first open the Chalkpis app');
     expect(welcome.body).toContain('iPhone app is coming soon to the App Store'); // iPhone first
+    expect(welcome.body).toContain('<a class="button" href="/app/">Open Chalkpis</a>'); // in Safari meanwhile
     expect(welcome.body).not.toContain('class="button" href="https://play.google.com');
 
     const [[msg]] = (await h.db.pool.query(

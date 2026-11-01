@@ -67,7 +67,7 @@ npm run server     # terminal 1
 npm run web        # terminal 2: http://localhost:8081
 ```
 
-The browser preview is not the real Android app: calling, WhatsApp links, contacts import and native share only work on a phone. Use [docs/MANUAL-TEST.md](docs/MANUAL-TEST.md) on a real device.
+The same app also ships in the browser at `https://tutor.chalkpis.com/app` (`npm run web:build`, see [docs/SETUP.md](docs/SETUP.md) section 6b). Contacts import, push and the native share sheet only work in the phone apps; use [docs/MANUAL-TEST.md](docs/MANUAL-TEST.md) on a real device.
 
 ## Scripts (repo root)
 
@@ -76,6 +76,7 @@ The browser preview is not the real Android app: calling, WhatsApp links, contac
 | `npm run install:all`        | install the app and server packages                           |
 | `npm run server`             | the server with auto-restart (reads `server/.env`)            |
 | `npm run web`                | the app in the browser                                        |
+| `npm run web:build`          | export the browser version into `server/public/app`           |
 | `npm run lint` / `typecheck` | across both packages                                          |
 | `npm test`                   | app tests and server tests (starts the private test database) |
 | `npm run loadtest`           | 40 clients hammering a real server on a throwaway database    |

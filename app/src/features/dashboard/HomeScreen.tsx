@@ -17,6 +17,7 @@ import { scheduleLabel } from '../batches/format';
 import { PlanBanner } from '../billing/PlanBanner';
 import { PaymentReportsCard } from '../fees/PaymentReportsCard';
 import { GettingStartedCard } from '../onboarding/GettingStartedCard';
+import { InstallHint } from '../onboarding/InstallHint';
 import { WelcomeTour } from '../onboarding/WelcomeTour';
 import { AnnouncementBanner } from '../announcements/AnnouncementBanner';
 import { UpdatesBell } from '../announcements/UpdatesScreen';
@@ -114,6 +115,7 @@ export function HomeScreen() {
         <PlanBanner />
         <PaymentReportsCard />
         <GettingStartedCard hasAttendance={(week.data?.length ?? 0) > 0} />
+        <InstallHint />
 
         {loading ? (
           <Skeleton height={210} />

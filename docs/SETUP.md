@@ -181,6 +181,25 @@ haptics...), changing `app.json` (name, icon, permissions, splash) or upgrading 
 `fingerprint` runtime version, so an update made after such a change is simply not offered to older builds; make a
 new build instead. To undo a bad update: `npx eas-cli@latest update:republish` the previous one, or publish a fix.
 
+## 6b. The app in the browser (tutor.chalkpis.com/app)
+
+The same app runs in any browser at `https://tutor.chalkpis.com/app`: iPhones (until the App Store app is out; Safari's
+**Add to Home Screen** gives it an icon and full screen), laptops and any Android phone without the app. It is the Expo
+app exported for the web and served by the server itself (`server/src/routes/webapp.ts`), so it needs no CORS, no DNS
+and no extra Coolify setting. Same accounts and data as the phone apps; plans are paid on the website (Razorpay), never
+through the stores.
+
+After changing anything in `app/`, rebuild it from the repo root and commit `server/public/app` with the change; the
+next deploy serves it (open pages pick it up on their next visit):
+
+```bash
+npm run web:build
+```
+
+It always builds against `https://tutor.chalkpis.com`. The build sets `EXPO_WEB_BASE_URL=/app` only for itself, so the
+phone apps' runtime fingerprint (and their over-the-air updates) are not affected. In the browser there is no contacts
+import, no push and no native share sheet: files download, and PDFs open the browser's print dialog ("Save as PDF").
+
 ## 7. Store listing links
 
 - Privacy Policy: https://tutor.chalkpis.com/privacy

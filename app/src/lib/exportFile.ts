@@ -10,7 +10,8 @@ export async function shareTextFile(filename: string, text: string, mimeType = '
     a.href = url;
     a.download = filename;
     a.click();
-    URL.revokeObjectURL(url);
+    // Safari cancels a download whose address is revoked straight away
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
     return;
   }
   const file = new File(Paths.cache, filename);
@@ -31,7 +32,8 @@ export async function shareBinaryFile(filename: string, bytes: Uint8Array, mimeT
     a.href = url;
     a.download = filename;
     a.click();
-    URL.revokeObjectURL(url);
+    // Safari cancels a download whose address is revoked straight away
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
     return;
   }
   const file = new File(Paths.cache, filename);

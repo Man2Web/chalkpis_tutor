@@ -138,8 +138,8 @@ const flowQuery = (flow: Flow) =>
   new URLSearchParams({ next: flow.next, src: flow.src }).toString();
 
 /**
- * "Use Chalkpis on your phone": the Google Play link, and the iPhone app still to come. An owner who chose iPhone when
- * signing up sees the iPhone part first.
+ * "Use Chalkpis on your phone": the Google Play link, and the browser version (/app) for iPhones and laptops until the
+ * iPhone app is out. An owner who chose iPhone when signing up sees the browser version first.
  */
 function appBox(
   c: { phone: string | null; trial_waits?: number; signup_phone?: 'android' | 'ios' | null },
@@ -147,10 +147,10 @@ function appBox(
 ): string {
   const number = c.phone ? `<strong>${esc(maskPhone(c.phone))}</strong>` : 'this WhatsApp number';
   const play = `${PLAY_URL}&amp;referrer=utm_source%3Dtutor.chalkpis.com%26utm_medium%3Dwebsite%26utm_campaign%3Dsignup`;
-  const waits = Number(c.trial_waits) ? ', and your free trial starts when you first open it' : '';
+  const waits = Number(c.trial_waits) ? ', and your free trial starts when you first sign in' : '';
   if (c.signup_phone === 'ios')
-    return `<section class="app"><h2>${esc(heading)}</h2><p>The Chalkpis iPhone app is coming soon to the App Store. We will send you a WhatsApp message on ${number} when it is ready${waits}.</p><p class="small">Have an Android phone too? <a href="${play}">Get the app on Google Play</a> and sign in with the same number.</p></section>`;
-  return `<section class="app"><h2>${esc(heading)}</h2><p>Install the app and sign in with ${number}. Everything you set up here is already there.</p><a class="button" href="${play}">Get it on Google Play</a><p class="small"><strong>iPhone:</strong> the Chalkpis app is coming soon to the App Store. We will send you a WhatsApp message when it is ready${waits}.</p></section>`;
+    return `<section class="app"><h2>${esc(heading)}</h2><p>Use Chalkpis on your iPhone today, in Safari. Sign in with ${number}: everything you set up here is already there${waits}.</p><a class="button" href="/app/">Open Chalkpis</a><p class="small">To keep it on your Home Screen like an app, tap Share, then <strong>Add to Home Screen</strong>. The Chalkpis iPhone app is coming soon to the App Store; we will send you a WhatsApp message when it is ready. Have an Android phone too? <a href="${play}">Get the app on Google Play</a>.</p></section>`;
+  return `<section class="app"><h2>${esc(heading)}</h2><p>Install the app and sign in with ${number}. Everything you set up here is already there.</p><a class="button" href="${play}">Get it on Google Play</a><p class="small"><strong>iPhone or laptop:</strong> <a href="/app/">use Chalkpis in your browser</a> with the same number${waits}. The iPhone app is coming soon to the App Store.</p></section>`;
 }
 
 function page(
@@ -559,7 +559,7 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
             `<option value="${k}"${(v.category ?? 'tuition') === k ? ' selected' : ''}>${CATEGORY_LABEL[k]}</option>`,
         ).join('')}</select>
 <fieldset class="choice"><legend>Which phone will you use Chalkpis on?</legend><label><input type="radio" name="phone" value="android" required${v.phone === 'android' ? ' checked' : ''}> Android</label><label><input type="radio" name="phone" value="ios"${v.phone === 'ios' ? ' checked' : ''}> iPhone</label></fieldset>
-<p class="small">The iPhone app is coming soon. If you choose iPhone, your ${deps.config.TRIAL_DAYS}-day free trial starts when you first open the app, not today.</p>
+<p class="small">The iPhone app is coming soon; until then iPhones use Chalkpis in Safari. If you choose iPhone, your ${deps.config.TRIAL_DAYS}-day free trial starts when you first sign in there, not today.</p>
 <button type="submit">Create my account</button></form>`,
       );
     const signOutNav =

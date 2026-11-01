@@ -30,6 +30,7 @@ import { legalRoutes } from './routes/legal.js';
 import { webhookRoutes } from './routes/webhooks.js';
 import { adminRoutes } from './routes/admin.js';
 import { instituteRoutes } from './routes/institutes.js';
+import { webAppRoutes } from './routes/webapp.js';
 import { activityLog } from './activity.js';
 import { idempotency } from './idempotency.js';
 
@@ -155,6 +156,7 @@ export async function buildApp({
   paidRoutes(app, { config, pool, push, clock });
   pushRoutes(app, { config, pool, clock });
   webhookRoutes(app, { config });
+  webAppRoutes(app);
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));
   app.setErrorHandler((err: FastifyError | AppError, req, reply) => {

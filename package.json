@@ -9,6 +9,7 @@
     "test:server": "npm --prefix server run db:start && npm --prefix server test",
     "prepare": "husky",
     "web": "npm --prefix app run web",
+    "web:build": "rm -rf server/public/app && cd app && EXPO_PUBLIC_API_URL=https://tutor.chalkpis.com EXPO_WEB_BASE_URL=/app npx expo export --platform web --clear --output-dir ../server/public/app && rm -f ../server/public/app/metadata.json && ! grep -rq 127.0.0.1:8787 ../server/public/app/_expo",
     "server": "npm --prefix server run dev",
     "loadtest": "npm --prefix server run loadtest",
     "admin:build": "npm --prefix server/admin-ui run build",
