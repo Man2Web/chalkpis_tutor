@@ -24,6 +24,11 @@ from the repository; about a minute). A changed environment variable only needs 
   answers while the Chalkpis container is down). It returns by itself.
 - If Coolify (`http://200.234.43.196:8000`) does not open, your internet address has probably changed: the Hostinger
   firewall on the VPS lets only your own IP reach ports 22, 8000, 6001 and 6002. Update that rule in hPanel.
+- If the API cannot start (the service shows **Degraded** and Api **Restarting**), Coolify swaps Pull latest and restart
+  for **Force Restart** in that menu; it also rebuilds from `main`. Read Runtime Logs -> Api first: a failed migration
+  is the usual cause, and it is retried on the next start once the fix is pushed. Production runs MariaDB 11, which
+  refuses two foreign keys of the same name in one database even where a newer local MariaDB accepts them (migration
+  040 took the API down for about 20 minutes on 1 Nov 2026 that way; `test/migrate.test.ts` now checks the names).
 - When the compose file changes in this repository (`coolify-compose.json`), copy the change into Coolify's
   **Edit Compose File** as well; Coolify keeps its own copy.
 

@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -86,6 +86,25 @@ describe('runMigrations', () => {
     await file('001_ok.sql', 'CREATE TABLE t1 (id INT PRIMARY KEY);');
     expect((await runMigrations(db.pool, dir)).applied).toEqual(['001_ok.sql']);
     expect(await tables()).not.toContain('t3');
+  });
+
+  it('the real migrations name every constraint once', async () => {
+    // MariaDB on the server refuses a second foreign key of the same name in one database (errno 121), even where a
+    // local database lets it through; migration 040 once took the API down that way
+    const real = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'migrations');
+    const names = (
+      await Promise.all(
+        (await readdir(real))
+          .filter((f) => f.endsWith('.sql'))
+          .map(async (f) => [
+            ...(await readFile(path.join(real, f), 'utf8')).matchAll(/CONSTRAINT\s+`?(\w+)`?/gi),
+          ]),
+      )
+    )
+      .flat()
+      .map((m) => m[1]!.toLowerCase());
+    expect(names.length).toBeGreaterThan(10);
+    expect(names.filter((n, i) => names.indexOf(n) !== i)).toEqual([]);
   });
 
   it('the real migrations apply cleanly to an empty database', async () => {
