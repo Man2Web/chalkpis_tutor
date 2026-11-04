@@ -14,7 +14,8 @@ export type OnboardingStackParams = {
 
 export type MainStackParams = {
   Tabs: undefined;
-  StudentForm: { id?: string; batchId?: string } | undefined;
+  /** `siblingOf`: a new brother or sister of that student, with the parent filled in (decision 155). */
+  StudentForm: { id?: string; batchId?: string; siblingOf?: string } | undefined;
   StudentProfile: { id: string };
   StudentImport: { mode: 'csv' | 'contacts' };
   Batches: undefined;

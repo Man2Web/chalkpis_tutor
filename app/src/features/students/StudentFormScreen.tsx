@@ -23,11 +23,12 @@ import { useBatches, useInstituteId, useRefreshData, useStudents } from '../../d
 import { reportError } from '../../lib/analytics';
 import { todayYmd, toYmd } from '../../lib/dates';
 import { formatINR } from '../../lib/money';
-import { nationalNumber } from '../../lib/phone';
+import { nationalNumber, normalizeIndianPhone } from '../../lib/phone';
 import type { FeeCycle } from '../../lib/types';
 import type { MainStackParams } from '../../navigation/types';
-import { spacing, type } from '../../theme';
-import { createStudent, setStudentStatus, updateStudent } from './api';
+import { colors, radius, spacing, type } from '../../theme';
+import { createStudent, linkSibling, setStudentStatus, updateStudent } from './api';
+import { siblingSuggestions } from './family';
 import { studentSchema, type StudentForm } from './schema';
 
 const CYCLES: FeeCycle[] = ['monthly', 'quarterly', 'one-time'];
@@ -47,6 +48,15 @@ export function StudentFormScreen({
   const batches = useBatches();
   const id = route.params?.id;
   const existing = useMemo(() => students.data?.find((s) => s.id === id), [students.data, id]);
+  // "Add a brother or sister" from a profile: the parent is the same, so it starts filled in
+  const siblingOf = route.params?.siblingOf;
+  const sibling = useMemo(
+    () => (siblingOf ? students.data?.find((s) => s.id === siblingOf) : undefined),
+    [students.data, siblingOf],
+  );
+  // a brother or sister the owner confirmed from the hint below the parent's number
+  const [linkWith, setLinkWith] = useState<string | null>(null);
+  const [notSiblings, setNotSiblings] = useState<string[]>([]);
 
   const [batchIds, setBatchIds] = useState<string[] | undefined>(undefined);
   const [photoUri, setPhotoUri] = useState<string>();
@@ -73,19 +83,19 @@ export function StudentFormScreen({
         : {
             name: '',
             phone: '',
-            parentName: '',
-            parentPhone: '',
+            parentName: sibling?.parentName ?? '',
+            parentPhone: sibling ? nationalNumber(sibling.parentPhone) : '',
             class: '',
             monthlyFee: '',
             feeCycle: 'monthly',
             dueDay: 1,
-            notifyParent: true,
+            notifyParent: sibling?.notifyParent ?? true,
             notes: '',
             dob: '',
             gender: '',
             joinedOn: todayYmd(),
           },
-    [existing],
+    [existing, sibling],
   );
   const { control, handleSubmit, setValue, getValues, formState, watch } = useForm<StudentForm>({
     resolver: zodResolver(studentSchema),
@@ -135,7 +145,7 @@ export function StudentFormScreen({
     if (!existing && !guard.check('student')) return;
     setBusy(true);
     try {
-      if (existing)
+      if (existing) {
         await updateStudent(
           instituteId,
           existing.id,
@@ -144,8 +154,16 @@ export function StudentFormScreen({
           selected,
           photoUri,
         );
-      else {
-        await createStudent(instituteId, values, selected, photoUri, { idempotencyKey: idem.key });
+        if (linkWith) await linkSibling(existing.id, linkWith);
+      } else {
+        await createStudent(
+          instituteId,
+          values,
+          selected,
+          photoUri,
+          { idempotencyKey: idem.key },
+          (linkWith ?? sibling?.id) || undefined,
+        );
         idem.reset();
       }
       await refresh();
@@ -177,6 +195,29 @@ export function StudentFormScreen({
   };
 
   const photo = photoUri ?? existing?.photoUrl;
+  const all = students.data ?? [];
+  const chosen = linkWith ? all.find((s) => s.id === linkWith) : undefined;
+  const suggestions = sibling
+    ? []
+    : siblingSuggestions(all, normalizeIndianPhone(watch('parentPhone') ?? ''), existing).filter(
+        (s) => !notSiblings.includes(s.id),
+      );
+  const levelOf = (s: { class: string }) =>
+    s.class ? ` (${ct('levelValue', { n: s.class })})` : '';
+  const familyNote = (text: string, actions?: React.ReactNode) => (
+    <View
+      style={{
+        backgroundColor: colors.infoSoft,
+        borderRadius: radius.lg,
+        padding: spacing.md,
+        gap: spacing.sm,
+        marginBottom: spacing.md,
+      }}
+    >
+      <Text style={[type.subhead, { color: colors.text }]}>{text}</Text>
+      {actions ? <View style={{ flexDirection: 'row', gap: spacing.sm }}>{actions}</View> : null}
+    </View>
+  );
 
   return (
     <Screen>
@@ -207,6 +248,42 @@ export function StudentFormScreen({
         keyboardType="phone-pad"
         maxLength={16}
       />
+      {sibling
+        ? familyNote(t('family.addingFor', { name: sibling.name }))
+        : chosen
+          ? familyNote(
+              t('family.willLink', { name: chosen.name }),
+              <Button
+                size="small"
+                variant="secondary"
+                title={t('family.undo')}
+                onPress={() => setLinkWith(null)}
+              />,
+            )
+          : suggestions.map((s) => (
+              <View key={s.id}>
+                {familyNote(
+                  t('family.hint', { name: s.name, level: levelOf(s) }),
+                  <>
+                    <Button
+                      size="small"
+                      title={t('family.yes')}
+                      onPress={() => {
+                        setLinkWith(s.id);
+                        if (!getValues('parentName').trim() && s.parentName)
+                          setValue('parentName', s.parentName);
+                      }}
+                    />
+                    <Button
+                      size="small"
+                      variant="secondary"
+                      title={t('family.no')}
+                      onPress={() => setNotSiblings((n) => [...n, s.id])}
+                    />
+                  </>,
+                )}
+              </View>
+            ))}
       <FormInput
         control={control}
         name="class"

@@ -10,6 +10,7 @@ import { toStat } from '../attendance/stats.js';
 import { studentExams } from '../exams/service.js';
 import { studentHomework } from '../homework/service.js';
 import { upcomingForStudent } from '../calendar/service.js';
+import { familyForParent } from '../students/family.js';
 
 export const DEFAULT_LINK_DAYS = 30;
 export const MAX_LINK_DAYS = 90;
@@ -96,12 +97,16 @@ type Mark = 'P' | 'A' | 'L';
  * their last 10 test results and homework, and the centre's holidays and events coming up.
  * Null for an unknown, expired or revoked link (all look the same from outside). Never includes phone numbers of
  * parents or students, notes, or anything about other students.
+ *
+ * A link also opens the brothers and sisters the owner linked to its child (decision 155): `child` picks one of them,
+ * and `family` lists them for the switch at the top. Any other child is the same null as a bad link.
  */
 export async function buildParentView(
   pool: Pool,
   token: unknown,
   now: Date,
   publicBase: string | undefined,
+  child?: string,
 ) {
   if (!looksLikeToken(token)) return null;
   const [links] = (await pool.query(
@@ -112,7 +117,10 @@ export async function buildParentView(
   ];
   const link = links[0];
   if (!link || link.revoked || link.expires_at.getTime() <= now.getTime()) return null;
-  const { institute_id: inst, student_id: sid } = link;
+  const inst = link.institute_id;
+  const family = await familyForParent(pool, inst, link.student_id);
+  const sid = child ?? link.student_id;
+  if (!family.some((f) => f.id === sid)) return null;
 
   const [[row]] = (await pool.query(
     'SELECT i.name, i.phone, i.logo_path, s.name AS student_name, s.class FROM institutes i JOIN students s ON s.institute_id = i.id WHERE i.id = ? AND s.id = ?',
@@ -186,6 +194,11 @@ export async function buildParentView(
   return {
     institute: { name: row.name, logoUrl: logoUrl(publicBase, row.logo_path), phone: row.phone },
     student: { name: row.student_name, className: row.class },
+    // only when there is someone to switch to; ids are good only together with this link
+    family:
+      family.length > 1
+        ? family.map((f) => ({ id: f.id, name: f.name, className: f.class, current: f.id === sid }))
+        : [],
     attendance: {
       pct: stat.pct,
       present: stat.present,

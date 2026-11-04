@@ -12,6 +12,7 @@ interface StudentRow {
   phone: string;
   parent_name: string;
   parent_phone: string;
+  family_id: string | null;
   class: string;
   dob: Date | string | null;
   gender: '' | 'male' | 'female' | 'other';
@@ -36,6 +37,8 @@ export const toStudent = (r: StudentRow, batchIds: string[]) => ({
   phone: r.phone,
   parentName: r.parent_name,
   parentPhone: r.parent_phone,
+  /** Linked brothers and sisters share it (decision 155); null when none are linked. */
+  familyId: r.family_id ?? null,
   class: r.class,
   dob: ymd(r.dob),
   gender: r.gender,
@@ -60,6 +63,7 @@ export const staffView = (s: ReturnType<typeof toStudent>): ReturnType<typeof to
   phone: '',
   parentName: '',
   parentPhone: '',
+  familyId: null,
   dob: '',
   gender: '',
   monthlyFee: 0,

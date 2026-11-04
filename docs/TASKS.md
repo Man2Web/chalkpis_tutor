@@ -45,3 +45,4 @@
 - [x] Homework (decision 152): set per batch with a due day, share to the group, tick who handed it in, note to parents, parent page; 6 server tests, 4 app tests
 - [x] Enquiries & admissions (decision 153): stages, follow-ups, notes, call / WhatsApp, admit as student, Home card, desktop pipeline board; 6 server tests, 4 app tests
 - [x] Timetable & calendar (decision 154): week and month views from the batches, clash check, holidays / exams / events / parent meetings, tests and homework due on the calendar, WhatsApp notice, parent page Coming up, desktop week board and month grid; 5 server tests, 10 app tests
+- [x] Brothers and sisters (decision 155): confirmed family link, same-number hint, Add a brother or sister, link existing, family fees due, one parent link with a switch; 7 server tests, 3 app tests

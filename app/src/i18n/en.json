@@ -1537,5 +1537,30 @@
     "statClashes": "Clashes",
     "statClashesSub": "same teacher, same time",
     "statNoClashes": "none, all clear"
+  },
+  "family": {
+    "title": "Brothers and sisters",
+    "footer": "One parent link shows all of them, and the parent can switch between children.",
+    "footerNone": "Link a brother or sister so their parent gets one link for all their children.",
+    "add": "Add a brother or sister",
+    "linkExisting": "Link a brother or sister already here",
+    "totalDue": "Family fees due",
+    "unlink": "Unlink {{name}} from the family",
+    "unlinkTitle": "Unlink {{name}}?",
+    "unlinkText": "{{name}} stays a student. They just won't share a parent link with their brothers and sisters any more.",
+    "unlinkConfirm": "Unlink",
+    "unlinked": "Unlinked from the family",
+    "linked": "Linked with {{name}}",
+    "pickTitle": "Who is {{name}}'s brother or sister?",
+    "search": "Search by name or class",
+    "noneFound": "No students found.",
+    "sameNumber": "same parent number",
+    "tooBig": "A family can have up to 10 children.",
+    "hint": "{{name}}{{level}} has this parent number. Is this a brother or sister?",
+    "yes": "Yes, link them",
+    "no": "No",
+    "willLink": "Will be linked with {{name}} as brother or sister. One parent link will show both.",
+    "undo": "Undo",
+    "addingFor": "Adding a brother or sister of {{name}}. The parent's details are filled in, and one parent link will show all of them."
   }
 }

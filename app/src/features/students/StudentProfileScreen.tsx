@@ -17,6 +17,7 @@ import {
 import { useBatches, usePendingStudentIds, useStudents } from '../../data/hooks';
 import { AttendanceSummary } from '../attendance/AttendanceSummary';
 import { ParentLinkCard } from '../parentView/ParentLinkCard';
+import { FamilySection } from './FamilySection';
 import { StudentExamsCard } from '../exams/StudentExamsCard';
 import { StudentHomeworkCard } from '../homework/StudentHomeworkCard';
 import { callUrl, open, whatsappUrl } from '../../lib/contact';
@@ -160,6 +161,8 @@ export function StudentProfileScreen({
           />
         ) : null}
       </Section>
+
+      <FamilySection student={s} />
 
       <Section title={t('students.fees')}>
         <Row

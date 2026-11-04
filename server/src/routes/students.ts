@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppDeps } from '../app.js';
 import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
-import { notFound } from '../errors.js';
+import { z } from 'zod';
+import { AppError, notFound as missing } from '../errors.js';
 import { idParam, parse } from '../lib/params.js';
 import { batchScope } from '../staff/service.js';
 import { bulkInput, listQuery, studentInput, studentPatch } from '../students/schema.js';
@@ -13,6 +14,10 @@ import {
   staffView,
   updateStudent,
 } from '../students/service.js';
+import { familyOf, linkInput, linkSiblings, unlinkSibling } from '../students/family.js';
+
+/** A new student can be added as a brother or sister of one already here (decision 155). */
+const siblingOf = z.object({ familyWith: z.string().uuid().optional() });
 
 type Deps = Pick<AppDeps, 'config' | 'pool'> & { clock?: () => Date };
 
@@ -33,20 +38,20 @@ export function studentRoutes(app: FastifyInstance, deps: Deps) {
   app.get('/students/:id', read, async (req) => {
     const s = await getStudent(deps.pool, inst(req), idParam((req.params as { id: string }).id));
     const scope = await batchScope(deps.pool, req.auth!);
-    if (scope && !s.batchIds.some((b) => scope.includes(b))) throw notFound();
+    if (scope && !s.batchIds.some((b) => scope.includes(b))) throw missing();
     return scope ? staffView(s) : s;
   });
 
   app.post('/students', write, async (req, reply) => {
-    const [id] = await createStudents(
-      deps.pool,
-      inst(req),
-      [parse(studentInput, req.body)],
-      now(),
-      {
-        welcome: true,
-      },
-    );
+    const input = parse(studentInput, req.body);
+    const { familyWith } = parse(siblingOf, req.body);
+    // checked first, so a mistyped brother or sister never leaves a half-done student behind
+    if (familyWith)
+      await getStudent(deps.pool, inst(req), familyWith).catch(() => {
+        throw new AppError(400, 'unknown_sibling');
+      });
+    const [id] = await createStudents(deps.pool, inst(req), [input], now(), { welcome: true });
+    if (familyWith) await linkSiblings(deps.pool, inst(req), id!, familyWith, now());
     return reply.code(201).send({ id });
   });
   // Import: all rows or none, so a half-imported list can never happen.
@@ -67,6 +72,24 @@ export function studentRoutes(app: FastifyInstance, deps: Deps) {
       parse(studentPatch, req.body),
       now(),
     );
+    return { ok: true };
+  });
+  // Brothers and sisters (decision 155): owner only, since it shows each child's fees.
+  app.get('/students/:id/family', write, async (req) =>
+    familyOf(deps.pool, inst(req), idParam((req.params as { id: string }).id), now()),
+  );
+  app.post('/students/:id/family', write, async (req) => {
+    const { studentId } = parse(linkInput, req.body);
+    return linkSiblings(
+      deps.pool,
+      inst(req),
+      idParam((req.params as { id: string }).id),
+      studentId,
+      now(),
+    );
+  });
+  app.delete('/students/:id/family', write, async (req) => {
+    await unlinkSibling(deps.pool, inst(req), idParam((req.params as { id: string }).id), now());
     return { ok: true };
   });
   app.post('/students/:id/deactivate', write, async (req) => {

@@ -1,4 +1,6 @@
+import { useQuery } from '@tanstack/react-query';
 import { api, uploadImage, type ApiOptions } from '../../api/client';
+import { useInstituteId } from '../../data/hooks';
 import { parseRupeesToPaise } from '../../lib/money';
 import { normalizeIndianPhone } from '../../lib/phone';
 import type { FeeCycle } from '../../lib/types';
@@ -24,13 +26,17 @@ function fields(form: StudentForm) {
   };
 }
 
-/** Creates a student in the given batches. The server keeps batch counts and the plan limit; the photo is optional. */
+/**
+ * Creates a student in the given batches. The server keeps batch counts and the plan limit; the photo is optional.
+ * `familyWith` adds them as a brother or sister of that student (decision 155).
+ */
 export async function createStudent(
   _instituteId: string,
   form: StudentForm,
   batchIds: string[],
   photoUri?: string,
   opts?: ApiOptions,
+  familyWith?: string,
 ): Promise<string> {
   const { id } = await api<{ id: string }>(
     'POST',
@@ -38,6 +44,7 @@ export async function createStudent(
     {
       ...fields(form),
       batchIds,
+      ...(familyWith ? { familyWith } : {}),
       ...(form.joinedOn
         ? { joinedAt: new Date(`${form.joinedOn}T00:00:00+05:30`).toISOString() }
         : {}),
@@ -139,3 +146,37 @@ export async function removeStudentFromBatch(
 ) {
   await api('DELETE', `/batches/${batchId}/students/${studentId}`);
 }
+
+export interface FamilyMember {
+  id: string;
+  name: string;
+  class: string;
+  status: 'active' | 'inactive';
+  photoUrl: string | null;
+  /** Unpaid and part-paid dues now, in paise. */
+  outstanding: number;
+  overdue: number;
+}
+
+/** A child's linked brothers and sisters (themself included) with what each owes; owner only. */
+export function useFamily(studentId: string, linked: boolean) {
+  const id = useInstituteId();
+  return useQuery({
+    queryKey: ['studentFamily', id, studentId],
+    enabled: linked,
+    queryFn: () =>
+      api<{
+        familyId: string | null;
+        members: FamilyMember[];
+        outstanding: number;
+        overdue: number;
+      }>('GET', `/students/${studentId}/family`),
+  });
+}
+
+/** Links two children as brothers or sisters; their families, if any, become one. */
+export const linkSibling = (studentId: string, otherId: string) =>
+  api('POST', `/students/${studentId}/family`, { studentId: otherId });
+
+/** Takes a child out of their family. */
+export const unlinkSibling = (studentId: string) => api('DELETE', `/students/${studentId}/family`);

@@ -49,6 +49,7 @@
       readOnly: 'This page is read-only.',
       contact: 'Questions? Call',
       classN: 'Class',
+      children: 'Your children',
       loading: 'Loading…',
       badTitle: 'This link is not valid',
       badText: 'It may have expired or been switched off. Please ask your tutor for a new link.',
@@ -100,6 +101,7 @@
       readOnly: 'यह पेज केवल पढ़ने के लिए है।',
       contact: 'प्रश्न? कॉल करें',
       classN: 'कक्षा',
+      children: 'आपके बच्चे',
       loading: 'लोड हो रहा है…',
       badTitle: 'यह लिंक सही नहीं है',
       badText:
@@ -402,6 +404,22 @@
     return f;
   }
 
+  // brothers and sisters the centre linked: one link, a tap to see each child
+  function familySwitch(list) {
+    var box = el('nav', 'family');
+    box.setAttribute('aria-label', t('children'));
+    list.forEach(function (c) {
+      var b = el('button', null, c.name);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', c.current ? 'true' : 'false');
+      b.addEventListener('click', function () {
+        if (!c.current) load(c.id);
+      });
+      box.appendChild(b);
+    });
+    return box;
+  }
+
   function draw() {
     var app = document.getElementById('app');
     while (app.firstChild) app.removeChild(app.firstChild);
@@ -419,6 +437,7 @@
       return;
     }
     app.appendChild(header(view.institute));
+    if (view.family && view.family.length > 1) app.appendChild(familySwitch(view.family));
     var who = card();
     who.appendChild(el('div', 'student', view.student.name));
     if (view.student.className)
@@ -443,27 +462,31 @@
     return;
   }
 
-  fetch('/api/parent', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: token }),
-    cache: 'no-store',
-    referrerPolicy: 'no-referrer',
-  })
-    .then(function (res) {
-      if (res.status === 404) {
-        failure = 'bad';
-        return null;
-      }
-      if (!res.ok) throw new Error('http');
-      return res.json();
+  function load(child) {
+    fetch('/api/parent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(child ? { token: token, child: child } : { token: token }),
+      cache: 'no-store',
+      referrerPolicy: 'no-referrer',
     })
-    .then(function (data) {
-      if (data) view = data;
-      draw();
-    })
-    .catch(function () {
-      failure = 'error';
-      draw();
-    });
+      .then(function (res) {
+        if (res.status === 404) {
+          failure = 'bad';
+          return null;
+        }
+        if (!res.ok) throw new Error('http');
+        return res.json();
+      })
+      .then(function (data) {
+        if (data) view = data;
+        draw();
+        if (child) window.scrollTo(0, 0);
+      })
+      .catch(function () {
+        failure = 'error';
+        draw();
+      });
+  }
+  load();
 })();

@@ -39,6 +39,8 @@ export interface Student {
   phone: string;
   parentName: string;
   parentPhone: string;
+  /** Linked brothers and sisters share it (decision 155). */
+  familyId?: string | null;
   class: string;
   photoUrl?: string | null;
   joinedAt: Timestamp;

@@ -186,6 +186,8 @@ export const ACTIVITY_TEXT: Record<string, string> = {
   'student.add': 'added a student',
   'student.import': 'imported students',
   'student.edit': 'edited {s}',
+  'student.family_link': 'linked {s} with a brother or sister',
+  'student.family_unlink': 'unlinked {s} from their brothers and sisters',
   'student.deactivate': 'marked {s} as left',
   'student.reactivate': 'brought back {s}',
   'student.photo': 'added a photo of {s}',

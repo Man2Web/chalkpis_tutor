@@ -77,6 +77,8 @@ export const RULES: Record<string, Rule> = {
     detail: (b) => (Array.isArray(b.students) ? `${b.students.length} students` : ''),
   },
   'PATCH /students/:id': { action: 'student.edit', subject: STUDENT },
+  'POST /students/:id/family': { action: 'student.family_link', subject: STUDENT },
+  'DELETE /students/:id/family': { action: 'student.family_unlink', subject: STUDENT },
   'POST /students/:id/deactivate': { action: 'student.deactivate', subject: STUDENT },
   'POST /students/:id/reactivate': { action: 'student.reactivate', subject: STUDENT },
   'PUT /students/:id/photo': { action: 'student.photo', subject: STUDENT },

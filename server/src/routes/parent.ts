@@ -25,7 +25,7 @@ const linkBody = z.object({
   /** Also send the link to the parent on WhatsApp right away. */
   sendWhatsApp: z.boolean().default(false),
 });
-const viewBody = z.object({ token: z.string().max(100) });
+const viewBody = z.object({ token: z.string().max(100), child: z.string().uuid().optional() });
 
 /** The parent page may load only its own script and style, talk only to this server, and show https pictures. */
 const PAGE_CSP =
@@ -88,7 +88,13 @@ export function parentRoutes(app: FastifyInstance, deps: Deps) {
       reply.header('Cache-Control', 'no-store').header('Referrer-Policy', 'no-referrer');
       const body = viewBody.safeParse(req.body);
       const view = body.success
-        ? await buildParentView(pool, body.data.token, now(), config.PUBLIC_BASE_URL)
+        ? await buildParentView(
+            pool,
+            body.data.token,
+            now(),
+            config.PUBLIC_BASE_URL,
+            body.data.child,
+          )
         : null;
       if (!view) return reply.code(404).send({ error: 'not_found' });
       return view;
