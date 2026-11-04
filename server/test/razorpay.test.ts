@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { parsePayToken, payToken } from '../src/billing/payLink.js';
+import { offersPayLink, parsePayToken, payToken } from '../src/billing/payLink.js';
 import { PLANS } from '../src/billing/plans.js';
 import {
   RazorpayProvider,
@@ -299,5 +299,93 @@ describe('Razorpay plan purchases', () => {
     const r = await admin.call('GET', `/admin/api/institutes/${t.instituteId}`);
     expect(r.status).toBe(200);
     expect(r.body.payUrl).toBe(`https://tutor.chalkpis.com${payPage(t)}`);
+  });
+
+  // decision 157: the link is for centres still to pay; a paying centre shows its plan instead
+  const endPlan = (t: Tenant) =>
+    h.db.pool.query('UPDATE subscriptions SET expires_at = ? WHERE institute_id = ?', [
+      new Date(h.clock.now.getTime() - 60_000),
+      t.instituteId,
+    ]);
+
+  it('the pay link stays through the trial, goes once the centre pays, and comes back when the plan ends', async () => {
+    const t = await h.tenant('+919800000001');
+    const admin = await h.admin();
+    const detail = async () =>
+      (await admin.call('GET', `/admin/api/institutes/${t.instituteId}`)).body;
+    const link = `https://tutor.chalkpis.com${payPage(t)}`;
+
+    // on the free trial, and still after the trial ran out unpaid
+    expect((await detail()).institute).toMatchObject({ plan: 'trial', planActive: true });
+    expect((await detail()).payUrl).toBe(link);
+    await endPlan(t);
+    expect((await detail()).institute).toMatchObject({ plan: 'trial', planActive: false });
+    expect((await detail()).payUrl).toBe(link);
+
+    // the owner pays on that link: no link any more, and the plan is there to show
+    await post(payPage(t), 'plan=standard');
+    const orderId = fake.created[0]!.referenceId;
+    paid(orderId);
+    await h.app.inject({ method: 'GET', url: `/billing/return?order=${orderId}` });
+    const after = await detail();
+    expect(after.payUrl).toBeNull();
+    expect(after.institute).toMatchObject({ plan: 'standard', planActive: true, cycle: 'year' });
+    expect(Date.parse(after.institute.expiresAt)).toBeGreaterThan(h.clock.now.getTime());
+    expect(after.billing[0]).toMatchObject({ provider: 'razorpay', plan: 'standard' });
+
+    // the paid plan runs out without renewing: read-only again, so the link is back to send
+    await endPlan(t);
+    expect((await detail()).payUrl).toBe(link);
+  });
+
+  it('no pay link for a plan recorded by an admin, or while auto-renew is approved during the trial', async () => {
+    const admin = await h.admin();
+    const payUrlOf = async (t: Tenant) =>
+      (await admin.call('GET', `/admin/api/institutes/${t.instituteId}`)).body.payUrl;
+
+    // paid by UPI and recorded in the dashboard
+    const upi = await h.tenant('+919800000001');
+    const rec = await admin.call('POST', `/admin/api/institutes/${upi.instituteId}/plan-payments`, {
+      planId: 'standard',
+      amountPaise: 199900,
+      method: 'upi',
+      apply: true,
+    });
+    expect(rec.status).toBe(201);
+    expect(await payUrlOf(upi)).toBeNull();
+
+    // still on the trial, but auto-renew approved on the website: the plan starts by itself when the trial ends
+    const auto = await h.tenant('+919800000002');
+    await h.db.pool.query(
+      `INSERT INTO web_subscriptions (id, institute_id, plan_id, cycle, amount, rp_plan_id, status, start_at)
+       VALUES ('sub_157', ?, 'standard', 'year', ?, 'plan_std_year', 'authenticated', ?)`,
+      [auto.instituteId, PLANS.standard.prices.year, new Date(h.clock.now.getTime() + 14 * 86_400_000)],
+    );
+    const d = (await admin.call('GET', `/admin/api/institutes/${auto.instituteId}`)).body;
+    expect(d.institute).toMatchObject({
+      plan: 'trial',
+      webAutoRenew: { status: 'authenticated', plan: 'standard', cycle: 'year' },
+    });
+    expect(d.payUrl).toBeNull();
+    // the owner stops it before it ever charges: the link is back
+    await h.db.pool.query("UPDATE web_subscriptions SET cancel_at_cycle_end = 1 WHERE id = 'sub_157'");
+    expect(await payUrlOf(auto)).toBe(`https://tutor.chalkpis.com${payPage(auto)}`);
+  });
+});
+
+describe('offersPayLink', () => {
+  const base = { plan: 'trial', planActive: true, store: null, webAutoRenew: null };
+  it('offers the link on a trial, running or ended, and on an ended paid plan', () => {
+    expect(offersPayLink(base)).toBe(true);
+    expect(offersPayLink({ ...base, planActive: false })).toBe(true);
+    expect(offersPayLink({ ...base, plan: 'pro', planActive: false })).toBe(true);
+    expect(offersPayLink({ ...base, plan: null, planActive: false })).toBe(true);
+  });
+  it('not while a paid plan runs, or while it renews through the store or the website', () => {
+    expect(offersPayLink({ ...base, plan: 'starter' })).toBe(false);
+    expect(offersPayLink({ ...base, plan: 'pro', planActive: false, store: { willRenew: true } })).toBe(false);
+    expect(offersPayLink({ ...base, webAutoRenew: { status: 'authenticated' } })).toBe(false);
+    // a store subscription the owner cancelled, once it has run out
+    expect(offersPayLink({ ...base, plan: 'pro', planActive: false, store: { willRenew: false } })).toBe(true);
   });
 });

@@ -824,6 +824,65 @@ export function PayLinkCard({ url, centre, ownerName, ownerPhone }: { url: strin
   );
 }
 
+// ---------- the centre's plan, in place of the payment link once it has paid ----------
+
+type LastPayment = { amount: number; provider: string; method: string | null; at: string };
+
+/**
+ * What the centre pays for, shown instead of the payment link once a plan is paid (decision 157): the plan, monthly or
+ * yearly, until when, and whether it renews by itself. A trial with auto-renew approved on the website shows the plan
+ * that starts when the trial ends. The payment link comes back if the plan ends without renewing.
+ */
+export function PlanDetailsCard({ c, last }: { c: CentreBilling; last?: LastPayment | null }) {
+  const web = c.webAutoRenew ?? null;
+  const store = c.store ?? null;
+  const upcoming = c.plan === 'trial' && !!web;
+  const plan = upcoming ? web!.plan : c.plan;
+  const cycle = upcoming ? web!.cycle : c.cycle;
+  const renews = !!store?.willRenew || !!web;
+  const renewal = store?.willRenew ? (
+    <Pill tone={store.issue ? 'orange' : 'green'}>On · {STORE_NAME[store.name] ?? store.name}</Pill>
+  ) : web ? (
+    <Pill tone={web.status === 'pending' ? 'orange' : 'green'}>
+      {web.status === 'pending' ? 'On · retrying a failed payment' : 'On · website'}
+    </Pill>
+  ) : (
+    <Pill tone="neutral">Off</Pill>
+  );
+  const rows: [string, ReactNode][] = [
+    ['Plan', planName(plan)],
+    ['Billed', cycleName(cycle) || '—'],
+    upcoming
+      ? ['Starts on', dateOnly(web!.nextChargeAt ?? c.expiresAt)]
+      : [renews ? 'Renews on' : 'Valid until', c.expiresAt ? dateOnly(c.expiresAt) : '—'],
+    ['Auto-renew', renewal],
+  ];
+  if (web?.nextChargeAt) rows.push(['Next payment', `${money(web.amount)} on ${dateOnly(web.nextChargeAt)}`]);
+  if (last) rows.push(['Last payment', `${money(last.amount)} · ${paidVia(last.provider, last.method)} · ${dateOnly(last.at)}`]);
+  return (
+    <Card className="min-w-0">
+      <CardHeader>
+        <CardTitle>Plan</CardTitle>
+        <CardDescription>
+          {upcoming
+            ? 'Auto-renew is approved: the plan starts by itself when the trial ends, so there is no payment link to send.'
+            : 'Paid, so there is no payment link to send. It comes back here if the plan ends without renewing.'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5 text-sm">
+          {rows.map(([k, v]) => (
+            <div key={k} className="contents">
+              <dt className="text-muted-foreground">{k}</dt>
+              <dd className="min-w-0 text-right">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ---------- the billing summary at the top of Subscriptions and Payments ----------
 
 export type BillingSummary = {

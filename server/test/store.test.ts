@@ -460,6 +460,13 @@ describe('reading RevenueCat', () => {
 
 describe('investor numbers', () => {
   it('conversion by sign-up month, last month churn, revenue by source', async () => {
+    // a centre's sign-up time comes from the database's own clock; put both on the test's day, or the month they
+    // count under is whatever month the tests happen to run in
+    await h.db.pool.query('UPDATE institutes SET created_at = ? WHERE id IN (?, ?)', [
+      h.clock.now,
+      A.instituteId,
+      B.instituteId,
+    ]);
     const o = await A.call('POST', '/billing/links', { planId: 'standard', cycle: 'year' });
     await A.call('POST', '/billing/mock/complete', { orderId: o.body.orderId });
     // B paid for August to September and did not renew

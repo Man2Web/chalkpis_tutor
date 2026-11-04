@@ -42,7 +42,7 @@ import {
 } from '../admin/service.js';
 import { analytics, getInstitute, listInstitutes } from '../admin/analytics.js';
 import { billingOverview, billingQuery } from '../admin/billing.js';
-import { payUrl } from '../billing/payLink.js';
+import { offersPayLink, payUrl } from '../billing/payLink.js';
 import {
   messagesMonitor,
   messagesQuery,
@@ -250,11 +250,17 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
   app.get('/admin/api/institutes', guard, async (req) => ({
     institutes: await listInstitutes(pool, parse(instQuery, req.query), now()),
   }));
-  app.get('/admin/api/institutes/:id', guard, async (req) => ({
-    ...(await getInstitute(pool, id(req), now())),
-    // the centre's own pay page, to send to its owner on WhatsApp (see routes/pay.ts)
-    payUrl: payUrl(config.PUBLIC_BASE_URL, config.JWT_SECRET, id(req)),
-  }));
+  app.get('/admin/api/institutes/:id', guard, async (req) => {
+    const detail = await getInstitute(pool, id(req), now());
+    return {
+      ...detail,
+      // the centre's own pay page, to send to its owner on WhatsApp (see routes/pay.ts); null once it has paid for a
+      // plan, until that plan ends (decision 157)
+      payUrl: offersPayLink(detail.institute)
+        ? payUrl(config.PUBLIC_BASE_URL, config.JWT_SECRET, id(req))
+        : null,
+    };
+  });
   app.get('/admin/api/billing', guard, async (req) =>
     billingOverview(pool, parse(billingQuery, req.query), now()),
   );

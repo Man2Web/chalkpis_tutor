@@ -5,7 +5,7 @@ import { Bars, C, Donut } from '@/components/app/charts';
 import { confirmDialog } from '@/components/app/dialogs';
 import { DayFeed, type Ev } from '@/components/app/events';
 import { Pill } from '@/components/app/pill';
-import { PayLinkCard, PaymentsTable, StatusBadge, SubscriptionCard } from '@/components/app/billing';
+import { PayLinkCard, PaymentsTable, PlanDetailsCard, StatusBadge, SubscriptionCard } from '@/components/app/billing';
 import { planName, subscriptionState } from '@/lib/plans';
 import { Tag } from '@/components/app/tags';
 import { toast } from '@/components/app/toast';
@@ -57,7 +57,8 @@ type Detail = {
     validUntil: string | null;
     at: string;
   }[];
-  payUrl: string;
+  /** The centre's pay page; null while it is on a paid plan (decision 157). */
+  payUrl: string | null;
 };
 
 const digits = (p: string) => p.replace(/\D/g, '');
@@ -334,7 +335,11 @@ export function Centre({ id, tab: initialTab, onName }: { id: string; tab?: stri
               </CardContent>
             </Card>
           </div>
-          <PayLinkCard url={new URL(data.payUrl, location.origin).href} centre={c.name} ownerName={owner?.name ?? null} ownerPhone={owner?.phone ?? null} />
+          {data.payUrl ? (
+            <PayLinkCard url={new URL(data.payUrl, location.origin).href} centre={c.name} ownerName={owner?.name ?? null} ownerPhone={owner?.phone ?? null} />
+          ) : (
+            <PlanDetailsCard c={c} last={data.billing[0] ?? null} />
+          )}
         </TabsContent>
       </Tabs>
     </div>

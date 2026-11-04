@@ -33,6 +33,21 @@ export const parsePayToken = (secret: string, token: string) => readId(secret, '
 export const payUrl = (baseUrl: string | undefined, secret: string, instituteId: string) =>
   `${(baseUrl ?? '').replace(/\/$/, '')}/pay/${payToken(secret, instituteId)}`;
 
+/**
+ * Whether the admin dashboard still offers a centre its pay page link (decision 157): while it is on its free trial
+ * (running or ended) and again once a paid plan has ended. Not while a paid plan runs, and not while auto-renew through
+ * the store or the website is on, since the pay page refuses a second payment then; the dashboard shows the plan instead.
+ */
+export function offersPayLink(i: {
+  plan: string | null;
+  planActive: boolean;
+  store: { willRenew: boolean } | null;
+  webAutoRenew: unknown;
+}): boolean {
+  if (i.planActive && !!i.plan && i.plan !== 'trial') return false;
+  return !i.store?.willRenew && !i.webAutoRenew;
+}
+
 /** The page where a parent says they have paid a student's fees. */
 export const paidUrl = (baseUrl: string | undefined, secret: string, studentId: string) =>
   `${(baseUrl ?? '').replace(/\/$/, '')}/f/${signId(secret, 'paid', studentId)}`;
