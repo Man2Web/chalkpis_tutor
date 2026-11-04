@@ -61,7 +61,7 @@ export function ProfileScreen({
         }
       }
       await refreshProfile();
-      navigation.navigate('Batch');
+      navigation.navigate('Details');
     } catch (e) {
       idem.settle(e);
       reportError(e);

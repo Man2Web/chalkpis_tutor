@@ -198,6 +198,15 @@ export function EditProfileScreen({
         />
       )}
       <Button title={t('common.save')} onPress={save} loading={busy} />
+      {profile?.role === 'owner' ? (
+        // email, city, state, PIN code and how they heard about Chalkpis (decision 156)
+        <Button
+          variant="outline"
+          title={t('ownerDetails.editTitle')}
+          onPress={() => navigation.navigate('OwnerDetails', { from: 'profile' })}
+          style={{ marginTop: spacing.md }}
+        />
+      ) : null}
     </Screen>
   );
 }

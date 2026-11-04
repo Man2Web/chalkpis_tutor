@@ -9,16 +9,31 @@ export type Analytics = {
   conversion: number;
   plans: { plan: string; active: number; ended: number }[];
   revenueByMonth: { month: string; amount: number }[];
+  /** How owners heard about Chalkpis (decision 156): every centre, and those that joined in this window. */
+  heardFrom?: { key: string; count: number; inWindow: number }[];
+  topCities?: { city: string; state: string; count: number }[];
   signInMethods: Record<string, number>;
   signInPlatforms: Record<string, number>;
   topCentres: { id: string; name: string; events: number; lastAt: string }[];
   quietCentres: { id: string; name: string; lastAt: string }[];
+};
+export type OwnerDetails = {
+  email: string;
+  city: string;
+  state: string;
+  pincode: string;
+  heardFrom: string;
+  heardFromOther: string;
+  at: string;
 };
 export type CentreRow = {
   id: string;
   name: string;
   category: string;
   createdAt: string;
+  signupChannel?: 'app' | 'web' | null;
+  /** The owner's basic details (decision 156); null until they fill them in. */
+  details?: OwnerDetails | null;
   owner: { id: string; name: string | null; phone: string | null } | null;
   plan: string | null;
   planActive: boolean;

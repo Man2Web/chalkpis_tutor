@@ -24,3 +24,22 @@ export async function setFlag(name: string): Promise<void> {
     /* not remembered: shown again next time, which is harmless */
   }
 }
+
+/** A small saved value (a date as a number, for example); null when not set or unreadable. */
+export async function readText(name: string): Promise<string | null> {
+  try {
+    if (Platform.OS === 'web') return globalThis.localStorage?.getItem(key(name)) ?? null;
+    return await SecureStore.getItemAsync(key(name));
+  } catch {
+    return null;
+  }
+}
+
+export async function writeText(name: string, value: string): Promise<void> {
+  try {
+    if (Platform.OS === 'web') globalThis.localStorage?.setItem(key(name), value);
+    else await SecureStore.setItemAsync(key(name), value);
+  } catch {
+    /* not remembered: at worst asked again sooner */
+  }
+}

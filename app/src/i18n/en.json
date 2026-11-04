@@ -30,7 +30,12 @@
     "tooLong": "This is too long",
     "category": "Pick what you teach",
     "marks": "Enter a number, like 50 or 42.5",
-    "percent": "Enter a number from 0 to 100"
+    "percent": "Enter a number from 0 to 100",
+    "email": "Enter a valid email address",
+    "state": "Choose your state",
+    "pincode": "Enter your 6-digit PIN code",
+    "heardFrom": "Pick one",
+    "heardFromOther": "Tell us where"
   },
   "language": {
     "title": "Choose your language",
@@ -99,6 +104,38 @@
     "added": "{{count}} added",
     "finish": "Finish",
     "setupError": "Could not set up your institute."
+  },
+  "ownerDetails": {
+    "title": "A few details about you",
+    "subtitle": "So we can reach you about your account and help you better. We never share them.",
+    "promptTitle": "Complete your details",
+    "promptText": "We now ask every centre for a contact email and where it is. It takes 30 seconds.",
+    "email": "Email",
+    "emailHint": "For your Chalkpis plan receipts and important updates.",
+    "city": "City or town",
+    "state": "State",
+    "statePlaceholder": "Choose your state",
+    "stateSearch": "Search states",
+    "pincode": "PIN code",
+    "heardFrom": "How did you hear about Chalkpis?",
+    "heard": {
+      "instagram": "Instagram / Facebook",
+      "youtube": "YouTube",
+      "google": "Google search",
+      "store": "Play Store / App Store",
+      "whatsapp": "WhatsApp",
+      "friend": "A friend or teacher",
+      "team": "Someone from Chalkpis",
+      "other": "Other"
+    },
+    "heardFromOther": "Where did you hear about us?",
+    "heardFromOtherHint": "A newspaper, a poster…",
+    "later": "Later",
+    "saved": "Thank you! Your details are saved.",
+    "editTitle": "Email and location",
+    "cardTitle": "Complete your details",
+    "cardText": "Add your email, city and PIN code, and tell us how you found Chalkpis. It takes 30 seconds.",
+    "cardAction": "Add details"
   },
   "categories": {
     "question": "What do you teach?",

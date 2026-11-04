@@ -8,6 +8,8 @@ export type AuthStackParams = {
 
 export type OnboardingStackParams = {
   Profile: undefined;
+  /** The owner's email, city, state, PIN code and how they heard about Chalkpis (decision 156). */
+  Details: undefined;
   Batch: undefined;
   Students: { batchId: string; defaultFee: string };
 };
@@ -49,6 +51,8 @@ export type MainStackParams = {
   Reports: undefined;
   Settings: undefined;
   EditProfile: undefined;
+  /** The owner's basic details (decision 156). `prompt`: the request an older centre gets on opening the app. */
+  OwnerDetails: { from: 'prompt' | 'card' | 'profile' } | undefined;
   /** Adds a mobile number to an older account that has none. */
   AddPhone: undefined;
   PaymentSettings: undefined;

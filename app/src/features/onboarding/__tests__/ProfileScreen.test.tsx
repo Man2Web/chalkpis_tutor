@@ -69,5 +69,5 @@ it('sets up the centre with what it teaches', async () => {
       expect.anything(),
     ),
   );
-  await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('Batch'));
+  await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('Details'));
 });

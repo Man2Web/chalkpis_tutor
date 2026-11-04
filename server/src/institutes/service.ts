@@ -2,6 +2,7 @@ import { withTransaction, type Pool } from '../db.js';
 import { newId } from '../lib/ids.js';
 import { queueCentreWelcome } from '../messaging/centreMessages.js';
 import type { Category } from './category.js';
+import type { OwnerDetails } from './details.js';
 
 export const TRIAL_DAYS = 7;
 
@@ -11,6 +12,8 @@ export interface CreateInstituteInput {
   /** What the centre teaches; tuition when not given. */
   category?: Category;
   language: 'en' | 'hi';
+  /** The owner's basic details, when the sign-up form asked for them (the website does; the app asks next). */
+  details?: OwnerDetails;
 }
 
 /** A centre set up on the website rather than in the app (decision 147). */
@@ -51,10 +54,12 @@ export async function createInstitute(
       input.language,
       userId,
     ]);
+    const d = input.details;
     await c.query(
       `INSERT INTO institutes (id, name, category, owner_user_id, phone, signup_channel, signup_phone, signup_source,
-         trial_on_first_app_use, first_app_sign_in_at)
-       SELECT ?, ?, ?, id, COALESCE(phone, ''), ?, ?, ?, ?, ? FROM users WHERE id = ?`,
+         trial_on_first_app_use, first_app_sign_in_at, contact_email, city, state, pincode, heard_from, heard_from_other,
+         details_at)
+       SELECT ?, ?, ?, id, COALESCE(phone, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM users WHERE id = ?`,
       [
         instituteId,
         input.instituteName,
@@ -65,6 +70,13 @@ export async function createInstitute(
         web?.trialOnFirstAppUse ? 1 : 0,
         // set up in the app: that was the first sign-in there
         web ? null : now,
+        d?.email ?? null,
+        d?.city ?? null,
+        d?.state ?? null,
+        d?.pincode ?? null,
+        d?.heardFrom ?? null,
+        d?.heardFrom === 'other' ? d.heardFromOther : null,
+        d ? now : null,
         userId,
       ],
     );

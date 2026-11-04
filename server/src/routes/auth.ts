@@ -32,8 +32,9 @@ async function isBlocked(pool: Deps['pool'], userId: string) {
 /** The profile the app needs right after login. Never includes anything about other users. */
 async function profile(deps: Deps, userId: string) {
   const [rows] = (await deps.pool.query(
-    `SELECT u.id, u.phone, u.name, u.language, m.institute_id, m.role, m.onboarding_done
-       FROM users u LEFT JOIN memberships m ON m.user_id = u.id WHERE u.id = ?`,
+    `SELECT u.id, u.phone, u.name, u.language, m.institute_id, m.role, m.onboarding_done, i.details_at
+       FROM users u LEFT JOIN memberships m ON m.user_id = u.id LEFT JOIN institutes i ON i.id = m.institute_id
+      WHERE u.id = ?`,
     [userId],
   )) as unknown as [
     {
@@ -44,6 +45,7 @@ async function profile(deps: Deps, userId: string) {
       institute_id: string | null;
       role: string | null;
       onboarding_done: number | null;
+      details_at: Date | null;
     }[],
   ];
   const r = rows[0];
@@ -52,7 +54,13 @@ async function profile(deps: Deps, userId: string) {
     user: { id: r.id, phone: r.phone, name: r.name, language: r.language },
     isAdmin: !!r.phone && deps.config.ADMIN_PHONES.includes(r.phone),
     membership: r.institute_id
-      ? { instituteId: r.institute_id, role: r.role, onboardingDone: !!r.onboarding_done }
+      ? {
+          instituteId: r.institute_id,
+          role: r.role,
+          onboardingDone: !!r.onboarding_done,
+          // the owner's basic details are in (decision 156); a helper is never asked
+          detailsDone: r.role !== 'owner' || !!r.details_at,
+        }
       : null,
   };
 }

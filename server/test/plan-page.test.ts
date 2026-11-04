@@ -6,6 +6,14 @@ import type { BillingProvider, LinkRequest, OrderStatus } from '../src/billing/p
 import { startHarness, type Harness } from './helpers.js';
 
 const SECRET = 'test-jwt-secret-test-jwt-secret-1234';
+/** The owner's basic details the sign-up form asks for (decision 156). */
+const DETAILS = {
+  email: 'Meena@Example.com',
+  city: 'Vellore',
+  state: 'Tamil Nadu',
+  pincode: '632001',
+  heardFrom: 'instagram',
+};
 
 class FakeGateway implements BillingProvider {
   name = 'razorpay' as const;
@@ -126,24 +134,31 @@ describe('billing page (/plan)', () => {
     expect(missing.body).toContain('the phone you will use');
     expect(missing.body).toContain('value="Meena Dance School"'); // what was typed stays
 
-    const done = await form(
-      '/plan/setup',
-      {
-        tutorName: 'Meena',
-        instituteName: 'Meena Dance School',
-        category: 'dance',
-        phone: 'android',
-        next: 'start',
-        src,
-      },
-      { cookie },
-    );
+    const base = {
+      tutorName: 'Meena',
+      instituteName: 'Meena Dance School',
+      category: 'dance',
+      phone: 'android',
+      next: 'start',
+      src,
+    };
+    // the basic details are asked too, each with its own message, and what was typed stays
+    const noPin = await form('/plan/setup', { ...base, ...DETAILS, pincode: '63200' }, { cookie });
+    expect(noPin.statusCode).toBe(400);
+    expect(noPin.body).toContain('Enter your 6-digit PIN code.');
+    expect(noPin.body).toContain('value="Vellore"');
+    expect(noPin.body).toContain('<option selected>Tamil Nadu</option>');
+    const other = await form('/plan/setup', { ...base, ...DETAILS, heardFrom: 'other' }, { cookie });
+    expect(other.body).toContain('Tell us where you heard about Chalkpis.');
+
+    const done = await form('/plan/setup', { ...base, ...DETAILS }, { cookie });
     expect(done.statusCode).toBe(303);
     expect(done.headers.location).toBe('https://chalkpis.com/welcome?os=android');
 
     const [[row]] = (await h.db.pool.query(
       `SELECT i.name, i.category, i.signup_channel, i.signup_phone, i.signup_source, i.trial_on_first_app_use,
-              i.first_app_sign_in_at, s.plan, s.expires_at
+              i.first_app_sign_in_at, s.plan, s.expires_at, i.contact_email, i.city, i.state, i.pincode, i.heard_from,
+              i.details_at
          FROM institutes i JOIN users u ON u.id = i.owner_user_id JOIN subscriptions s ON s.institute_id = i.id
         WHERE u.phone = ?`,
       ['+919811111111'],
@@ -157,7 +172,13 @@ describe('billing page (/plan)', () => {
       trial_on_first_app_use: 0,
       first_app_sign_in_at: null,
       plan: 'trial',
+      contact_email: 'meena@example.com',
+      city: 'Vellore',
+      state: 'Tamil Nadu',
+      pincode: '632001',
+      heard_from: 'instagram',
     });
+    expect(row.details_at).toBeInstanceOf(Date); // so the app does not ask again
     expect((row.expires_at as Date).getTime()).toBe(h.clock.now.getTime() + 7 * 86_400_000);
 
     const plan = await get('/plan', cookie);
@@ -176,7 +197,13 @@ describe('billing page (/plan)', () => {
     const cookie = String(v.headers['set-cookie']).split(';')[0]!;
     const done = await form(
       '/plan/setup',
-      { tutorName: 'Arun', instituteName: 'Arun Karate', category: 'karate', phone: 'ios' },
+      {
+        tutorName: 'Arun',
+        instituteName: 'Arun Karate',
+        category: 'karate',
+        phone: 'ios',
+        ...DETAILS,
+      },
       { cookie },
     );
     expect(done.headers.location).toBe('/plan?welcome=1'); // came to pay: stays here

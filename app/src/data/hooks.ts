@@ -297,6 +297,15 @@ export interface Institute {
   receiptPrefix: string;
   /** When the centre was set up (ISO); only new centres get the welcome tour. */
   createdAt?: string;
+  /** The owner's basic details (decision 156); null until filled in. */
+  details?: {
+    email: string;
+    city: string;
+    state: string;
+    pincode: string;
+    heardFrom: string;
+    heardFromOther: string;
+  } | null;
 }
 
 export function useInstitute() {
@@ -315,6 +324,7 @@ export function useInstitute() {
         paymentLink: d.paymentLink,
         receiptPrefix: d.receiptPrefix,
         createdAt: d.createdAt,
+        details: d.details ?? null,
       };
     },
   });

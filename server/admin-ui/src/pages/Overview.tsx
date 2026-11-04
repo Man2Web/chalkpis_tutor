@@ -12,6 +12,7 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ago, dlong, money, num, plural } from '@/lib/format';
 import { go, useApi } from '@/lib/hooks';
+import { HEARD } from '@/lib/names';
 import { cn } from '@/lib/utils';
 import type { Analytics, CentreRow } from './types';
 
@@ -240,6 +241,29 @@ export function Overview() {
           </CardHeader>
           <CardContent>
             {Object.keys(a.signInPlatforms).length ? <Donut parts={parts(a.signInPlatforms, DEVICE_NAMES)} center="sign-ins" /> : <Empty text="No sign-ins yet." />}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>How they heard about us</CardTitle>
+            <CardDescription>Every centre · asked at sign-up</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {a.heardFrom?.length ? (
+              <>
+                <Donut
+                  parts={a.heardFrom.map((h) => ({ name: HEARD[h.key]?.[0] ?? h.key, value: h.count, color: HEARD[h.key]?.[1] ?? 'var(--muted-foreground)' }))}
+                  center="centres"
+                />
+                {a.topCities?.length ? (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Top cities: {a.topCities.slice(0, 5).map((c) => `${c.city} (${c.count})`).join(' · ')}
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <Empty text="No answers yet." />
+            )}
           </CardContent>
         </Card>
         <Card>

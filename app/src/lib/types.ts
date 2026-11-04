@@ -11,6 +11,8 @@ export interface UserProfile {
   instituteId?: string;
   role: 'owner' | 'staff';
   onboardingDone?: boolean;
+  /** The owner's basic details are in (decision 156). Always true for a helper, and when an older server does not say. */
+  detailsDone?: boolean;
 }
 
 export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';

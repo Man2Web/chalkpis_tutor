@@ -7,6 +7,12 @@ import { logoUrl } from './files.js';
 import { activeCount } from '../institutes/limits.js';
 import { CATEGORIES } from '../institutes/category.js';
 import { createInstitute, isPlanActive } from '../institutes/service.js';
+import {
+  ownerDetailsBody,
+  saveOwnerDetails,
+  toOwnerDetails,
+  type DetailsRow,
+} from '../institutes/details.js';
 
 const createBody = z.object({
   tutorName: z.string().trim().min(2).max(80),
@@ -64,10 +70,12 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
   // The institute is always the caller's own, taken from their membership; there is no id in the URL to tamper with.
   app.get('/institute', { preHandler: [auth, requireInstitute] }, async (req) => {
     const [rows] = (await deps.pool.query(
-      'SELECT name, category, address, phone, upi_id, payment_link, receipt_prefix, timezone, currency, logo_path, created_at FROM institutes WHERE id = ?',
+      `SELECT name, category, address, phone, upi_id, payment_link, receipt_prefix, timezone, currency, logo_path, created_at,
+              contact_email, city, state, pincode, heard_from, heard_from_other, details_at
+         FROM institutes WHERE id = ?`,
       [req.auth!.instituteId],
     )) as unknown as [
-      {
+      (DetailsRow & {
         name: string;
         category: string;
         address: string;
@@ -79,7 +87,7 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
         currency: string;
         logo_path: string | null;
         created_at: Date;
-      }[],
+      })[],
     ];
     const r = rows[0]!;
     return {
@@ -94,7 +102,23 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
       currency: r.currency,
       logoUrl: logoUrl(deps.config.PUBLIC_BASE_URL, r.logo_path),
       createdAt: r.created_at.toISOString(),
+      // the owner's basic details (decision 156); null until filled in
+      details: toOwnerDetails(r),
     };
+  });
+
+  // The owner's basic details: email, city, state, PIN code, how they heard about Chalkpis (decision 156). Always
+  // allowed, even when the plan has ended: the app asks for them, and an owner must be able to answer.
+  app.put('/institute/details', { preHandler: [auth, requireOwner] }, async (req, reply) => {
+    const body = ownerDetailsBody.safeParse(req.body);
+    if (!body.success) {
+      const field = body.error.issues[0]?.path[0];
+      return reply
+        .code(400)
+        .send({ error: 'bad_request', ...(typeof field === 'string' ? { field } : {}) });
+    }
+    await saveOwnerDetails(deps.pool, req.auth!.instituteId!, body.data, now());
+    return { ok: true };
   });
 
   app.patch('/institute', { preHandler: [auth, requireOwner] }, async (req, reply) => {

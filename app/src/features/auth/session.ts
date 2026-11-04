@@ -35,7 +35,13 @@ export interface MeResponse {
     name: string;
     language: 'en' | 'hi';
   };
-  membership: { instituteId: string; role: 'owner' | 'staff'; onboardingDone: boolean } | null;
+  membership: {
+    instituteId: string;
+    role: 'owner' | 'staff';
+    onboardingDone: boolean;
+    /** the owner's basic details are in (decision 156); missing from older servers */
+    detailsDone?: boolean;
+  } | null;
 }
 
 /** Puts the signed-in person into the app state; which part of the app shows follows from it. */
@@ -46,7 +52,11 @@ export function applyMe(me: MeResponse) {
     language: me.user.language,
     role: me.membership?.role ?? 'owner',
     ...(me.membership
-      ? { instituteId: me.membership.instituteId, onboardingDone: me.membership.onboardingDone }
+      ? {
+          instituteId: me.membership.instituteId,
+          onboardingDone: me.membership.onboardingDone,
+          detailsDone: me.membership.detailsDone ?? true,
+        }
       : {}),
   };
   useSession

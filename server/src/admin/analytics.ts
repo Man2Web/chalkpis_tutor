@@ -1,6 +1,7 @@
 import type { Pool } from '../db.js';
 import { notFound } from '../errors.js';
 import { tagsFor } from './crm.js';
+import { toOwnerDetails, type DetailsRow } from '../institutes/details.js';
 
 const DAY = 86_400_000;
 /** Calendar day in India for a UTC column. */
@@ -131,7 +132,26 @@ export async function analytics(pool: Pool, days: number, now: Date) {
     [twoWeeksAgo, twoWeeksAgo, twoWeeksAgo, weekAgo],
   )) as unknown as [{ id: string; name: string; last_at: Date }[]];
 
+  // how owners heard about Chalkpis (decision 156), every centre so far; "unknown" have not answered yet
+  const [heard] = (await pool.query(
+    `SELECT COALESCE(heard_from, 'unknown') k, COUNT(*) c FROM institutes GROUP BY k ORDER BY c DESC`,
+  )) as unknown as [{ k: string; c: number }[]];
+  const [newHeard] = (await pool.query(
+    `SELECT COALESCE(heard_from, 'unknown') k, COUNT(*) c FROM institutes WHERE created_at >= ? GROUP BY k`,
+    [from],
+  )) as unknown as [{ k: string; c: number }[]];
+  const [cities] = (await pool.query(
+    `SELECT city, state, COUNT(*) c FROM institutes WHERE city IS NOT NULL
+      GROUP BY city, state ORDER BY c DESC, city LIMIT 10`,
+  )) as unknown as [{ city: string; state: string | null; c: number }[]];
+
   return {
+    heardFrom: heard.map((h) => ({
+      key: h.k,
+      count: n(h.c),
+      inWindow: n(newHeard.find((x) => x.k === h.k)?.c ?? 0),
+    })),
+    topCities: cities.map((c) => ({ city: c.city, state: c.state ?? '', count: n(c.c) })),
     signInMethods: sum('method'),
     signInPlatforms: sum('platform'),
     topCentres: top.map((t) => ({
@@ -162,7 +182,7 @@ export async function analytics(pool: Pool, days: number, now: Date) {
   };
 }
 
-interface InstRow {
+interface InstRow extends DetailsRow {
   id: string;
   name: string;
   category: string;
@@ -198,6 +218,7 @@ interface InstRow {
   messages_on: number | null;
   upi_id: string;
   payment_link: string;
+  signup_channel: string | null;
 }
 
 /**
@@ -223,6 +244,7 @@ export function healthScore(i: {
 }
 
 const INST_SELECT = `SELECT i.id, i.name, i.category, i.created_at, i.upi_id, i.payment_link,
+    i.contact_email, i.city, i.state, i.pincode, i.heard_from, i.heard_from_other, i.details_at, i.signup_channel,
     u.name AS owner_name, u.phone AS owner_phone, u.id AS owner_id,
     s.plan, s.status AS plan_status, s.expires_at, s.student_limit, s.batch_limit, ns.enabled AS messages_on,
     s.cycle, s.store, s.store_will_renew, s.store_issue, s.store_sandbox, s.banked_ms,
@@ -257,6 +279,9 @@ function toInstitute(r: InstRow, now: Date) {
     name: r.name,
     category: r.category,
     createdAt: r.created_at.toISOString(),
+    signupChannel: r.signup_channel,
+    // the owner's basic details and how they heard about Chalkpis (decision 156); null until filled in
+    details: toOwnerDetails(r),
     owner: r.owner_id
       ? { id: r.owner_id, name: r.owner_name ?? '', phone: r.owner_phone ?? '' }
       : null,
@@ -324,8 +349,8 @@ export async function listInstitutes(
   const args: unknown[] = [since, since, since];
   if (q.q) {
     const like = `%${q.q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
-    where.push('(i.name LIKE ? OR u.name LIKE ? OR u.phone LIKE ?)');
-    args.push(like, like, like);
+    where.push('(i.name LIKE ? OR u.name LIKE ? OR u.phone LIKE ? OR i.city LIKE ?)');
+    args.push(like, like, like, like);
   }
   const cond = {
     trial: "s.plan = 'trial' AND s.expires_at > ?",

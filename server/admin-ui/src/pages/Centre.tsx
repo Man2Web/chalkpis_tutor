@@ -26,7 +26,7 @@ import { Toggle } from '@/components/ui/toggle';
 import { api, downloadCsv } from '@/lib/api';
 import { ago, dateOnly, dlong, dshort, money, plural, when } from '@/lib/format';
 import { go, useApi, useDebounced } from '@/lib/hooks';
-import { AREA, category, DEVICE, KIND, METHOD, msgType, NOPHONE, TAGS, tagLabel } from '@/lib/names';
+import { AREA, category, DEVICE, heardLabel, KIND, METHOD, msgType, NOPHONE, TAGS, tagLabel } from '@/lib/names';
 import { cn } from '@/lib/utils';
 import type { CentreRow } from './types';
 
@@ -227,6 +227,29 @@ export function Centre({ id, tab: initialTab, onName }: { id: string; tab?: stri
                 <dt className="text-muted-foreground">WhatsApp sent</dt>
                 <dd className="text-right tabular">{c.messages30}{c.failed30 ? <span className="text-rose-600 dark:text-rose-400"> ({c.failed30} failed)</span> : null}</dd>
               </dl>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Owner details</CardTitle>
+              <CardDescription>
+                {c.details ? `Filled in ${dshort(c.details.at)}` : 'Not filled in yet: the app asks the owner'}
+                {c.signupChannel ? ` · signed up in the ${c.signupChannel === 'web' ? 'website' : 'app'}` : ''}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {c.details ? (
+                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5 text-sm">
+                  <dt className="text-muted-foreground">Email</dt>
+                  <dd className="truncate text-right"><a className="hover:underline" href={`mailto:${c.details.email}`}>{c.details.email}</a></dd>
+                  <dt className="text-muted-foreground">Place</dt>
+                  <dd className="text-right">{[c.details.city, c.details.state].filter(Boolean).join(', ')} {c.details.pincode}</dd>
+                  <dt className="text-muted-foreground">Heard from</dt>
+                  <dd className="text-right">{heardLabel(c.details.heardFrom, c.details.heardFromOther)}</dd>
+                </dl>
+              ) : (
+                <Empty text="Email, city, state, PIN code and how they heard about Chalkpis show here." />
+              )}
             </CardContent>
           </Card>
           <Card className="xl:col-span-2">

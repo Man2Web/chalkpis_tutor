@@ -16,6 +16,9 @@ import { StaffScreen } from '../features/staff/StaffScreen';
 import { AccountScreen } from '../features/account/AccountScreen';
 import { AddPhoneScreen } from '../features/account/AddPhoneScreen';
 import { BatchScreen } from '../features/onboarding/BatchScreen';
+import { DetailsScreen } from '../features/onboarding/DetailsScreen';
+import { useAskOwnerDetails } from '../features/onboarding/OwnerDetailsCard';
+import { OwnerDetailsScreen } from '../features/onboarding/OwnerDetailsScreen';
 import { ProfileScreen } from '../features/onboarding/ProfileScreen';
 import { StudentsScreen } from '../features/onboarding/StudentsScreen';
 import { haptic } from '../lib/haptics';
@@ -112,13 +115,12 @@ function AuthStack() {
   );
 }
 
-function OnboardingStack({ resume }: { resume: boolean }) {
+/** `resume`: where someone who left part-way picks up (the centre is set up; the details may be missing). */
+function OnboardingStack({ resume }: { resume: 'Profile' | 'Details' | 'Batch' }) {
   return (
-    <Onboarding.Navigator
-      screenOptions={{ headerShown: false }}
-      initialRouteName={resume ? 'Batch' : 'Profile'}
-    >
+    <Onboarding.Navigator screenOptions={{ headerShown: false }} initialRouteName={resume}>
       <Onboarding.Screen name="Profile" component={ProfileScreen} />
+      <Onboarding.Screen name="Details" component={DetailsScreen} />
       <Onboarding.Screen name="Batch" component={BatchScreen} />
       <Onboarding.Screen name="Students" component={StudentsScreen} />
     </Onboarding.Navigator>
@@ -148,6 +150,8 @@ const stackHeader = {
 function MainTabs() {
   const { t } = useTranslation();
   const staff = useIsStaff();
+  // an older centre's owner is asked once for their basic details (decision 156)
+  useAskOwnerDetails();
   // The bar sits above the phone's home indicator / gesture area, with room for an icon and a full label.
   const insets = useSafeAreaInsets();
   const bottom = Math.max(insets.bottom, Platform.OS === 'android' ? 8 : 6);
@@ -405,6 +409,11 @@ function MainStack() {
           options={{ title: t('settings.editProfile') }}
         />
         <Main.Screen
+          name="OwnerDetails"
+          component={OwnerDetailsScreen}
+          options={{ title: t('ownerDetails.editTitle') }}
+        />
+        <Main.Screen
           name="AddPhone"
           component={AddPhoneScreen}
           // the brand step layout has its own back button and title; this one names the page for screen readers
@@ -484,7 +493,9 @@ function RestoringSession() {
 
 export function RootNavigator() {
   const status = useSession((s) => s.status);
-  const hasInstitute = useSession((s) => !!s.profile?.instituteId);
+  const resume = useSession((s) =>
+    !s.profile?.instituteId ? 'Profile' : s.profile.detailsDone === false ? 'Details' : 'Batch',
+  );
 
   if (status === 'loading') return <RestoringSession />;
   return (
@@ -492,7 +503,7 @@ export function RootNavigator() {
       {status === 'signedOut' ? (
         <AuthStack />
       ) : status === 'needsOnboarding' ? (
-        <OnboardingStack resume={hasInstitute} />
+        <OnboardingStack resume={resume} />
       ) : (
         <MainStack />
       )}

@@ -29,6 +29,7 @@ import { PaymentReportsCard } from '../features/fees/PaymentReportsCard';
 import { EnquiriesDueCard } from '../features/enquiries/EnquiriesDueCard';
 import { groupByStudent } from '../features/fees/logic';
 import { GettingStartedCard } from '../features/onboarding/GettingStartedCard';
+import { OwnerDetailsCard } from '../features/onboarding/OwnerDetailsCard';
 import { WelcomeTour } from '../features/onboarding/WelcomeTour';
 import { TasksCard } from '../features/tasks/TasksCard';
 import { CellLink, DesktopPage, LinkButton, Split, StatCard, StatGrid } from './parts';
@@ -357,6 +358,7 @@ export function DesktopHome() {
             {week.data?.length ? (
               <WeekChart points={weekAttendance(week.data, today, addDays)} today={today} />
             ) : null}
+            <OwnerDetailsCard />
             <GettingStartedCard hasAttendance={(week.data?.length ?? 0) > 0} />
             <TasksCard date={today} />
           </>

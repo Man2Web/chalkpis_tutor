@@ -26,6 +26,7 @@ import { billingHistory, createOrder, reconcilePending, storeRenews } from '../b
 import { autoRenewFor, startWebSubscription, stopAutoRenew } from '../billing/webSubscriptions.js';
 import { AppError } from '../errors.js';
 import { CATEGORIES, type Category } from '../institutes/category.js';
+import { HEARD_FROM, HEARD_FROM_LABEL, ownerDetailsBody, STATES } from '../institutes/details.js';
 import { activeCount } from '../institutes/limits.js';
 import { createInstitute } from '../institutes/service.js';
 import { maskPhone, normalizeIndianPhone } from '../lib/phone.js';
@@ -558,6 +559,17 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
           (k) =>
             `<option value="${k}"${(v.category ?? 'tuition') === k ? ' selected' : ''}>${CATEGORY_LABEL[k]}</option>`,
         ).join('')}</select>
+<label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" maxlength="254" required value="${esc(v.email ?? '')}" placeholder="you@example.com">
+<label for="city">City or town</label><input id="city" name="city" autocomplete="address-level2" minlength="2" maxlength="80" required value="${esc(v.city ?? '')}" placeholder="Vellore">
+<label for="state">State</label><select id="state" name="state" required autocomplete="address-level1"><option value="">Choose your state</option>${STATES.map(
+          (k) => `<option${v.state === k ? ' selected' : ''}>${k}</option>`,
+        ).join('')}</select>
+<label for="pincode">PIN code</label><input id="pincode" name="pincode" inputmode="numeric" autocomplete="postal-code" pattern="[1-9][0-9]{5}" maxlength="6" required value="${esc(v.pincode ?? '')}" placeholder="632001">
+<label for="heardFrom">How did you hear about Chalkpis?</label><select id="heardFrom" name="heardFrom" required><option value="">Choose one</option>${HEARD_FROM.map(
+          (k) =>
+            `<option value="${k}"${v.heardFrom === k ? ' selected' : ''}>${HEARD_FROM_LABEL[k]}</option>`,
+        ).join('')}</select>
+<label for="heardFromOther">If other, where?</label><input id="heardFromOther" name="heardFromOther" maxlength="120" value="${esc(v.heardFromOther ?? '')}" placeholder="A newspaper, a poster…">
 <fieldset class="choice"><legend>Which phone will you use Chalkpis on?</legend><label><input type="radio" name="phone" value="android" required${v.phone === 'android' ? ' checked' : ''}> Android</label><label><input type="radio" name="phone" value="ios"${v.phone === 'ios' ? ' checked' : ''}> iPhone</label></fieldset>
 <p class="small">The iPhone app is coming soon; until then iPhones use Chalkpis in Safari. If you choose iPhone, your ${deps.config.TRIAL_DAYS}-day free trial starts when you first sign in there, not today.</p>
 <button type="submit">Create my account</button></form>`,
@@ -756,11 +768,20 @@ ${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}
         const userId = await signedIn(req);
         if (!userId || !sameOrigin(req))
           return reply.redirect(flow.next === 'start' ? '/start' : '/plan', 303);
+        // already an owner or a helper: nothing to set up (as on the page itself)
+        if ((await ownedCentres(userId)).length || (await isMember(userId)))
+          return reply.redirect('/plan', 303);
         const v = {
           tutorName: (f.get('tutorName') ?? '').trim().slice(0, 80),
           instituteName: (f.get('instituteName') ?? '').trim().slice(0, 120),
           category: f.get('category') ?? '',
           phone: f.get('phone') ?? '',
+          email: (f.get('email') ?? '').slice(0, 254),
+          city: (f.get('city') ?? '').slice(0, 80),
+          state: f.get('state') ?? '',
+          pincode: (f.get('pincode') ?? '').slice(0, 6),
+          heardFrom: f.get('heardFrom') ?? '',
+          heardFromOther: (f.get('heardFromOther') ?? '').slice(0, 120),
         };
         const category = (CATEGORIES as readonly string[]).includes(v.category)
           ? (v.category as Category)
@@ -776,10 +797,38 @@ ${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}
               v,
             ),
           );
+        // the owner's basic details (decision 156)
+        const details = ownerDetailsBody.safeParse(v);
+        if (!details.success) {
+          const field = details.error.issues[0]?.path[0];
+          const why: Record<string, string> = {
+            email: 'Enter a valid email address.',
+            city: 'Enter your city or town.',
+            state: 'Choose your state.',
+            pincode: 'Enter your 6-digit PIN code.',
+            heardFrom: 'Tell us how you heard about Chalkpis.',
+            heardFromOther: 'Tell us where you heard about Chalkpis.',
+          };
+          return send(
+            reply,
+            400,
+            setupPage(
+              flow,
+              `<p class="note error">${why[String(field)] ?? 'Please check your details.'}</p>`,
+              v,
+            ),
+          );
+        }
         const r = await createInstitute(
           deps.pool,
           userId,
-          { tutorName: v.tutorName, instituteName: v.instituteName, category, language: 'en' },
+          {
+            tutorName: v.tutorName,
+            instituteName: v.instituteName,
+            category,
+            language: 'en',
+            details: details.data,
+          },
           now(),
           deps.config.TRIAL_DAYS,
           { phone: os, source: flow.src, trialOnFirstAppUse: os === 'ios' },

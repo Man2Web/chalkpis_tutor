@@ -7,6 +7,8 @@ type Props<T extends FieldValues> = Omit<TextInputProps, 'value' | 'onChangeText
   control: Control<T>;
   name: Path<T>;
   label: string;
+  /** Shown under the box while there is no error. */
+  hint?: string;
 };
 
 /** react-hook-form field; error messages are translation keys under `validation.*`. */

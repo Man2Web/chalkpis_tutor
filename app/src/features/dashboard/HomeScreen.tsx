@@ -17,6 +17,7 @@ import { scheduleLabel } from '../batches/format';
 import { PlanBanner } from '../billing/PlanBanner';
 import { PaymentReportsCard } from '../fees/PaymentReportsCard';
 import { GettingStartedCard } from '../onboarding/GettingStartedCard';
+import { OwnerDetailsCard } from '../onboarding/OwnerDetailsCard';
 import { InstallHint } from '../onboarding/InstallHint';
 import { EnquiriesDueCard } from '../enquiries/EnquiriesDueCard';
 import { WelcomeTour } from '../onboarding/WelcomeTour';
@@ -115,6 +116,7 @@ export function HomeScreen() {
         <AnnouncementBanner />
         <PlanBanner />
         <PaymentReportsCard />
+        <OwnerDetailsCard />
         <GettingStartedCard hasAttendance={(week.data?.length ?? 0) > 0} />
         <InstallHint />
         <EnquiriesDueCard />

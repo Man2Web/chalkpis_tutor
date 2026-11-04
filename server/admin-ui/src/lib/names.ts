@@ -119,3 +119,18 @@ export const PLAN_COLOR: Record<string, string> = {
   standard: 'var(--chart-4)',
   pro: 'var(--chart-2)',
 };
+
+/** How an owner heard about Chalkpis (decision 156), with a chart colour; "unknown" has not answered yet. */
+export const HEARD: Record<string, [string, string]> = {
+  instagram: ['Instagram / Facebook', '#E1306C'],
+  youtube: ['YouTube', '#FF0000'],
+  google: ['Google search', '#4285F4'],
+  store: ['Play Store / App Store', '#3DDC84'],
+  whatsapp: ['WhatsApp', '#1DA851'],
+  friend: ['Friend / another teacher', 'var(--chart-4)'],
+  team: ['Chalkpis team', 'var(--chart-1)'],
+  other: ['Other', '#a3a3a3'],
+  unknown: ['Not answered yet', 'var(--muted)'],
+};
+export const heardLabel = (k: string, other = '') =>
+  k === 'other' && other ? `Other: ${other}` : (HEARD[k]?.[0] ?? k);

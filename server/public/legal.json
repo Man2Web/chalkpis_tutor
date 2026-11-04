@@ -4,7 +4,7 @@
   "email": "hello@chalkpis.com",
   "privacy": {
     "title": "Privacy Policy",
-    "updated": "15 October 2026",
+    "updated": "4 November 2026",
     "intro": "Chalkpis (\"we\", \"us\") is built and run by M2W Technologies Private Limited (Man2Web), India. This policy explains what information the Chalkpis app and website handle, why, and the choices you have. If anything here is unclear, write to hello@chalkpis.com.",
     "sections": [
       {
@@ -17,7 +17,7 @@
       {
         "h": "Information we collect",
         "p": [
-          "About you: your name, mobile number, institute name, address, phone, logo, UPI id and payment link (if you add them), and your plan.",
+          "About you: your name, mobile number, institute name, address, phone, logo, UPI id and payment link (if you add them), and your plan. When you sign up we also ask for a contact email, your city, state and PIN code, and how you heard about Chalkpis; we use these to reach you about your account and to understand where Chalkpis is used.",
           "Sign-in: you sign in with your mobile number and a code sent on WhatsApp. Sign-in codes are stored only as one-way hashes and expire within minutes.",
           "About your students and their parents, as entered by you: names, class, batches, parent name and mobile number, optional student phone, date of birth, gender, photo and notes; attendance; fees, discounts, payments and receipts.",
           "Messages: a log of WhatsApp messages sent to parents (type, time, status and the last 4 digits of the number). The message values are deleted once a message is sent or has failed.",
