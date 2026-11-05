@@ -15,7 +15,8 @@ export const DELETE_ACCOUNT_URL = 'https://tutor.chalkpis.com/delete-account';
 export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=in.chalkpis.tutors';
 export const APP_STORE_URL = 'https://apps.apple.com/in/app/chalkpis-class-fee-manager/id6822059424';
 
-export const SUPPORT_EMAIL = 'hello@chalkpis.com';
+/** Forwards to the company Gmail through Cloudflare Email Routing (support@chalkpistutor.com does too). */
+export const SUPPORT_EMAIL = 'hello@chalkpistutor.com';
 /**
  * The support WhatsApp number with country code and no "+" or spaces (91 = India).
  * If it is ever emptied, every "Chat on WhatsApp" link falls back to email.
