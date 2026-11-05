@@ -1,33 +1,51 @@
+/*
+ * The website's plan and payment pages (tutor.chalkpis.com/plan, /start, /pay/<token>), in the app's own look
+ * (decision 169): the sign-in blackboard navy for the header and the main buttons, the logo blue for links and
+ * highlights, Inter, white cards on a soft grey page. Light only, like the app. No scripts on these pages.
+ */
+@font-face {
+  font-family: 'Inter';
+  src: url('/admin-fonts/Inter_400Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/admin-fonts/Inter_500Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/admin-fonts/Inter_600SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/admin-fonts/Inter_700Bold.ttf') format('truetype');
+  font-weight: 700 800;
+  font-display: swap;
+}
 :root {
-  color-scheme: light dark;
-  --bg: #f4f6f9;
+  color-scheme: light;
+  --bg: #f5f7fa;
   --card: #fff;
   --text: #0f172a;
   --muted: #5b6474;
-  --line: #e3e7ee;
-  --brand: #0b6fb8;
-  --brand-ink: #fff;
-  --soft: #e8f2fb;
-  --warn-bg: #fff4e5;
+  --line: #e4e8ef;
+  --navy: #0f2d40;
+  --navy-2: #16405a;
+  --brand: #0e77be;
+  --link: #0b64a0;
+  --soft: #e8f2fa;
+  --ok-bg: #ecfdf5;
+  --ok: #047857;
+  --warn-bg: #fff6e6;
   --warn: #8a4b00;
   --err-bg: #fdecec;
   --err: #a11d1d;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0d1117;
-    --card: #161b22;
-    --text: #e6edf3;
-    --muted: #9aa4b2;
-    --line: #2a313c;
-    --brand: #4aa3e8;
-    --brand-ink: #06121d;
-    --soft: #13283a;
-    --warn-bg: #2b2112;
-    --warn: #f0b46a;
-    --err-bg: #2c1515;
-    --err: #f19999;
-  }
+  --radius: 16px;
 }
 * {
   box-sizing: border-box;
@@ -37,47 +55,85 @@ body {
   background: var(--bg);
   color: var(--text);
   font:
-    16px/1.5 -apple-system,
+    16px/1.5 'Inter',
+    -apple-system,
     BlinkMacSystemFont,
     'Segoe UI',
     Roboto,
     sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
+
+/* ---- the navy band at the top, like the app's sign-in board ---- */
+.top {
+  background: linear-gradient(135deg, var(--navy-2), var(--navy) 60%, #0b2232);
+  color: #fff;
+}
+.top .bar {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 18px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.top img {
+  display: block;
+  height: 30px;
+  width: auto;
+}
+.top .secure {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.78);
+}
+.top .secure svg {
+  width: 15px;
+  height: 15px;
+}
+.top .nav button.link {
+  color: #fff;
+}
+
 main {
   max-width: 960px;
   margin: 0 auto;
-  padding: 28px 16px 48px;
-}
-header {
-  margin-bottom: 28px;
-}
-header img {
-  display: block;
-  height: 32px;
-  width: auto;
+  padding: 24px 16px 48px;
 }
 h1 {
   font-size: 28px;
   line-height: 1.2;
+  font-weight: 800;
   margin: 0 0 4px;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 .centre {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
-  margin: 0 0 12px;
+  color: var(--muted);
+  margin: 0 0 14px;
 }
 p {
   margin: 0 0 12px;
 }
 a {
-  color: var(--brand);
+  color: var(--link);
 }
+strong {
+  font-weight: 600;
+}
+
+/* ---- status lines ---- */
 .status,
 .note {
   background: var(--soft);
   border-radius: 12px;
   padding: 12px 14px;
+  font-size: 15px;
 }
 .status.ended,
 .note {
@@ -88,62 +144,103 @@ a {
   background: var(--err-bg);
   color: var(--err);
 }
+
+/* ---- "Starter fits your centre" ---- */
+.fit {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 16px 0 0;
+  font-size: 15px;
+}
+.fit svg {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--brand);
+  margin-top: 1px;
+}
+.fit p {
+  margin: 0;
+}
+
+/* ---- the plan cards ---- */
 .plans {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 16px;
-  margin: 24px 0 16px;
+  margin: 22px 0 16px;
 }
 .plan {
   position: relative;
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 20px;
+  border-radius: var(--radius);
+  padding: 22px 20px 20px;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 .plan.best {
+  border: 2px solid var(--navy);
+  box-shadow: 0 12px 32px -16px rgba(15, 45, 64, 0.45);
+}
+.plan.fits {
   border: 2px solid var(--brand);
+  box-shadow: 0 12px 32px -16px rgba(14, 119, 190, 0.5);
 }
 .tag {
   position: absolute;
-  top: -11px;
+  top: -12px;
   left: 18px;
-  background: var(--brand);
-  color: var(--brand-ink);
+  background: var(--navy);
+  color: #fff;
   font-size: 12px;
   font-weight: 700;
-  padding: 2px 10px;
+  letter-spacing: 0.01em;
+  padding: 3px 10px;
   border-radius: 999px;
 }
+.plan.fits .tag {
+  background: var(--brand);
+}
 .plan h2 {
-  font-size: 18px;
+  font-size: 19px;
+  font-weight: 700;
   margin: 0 0 8px;
 }
 .price {
-  font-size: 30px;
-  font-weight: 700;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   margin: 0;
   font-variant-numeric: tabular-nums;
 }
 .price span {
   font-size: 15px;
   font-weight: 500;
+  letter-spacing: 0;
   color: var(--muted);
 }
 .per {
   color: var(--muted);
   font-size: 14px;
 }
+.per strong {
+  color: var(--ok);
+}
 .plan ul {
   list-style: none;
   padding: 0;
-  margin: 4px 0 20px;
+  margin: 6px 0 20px;
   flex: 1;
 }
 .plan li {
-  padding: 6px 0 6px 24px;
+  padding: 7px 0 7px 26px;
   position: relative;
   border-top: 1px solid var(--line);
   font-size: 15px;
@@ -152,34 +249,160 @@ a {
   content: '✓';
   position: absolute;
   left: 2px;
-  color: var(--brand);
+  color: var(--ok);
   font-weight: 700;
 }
+
+/* ---- buttons ---- */
 button,
 .button {
   display: block;
   width: 100%;
   border: 0;
   border-radius: 12px;
-  background: var(--brand);
-  color: var(--brand-ink);
+  background: var(--navy);
+  color: #fff;
   font: inherit;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 17px;
   padding: 14px 16px;
+  min-height: 52px;
   text-align: center;
   text-decoration: none;
   cursor: pointer;
 }
 button:hover,
 .button:hover {
-  filter: brightness(1.08);
+  background: var(--navy-2);
 }
 button:focus-visible,
-.button:focus-visible {
-  outline: 3px solid var(--soft);
+.button:focus-visible,
+summary:focus-visible {
+  outline: 3px solid rgba(14, 119, 190, 0.4);
   outline-offset: 2px;
 }
+.plan.fits form:first-of-type button {
+  background: var(--brand);
+}
+.plan.fits form:first-of-type button:hover {
+  background: var(--link);
+}
+.plan form + form {
+  margin-top: 8px;
+}
+button.secondary {
+  background: var(--card);
+  color: var(--navy);
+  border: 1px solid var(--line);
+  font-size: 15px;
+  min-height: 46px;
+  padding: 11px 16px;
+}
+button.secondary:hover {
+  background: var(--bg);
+}
+button.link {
+  width: auto;
+  min-height: 0;
+  background: none;
+  color: var(--link);
+  padding: 6px 0;
+  font-weight: 600;
+  font-size: 15px;
+}
+button.link:hover {
+  background: none;
+  text-decoration: underline;
+}
+button.link.once {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  color: var(--muted);
+  text-decoration: underline;
+}
+
+/* ---- how people can pay ---- */
+.methods {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 0 0 16px;
+}
+.methods p {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.methods ul {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+}
+.methods li {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+.methods li.upi {
+  background: var(--ok-bg);
+  border-color: transparent;
+  color: var(--ok);
+}
+
+/* ---- questions people ask, open on a tap (no scripts) ---- */
+.faq {
+  margin: 28px 0 0;
+}
+.faq h2 {
+  font-size: 20px;
+  margin: 0 0 10px;
+}
+details {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin: 0 0 8px;
+}
+summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 14px 16px;
+  list-style: none;
+  position: relative;
+  padding-right: 40px;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary::after {
+  content: '+';
+  position: absolute;
+  right: 16px;
+  top: 11px;
+  font-size: 20px;
+  color: var(--muted);
+}
+details[open] summary::after {
+  content: '–';
+}
+details p {
+  padding: 0 16px 14px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
 .small,
 footer {
   color: var(--muted);
@@ -190,47 +413,27 @@ footer {
   border-top: 1px solid var(--line);
   padding-top: 16px;
 }
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
 .nav {
   margin: 0;
 }
-button.link {
-  width: auto;
-  background: none;
-  color: var(--brand);
-  padding: 6px 0;
-  font-weight: 600;
-  font-size: 15px;
-}
+
+/* ---- sign-in and sign-up forms ---- */
 .signin {
   display: grid;
   gap: 10px;
-  max-width: 420px;
+  max-width: 440px;
   margin: 20px 0 12px;
 }
 .signin label {
   font-weight: 600;
   font-size: 15px;
 }
-.signin input {
-  font: inherit;
-  font-size: 18px;
-  padding: 13px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: var(--card);
-  color: var(--text);
-}
 .signin input,
 .signin select {
   font: inherit;
   font-size: 18px;
   padding: 13px 14px;
+  min-height: 52px;
   border-radius: 12px;
   border: 1px solid var(--line);
   background: var(--card);
@@ -238,7 +441,7 @@ button.link {
 }
 .signin input:focus,
 .signin select:focus {
-  outline: 3px solid var(--soft);
+  outline: 3px solid rgba(14, 119, 190, 0.25);
   border-color: var(--brand);
 }
 /* Android / iPhone: two large choices */
@@ -267,19 +470,21 @@ button.link {
 }
 .signin .choice input {
   width: auto;
+  min-height: 0;
   padding: 0;
-  accent-color: var(--brand);
+  accent-color: var(--navy);
 }
 .signin .choice label:has(input:checked) {
-  border-color: var(--brand);
-  outline: 2px solid var(--soft);
+  border-color: var(--navy);
+  outline: 2px solid rgba(15, 45, 64, 0.15);
 }
-/* Get the app */
+
+/* ---- get the app ---- */
 .app {
   margin: 24px 0 8px;
   padding: 18px;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--radius);
   background: var(--card);
 }
 .app h2 {
@@ -289,6 +494,8 @@ button.link {
 .app .button {
   margin: 14px 0 10px;
 }
+
+/* ---- the signed-in page: usage and payments ---- */
 h2.section {
   font-size: 20px;
   margin: 32px 0 0;
@@ -340,7 +547,7 @@ table.history {
 .receipt {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--radius);
   padding: 24px;
   max-width: 560px;
 }
@@ -363,7 +570,7 @@ table.history {
 }
 @media print {
   .noprint,
-  header .nav,
+  .top,
   footer {
     display: none;
   }
@@ -375,24 +582,4 @@ table.history {
     border: 0;
     padding: 0;
   }
-}
-.plan form + form {
-  margin-top: 8px;
-}
-button.secondary {
-  background: var(--card);
-  color: var(--brand);
-  border: 1px solid var(--brand);
-  font-size: 15px;
-  padding: 11px 16px;
-}
-button.link.once {
-  display: block;
-  width: 100%;
-  margin-top: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  text-align: center;
-  color: var(--muted);
-  text-decoration: underline;
 }

@@ -210,8 +210,11 @@ describe('billing page (/plan)', () => {
     const welcome = await get('/plan?welcome=1', cookie);
     expect(welcome.body).toContain('Your account is ready');
     expect(welcome.body).toContain('Your free trial starts when you first open the Chalkpis app');
-    expect(welcome.body).toContain('iPhone app is coming soon to the App Store'); // iPhone first
-    expect(welcome.body).toContain('<a class="button" href="/app/">Open Chalkpis</a>'); // in Safari meanwhile
+    // iPhone first: the App Store app (live since 27 Oct 2026), with Google Play and the browser under it
+    expect(welcome.body).toContain(
+      '<a class="button" href="https://apps.apple.com/in/app/chalkpis-class-fee-manager/id6822059424">Get it on the App Store</a>',
+    );
+    expect(welcome.body).toContain('href="/app/">use Chalkpis in your browser</a>');
     expect(welcome.body).not.toContain('class="button" href="https://play.google.com');
 
     const [[msg]] = (await h.db.pool.query(
@@ -341,5 +344,21 @@ describe('billing page (/plan)', () => {
     const r = await form('/plan/logout', {}, { cookie });
     expect(r.statusCode).toBe(303);
     expect(String(r.headers['set-cookie'])).toMatch(/^cp_plan=; Path=\/plan; Max-Age=0/);
+  });
+});
+
+describe('the plan that fits a centre', () => {
+  it('is the smallest plan with room to grow, or the paid plan still running', async () => {
+    const { bestFit } = await import('../src/routes/pay.js');
+    expect(bestFit(0, 0)).toBe('starter');
+    expect(bestFit(45, 2)).toBe('starter'); // 90% of Starter's 50
+    expect(bestFit(46, 2)).toBe('standard'); // no room left on Starter
+    expect(bestFit(10, 3)).toBe('starter'); // Starter allows 3 batches
+    expect(bestFit(10, 4)).toBe('standard');
+    expect(bestFit(500, 40)).toBe('pro');
+    // a running Standard plan is renewed rather than downgraded; an outgrown one is not kept
+    expect(bestFit(5, 1, { plan: 'standard', active: true })).toBe('standard');
+    expect(bestFit(5, 1, { plan: 'standard', active: false })).toBe('starter');
+    expect(bestFit(200, 9, { plan: 'standard', active: true })).toBe('pro');
   });
 });

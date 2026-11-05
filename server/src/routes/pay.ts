@@ -42,7 +42,7 @@ type Deps = Pick<AppDeps, 'config' | 'pool'> & {
 
 // No scripts at all; forms post back here, and the jump to the payment page is a redirect or a plain link.
 const PAY_CSP =
-  "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+  "default-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
 
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -97,6 +97,7 @@ const cycleText = (cycle: Cycle | null, plan: Plan['id']) =>
   cycle === 'year' ? '1 year' : cycle === 'month' ? '1 month' : `${monthsOf(plan, null)} months`;
 
 const PLAY_URL = 'https://play.google.com/store/apps/details?id=in.chalkpis.tutors';
+const APP_STORE_URL = 'https://apps.apple.com/in/app/chalkpis-class-fee-manager/id6822059424';
 /**
  * Where someone who signed up from chalkpis.com (/start) lands: a page there counts the sign-up (Google Analytics, the
  * Meta Pixel) and shows the app links. These pages run no scripts, so they could not count it themselves.
@@ -139,8 +140,8 @@ const flowQuery = (flow: Flow) =>
   new URLSearchParams({ next: flow.next, src: flow.src }).toString();
 
 /**
- * "Use Chalkpis on your phone": the Google Play link, and the browser version (/app) for iPhones and laptops until the
- * iPhone app is out. An owner who chose iPhone when signing up sees the browser version first.
+ * "Use Chalkpis on your phone": the store app for the phone chosen at sign-up (App Store for an iPhone, Google Play
+ * otherwise), the other store and the browser version (/app) for a laptop under it.
  */
 function appBox(
   c: { phone: string | null; trial_waits?: number; signup_phone?: 'android' | 'ios' | null },
@@ -150,23 +151,67 @@ function appBox(
   const play = `${PLAY_URL}&amp;referrer=utm_source%3Dtutor.chalkpis.com%26utm_medium%3Dwebsite%26utm_campaign%3Dsignup`;
   const waits = Number(c.trial_waits) ? ', and your free trial starts when you first sign in' : '';
   if (c.signup_phone === 'ios')
-    return `<section class="app"><h2>${esc(heading)}</h2><p>Use Chalkpis on your iPhone today, in Safari. Sign in with ${number}: everything you set up here is already there${waits}.</p><a class="button" href="/app/">Open Chalkpis</a><p class="small">To keep it on your Home Screen like an app, tap Share, then <strong>Add to Home Screen</strong>. The Chalkpis iPhone app is coming soon to the App Store; we will send you a WhatsApp message when it is ready. Have an Android phone too? <a href="${play}">Get the app on Google Play</a>.</p></section>`;
-  return `<section class="app"><h2>${esc(heading)}</h2><p>Install the app and sign in with ${number}. Everything you set up here is already there.</p><a class="button" href="${play}">Get it on Google Play</a><p class="small"><strong>iPhone or laptop:</strong> <a href="/app/">use Chalkpis in your browser</a> with the same number${waits}. The iPhone app is coming soon to the App Store.</p></section>`;
+    return `<section class="app"><h2>${esc(heading)}</h2><p>Install the iPhone app and sign in with ${number}. Everything you set up here is already there${waits}.</p><a class="button" href="${APP_STORE_URL}">Get it on the App Store</a><p class="small">Have an Android phone too? <a href="${play}">Get the app on Google Play</a>. On a laptop, <a href="/app/">use Chalkpis in your browser</a>.</p></section>`;
+  return `<section class="app"><h2>${esc(heading)}</h2><p>Install the app and sign in with ${number}. Everything you set up here is already there${waits}.</p><a class="button" href="${play}">Get it on Google Play</a><p class="small"><strong>iPhone:</strong> <a href="${APP_STORE_URL}">get the app on the App Store</a>. On a laptop, <a href="/app/">use Chalkpis in your browser</a> with the same number.</p></section>`;
 }
+
+/** A small padlock, drawn inline (these pages load no pictures from elsewhere). */
+const LOCK =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
+const SPARK =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/></svg>';
 
 function page(
   title: string,
   body: string,
   opts: { refresh?: string; gateway?: string; nav?: string } = {},
 ): string {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">${
+  const secure = opts.gateway ? `<span class="secure">${LOCK}Secure payment</span>` : '';
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><meta name="theme-color" content="#0f2d40">${
     opts.refresh ? `<meta http-equiv="refresh" content="0;url=${esc(opts.refresh)}">` : ''
-  }<title>${esc(title)} · Chalkpis</title><link rel="stylesheet" href="${PAY_CSS_HREF}"></head><body><main>
-<header><picture><source srcset="/admin-logo/logo-dark.svg" media="(prefers-color-scheme: dark)"><img src="/admin-logo/logo.svg" alt="Chalkpis" width="132" height="32"></picture>${opts.nav ?? ''}</header>
+  }<title>${esc(title)} · Chalkpis</title><link rel="stylesheet" href="${PAY_CSS_HREF}"></head><body>
+<header class="top"><div class="bar"><img src="/admin-logo/logo-dark.svg" alt="Chalkpis" width="132" height="32">${opts.nav ?? secure}</div></header><main>
 ${body}
 <footer>${opts.gateway && GATEWAY[opts.gateway] ? `Payments are processed securely by ${GATEWAY[opts.gateway]}. ` : ''}<a href="/terms">Terms</a> · <a href="/privacy">Privacy</a><br>© 2026 M2W Technologies Private Limited · <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a></footer>
 </main></body></html>`;
 }
+
+/**
+ * The plan that fits this centre today, with room to grow: the smallest one with students at no more than 90% of its
+ * limit and batches within it (a few batches is a small number; owners rarely add many), Pro when nothing smaller
+ * fits. A centre on a paid plan that is still running is pointed at that plan (renew), unless it has outgrown it.
+ */
+export function bestFit(
+  students: number,
+  batches: number,
+  current?: { plan: string | null; active: boolean },
+): Plan['id'] {
+  const roomy = (used: number, max: number | null) => max === null || used <= Math.floor(max * 0.9);
+  const within = (used: number, max: number | null) => max === null || used <= max;
+  const byRank = Object.values(PLANS).sort((a, b) => PLAN_RANK[a.id] - PLAN_RANK[b.id]);
+  const fit =
+    byRank.find((p) => roomy(students, p.studentLimit) && within(batches, p.batchLimit)) ??
+    byRank[byRank.length - 1]!;
+  const paid = current?.active && current.plan && isPlanId(current.plan) ? current.plan : null;
+  return paid && PLAN_RANK[paid] >= PLAN_RANK[fit.id] ? paid : fit.id;
+}
+const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+/** "Tiger Karate Academy has 23 students in 2 batches: Starter fits, with room to grow." */
+const fitLine = (name: string, students: number, batches: number, plan: Plan['id']) =>
+  `<div class="fit">${SPARK}<p><strong>${esc(name)}</strong> has ${count(students, 'student', 'students')} in ${count(batches, 'batch', 'batches')}. The <strong>${esc(planName(plan))}</strong> plan fits, with room to grow.</p></div>`;
+
+/** How people can pay on Razorpay's page, UPI apps first (most owners pay with one). */
+const METHODS =
+  '<section class="methods"><p>Pay with any UPI app, a card or net banking. Auto-renew uses UPI Autopay, which you can stop any time in your UPI app.</p><ul><li class="upi">UPI</li><li>Google Pay</li><li>PhonePe</li><li>Paytm</li><li>BHIM</li><li>Cards</li><li>Net banking</li></ul></section>';
+
+/** The questions owners ask before paying, each opening on a tap. */
+const FAQ = `<section class="faq"><h2>Questions</h2>
+<details><summary>When does my plan start?</summary><p>A plan you pay for now starts when your free trial or current plan ends, so you never lose days you already have. An upgrade starts at once and credits the days you have left.</p></details>
+<details><summary>Can I stop auto-renew?</summary><p>Yes, any time: here on this page, or in your UPI app under Autopay. You are told before every payment.</p></details>
+<details><summary>What happens to my data if a plan ends?</summary><p>Nothing is deleted. You can still open the app and see every student, payment and report; adding new ones resumes as soon as you pay.</p></details>
+<details><summary>Do I get a receipt?</summary><p>Yes. A WhatsApp message confirms every payment, and the receipts are here when you sign in on tutor.chalkpis.com/plan.</p></details>
+<details><summary>Does it cost my parents anything?</summary><p>No. Your plan covers the WhatsApp updates to parents. Fees your parents pay go straight to your own UPI ID; Chalkpis never touches that money.</p></details>
+</section>`;
 
 type AutoRenew = Awaited<ReturnType<typeof autoRenewFor>>;
 const cycleWord = (c: Cycle | null | undefined) => (c === 'month' ? 'monthly' : 'yearly');
@@ -206,7 +251,7 @@ function plansHtml(
   hidden: Record<string, string> = {},
   c?: Centre,
   now: Date = new Date(),
-  opts: { subscribe?: boolean; auto?: AutoRenew } = {},
+  opts: { subscribe?: boolean; auto?: AutoRenew; recommend?: Plan['id'] } = {},
 ): string {
   const fields = Object.entries(hidden)
     .map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`)
@@ -214,16 +259,22 @@ function plansHtml(
   const form = (p: Plan, cycle: Cycle, mode: 'subscribe' | 'once', label: string, cls = '') =>
     `<form method="post" action="${esc(action ?? '')}">${fields}<input type="hidden" name="plan" value="${p.id}"><input type="hidden" name="cycle" value="${cycle}"><input type="hidden" name="mode" value="${mode}"><button type="submit"${cls ? ` class="${cls}"` : ''}>${label}</button></form>`;
   const auto = opts.auto?.via === 'website' ? opts.auto : null;
-  return `<div class="plans">${Object.values(PLANS)
+  // the plan that fits the centre comes first (on a phone it is the first thing under the status)
+  const pick = auto ? undefined : opts.recommend;
+  const order = Object.values(PLANS).sort((a, b) =>
+    a.id === pick ? -1 : b.id === pick ? 1 : PLAN_RANK[a.id] - PLAN_RANK[b.id],
+  );
+  return `<div class="plans">${order
     .map((p) => {
-      const popular = p.id === POPULAR;
+      const fits = p.id === pick;
+      const popular = !fits && p.id === POPULAR;
       const perDay = Math.round(p.prices.year / 365 / 100);
       const yearly = rupees(p.prices.year);
       const monthly = rupees(p.prices.month);
-      return `<section class="plan${popular ? ' best' : ''}">
-${popular ? '<span class="tag">Most popular</span>' : ''}<h2>${esc(p.name)}</h2>
+      return `<section class="plan${fits ? ' fits' : popular ? ' best' : ''}">
+${fits ? '<span class="tag">Best for your centre</span>' : popular ? '<span class="tag">Most popular</span>' : ''}<h2>${esc(p.name)}</h2>
 <p class="price">${yearly} <span>a year</span></p>
-<p class="per">Just ₹${perDay} a day · or ${monthly} a month</p>
+<p class="per">Just <strong>₹${perDay} a day</strong> · or ${monthly} a month</p>
 <ul><li>${limit(p.studentLimit, 'students')}</li><li>${limit(p.batchLimit, 'batches')}</li><li>Attendance, fees, reports and WhatsApp updates to parents</li></ul>
 ${(() => {
   if (!action) return '';
@@ -466,12 +517,19 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         ),
       );
     const tokenView = async (token: string, c: Centre, note = '') => {
-      const auto = await autoRenewFor(deps.pool, c.id);
+      const [auto, students, batches] = await Promise.all([
+        autoRenewFor(deps.pool, c.id),
+        activeCount(deps.pool, 'students', c.id),
+        activeCount(deps.pool, 'batches', c.id),
+      ]);
+      const selling = !!deps.billing && !storeRenews(c);
+      const active = c.status === 'active' && !!c.expires_at && c.expires_at.getTime() > now().getTime();
+      const pick = bestFit(students, batches, { plan: c.plan, active });
       return page(
         `Plans for ${c.name}`,
         `<h1>Choose a plan</h1><p class="centre">${esc(c.name)}</p>${status(c, now(), auto)}${note}${
           deps.billing ? '' : PAYMENTS_OFF
-        }${plansHtml(deps.billing && !storeRenews(c) ? `/pay/${token}` : null, {}, c, now(), { subscribe: canSubscribe, auto })}${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}<p class="small"><a href="/plan">Sign in</a> to see past payments and receipts${auto?.via === 'website' ? ', or to turn auto-renew off' : ''}.</p>`,
+        }${selling && auto?.via !== 'website' ? fitLine(c.name, students, batches, pick) : ''}${plansHtml(selling ? `/pay/${token}` : null, {}, c, now(), { subscribe: canSubscribe, auto, recommend: pick })}${selling ? METHODS : ''}${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}${FAQ}<p class="small"><a href="/plan">Sign in</a> to see past payments and receipts${auto?.via === 'website' ? ', or to turn auto-renew off' : ''}.</p>`,
         { gateway },
       );
     };
@@ -571,7 +629,7 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         ).join('')}</select>
 <label for="heardFromOther">If other, where?</label><input id="heardFromOther" name="heardFromOther" maxlength="120" value="${esc(v.heardFromOther ?? '')}" placeholder="A newspaper, a poster…">
 <fieldset class="choice"><legend>Which phone will you use Chalkpis on?</legend><label><input type="radio" name="phone" value="android" required${v.phone === 'android' ? ' checked' : ''}> Android</label><label><input type="radio" name="phone" value="ios"${v.phone === 'ios' ? ' checked' : ''}> iPhone</label></fieldset>
-<p class="small">The iPhone app is coming soon; until then iPhones use Chalkpis in Safari. If you choose iPhone, your ${deps.config.TRIAL_DAYS}-day free trial starts when you first sign in there, not today.</p>
+<p class="small">Chalkpis is on Google Play and the App Store. If you choose iPhone, your ${deps.config.TRIAL_DAYS}-day free trial starts when you first sign in to the app, not today.</p>
 <button type="submit">Create my account</button></form>`,
       );
     const signOutNav =
@@ -590,6 +648,9 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         billingHistory(deps.pool, c.id),
         autoRenewFor(deps.pool, c.id),
       ]);
+      const selling = !!deps.billing && !storeRenews(c);
+      const active = c.status === 'active' && !!c.expires_at && c.expires_at.getTime() > now().getTime();
+      const pick = bestFit(students, batches, { plan: c.plan, active });
       const meter = (label: string, used: number, max: number | null) =>
         `<div class="meter"><span>${label}</span><strong>${max === null ? `${used} (unlimited)` : `${used} / ${max}`}</strong></div>`;
       const switcher =
@@ -620,8 +681,10 @@ ${
     ? `<form class="nav" method="post" action="/plan/autorenew/off"><input type="hidden" name="centre" value="${c.id}"><button type="submit" class="link">Turn off auto-renew</button></form>`
     : ''
 }
-<h2 class="section">${auto?.via === 'website' ? 'Change plan' : 'Choose a plan'}</h2>${deps.billing ? '' : PAYMENTS_OFF}${plansHtml(deps.billing && !storeRenews(c) ? '/plan/pay' : null, { centre: c.id }, c, now(), { subscribe: canSubscribe, auto })}
-${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}
+<h2 class="section">${auto?.via === 'website' ? 'Change plan' : 'Choose a plan'}</h2>${deps.billing ? '' : PAYMENTS_OFF}${
+  selling && auto?.via !== 'website' ? fitLine(c.name, students, batches, pick) : ''
+}${plansHtml(selling ? '/plan/pay' : null, { centre: c.id }, c, now(), { subscribe: canSubscribe, auto, recommend: pick })}
+${selling ? METHODS : ''}${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}${FAQ}
 <h2 class="section">Payments</h2>${rows}`,
         { gateway, nav: signOutNav },
       );
