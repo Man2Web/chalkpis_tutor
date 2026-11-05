@@ -7,5 +7,6 @@ export default defineConfig({
   site: 'https://chalkpistutor.com',
   trailingSlash: 'never',
   build: { format: 'file' },
-  integrations: [sitemap()],
+  // /welcome is where sign-ups land; it is not for search engines
+  integrations: [sitemap({ filter: (page) => !page.endsWith('/welcome') })],
 });

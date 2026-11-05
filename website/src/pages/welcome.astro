@@ -1,0 +1,48 @@
+---
+/**
+ * Where a web sign-up lands (server/src/routes/pay.ts WELCOME_URL, with ?os=android or ?os=ios from the
+ * "Which phone will you use" question). It shows the store for that phone first. Not for search engines.
+ * Tracking: this is the page that should count the sign-up (GA4 "sign_up", Meta Pixel "CompleteRegistration").
+ */
+import Base from '../layouts/Base.astro';
+import { APP_STORE_URL, PLAY_STORE_URL, SIGN_IN_URL, WHATSAPP_URL } from '../config';
+---
+<Base
+  title="Your account is ready · ChalkPis Tutor"
+  description="Install the ChalkPis Tutor app and sign in with your WhatsApp number."
+  noindex
+>
+  <section class="wrap sec end welcome">
+    <h1 class="h1">Your account is ready</h1>
+    <p class="lead">
+      Install the app and sign in with the WhatsApp number you just used. Everything you set up is already there.
+    </p>
+    <div class="stores" id="stores">
+      <a class="ios" href={APP_STORE_URL}><img src="/badges/app-store.svg" alt="Download on the App Store" width="144" height="48" /></a>
+      <a class="android" href={PLAY_STORE_URL}><img src="/badges/google-play.png" alt="Get it on Google Play" width="186" height="72" /></a>
+    </div>
+    <p class="small more">
+      On a laptop? <a href={SIGN_IN_URL}>Use ChalkPis in your browser</a>.<br />
+      Need a hand getting started? <a href={WHATSAPP_URL}>Chat with us on WhatsApp</a>.
+    </p>
+  </section>
+</Base>
+
+<script is:inline>
+  // The store for the phone they chose comes first; the other stays for a second phone.
+  if (new URLSearchParams(location.search).get('os') === 'ios') document.getElementById('stores')?.classList.add('ios-first');
+</script>
+
+<style>
+  .welcome { text-align: center; }
+  .welcome .lead { margin: 16px auto 0; max-width: 560px; }
+  .stores { margin-top: 32px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; }
+  .stores img { display: block; width: auto; }
+  .stores .ios img { height: 48px; }
+  .stores .android img { height: 72px; }
+  /* the Google Play badge file carries its own clear space */
+  .stores .android { order: -1; margin: -12px; }
+  .stores.ios-first .android { order: 0; }
+  .more { margin-top: 32px; line-height: 1.8; }
+  .more a { color: var(--blue); }
+</style>

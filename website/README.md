@@ -21,16 +21,15 @@ Run from this folder (`website/`). Node 22.12 or newer.
   change both together.
 - `src/styles/global.css`: the design system (colours, type scale, cards, buttons, spacing).
 - `src/components/`: `Logo` (the C mark + "tutor", drawn as paths), `Icon`, `Nav`, `Footer`.
-- `src/pages/`: `index` (home), `pricing`, `404`.
+- `src/pages/`: `index` (home), `pricing`, `welcome` (where web sign-ups land, `?os=android|ios`; not indexed), `404`.
 - `public/`: favicon, official App Store and Google Play badges, `robots.txt`.
 
 ## Before going live
 
 - Set `SUPPORT_WHATSAPP` in `src/config.ts`. Until then, "Chat on WhatsApp" links fall back to email.
 - Add more real testimonials in `src/pages/index.astro` (`QUOTES`). With three or more, the section becomes a scrolling row.
-- Point `server/src/routes/pay.ts` `WELCOME_URL` at a `chalkpistutor.com/welcome` page once that page exists.
-- Analytics and ad tracking (GA4, Meta Pixel, Google Ads, and passing `gclid` / `fbclid` / UTM values through to `/start`)
-  are not added yet.
+- Analytics and ad tracking are not added yet: GA4 (`G-FG0YJS71R6`) and the Meta Pixel (`1863203504670970`), plus passing
+  `fbclid` and UTM values through to `/start`. `/welcome` is the page that counts a sign-up. There is no Google Ads account, so no Google Ads tag or `gclid` handling.
 
 ## Hosting
 
