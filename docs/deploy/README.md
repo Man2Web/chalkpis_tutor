@@ -67,7 +67,7 @@ Where tutors pay on the web (inside the iPhone and Android apps they subscribe t
 - **`/pay/<token>`, one centre's pay page without signing in**, for links sent on WhatsApp (admin dashboard > centre >
   Plan & billing > Payment link).
 
-Without any payment settings both pages say online payment is not switched on. `TRIAL_DAYS` (3) is how long a new tutor can work before the app becomes read-only.
+Without any payment settings both pages say online payment is not switched on. `TRIAL_DAYS` (7) is how long a new tutor can work before the app becomes read-only.
 
 ## In-app subscriptions (App Store, Google Play)
 

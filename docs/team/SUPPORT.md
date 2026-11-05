@@ -11,7 +11,7 @@ Chalkpis is an app for tuition centres, coaching institutes, abacus, karate, dan
 - The owner adds **students and batches**, marks **attendance**, records **fees**, and can add **helpers** (staff who take attendance for their batches).
 - **Parents** get WhatsApp messages automatically: absent and late alerts, fee reminders with the owner's UPI QR, receipts. Parents never install anything.
 - It runs on Android, iPhone and in the browser at https://tutor.chalkpis.com/app.
-- **Plans:** a 3-day free trial (centres that joined before 5 Nov 2026 had 14 days), then Starter (₹199 a month, up to 50 students, 3 batches), Standard (₹299 a month, 100 students, 5 batches) or Pro (₹499 a month, unlimited). Yearly costs about ten months (₹1,999 / ₹2,999 / ₹4,999). They pay on the website, in the App Store or in Google Play. When a plan ends, the app becomes read-only until they pay. Nothing is deleted.
+- **Plans:** a 7-day free trial (centres that joined earlier keep the trial they started with: 14 days before 5 Nov 2026, briefly 3 days), then Starter (₹199 a month, up to 50 students, 3 batches), Standard (₹299 a month, 100 students, 5 batches) or Pro (₹499 a month, unlimited). Yearly costs about ten months (₹1,999 / ₹2,999 / ₹4,999). They pay on the website, in the App Store or in Google Play. When a plan ends, the app becomes read-only until they pay. Nothing is deleted.
 - Fees that parents pay go straight to the centre's own UPI. Chalkpis never touches that money.
 
 ## 2. Your role

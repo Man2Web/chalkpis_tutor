@@ -23,7 +23,7 @@ const STALE_MINUTES = 10;
 const E164 = /^\+[1-9]\d{9,14}$/;
 /**
  * How many days before a free trial (and a paid plan) ends its owner is reminded, with the pay link. A trial is
- * reminded once more on its last day; a trial no longer than this (the 3-day trial, decision 163) only on its last day,
+ * reminded once more on its last day; a trial no longer than this (such as the 3-day trial of decision 163) only on its last day,
  * since the first reminder would come with the welcome.
  */
 export const PLAN_REMINDER_DAYS = { trial: 3, paid: 3 } as const;

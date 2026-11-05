@@ -57,7 +57,7 @@ describe('loadConfig', () => {
     ]);
   });
   it('reads the trial length, with a safe default and range', () => {
-    expect(loadConfig(base).TRIAL_DAYS).toBe(3);
+    expect(loadConfig(base).TRIAL_DAYS).toBe(7);
     expect(loadConfig({ ...base, TRIAL_DAYS: '90' }).TRIAL_DAYS).toBe(90);
     for (const bad of ['0', '-1', '5000', 'x'])
       expect(() => loadConfig({ ...base, TRIAL_DAYS: bad })).toThrow(/TRIAL_DAYS/);

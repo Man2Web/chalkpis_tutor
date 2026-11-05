@@ -94,7 +94,7 @@ describe('billing page (/plan)', () => {
     expect(page.body).toContain('No payments yet.');
   });
 
-  it('a new number signs up from chalkpis.com: code, account, centre on a trial, then chalkpis.com/welcome', async () => {
+  it('a new number signs up from the website: code, account, centre on a trial, then chalkpistutor.com/welcome', async () => {
     const start = await get('/start?utm_source=facebook&utm_campaign=dance&evil=%3Cx%3E');
     expect(start.statusCode).toBe(200);
     expect(start.body).toContain('Start your free trial');
@@ -153,7 +153,7 @@ describe('billing page (/plan)', () => {
 
     const done = await form('/plan/setup', { ...base, ...DETAILS }, { cookie });
     expect(done.statusCode).toBe(303);
-    expect(done.headers.location).toBe('https://chalkpis.com/welcome?os=android');
+    expect(done.headers.location).toBe('https://chalkpistutor.com/welcome?os=android');
 
     const [[row]] = (await h.db.pool.query(
       `SELECT i.name, i.category, i.signup_channel, i.signup_phone, i.signup_source, i.trial_on_first_app_use,

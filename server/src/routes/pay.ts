@@ -99,10 +99,11 @@ const cycleText = (cycle: Cycle | null, plan: Plan['id']) =>
 const PLAY_URL = 'https://play.google.com/store/apps/details?id=in.chalkpis.tutors';
 const APP_STORE_URL = 'https://apps.apple.com/in/app/chalkpis-class-fee-manager/id6822059424';
 /**
- * Where someone who signed up from chalkpis.com (/start) lands: a page there counts the sign-up (Google Analytics, the
- * Meta Pixel) and shows the app links. These pages run no scripts, so they could not count it themselves.
+ * Where someone who signed up from the product website (/start) lands: a page on chalkpistutor.com counts the sign-up
+ * (Google Analytics, the Meta Pixel) and shows the app links. These pages run no scripts, so they could not count it
+ * themselves.
  */
-const WELCOME_URL = 'https://chalkpis.com/welcome';
+const WELCOME_URL = 'https://chalkpistutor.com/welcome';
 
 const CATEGORY_LABEL: Record<Category, string> = {
   tuition: 'Tuition',
@@ -735,7 +736,7 @@ ${selling ? METHODS : ''}${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}${FAQ}
       },
     );
 
-    // Sign-up from chalkpis.com: the same steps as /plan, then on to chalkpis.com/welcome (decision 147)
+    // Sign-up from the product website: the same steps as /plan, then on to chalkpistutor.com/welcome (decision 147)
     scope.get<{ Querystring: Record<string, string> }>('/start', async (req, reply) => {
       const flow: Flow = {
         next: 'start',

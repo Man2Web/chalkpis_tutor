@@ -50,7 +50,7 @@
         "REVIEW_PHONE=${REVIEW_PHONE}",
         "REVIEW_CODE=${REVIEW_CODE}",
         "FEE_PAID_LINK=${FEE_PAID_LINK:-false}",
-        "TRIAL_DAYS=3"
+        "TRIAL_DAYS=7"
       ],
       "volumes": ["uploads:/data/uploads", "backups:/data/backups"]
     },
