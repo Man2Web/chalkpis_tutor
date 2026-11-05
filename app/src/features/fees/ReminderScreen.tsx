@@ -1,5 +1,5 @@
 import { useIdempotencyKey } from '../../api/idempotency';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -45,11 +45,33 @@ export function ReminderScreen({
   const [sending, setSending] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  // dues recorded by "Mark as paid" in this visit: a retry after a failure part-way skips them
+  const recorded = useRef(new Set<string>());
 
   if (students.isLoading || dues.isLoading || institute.isLoading)
     return (
       <Screen>
         <Skeleton height={96} />
+      </Screen>
+    );
+  // a failed load with nothing cached is not "not found" or "nothing due": offer to try again
+  if (
+    (students.isError && !students.data) ||
+    (dues.isError && !dues.data) ||
+    (institute.isError && !institute.data)
+  )
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => {
+            if (students.isError) void students.refetch();
+            if (dues.isError) void dues.refetch();
+            if (institute.isError) void institute.refetch();
+          }}
+        />
       </Screen>
     );
   if (!student)
@@ -60,7 +82,7 @@ export function ReminderScreen({
     );
 
   const unpaid = (dues.data ?? [])
-    .filter((d) => outstanding(d) > 0)
+    .filter((d) => outstanding(d) > 0 && !recorded.current.has(d.id))
     .sort((a, b) => a.period.localeCompare(b.period));
   const total = unpaid.reduce((s, d) => s + outstanding(d), 0);
   if (unpaid.length === 0)
@@ -104,9 +126,10 @@ export function ReminderScreen({
   /** Records every unpaid due in full as received by UPI. The server queues the receipt message in the same step. */
   const markPaid = async () => {
     setBusy(true);
+    const before = recorded.current.size;
     try {
       let last: string | undefined;
-      for (const d of unpaid)
+      for (const d of unpaid) {
         last = (
           await recordPayment(
             { instituteId, uid, dueId: d.id, amount: outstanding(d), mode: 'upi' },
@@ -114,6 +137,8 @@ export function ReminderScreen({
             { idempotencyKey: `${idem.key}-${d.id}`.slice(0, 100) },
           )
         ).paymentId;
+        recorded.current.add(d.id);
+      }
       idem.reset();
       track('payment_recorded');
       await refresh();
@@ -123,7 +148,10 @@ export function ReminderScreen({
     } catch (e) {
       idem.settle(e);
       reportError(e);
-      toast(t('fees.recordFailed'), 'error');
+      const some = recorded.current.size > before;
+      // the months recorded before the failure are paid now: show the fresh balance, so a retry asks only for the rest
+      await refresh().catch(() => undefined);
+      toast(t(some ? 'fees.markPaidPartial' : 'fees.recordFailed'), 'error');
       setBusy(false);
       setConfirming(false);
     }

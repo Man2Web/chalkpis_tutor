@@ -1,4 +1,5 @@
 import { forwardRef } from 'react';
+import { Platform } from 'react-native';
 import Svg, {
   Circle,
   ClipPath,
@@ -11,6 +12,7 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg';
 import {
+  fitText,
   gridFor,
   initials,
   SIZES,
@@ -38,7 +40,10 @@ export interface PosterData {
   logo?: string; // data: URI
 }
 
-const FONT = 'System';
+// "System" is not a font a browser knows (it fell back to serif there): name real sans-serif faces on the web
+const FONT = Platform.OS === 'web' ? 'Inter, Arial, Helvetica, sans-serif' : 'System';
+/** Line spacing for a name or detail that wraps to a second line, as a share of its size. */
+const LEAD = 1.15;
 
 /** The poster itself, drawn at full resolution (1080 wide) and scaled to `width` on screen. */
 export const Poster = forwardRef<Svg, { data: PosterData; width: number }>(function Poster(
@@ -67,7 +72,27 @@ export const Poster = forwardRef<Svg, { data: PosterData; width: number }>(funct
   const areaH = h - footerH - areaTop - 30;
   const cellW = grid.cols ? (w - pad * 2) / grid.cols : 0;
   const cellH = grid.rows ? areaH / grid.rows : 0;
-  const r = Math.min(cellW * 0.32, cellH * 0.28, 120);
+
+  // Names and details fit the width of their card (2-3 to a row left them running into the next one): smaller for
+  // long ones, two lines for very long ones, at one size for every card so the row looks even.
+  const textW = Math.max(cellW - 24, 1);
+  const nameMax = Math.min(44, cellW / 9);
+  const detailMax = Math.min(40, cellW / 10);
+  const fitted = toppers.map((t) => ({
+    name: fitText(t.name.slice(0, 20), textW, nameMax, 28),
+    detail: fitText(t.detail.slice(0, 22), textW, detailMax, 26),
+  }));
+  const nameSize = Math.min(nameMax, ...fitted.map((f) => f.name.size));
+  const detailSize = Math.min(detailMax, ...fitted.map((f) => f.detail.size));
+  const nameLines = Math.max(1, ...fitted.map((f) => f.name.lines.length));
+  const detailLines = Math.max(0, ...fitted.map((f) => f.detail.lines.length));
+  const textH =
+    18 +
+    nameSize * (1 + (nameLines - 1) * LEAD) +
+    (detailLines ? detailSize * (1.25 + (detailLines - 1) * LEAD) : 0);
+  // the photo gives up some size (never below 60%) when the text needs the room
+  const fullR = Math.min(cellW * 0.32, cellH * 0.28, 120);
+  const r = Math.max(fullR * 0.6, Math.min(fullR, (cellH - 10 - 8 - textH - 12) / 2));
 
   return (
     <Svg ref={ref} width={width} height={(width * h) / w} viewBox={`0 0 ${w} ${h}`}>
@@ -178,30 +203,40 @@ export const Poster = forwardRef<Svg, { data: PosterData; width: number }>(funct
                 </SvgText>
               </>
             )}
-            <SvgText
-              x={cx}
-              y={cy + r + 62}
-              fill={th.ink}
-              fontSize={Math.min(44, cellW / 9)}
-              fontWeight="700"
-              fontFamily={FONT}
-              textAnchor="middle"
-            >
-              {t.name.slice(0, 20)}
-            </SvgText>
-            {t.detail ? (
+            {fitted[i]!.name.lines.map((line, j) => (
               <SvgText
+                key={`n${j}`}
                 x={cx}
-                y={cy + r + 112}
-                fill={th.accent}
-                fontSize={Math.min(40, cellW / 10)}
+                y={cy + r + 18 + nameSize * (1 + j * LEAD)}
+                fill={th.ink}
+                fontSize={nameSize}
                 fontWeight="700"
                 fontFamily={FONT}
                 textAnchor="middle"
               >
-                {t.detail.slice(0, 22)}
+                {line}
               </SvgText>
-            ) : null}
+            ))}
+            {fitted[i]!.detail.lines.map((line, j) => (
+              <SvgText
+                key={`d${j}`}
+                x={cx}
+                y={
+                  cy +
+                  r +
+                  18 +
+                  nameSize * (1 + (fitted[i]!.name.lines.length - 1) * LEAD) +
+                  detailSize * (1.25 + j * LEAD)
+                }
+                fill={th.accent}
+                fontSize={detailSize}
+                fontWeight="700"
+                fontFamily={FONT}
+                textAnchor="middle"
+              >
+                {line}
+              </SvgText>
+            ))}
           </G>
         );
       })}

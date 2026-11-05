@@ -86,8 +86,8 @@ export function receiptHtml(v: ReceiptVars): string {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 body{font-family:-apple-system,Roboto,Arial,sans-serif;color:#14171F;padding:24px;max-width:560px;margin:auto}
-h1{font-size:20px;margin:0}h2{font-size:16px;margin:16px 0 8px;color:#2F5BEA}
-.head{display:flex;gap:12px;align-items:center;border-bottom:2px solid #2F5BEA;padding-bottom:12px}
+h1{font-size:20px;margin:0}h2{font-size:16px;margin:16px 0 8px;color:#0E77BE}
+.head{display:flex;gap:12px;align-items:center;border-bottom:2px solid #0E77BE;padding-bottom:12px}
 .head img{width:56px;height:56px;border-radius:8px;object-fit:cover}
 .muted{color:#5B6275;font-size:13px}
 table{width:100%;border-collapse:collapse;margin-top:8px}td{padding:8px 0;border-bottom:1px solid #E1E4ED;font-size:15px}.k{color:#5B6275;width:42%}

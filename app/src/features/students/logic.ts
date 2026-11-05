@@ -44,3 +44,10 @@ export const distinctClasses = (students: Student[]) =>
 /** How many more active students the plan allows (Infinity when unlimited). */
 export const remainingCapacity = (activeCount: number, limit: number | null | undefined) =>
   typeof limit === 'number' ? Math.max(0, limit - activeCount) : Infinity;
+
+/** 1 -> "1st", 2 -> "2nd", 11 -> "11th", 23 -> "23rd": a fee due day as people say it (the app is English only). */
+export function ordinalDay(n: number): string {
+  const tens = n % 100;
+  if (tens >= 11 && tens <= 13) return `${n}th`;
+  return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
+}

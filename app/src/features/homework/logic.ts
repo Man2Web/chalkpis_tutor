@@ -5,8 +5,19 @@ export type Check = 'done' | 'missing';
 /** Translate function, as i18next gives it. */
 type T = (key: string, opts?: Record<string, unknown>) => string;
 
-/** How far off the due day is, from today: overdue, today, tomorrow, or in N days. */
-export function dueLabel(t: T, dueOn: string, today: string): { text: string; late: boolean } {
+/**
+ * How far off the due day is, from today: overdue, today, tomorrow, or in N days. Given how many students are still
+ * not checked, a past due day with everyone checked is finished business: a plain "Was due 5 Nov" (`closed`), not a
+ * red "Overdue" for ever.
+ */
+export function dueLabel(
+  t: T,
+  dueOn: string,
+  today: string,
+  checks?: { unchecked: number; dateText: string },
+): { text: string; late: boolean; closed?: boolean } {
+  if (dueOn < today && checks && checks.unchecked <= 0)
+    return { text: t('homework.wasDue', { date: checks.dateText }), late: false, closed: true };
   if (dueOn < today) return { text: t('homework.overdue'), late: true };
   if (dueOn === today) return { text: t('homework.dueToday'), late: false };
   if (dueOn === addDays(today, 1)) return { text: t('homework.dueTomorrow'), late: false };

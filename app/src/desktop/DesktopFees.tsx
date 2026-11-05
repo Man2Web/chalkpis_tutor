@@ -95,8 +95,7 @@ export function DesktopFees() {
               alignItems: 'center',
               gap: spacing.lg,
               padding: spacing.lg,
-              borderLeftWidth: 4,
-              borderLeftColor: colors.danger,
+              borderColor: colors.brandSoft,
             },
           ]}
         >
@@ -106,7 +105,6 @@ export function DesktopFees() {
           </View>
           <Button
             size="small"
-            variant="danger"
             title={t('fees.noUpiAction')}
             onPress={() => nav.navigate('PaymentSettings')}
           />

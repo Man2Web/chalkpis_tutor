@@ -6,6 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { Button, Chip, EmptyState, Skeleton } from '../components';
 import { shortDate, todayYmd } from '../lib/dates';
+import { formatIndianPhone } from '../lib/phone';
 import type { MainStackParams } from '../navigation/types';
 import { colors, font, radius, spacing, type } from '../theme';
 import { useEnquiries, type Enquiry } from '../features/enquiries/api';
@@ -14,6 +15,11 @@ import { conversion, followUpLabel, stageTone, type Stage } from '../features/en
 import { card, DesktopPage, StatCard, StatGrid, type HoverState } from './parts';
 
 const COLUMNS: Stage[] = ['new', 'follow_up', 'trial', 'joined'];
+/**
+ * Cards a column shows before "Show N more". Joined and Not interested only grow, so they show the latest few
+ * (newest first, as the server sends them); the open stages show far more.
+ */
+const SHOWN: Record<Stage, number> = { new: 50, follow_up: 50, trial: 50, joined: 8, lost: 8 };
 
 /**
  * Enquiries on a laptop or desktop: the admissions pipeline as a board (New, Follow-up, Trial class, Joined), with
@@ -24,6 +30,8 @@ export function DesktopEnquiries() {
   const nav = useNavigation<NativeStackNavigationProp<MainStackParams>>();
   const q = useEnquiries();
   const [showLost, setShowLost] = useState(false);
+  // columns opened in full with "Show N more"
+  const [expanded, setExpanded] = useState<Partial<Record<Stage, boolean>>>({});
   const today = todayYmd();
   const data = q.data;
   const cols: Stage[] = showLost ? [...COLUMNS, 'lost'] : COLUMNS;
@@ -101,6 +109,8 @@ export function DesktopEnquiries() {
           <View style={{ flexDirection: 'row', gap: spacing.lg, alignItems: 'flex-start' }}>
             {cols.map((s) => {
               const items = data.enquiries.filter((e) => e.status === s);
+              const limit = expanded[s] ? items.length : SHOWN[s];
+              const hidden = items.length - limit;
               return (
                 <View
                   key={s}
@@ -132,7 +142,7 @@ export function DesktopEnquiries() {
                     </Text>
                   ) : (
                     items
-                      .slice(0, 50)
+                      .slice(0, limit)
                       .map((e) => (
                         <EnquiryCard
                           key={e.id}
@@ -142,6 +152,18 @@ export function DesktopEnquiries() {
                         />
                       ))
                   )}
+                  {hidden > 0 || (expanded[s] && items.length > SHOWN[s]) ? (
+                    <Button
+                      size="small"
+                      variant="ghost"
+                      title={
+                        hidden > 0
+                          ? t('enquiries.showMore', { count: hidden })
+                          : t('enquiries.showFewer')
+                      }
+                      onPress={() => setExpanded((x) => ({ ...x, [s]: hidden > 0 }))}
+                    />
+                  ) : null}
                 </View>
               );
             })}
@@ -176,7 +198,7 @@ function EnquiryCard({ e, today, onPress }: { e: Enquiry; today: string; onPress
         {enquiryLine(e, t)}
       </Text>
       <Text style={type.caption2} numberOfLines={1}>
-        {e.phone}
+        {formatIndianPhone(e.phone)}
       </Text>
       {f && (e.status === 'new' || e.status === 'follow_up' || e.status === 'trial') ? (
         <View style={{ flexDirection: 'row', marginTop: 4 }}>

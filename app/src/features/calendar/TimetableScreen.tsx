@@ -170,7 +170,12 @@ export function TimetableScreen({
       <Button
         title={t('calendar.add')}
         icon={<Ionicons name="add" size={18} color={colors.onPrimary} />}
-        onPress={() => navigation.navigate('EventForm', { date: picked })}
+        // the week view adds on today when it is shown, else on the first day of the week on screen
+        onPress={() =>
+          navigation.navigate('EventForm', {
+            date: mode === 'week' ? (week.includes(today) ? today : week[0]!) : picked,
+          })
+        }
       />
       <ClashCard list={tt} />
     </View>
@@ -228,7 +233,14 @@ export function TimetableScreen({
                     </Text>
                   ) : null}
                   {off ? (
-                    <Text style={[type.caption2, font('600'), { color: colors.warning }]}>
+                    <Text
+                      style={[
+                        type.caption2,
+                        font('600'),
+                        { color: colors.warning, flexShrink: 1, maxWidth: '55%' },
+                      ]}
+                      numberOfLines={1}
+                    >
                       {off.title}
                     </Text>
                   ) : null}

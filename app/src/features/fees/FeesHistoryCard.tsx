@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client';
 import { BarChart } from 'panelui-native/components/bar-chart';
-import { Panel, Segmented, Skeleton } from '../../components';
+import { Button, Panel, Segmented, Skeleton } from '../../components';
 import { useInstituteId } from '../../data/hooks';
 import { formatINR } from '../../lib/money';
 import { colors, spacing, type } from '../../theme';
@@ -44,13 +44,15 @@ export function FeesHistoryCard() {
     });
 
   const share = billed > 0 ? Math.round((paid / billed) * 100) : null;
-  // ₹12,000 -> "₹12k" on the axis; the tooltip shows the exact amount
-  const axis = (rupees: number) =>
-    rupees >= 100000
-      ? `₹${(rupees / 100000).toFixed(rupees % 100000 ? 1 : 0)}L`
-      : rupees >= 1000
-        ? `₹${(rupees / 1000).toFixed(rupees % 1000 ? 1 : 0)}k`
-        : `₹${rupees}`;
+  // ₹12,000 -> "₹12k" on the axis; the tooltip shows the exact amount. The chart's ticks are floats (800 x 1.1 =
+  // 880.0000000000001), so round before printing.
+  const short = (n: number) => String(Math.round(n * 10) / 10);
+  const axis = (value: number) => {
+    const rupees = Math.round(value);
+    if (rupees >= 100000) return `₹${short(rupees / 100000)}L`;
+    if (rupees >= 1000) return `₹${short(rupees / 1000)}k`;
+    return `₹${rupees}`;
+  };
 
   return (
     <Panel
@@ -68,6 +70,17 @@ export function FeesHistoryCard() {
       />
       {q.isLoading ? (
         <Skeleton height={180} />
+      ) : q.isError && !q.data ? (
+        // not "no fees in these months": the figures could not be loaded
+        <View style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.lg }}>
+          <Text style={[type.caption, { textAlign: 'center' }]}>{t('fees.historyFailed')}</Text>
+          <Button
+            size="small"
+            variant="secondary"
+            title={t('common.retry')}
+            onPress={() => void q.refetch()}
+          />
+        </View>
       ) : billed === 0 ? (
         <Text style={[type.caption, { textAlign: 'center', paddingVertical: spacing.xl }]}>
           {t('fees.historyEmpty')}

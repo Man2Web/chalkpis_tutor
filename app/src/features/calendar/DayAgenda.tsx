@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { Chip } from '../../components';
+import { formatTime12 } from '../../components/PickerFields';
 import type { Batch } from '../../lib/types';
 import type { MainStackParams } from '../../navigation/types';
 import { colors, font, radius, spacing, type } from '../../theme';
@@ -122,7 +123,7 @@ export function DayAgenda({
           dense={dense}
           icon="book-outline"
           iconColor={colors.teal}
-          title={h.subject ? `${h.subject} · ${h.title}` : h.title}
+          title={h.subject ? `${h.title} · ${h.subject}` : h.title}
           sub={`${t('calendar.homeworkDue')} · ${h.batchName}`}
           onPress={() => nav.navigate('HomeworkCheck', { id: h.id })}
         />
@@ -152,15 +153,21 @@ export function DayAgenda({
               opacity: off ? 0.55 : 1,
             }}
           >
-            <Text
-              style={[
-                dense ? type.caption2 : type.caption,
-                font('600'),
-                { color: colors.textMuted, width: dense ? undefined : 108 },
-              ]}
-            >
-              {timeRange(b.startTime, b.endTime)}
-            </Text>
+            {dense ? (
+              <Text style={[type.caption2, font('600'), { color: colors.textMuted }]}>
+                {timeRange(b.startTime, b.endTime)}
+              </Text>
+            ) : (
+              // start over end, so "11:30 AM – 1:00 PM" never wraps mid-time on a narrow phone
+              <View style={{ width: 72 }}>
+                <Text style={[type.caption, font('600'), { color: colors.text }]} numberOfLines={1}>
+                  {formatTime12(b.startTime)}
+                </Text>
+                <Text style={[type.caption2, { color: colors.textMuted }]} numberOfLines={1}>
+                  {formatTime12(b.endTime)}
+                </Text>
+              </View>
+            )}
             <View style={{ flex: dense ? undefined : 1, minWidth: 0 }}>
               <Text
                 style={[

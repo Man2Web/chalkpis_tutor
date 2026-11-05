@@ -1,17 +1,27 @@
-import { useState } from 'react';
-import { Image, Pressable, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { api, uploadImage } from '../../api/client';
-import { Avatar, Button, Input, Screen, Section, Skeleton, toast } from '../../components';
+import {
+  Avatar,
+  Button,
+  EmptyState,
+  Input,
+  Screen,
+  Section,
+  Skeleton,
+  toast,
+} from '../../components';
 import { useInstitute, useRefreshData } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
 import { toCategory, type Category } from '../../lib/category';
+import { formatIndianPhone } from '../../lib/phone';
 import { cleanUpi, upiLink } from '../../lib/upi';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, spacing, type, font } from '../../theme';
+import { colors, radius, spacing, type, font } from '../../theme';
 import { refreshProfile, useSession } from '../auth/session';
 import { UpiQr } from '../../components/UpiQr';
 import { CategoryPicker } from './CategoryPicker';
@@ -22,6 +32,21 @@ const Loading = () => (
     <Skeleton height={160} />
   </Screen>
 );
+
+/** The centre's details could not be loaded (no internet): say so and offer to try again, never a skeleton for ever. */
+function LoadFailed({ onRetry }: { onRetry: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <Screen>
+      <EmptyState
+        icon="alert-circle-outline"
+        title={t('common.error')}
+        actionLabel={t('common.retry')}
+        onAction={onRetry}
+      />
+    </Screen>
+  );
+}
 
 /** Institute details: logo, name, what it teaches, and the address, phone and receipt prefix shown on receipts. */
 export function SettingsScreen({
@@ -37,7 +62,12 @@ export function SettingsScreen({
   const [prefix, setPrefix] = useState<string>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  // the photo picker is opening: a second tap must not open it again
+  const picking = useRef(false);
 
+  if (institute.isError && !institute.data)
+    return <LoadFailed onRetry={() => void institute.refetch()} />;
   if (institute.isLoading || !institute.data) return <Loading />;
   const inst = institute.data;
   const instV = instName ?? inst.name;
@@ -73,51 +103,84 @@ export function SettingsScreen({
   };
 
   const changeLogo = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.6,
-    });
-    if (res.canceled) return;
+    if (picking.current || uploading) return;
+    picking.current = true;
     try {
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6,
+      });
+      if (res.canceled) return;
+      setUploading(true);
       await uploadImage('/institute/logo', res.assets[0].uri);
       await refresh();
+      toast(t('settings.logoSaved'), 'success');
     } catch (e) {
       reportError(e);
       toast(t('common.error'), 'error');
+    } finally {
+      picking.current = false;
+      setUploading(false);
     }
   };
 
   return (
     <Screen>
       <Pressable
-        onPress={changeLogo}
+        onPress={() => void changeLogo()}
+        disabled={uploading}
         accessibilityRole="button"
         accessibilityLabel={inst.logoUrl ? t('onboarding.changeLogo') : t('onboarding.addLogo')}
+        accessibilityState={{ disabled: uploading, busy: uploading }}
         style={{ alignItems: 'center', gap: spacing.sm, marginVertical: spacing.md }}
       >
-        {inst.logoUrl ? (
-          <Image
-            source={{ uri: inst.logoUrl }}
-            style={{ width: 88, height: 88, borderRadius: 20 }}
-          />
-        ) : (
-          <View
-            style={{
-              width: 88,
-              height: 88,
-              borderRadius: 20,
-              backgroundColor: colors.fill,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Ionicons name="image-outline" size={34} color={colors.gray} />
-          </View>
-        )}
+        <View>
+          {inst.logoUrl ? (
+            <Image
+              source={{ uri: inst.logoUrl }}
+              style={{ width: 88, height: 88, borderRadius: radius.xl }}
+            />
+          ) : (
+            <View
+              style={{
+                width: 88,
+                height: 88,
+                borderRadius: radius.xl,
+                backgroundColor: colors.fill,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="image-outline" size={34} color={colors.gray} />
+            </View>
+          )}
+          {uploading ? (
+            // the new logo is on its way: a spinner over the old one until it lands
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                borderRadius: radius.xl,
+                backgroundColor: 'rgba(255,255,255,0.72)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : null}
+        </View>
         <Text style={[type.subhead, { color: colors.primaryDark, ...font('600') }]}>
-          {inst.logoUrl ? t('onboarding.changeLogo') : t('onboarding.addLogo')}
+          {uploading
+            ? t('settings.logoUploading')
+            : inst.logoUrl
+              ? t('onboarding.changeLogo')
+              : t('onboarding.addLogo')}
         </Text>
       </Pressable>
       <Input label={t('onboarding.instituteName')} value={instV} onChangeText={setInstName} />
@@ -185,7 +248,7 @@ export function EditProfileScreen({
       {profile?.phone ? (
         <Input
           label={t('auth.phoneLabel')}
-          value={profile.phone}
+          value={formatIndianPhone(profile.phone)}
           editable={false}
           hint={t('settings.phoneHint')}
         />
@@ -224,6 +287,8 @@ export function PaymentSettingsScreen({
   const [linkError, setLinkError] = useState<string>();
   const [busy, setBusy] = useState(false);
 
+  if (institute.isError && !institute.data)
+    return <LoadFailed onRetry={() => void institute.refetch()} />;
   if (institute.isLoading || !institute.data) return <Loading />;
   const inst = institute.data;
   const upiV = upi ?? inst.upiId ?? '';

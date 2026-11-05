@@ -2,6 +2,7 @@ import type { FeeDue } from '../../../lib/types';
 import {
   applyPayment,
   applyReversal,
+  compactINR,
   discountError,
   formatReceiptNo,
   groupByStudent,
@@ -160,6 +161,15 @@ describe('formatting', () => {
     expect(formatReceiptNo('', 123456)).toBe('RC-123456');
   });
   it('period label', () => expect(periodLabel('2026-03')).toBe('Mar 2026'));
+  it('compact amounts for narrow tiles, never rounded up', () => {
+    expect(compactINR(999900)).toBe('₹9,999');
+    expect(compactINR(1250000)).toBe('₹12.5k');
+    expect(compactINR(9999900)).toBe('₹99.9k');
+    expect(compactINR(12500000)).toBe('₹1.25L');
+    expect(compactINR(10000000)).toBe('₹1L');
+    expect(compactINR(1234567800)).toBe('₹1.23Cr');
+    expect(compactINR(-1250000)).toBe('-₹12.5k');
+  });
   it('period span collapses repeats and spans months', () => {
     expect(periodSpan(['2026-10', '2026-10'])).toBe('Oct 2026');
     expect(periodSpan(['2026-10', '2026-08', '2026-09'])).toBe('Aug 2026 – Oct 2026');

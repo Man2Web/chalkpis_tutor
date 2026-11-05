@@ -7,6 +7,7 @@ import {
   BottomSheet,
   Button,
   Chip,
+  DateField,
   EmptyState,
   Input,
   Screen,
@@ -18,8 +19,7 @@ import { reportError } from '../../lib/analytics';
 import { open } from '../../lib/contact';
 import { prettyDate, todayYmd } from '../../lib/dates';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, spacing, type } from '../../theme';
-import { DateStrip } from '../attendance/DateStrip';
+import { colors, radius, spacing, type } from '../../theme';
 import { useCalendarActions, useCalendarEvent } from './api';
 import { eventMessage, KINDS, type EventKind } from './logic';
 
@@ -66,6 +66,18 @@ export function EventFormScreen({
     return (
       <Screen>
         <Skeleton height={300} />
+      </Screen>
+    );
+  // a failed load is not a deleted event: offer to try again
+  if (id && existing.isError && !loaded)
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => void existing.refetch()}
+        />
       </Screen>
     );
   if (id && !loaded)
@@ -130,7 +142,7 @@ export function EventFormScreen({
         <View
           style={{
             backgroundColor: colors.successSoft,
-            borderRadius: 18,
+            borderRadius: radius.lg,
             padding: spacing.lg,
             gap: spacing.sm,
             marginBottom: spacing.lg,
@@ -140,7 +152,7 @@ export function EventFormScreen({
           <Button
             variant="outline"
             title={t('calendar.shareParents')}
-            icon={<Ionicons name="logo-whatsapp" size={16} color="#1DA851" />}
+            icon={<Ionicons name="logo-whatsapp" size={16} color={colors.whatsapp} />}
             onPress={share}
           />
         </View>
@@ -164,19 +176,14 @@ export function EventFormScreen({
         maxLength={120}
         error={tried ? titleError : undefined}
       />
-      <Text style={[type.fieldLabel, { marginBottom: spacing.xs }]}>
-        {t(endsOn ? 'calendar.from' : 'calendar.date')}
-      </Text>
-      <View style={{ marginBottom: spacing.md }}>
-        <DateStrip
-          date={startsOn}
-          onChange={(d) => {
-            setStartsOn(d);
-            if (endsOn && endsOn < d) setEndsOn(d);
-          }}
-          allowFuture
-        />
-      </View>
+      <DateField
+        label={t(endsOn ? 'calendar.from' : 'calendar.date')}
+        value={startsOn}
+        onChange={(d) => {
+          setStartsOn(d);
+          if (endsOn && endsOn < d) setEndsOn(d);
+        }}
+      />
       {chipRow(
         <>
           <Chip label={t('calendar.oneDay')} selected={!endsOn} onPress={() => setEndsOn(null)} />
@@ -188,16 +195,12 @@ export function EventFormScreen({
         </>,
       )}
       {endsOn ? (
-        <>
-          <Text style={[type.fieldLabel, { marginBottom: spacing.xs }]}>{t('calendar.to')}</Text>
-          <View style={{ marginBottom: spacing.md }}>
-            <DateStrip
-              date={endsOn}
-              onChange={(d) => setEndsOn(d < startsOn ? startsOn : d)}
-              allowFuture
-            />
-          </View>
-        </>
+        <DateField
+          label={t('calendar.to')}
+          value={endsOn}
+          minDate={startsOn}
+          onChange={(d) => setEndsOn(d < startsOn ? startsOn : d)}
+        />
       ) : null}
       <Text style={[type.fieldLabel, { marginBottom: spacing.xs }]}>{t('calendar.for')}</Text>
       {chipRow(

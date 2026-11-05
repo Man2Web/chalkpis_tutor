@@ -21,7 +21,7 @@ import { spacing, type } from '../../theme';
 import { useIsStaff } from '../auth/session';
 import { scheduleLabel } from '../batches/format';
 import { DateStrip } from './DateStrip';
-import { counts } from './logic';
+import { counts, presentTone } from './logic';
 
 export function AttendanceHomeScreen() {
   const { t } = useTranslation();
@@ -39,23 +39,30 @@ export function AttendanceHomeScreen() {
   );
   const byBatch = new Map((day.data ?? []).map((d) => [d.batchId, d]));
 
-  const status = (batchId: string) => {
-    const d = byBatch.get(batchId);
+  const isToday = date === todayYmd();
+  const status = (batch: (typeof active)[number]) => {
+    const d = byBatch.get(batch.id);
+    // a day the batch does not meet is not a missed register: say so plainly (it can still be marked)
+    if (!d && !batch.days.includes(weekday))
+      return <Chip label={t(isToday ? 'attendance.noClassToday' : 'attendance.noClassOnDay')} />;
     if (!d) return <Chip label={t('attendance.notMarked')} tone="warning" />;
     if (d.holiday)
       return (
         <Chip label={t(d.reason === 'cancelled' ? 'attendance.cancelled' : 'attendance.holiday')} />
       );
     const c = counts(Object.values(d.marks));
+    const present = c.P + c.L;
+    const total = c.P + c.L + c.A;
     return (
       <Chip
-        label={t('attendance.presentOf', { present: c.P + c.L, total: c.P + c.L + c.A })}
-        tone="success"
+        label={t('attendance.presentOf', { present, total })}
+        tone={presentTone(present, total)}
       />
     );
   };
 
-  if (batches.isError || day.isError) {
+  // a failed refresh keeps the list on screen; only a first load with nothing to show becomes an error
+  if ((batches.isError && !batches.data) || (day.isError && !day.data)) {
     return (
       <Screen>
         <EmptyState
@@ -130,8 +137,8 @@ export function AttendanceHomeScreen() {
           renderItem={({ item }) => (
             <ListItem
               title={item.name}
-              subtitle={`${item.days.includes(weekday) ? `${t('attendance.classToday')} • ` : ''}${scheduleLabel(item, t)}`}
-              right={status(item.id)}
+              subtitle={scheduleLabel(item, t, true)}
+              right={status(item)}
               onPress={() => nav.navigate('MarkAttendance', { batchId: item.id, date })}
             />
           )}

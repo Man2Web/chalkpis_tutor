@@ -44,7 +44,8 @@ it('an older account without a mobile number offers to add one, and never shows 
 it('an account with a number shows it, with nothing to add', async () => {
   mockProfile = base;
   await render(<AccountScreen />);
-  expect(screen.getAllByText(/\+919876543210/).length).toBeGreaterThan(0);
+  // shown as people write it
+  expect(screen.getAllByText(/\+91 98765 43210/).length).toBeGreaterThan(0);
   expect(screen.queryByText('Not added')).toBeNull();
   expect(screen.queryByText('Add your mobile number')).toBeNull();
 });

@@ -3,7 +3,17 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { Avatar, Button, Card, Chip, EmptyState, Screen, Skeleton, toast } from '../../components';
+import {
+  Avatar,
+  Button,
+  Card,
+  Chip,
+  EmptyState,
+  Screen,
+  Skeleton,
+  toast,
+  useDiscardGuard,
+} from '../../components';
 import { useInstitute, useStudents } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
 import { open, whatsappUrl } from '../../lib/contact';
@@ -29,6 +39,8 @@ export function HomeworkCheckScreen({
   const { saveChecks } = useHomeworkActions();
   const [checks, setChecks] = useState<Map<string, Check>>(new Map());
   const [dirty, setDirty] = useState(false);
+  // ticks not saved yet are not lost to Back, a swipe or the browser: "Discard changes?" first
+  const guard = useDiscardGuard(dirty);
 
   const saved = q.data?.checks;
   useEffect(() => {
@@ -53,6 +65,21 @@ export function HomeworkCheckScreen({
         <Skeleton height={300} />
       </Screen>
     );
+  // a failed load (no internet) is not deleted homework: offer to try again
+  if ((q.isError && !q.data) || (students.isError && !students.data))
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => {
+            void q.refetch();
+            void students.refetch();
+          }}
+        />
+      </Screen>
+    );
   if (!q.data)
     return (
       <Screen>
@@ -61,9 +88,10 @@ export function HomeworkCheckScreen({
     );
   const hw = q.data.homework;
   const today = todayYmd();
-  const due = dueLabel(t, hw.dueOn, today);
   const dueText = prettyDate(hw.dueOn, 'en-IN');
   const count = tally(roster, checks);
+  // red "Overdue" only while someone is still not checked; after that, "Was due Fri, 7 Nov"
+  const due = dueLabel(t, hw.dueOn, today, { unchecked: count.unchecked, dateText: dueText });
   const savedMap = new Map((saved ?? []).map((c) => [c.studentId, c.status]));
   const like = { ...hw, dueText };
 
@@ -91,7 +119,11 @@ export function HomeworkCheckScreen({
         checks: roster.map((sid) => ({ studentId: sid, status: checks.get(sid) ?? null })),
       },
       {
-        onSuccess: () => toast(t('homework.checksSaved'), 'success'),
+        onSuccess: () => {
+          // saved: leaving is safe now even if the fresh ticks are slow to come back
+          setDirty(false);
+          toast(t('homework.checksSaved'), 'success');
+        },
         onError: (e) => {
           reportError(e);
           toast(t('common.error'), 'error');
@@ -128,7 +160,7 @@ export function HomeworkCheckScreen({
                 {[hw.subject, hw.batchName].filter(Boolean).join(' · ')}
               </Text>
               <Text style={[type.footnote, due.late ? { color: colors.danger } : null]}>
-                {t('homework.dueLine', { date: dueText, when: due.text })}
+                {due.closed ? due.text : t('homework.dueLine', { date: dueText, when: due.text })}
               </Text>
             </View>
             <Button
@@ -201,8 +233,8 @@ export function HomeworkCheckScreen({
                         hitSlop={6}
                         style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                       >
-                        <Ionicons name="logo-whatsapp" size={14} color="#1DA851" />
-                        <Text style={[type.caption, { color: '#128C4B' }]}>
+                        <Ionicons name="logo-whatsapp" size={14} color={colors.whatsapp} />
+                        <Text style={[type.caption, { color: colors.whatsappText }]}>
                           {t('homework.remind')}
                         </Text>
                       </Pressable>
@@ -245,6 +277,7 @@ export function HomeworkCheckScreen({
           />
         </View>
       </View>
+      {guard.sheet}
     </Screen>
   );
 }

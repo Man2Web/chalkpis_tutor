@@ -1,4 +1,5 @@
 import type { ComponentProps } from 'react';
+import { Platform } from 'react-native';
 import type Ionicons from '@expo/vector-icons/Ionicons';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client';
@@ -61,8 +62,28 @@ export function markAllRead() {
 const TABS = new Set(['Home', 'Students', 'Attendance', 'Fees']);
 type Go = (name: string, params?: object) => void;
 
-/** Where the announcement's button goes: a web page, or a screen in the app. True when it went somewhere. */
-export function openTarget(navigate: Go, u: Pick<Update, 'link' | 'screen'>): boolean {
+/** Chalkpis's own pay pages (tutor.chalkpis.com/plan, /pay/...) and Razorpay's. */
+const PAY_LINK =
+  /^https?:\/\/([a-z0-9-]+\.)*(razorpay\.(com|me)|rzp\.io)(\/|$)|^https?:\/\/([a-z0-9-]+\.)*chalkpis\.com\/(plan|pay)(\/|\?|#|$)/i;
+export const isPayLink = (url: string) => PAY_LINK.test(url.trim());
+
+/**
+ * Where the announcement's button goes: a web page, or a screen in the app. True when it went somewhere.
+ * In the App Store and Google Play apps a plan may only be bought through the store, so a billing announcement, or a
+ * link to a pay page, opens the Plans & billing screen there instead of a web page.
+ */
+export function openTarget(
+  navigate: Go,
+  u: Pick<Update, 'link' | 'screen'> & Pick<Partial<Update>, 'category'>,
+): boolean {
+  if (
+    Platform.OS !== 'web' &&
+    (u.link || u.screen) &&
+    (u.category === 'billing' || (u.link && isPayLink(u.link)))
+  ) {
+    navigate('Billing');
+    return true;
+  }
   if (u.link) {
     void open(u.link);
     return true;

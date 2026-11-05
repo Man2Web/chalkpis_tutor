@@ -28,7 +28,7 @@ export function DetailsScreen({
         onSaved={async () => {
           await refreshProfile();
           // still signing up: on to the first batch. Otherwise the app itself opens now.
-          if (useSession.getState().status === 'needsOnboarding') navigation.navigate('Batch');
+          if (useSession.getState().status === 'needsOnboarding') navigation.replace('Batch');
           else toast(t('ownerDetails.saved'), 'success');
         }}
       />

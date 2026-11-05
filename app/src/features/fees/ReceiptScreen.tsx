@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../api/client';
@@ -67,6 +67,7 @@ export function ReceiptScreen({
   const [sheet, setSheet] = useState(false);
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const idem = useIdempotencyKey();
 
   if (payment.isLoading || students.isLoading || institute.isLoading)
@@ -115,11 +116,14 @@ export function ReceiptScreen({
   });
 
   const share = async () => {
+    setSharing(true);
     try {
       await shareReceiptPdf(vars);
     } catch (e) {
       reportError(e);
       toast(t('fees.shareFailed'), 'error');
+    } finally {
+      setSharing(false);
     }
   };
 
@@ -189,16 +193,38 @@ export function ReceiptScreen({
         <Button title={t('fees.sendReceiptWhatsapp')} onPress={sendWhatsApp} loading={sending} />
       ) : null}
       {!isReversal ? (
-        <Button variant="secondary" title={t('fees.sharePdf')} onPress={share} />
-      ) : null}
-      {!isReversal && !reversed ? (
-        <Button variant="danger" title={t('fees.reverse')} onPress={() => setSheet(true)} />
+        <Button
+          variant="secondary"
+          title={t('fees.sharePdf')}
+          onPress={() => void share()}
+          loading={sharing}
+        />
       ) : null}
       <Button
         variant="ghost"
         title={t('fees.openLedger')}
-        onPress={() => navigation.replace('FeeLedger', { studentId: p.studentId })}
+        // the receipt usually sits on the ledger it was opened from: go back to it rather than stacking a second one
+        onPress={() => navigation.popTo('FeeLedger', { studentId: p.studentId })}
       />
+      {/* undoing a payment is rare: a quiet red action at the very bottom, away from the everyday buttons (it asks
+          first) */}
+      {!isReversal && !reversed ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setSheet(true)}
+          hitSlop={8}
+          style={({ pressed }) => ({
+            alignSelf: 'center',
+            minHeight: 48,
+            justifyContent: 'center',
+            paddingHorizontal: spacing.lg,
+            marginTop: spacing.xl,
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
+          <Text style={[type.label, { color: colors.danger }]}>{t('fees.reverse')}</Text>
+        </Pressable>
+      ) : null}
 
       <BottomSheet visible={sheet} onClose={() => setSheet(false)} title={t('fees.reverseTitle')}>
         <Text style={[type.body, { marginBottom: spacing.md }]}>

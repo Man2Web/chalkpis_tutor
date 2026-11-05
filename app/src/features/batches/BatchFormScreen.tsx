@@ -53,6 +53,18 @@ export function BatchFormScreen({
         <Skeleton height={48} />
       </Screen>
     );
+  // a failed load with nothing cached is not "not found": offer to try again
+  if (id && batches.isError && !batches.data)
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => void batches.refetch()}
+        />
+      </Screen>
+    );
   if (id && !existing)
     return (
       <Screen>
@@ -69,7 +81,8 @@ export function BatchFormScreen({
         await createBatch(instituteId, form, { idempotencyKey: idem.key });
         idem.reset();
       }
-      await refresh();
+      // the lists refresh behind us; waiting for every refetch kept the spinner going for seconds
+      void refresh();
       toast(t('batches.saved'), 'success');
       navigation.goBack();
     } catch (e) {

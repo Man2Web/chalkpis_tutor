@@ -13,7 +13,7 @@ jest.mock('expo-image-picker', () => ({ launchImageLibraryAsync: jest.fn() }));
 jest.mock('../../../lib/analytics', () => ({ reportError: jest.fn() }));
 jest.mock('../../auth/session', () => ({ refreshProfile: jest.fn().mockResolvedValue(undefined) }));
 
-const nav = { navigate: jest.fn() };
+const nav = { navigate: jest.fn(), replace: jest.fn() };
 const props = {
   navigation: nav,
   route: { key: 'Profile', name: 'Profile', params: undefined },
@@ -69,5 +69,6 @@ it('sets up the centre with what it teaches', async () => {
       expect.anything(),
     ),
   );
-  await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('Details'));
+  // replace: Back must not return to the step that created the centre
+  await waitFor(() => expect(nav.replace).toHaveBeenCalledWith('Details'));
 });

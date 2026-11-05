@@ -3,12 +3,15 @@ import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
+  Avatar,
   BottomSheet,
   Button,
   Card,
   Chip,
+  ConfirmSheet,
   EmptyState,
   Input,
+  InsetSeparator,
   ListItem,
   Screen,
   Skeleton,
@@ -16,7 +19,8 @@ import {
 } from '../../components';
 import { useBatches, useRefreshData, useStaff } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
-import { colors, spacing, type } from '../../theme';
+import { formatIndianPhone } from '../../lib/phone';
+import { colors, radius, spacing, type } from '../../theme';
 import {
   addStaff,
   removeStaff,
@@ -41,6 +45,8 @@ export function StaffScreen() {
   const [phone, setPhone] = useState('');
   const [picked, setPicked] = useState<string[]>([]);
   const [editing, setEditing] = useState<StaffMember | null>(null);
+  // the helper waiting for "Remove?"; the edit sheet closes first so two sheets never stack
+  const [removing, setRemoving] = useState<StaffMember | null>(null);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
 
@@ -100,15 +106,18 @@ export function StaffScreen() {
   };
 
   const remove = async () => {
-    if (!editing) return;
+    if (!removing) return;
     setBusy(true);
     try {
-      await removeStaff(editing.id);
+      await removeStaff(removing.id);
       await refresh();
-      setEditing(null);
+      setRemoving(null);
       toast(t('staff.removed'), 'success');
     } catch (e) {
-      fail(e);
+      // the edit sheet is closed by now, so the reason goes in a toast
+      reportError(e);
+      const key = staffErrorKey(e);
+      toast(t(key === 'generic' ? 'common.error' : `staff.errors.${key}`), 'error');
     } finally {
       setBusy(false);
     }
@@ -140,7 +149,8 @@ export function StaffScreen() {
         <Skeleton height={120} />
       </Screen>
     );
-  if (staff.isError)
+  // a failed refresh keeps the list on screen; only a first load with nothing to show becomes an error
+  if (staff.isError && !staff.data)
     return (
       <Screen>
         <EmptyState
@@ -163,14 +173,25 @@ export function StaffScreen() {
           message={t('staff.emptyMessage')}
         />
       ) : (
-        <View style={{ backgroundColor: colors.surface, borderRadius: 12, overflow: 'hidden' }}>
-          {list.map((m) => (
-            <ListItem
-              key={m.id}
-              title={m.name}
-              subtitle={`${m.phone} • ${m.batchIds.length ? m.batchIds.map(nameOfBatch).join(', ') : t('staff.noneAssigned')}`}
-              onPress={() => openEdit(m)}
-            />
+        <View
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: radius.lg,
+            borderWidth: 1,
+            borderColor: colors.border,
+            overflow: 'hidden',
+          }}
+        >
+          {list.map((m, i) => (
+            <View key={m.id}>
+              {i > 0 ? <InsetSeparator /> : null}
+              <ListItem
+                title={m.name}
+                subtitle={`${formatIndianPhone(m.phone)} • ${m.batchIds.length ? m.batchIds.map(nameOfBatch).join(', ') : t('staff.noneAssigned')}`}
+                left={<Avatar name={m.name} />}
+                onPress={() => openEdit(m)}
+              />
+            </View>
           ))}
         </View>
       )}
@@ -185,6 +206,7 @@ export function StaffScreen() {
             value={phone}
             onChangeText={setPhone}
             keyboardType="phone-pad"
+            prefix="+91"
             maxLength={16}
             placeholder="98765 43210"
             error={error}
@@ -197,15 +219,33 @@ export function StaffScreen() {
       <BottomSheet visible={!!editing} onClose={() => setEditing(null)} title={editing?.name}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: spacing.md }}>
           <Card style={{ gap: spacing.xs }}>
-            <Text style={type.body}>{editing?.phone}</Text>
+            <Text style={type.body}>{editing ? formatIndianPhone(editing.phone) : ''}</Text>
           </Card>
           {batchChips}
           {!!error && <Text style={[type.caption, { color: colors.danger }]}>{error}</Text>}
           <Button title={t('common.save')} onPress={submitEdit} loading={busy} />
-          <Button variant="secondary" title={t('staff.remove')} onPress={remove} disabled={busy} />
-          <Text style={type.caption}>{t('staff.removeNote')}</Text>
+          <Button
+            variant="danger"
+            title={t('staff.remove')}
+            onPress={() => {
+              setRemoving(editing);
+              setEditing(null);
+            }}
+            disabled={busy}
+          />
         </ScrollView>
       </BottomSheet>
+
+      <ConfirmSheet
+        visible={!!removing}
+        onClose={() => setRemoving(null)}
+        title={t('staff.removeTitle', { name: removing?.name ?? '' })}
+        message={t('staff.removeNote')}
+        confirmLabel={t('staff.removeConfirm')}
+        onConfirm={remove}
+        loading={busy}
+        destructive
+      />
     </Screen>
   );
 }

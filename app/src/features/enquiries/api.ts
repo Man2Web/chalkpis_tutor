@@ -53,16 +53,18 @@ export function useEnquiries() {
   });
 }
 
+/** One enquiry with its notes, newest first. */
+export interface EnquiryDetail {
+  enquiry: Enquiry;
+  notes: { id: string; note: string; createdAt: string }[];
+}
+
 export function useEnquiry(enquiryId: string | undefined) {
   const id = useInstituteId();
   return useQuery({
     queryKey: ['enquiry', id, enquiryId],
     enabled: !!enquiryId,
-    queryFn: () =>
-      api<{ enquiry: Enquiry; notes: { id: string; note: string; createdAt: string }[] }>(
-        'GET',
-        `/enquiries/${enquiryId}`,
-      ),
+    queryFn: () => api<EnquiryDetail>('GET', `/enquiries/${enquiryId}`),
   });
 }
 
@@ -102,7 +104,23 @@ export function useEnquiryActions() {
       ...patch
     }: Partial<Omit<EnquiryInput, 'note'>> & { id: string; status?: Stage; lostReason?: string }) =>
       api('PATCH', `/enquiries/${eid}`, patch),
-    onSuccess: refresh,
+    // Show the change at once, so a second tap (another follow-up day, another stage) builds on the first instead
+    // of on the copy from before it; the server's answer then confirms it, or a failure puts it back.
+    onMutate: async ({ id: eid, ...patch }) => {
+      const key = ['enquiry', id, eid];
+      await qc.cancelQueries({ queryKey: key });
+      const before = qc.getQueryData<EnquiryDetail>(key);
+      if (before)
+        qc.setQueryData<EnquiryDetail>(key, {
+          ...before,
+          enquiry: { ...before.enquiry, ...patch },
+        });
+      return { key, before };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.before) qc.setQueryData(ctx.key, ctx.before);
+    },
+    onSettled: refresh,
   });
   const addNote = useMutation({
     mutationFn: ({ id: eid, note }: { id: string; note: string }) =>

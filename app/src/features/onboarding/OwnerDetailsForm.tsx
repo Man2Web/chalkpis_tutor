@@ -154,7 +154,7 @@ export function OwnerDetailsForm({
         autoComplete="postal-code"
         textContentType="postalCode"
         maxLength={6}
-        placeholder="632001"
+        placeholder="6-digit PIN code"
       />
       <Controller
         control={control}

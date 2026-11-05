@@ -6,6 +6,7 @@ import {
   BottomSheet,
   Button,
   Chip,
+  DateField,
   EmptyState,
   Input,
   Screen,
@@ -16,8 +17,7 @@ import { useBatches } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
 import { todayYmd } from '../../lib/dates';
 import type { MainStackParams } from '../../navigation/types';
-import { spacing, type } from '../../theme';
-import { DateStrip } from '../attendance/DateStrip';
+import { colors, spacing, type } from '../../theme';
 import { useExam, useExamActions } from './api';
 import { marksText } from './logic';
 
@@ -72,6 +72,18 @@ export function ExamFormScreen({
     return (
       <Screen>
         <Skeleton height={240} />
+      </Screen>
+    );
+  // a failed load is not a deleted test: offer to try again
+  if (id && existing.isError && !loaded)
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => void existing.refetch()}
+        />
       </Screen>
     );
   if (id && !loaded)
@@ -143,7 +155,7 @@ export function ExamFormScreen({
             <Text style={type.caption}>{t('exams.noBatches')}</Text>
           )}
           {tried && errors.batch ? (
-            <Text style={[type.caption, { color: '#B91C1C' }]}>{errors.batch}</Text>
+            <Text style={[type.caption, { color: colors.danger }]}>{errors.batch}</Text>
           ) : null}
         </View>
       )}
@@ -162,10 +174,8 @@ export function ExamFormScreen({
         placeholder={t('exams.subjectPlaceholder')}
         maxLength={80}
       />
-      <Text style={[type.fieldLabel, { marginBottom: spacing.xs }]}>{t('exams.date')}</Text>
-      <View style={{ marginBottom: spacing.md }}>
-        <DateStrip date={date} onChange={setDate} />
-      </View>
+      {/* any day: a test is often set up ahead of the day it is written */}
+      <DateField label={t('exams.date')} value={date} onChange={setDate} />
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
         <View style={{ flex: 1 }}>
           <Input

@@ -34,4 +34,8 @@ describe('studentSchema', () => {
     expect(msg({ ...ok, monthlyFee: '-1' })).toBe('amount');
     expect(studentSchema.safeParse({ ...ok, dueDay: 32 }).success).toBe(false);
   });
+  it('does not accept a joining date in the future', () => {
+    expect(msg({ ...ok, joinedOn: '2999-01-01' })).toBe('joinedFuture');
+    expect(msg({ ...ok, joinedOn: '2026-01-01' })).toBeNull();
+  });
 });

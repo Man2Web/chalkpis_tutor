@@ -62,7 +62,8 @@ export function ProfileScreen({
         }
       }
       await refreshProfile();
-      navigation.navigate('Details');
+      // replace, not push: Back must not return to a step that already created the centre
+      navigation.replace('Details');
     } catch (e) {
       idem.settle(e);
       reportError(e);

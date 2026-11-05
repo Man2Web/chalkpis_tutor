@@ -111,7 +111,8 @@ export function UpdatesScreen() {
   const [open, setOpen] = useState<string | null>(null);
   const list = q.data?.updates ?? [];
 
-  if (q.isError)
+  // a failed refetch keeps the list on screen; only a first load that failed shows the error
+  if (q.isError && !q.data)
     return (
       <Screen>
         <EmptyState
@@ -229,7 +230,7 @@ export function UpdatesBell() {
             borderColor: colors.bg,
           }}
         >
-          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 10, ...font('700') }}>
             {unread > 9 ? '9+' : unread}
           </Text>
         </View>

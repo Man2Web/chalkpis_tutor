@@ -14,14 +14,21 @@ import {
   Skeleton,
 } from '../../components';
 import { useBatches } from '../../data/hooks';
-import { shortDate } from '../../lib/dates';
+import { shortDate, todayYmd } from '../../lib/dates';
 import type { MainStackParams } from '../../navigation/types';
 import { colors, spacing } from '../../theme';
 import { useExams, type ExamListItem } from './api';
 import { marksText } from './logic';
 
-/** Where a test stands: all marked, some marked, or none yet. */
-export function examStatus(e: ExamListItem, t: (k: string, o?: Record<string, unknown>) => string) {
+/** Where a test stands: still to come, all marked, some marked, or none yet. */
+export function examStatus(
+  e: ExamListItem,
+  t: (k: string, o?: Record<string, unknown>) => string,
+  today: string = todayYmd(),
+) {
+  // a test set ahead of its day has nothing to mark yet: not a warning
+  if (e.entered === 0 && e.date > today)
+    return { label: t('exams.statusUpcoming'), tone: 'neutral' as const };
   if (e.entered === 0) return { label: t('exams.statusNone'), tone: 'warning' as const };
   if (e.entered < e.students)
     return {

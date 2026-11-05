@@ -1,7 +1,8 @@
 import { Text, View } from 'react-native';
-import { Control, Controller } from 'react-hook-form';
+import { Control, Controller, useController } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Chip, FormInput } from '../../components';
+import { TimeField } from '../../components/PickerFields';
 import { useCategory } from '../../lib/category';
 import { WEEKDAYS } from '../../lib/types';
 import { colors, spacing, type } from '../../theme';
@@ -74,26 +75,64 @@ export function BatchFormFields({ control }: { control: Control<BatchForm> }) {
           </View>
         )}
       />
-      <FormInput
-        control={control}
-        name="startTime"
-        label={t('onboarding.startTime')}
-        keyboardType="numbers-and-punctuation"
-        maxLength={5}
-      />
-      <FormInput
-        control={control}
-        name="endTime"
-        label={t('onboarding.endTime')}
-        keyboardType="numbers-and-punctuation"
-        maxLength={5}
-      />
+      {/* tap to pick: nobody has to type "17:30" */}
+      <ClassTimes control={control} />
       <FormInput
         control={control}
         name="defaultFee"
         label={t('onboarding.defaultFee')}
         keyboardType="decimal-pad"
+        prefix="₹"
+        placeholder="0"
       />
     </>
+  );
+}
+
+/** "17:30" plus minutes, kept within the day. */
+const later = (hhmm: string, minutes: number) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  const total = Math.min(23 * 60 + 55, (h ?? 0) * 60 + (m ?? 0) + minutes);
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+};
+const minutesOf = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+};
+
+/**
+ * Start and end side by side. Moving the start past the end carries the end along, keeping the class as long as it
+ * was (an hour if it was not), so the owner never has to fix a second field.
+ */
+function ClassTimes({ control }: { control: Control<BatchForm> }) {
+  const { t } = useTranslation();
+  const start = useController({ control, name: 'startTime' });
+  const end = useController({ control, name: 'endTime' });
+  const err = (m?: string) =>
+    m ? t(`validation.${m}`, { defaultValue: t('validation.required') }) : undefined;
+  return (
+    <View style={{ flexDirection: 'row', gap: spacing.md }}>
+      <View style={{ flex: 1 }}>
+        <TimeField
+          label={t('onboarding.startTime')}
+          value={start.field.value}
+          error={err(start.fieldState.error?.message)}
+          onChange={(v) => {
+            const length = minutesOf(end.field.value) - minutesOf(start.field.value);
+            start.field.onChange(v);
+            if (minutesOf(end.field.value) <= minutesOf(v))
+              end.field.onChange(later(v, length > 0 ? length : 60));
+          }}
+        />
+      </View>
+      <View style={{ flex: 1 }}>
+        <TimeField
+          label={t('onboarding.endTime')}
+          value={end.field.value}
+          error={err(end.fieldState.error?.message)}
+          onChange={end.field.onChange}
+        />
+      </View>
+    </View>
   );
 }

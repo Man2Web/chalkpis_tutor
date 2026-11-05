@@ -49,8 +49,8 @@ beforeEach(() => jest.clearAllMocks());
 it('lists helpers with their phone and assigned batches', async () => {
   await render(<StaffScreen />);
   expect(screen.getByText('Meena')).toBeTruthy();
-  expect(screen.getByText('+919876511111 • Maths 10')).toBeTruthy();
-  expect(screen.getByText('+919876522222 • No batches assigned')).toBeTruthy();
+  expect(screen.getByText('+91 98765 11111 • Maths 10')).toBeTruthy();
+  expect(screen.getByText('+91 98765 22222 • No batches assigned')).toBeTruthy();
 });
 
 it('adds a helper with the chosen batches and refreshes the lists', async () => {
@@ -105,9 +105,11 @@ it('changes the batches of an existing helper', async () => {
   await waitFor(() => expect(setStaffBatches).toHaveBeenCalledWith('u1', ['b1', 'b2']));
 });
 
-it('removes a helper', async () => {
+it('removes a helper only after asking', async () => {
   await render(<StaffScreen />);
   await fireEvent.press(screen.getByText('Ravi'));
   await fireEvent.press(screen.getByRole('button', { name: 'Remove helper' }));
+  expect(removeStaff).not.toHaveBeenCalled(); // not yet: confirm first
+  await fireEvent.press(await screen.findByRole('button', { name: 'Yes, remove' }));
   await waitFor(() => expect(removeStaff).toHaveBeenCalledWith('u2'));
 });

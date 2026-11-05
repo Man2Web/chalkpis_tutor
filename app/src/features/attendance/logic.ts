@@ -130,44 +130,73 @@ export function batchStats(docs: AttendanceDoc[]): Map<string, ReturnType<typeof
 }
 
 /**
- * The register as a spreadsheet: one row per student, one column per class day (P / A / L, H for a holiday),
- * then present, late, absent and %. Days are oldest first; students by name. `levelLabel` heads the class column
- * ("Belt", "Level"... by what the centre teaches).
+ * The register as a spreadsheet: one row per student, one column per class held (P / A / L, H for a holiday), then
+ * present, late, absent and %. A day when two batches met gets a column for each ("2026-10-05 Maths 10"), so a
+ * student in both keeps both marks and the totals match the percentages on screen (studentStats counts every mark).
+ * Days are oldest first; students by name. `levelLabel` heads the class column ("Belt", "Level"... by what the
+ * centre teaches); `batchName` names the batch in a shared day's heading.
  */
 export function registerSheet(
   docs: AttendanceDoc[],
   students: { id: string; name: string; class?: string }[],
   levelLabel = 'Class',
+  batchName: (batchId: string) => string | undefined = () => undefined,
 ): (string | number)[][] {
-  const dates = [...new Set(docs.map((d) => d.date))].sort();
-  const byStudent = new Map<string, Map<string, string>>();
-  const holidays = new Set(docs.filter((d) => d.holiday).map((d) => d.date));
+  const nameOf = (batchId: string) => batchName(batchId) ?? batchId;
+  const keyOf = (d: AttendanceDoc) => `${d.date}|${d.batchId}`;
+  const columns = [...new Map(docs.map((d) => [keyOf(d), d])).values()].sort(
+    (a, b) => a.date.localeCompare(b.date) || nameOf(a.batchId).localeCompare(nameOf(b.batchId)),
+  );
+  const perDate = new Map<string, number>();
+  for (const c of columns) perDate.set(c.date, (perDate.get(c.date) ?? 0) + 1);
+  const holidays = new Set(docs.filter((d) => d.holiday).map(keyOf));
+  const byStudent = new Map<string, Map<string, Mark>>();
   for (const d of docs) {
     if (d.holiday) continue;
     for (const [sid, m] of Object.entries(d.marks)) {
       if (!byStudent.has(sid)) byStudent.set(sid, new Map());
-      byStudent.get(sid)!.set(d.date, m);
+      byStudent.get(sid)!.set(keyOf(d), m);
     }
   }
-  const header = ['Student', levelLabel, ...dates, 'Present', 'Late', 'Absent', '%'];
+  const header = [
+    'Student',
+    levelLabel,
+    ...columns.map((c) =>
+      (perDate.get(c.date) ?? 0) > 1 ? `${c.date} ${nameOf(c.batchId)}` : c.date,
+    ),
+    'Present',
+    'Late',
+    'Absent',
+    '%',
+  ];
   const rows = students
     .filter((s) => byStudent.has(s.id))
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((s) => {
       const marks = byStudent.get(s.id)!;
-      const all = [...marks.values()];
-      const p = all.filter((m) => m === 'P').length;
-      const l = all.filter((m) => m === 'L').length;
-      const a = all.filter((m) => m === 'A').length;
+      const c = counts([...marks.values()]);
       return [
         s.name,
         s.class ?? '',
-        ...dates.map((d) => marks.get(d) ?? (holidays.has(d) ? 'H' : '')),
-        p,
-        l,
-        a,
-        all.length ? Math.round(((p + l) / all.length) * 1000) / 10 : '',
+        ...columns.map((col) => marks.get(keyOf(col)) ?? (holidays.has(keyOf(col)) ? 'H' : '')),
+        c.P,
+        c.L,
+        c.A,
+        percentage(c.P, c.L, c.A) ?? '',
       ];
     });
   return [header, ...rows];
+}
+
+/**
+ * The colour of a "7/9 present" label: green when the class was well attended, amber when attendance was below
+ * the low-attendance line, red when nobody came. Never green for 0 present.
+ */
+export function presentTone(
+  present: number,
+  total: number,
+): 'neutral' | 'success' | 'warning' | 'danger' {
+  if (total <= 0) return 'neutral';
+  if (present === 0) return 'danger';
+  return (present / total) * 100 < LOW_ATTENDANCE_PERCENT ? 'warning' : 'success';
 }

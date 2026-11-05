@@ -6,6 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { useCategory } from '../../lib/category';
 import {
+  BottomSheet,
   Button,
   Card,
   Chip,
@@ -32,7 +33,7 @@ import { formatINR } from '../../lib/money';
 import { sharePdfHtml } from '../../lib/pdf';
 import { LOW_ATTENDANCE_PERCENT, PAY_MODES } from '../../lib/types';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, spacing, TAP, type } from '../../theme';
+import { colors, radius, spacing, TAP, type } from '../../theme';
 import { lowAttendance, overallStat, studentStats } from '../attendance/logic';
 import { periodLabel } from '../fees/logic';
 import {
@@ -69,7 +70,9 @@ export function ReportsScreen() {
   const students = useStudents();
   const batches = useBatches();
   const institute = useInstitute();
-  const [busy, setBusy] = useState(false);
+  // which export is being made; the sheet stays open with a spinner on that one until the file is ready
+  const [busy, setBusy] = useState<'xlsx' | 'csv' | 'pdf' | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const loading =
     dues.isLoading ||
@@ -117,36 +120,37 @@ export function ReportsScreen() {
     id ? (batches.data?.find((b) => b.id === id)?.name ?? '—') : t('reports.noBatch');
   const c = model.collection;
 
-  const exportCsv = async () => {
-    setBusy(true);
+  const modeLabel = (m: string) => t(`fees.mode.${m}`);
+
+  /** Makes one export; the sheet closes once the file is handed over, and stays open (to try again) if it failed. */
+  const runExport = async (kind: 'xlsx' | 'csv' | 'pdf', make: () => Promise<void>) => {
+    setBusy(kind);
     try {
-      await shareTextFile(`chalkpis-report-${month}.csv`, toCsv(reportCsvRows(data)));
+      await make();
+      setExporting(false);
     } catch (e) {
       reportError(e);
       toast(t('reports.exportFailed'), 'error');
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
-  const exportExcel = async () => {
-    setBusy(true);
-    try {
-      await shareBinaryFile(
+  const exportCsv = () =>
+    runExport('csv', () =>
+      shareTextFile(`chalkpis-report-${month}.csv`, toCsv(reportCsvRows(data, false, modeLabel))),
+    );
+
+  const exportExcel = () =>
+    runExport('xlsx', () =>
+      shareBinaryFile(
         `chalkpis-report-${month}.xlsx`,
-        buildXlsx(reportCsvRows(data, true), month),
-      );
-    } catch (e) {
-      reportError(e);
-      toast(t('reports.exportFailed'), 'error');
-    } finally {
-      setBusy(false);
-    }
-  };
+        buildXlsx(reportCsvRows(data, true, modeLabel), month),
+      ),
+    );
 
-  const exportPdf = async () => {
-    setBusy(true);
-    try {
+  const exportPdf = () =>
+    runExport('pdf', async () => {
       const L = Object.fromEntries(
         [
           'title',
@@ -169,16 +173,10 @@ export function ReportsScreen() {
         ].map((k) => [k, t(`reports.pdf.${k}`)]),
       ) as ReportLabels;
       await sharePdfHtml(
-        reportHtml(data, L, formatINR, (m) => t(`fees.mode.${m}`), periodLabel(month, locale)),
+        reportHtml(data, L, formatINR, modeLabel, periodLabel(month, locale)),
         `report-${month}`,
       );
-    } catch (e) {
-      reportError(e);
-      toast(t('reports.exportFailed'), 'error');
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   const arrow = (dir: -1 | 1, disabled: boolean) => (
     <Pressable
@@ -202,12 +200,13 @@ export function ReportsScreen() {
     </Pressable>
   );
 
-  const money = (label: string, value: number, tone?: string) => (
-    <View
-      style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.xs }}
-    >
-      <Text style={type.body}>{label}</Text>
-      <Text style={[type.label, tone ? { color: tone } : null]}>{formatINR(value)}</Text>
+  const money = (label: string, value: number, tone?: string, hint?: string) => (
+    <View style={{ paddingVertical: spacing.xs }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md }}>
+        <Text style={[type.body, { flexShrink: 1 }]}>{label}</Text>
+        <Text style={[type.label, tone ? { color: tone } : null]}>{formatINR(value)}</Text>
+      </View>
+      {hint ? <Text style={type.caption}>{hint}</Text> : null}
     </View>
   );
 
@@ -220,7 +219,7 @@ export function ReportsScreen() {
             alignItems: 'center',
             justifyContent: 'space-between',
             backgroundColor: colors.surface,
-            borderRadius: 12,
+            borderRadius: radius.md,
             borderWidth: 1,
             borderColor: colors.border,
           }}
@@ -245,35 +244,24 @@ export function ReportsScreen() {
           />
         ) : (
           <>
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <Button
-                style={{ flex: 1 }}
-                variant="secondary"
-                title={t('reports.exportExcel')}
-                onPress={exportExcel}
-                disabled={busy}
-              />
-              <Button
-                style={{ flex: 1 }}
-                variant="secondary"
-                title={t('reports.exportCsv')}
-                onPress={exportCsv}
-                disabled={busy}
-              />
-              <Button
-                style={{ flex: 1 }}
-                variant="secondary"
-                title={t('reports.exportPdf')}
-                onPress={exportPdf}
-                disabled={busy}
-              />
-            </View>
+            <Button
+              variant="secondary"
+              title={t('reports.export')}
+              icon={<Ionicons name="share-outline" size={18} color={colors.text} />}
+              onPress={() => setExporting(true)}
+            />
 
             <Card style={{ gap: spacing.xs }}>
               <Text style={type.heading}>{t('reports.collection')}</Text>
               {money(t('reports.billed'), c.billed)}
-              {money(t('reports.collected'), c.collected, colors.success)}
               {money(t('reports.pending'), c.pending, c.pending ? colors.warning : undefined)}
+              {/* money that came in this month, for any month's fees: not the part of this month's bill that was paid */}
+              {money(
+                t('reports.received', { month: periodLabel(month, locale) }),
+                c.collected,
+                colors.success,
+                t('reports.receivedHint'),
+              )}
               {c.waived ? money(t('reports.waived'), c.waived) : null}
             </Card>
 
@@ -369,6 +357,39 @@ export function ReportsScreen() {
           </>
         )}
       </ScrollView>
+
+      <BottomSheet
+        visible={exporting}
+        onClose={() => {
+          if (!busy) setExporting(false);
+        }}
+        title={t('reports.exportTitle', { month: periodLabel(month, locale) })}
+      >
+        <View style={{ gap: spacing.sm }}>
+          <Button
+            variant="secondary"
+            title={t('reports.exportExcel')}
+            onPress={() => void exportExcel()}
+            loading={busy === 'xlsx'}
+            disabled={busy !== null}
+          />
+          <Button
+            variant="secondary"
+            title={t('reports.exportCsv')}
+            onPress={() => void exportCsv()}
+            loading={busy === 'csv'}
+            disabled={busy !== null}
+          />
+          <Button
+            variant="secondary"
+            title={t('reports.exportPdf')}
+            onPress={() => void exportPdf()}
+            loading={busy === 'pdf'}
+            disabled={busy !== null}
+          />
+          <Text style={type.caption}>{t('reports.exportHint')}</Text>
+        </View>
+      </BottomSheet>
     </Screen>
   );
 }

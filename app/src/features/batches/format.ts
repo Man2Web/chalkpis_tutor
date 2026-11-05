@@ -1,4 +1,4 @@
-import type { Batch } from '../../lib/types';
+import { WEEKDAYS, type Batch, type Weekday } from '../../lib/types';
 
 /** "17:00" -> { time: "5:00", period: "PM" }. */
 function clock12(hhmm: string) {
@@ -16,11 +16,34 @@ export function timeRange(start: string, end: string): string {
     : `${a.time} ${a.period}–${b.time} ${b.period}`;
 }
 
-/** "Mon, Wed · 5:00–6:30 PM". `t` is i18next's translate function. */
+/**
+ * "Mon, Wed", with three or more days in a row shortened to a range: "Mon–Sat", "Mon–Wed, Fri". Days come out in
+ * week order (Monday first) whatever order they were saved in.
+ */
+export function daysLabel(days: Weekday[], t: (key: string) => string): string {
+  const idx = [...new Set(days)].map((d) => WEEKDAYS.indexOf(d)).sort((a, b) => a - b);
+  const parts: string[] = [];
+  for (let i = 0; i < idx.length;) {
+    let j = i;
+    while (j + 1 < idx.length && idx[j + 1] === idx[j]! + 1) j++;
+    const name = (k: number) => t(`days.${WEEKDAYS[idx[k]!]}`);
+    if (j - i >= 2) parts.push(`${name(i)}–${name(j)}`);
+    else for (let k = i; k <= j; k++) parts.push(name(k));
+    i = j + 1;
+  }
+  return parts.join(', ');
+}
+
+/**
+ * "Mon, Wed · 5:00–6:30 PM". `t` is i18next's translate function. `timeFirst` gives "5:00–6:30 PM · Mon–Sat" for a
+ * one-line subtitle on a narrow phone, where the end gets cut and the time matters most.
+ */
 export function scheduleLabel(
   b: Pick<Batch, 'days' | 'startTime' | 'endTime'>,
   t: (key: string) => string,
+  timeFirst = false,
 ): string {
-  const days = b.days.map((d) => t(`days.${d}`)).join(', ');
-  return `${days} · ${timeRange(b.startTime, b.endTime)}`;
+  const days = daysLabel(b.days, t);
+  const time = timeRange(b.startTime, b.endTime);
+  return timeFirst ? `${time} · ${days}` : `${days} · ${time}`;
 }

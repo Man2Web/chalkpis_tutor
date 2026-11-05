@@ -4,16 +4,17 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../api/client';
 import { useIdempotencyKey } from '../../api/idempotency';
-import { Button, Card, Chip, EmptyState, Screen, Skeleton, toast } from '../../components';
+import { Button, Card, Chip, EmptyState, Input, Screen, Skeleton, toast } from '../../components';
 import { useRefreshData, useStudentDues, useStudents } from '../../data/hooks';
 import { reportError, track } from '../../lib/analytics';
-import { todayYmd } from '../../lib/dates';
+import { todayYmd, toYmd } from '../../lib/dates';
 import { formatINR } from '../../lib/money';
 import { PAY_MODES, type PayMode } from '../../lib/types';
 import type { MainStackParams } from '../../navigation/types';
 import { spacing, type } from '../../theme';
 import { advanceMonths, advanceTotal } from './advance';
 import { outstanding, periodLabel } from './logic';
+import { PaidOnField } from './PaidOnField';
 
 /** A parent pays several months at once: pick the months, the way they paid, done. One receipt per month. */
 export function AdvancePaymentScreen({
@@ -27,6 +28,8 @@ export function AdvancePaymentScreen({
   const refresh = useRefreshData();
   const [picked, setPicked] = useState<string[]>([]);
   const [mode, setMode] = useState<PayMode>('upi');
+  const [date, setDate] = useState(todayYmd());
+  const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const idem = useIdempotencyKey();
   const locale = i18n.language === 'hi' ? 'hi-IN' : 'en-IN';
@@ -72,8 +75,20 @@ export function AdvancePaymentScreen({
     owe: d.status === 'waived' ? 0 : outstanding(d),
   }));
   const settled = new Set(existing.filter((d) => d.owe === 0).map((d) => d.period));
-  const joined = s.joinedAt.toDate().toISOString().slice(0, 7);
+  // the joining month in Indian time: a student who joined at midnight on the 1st joined that month, not the one before
+  const joined = toYmd(s.joinedAt.toDate()).slice(0, 7);
   const months = advanceMonths(todayYmd()).filter((m) => m >= joined && !settled.has(m));
+  if (!months.length)
+    return (
+      <Screen>
+        <EmptyState
+          icon="checkmark-circle-outline"
+          title={t('fees.advanceAllPaid')}
+          message={t('fees.advanceAllPaidHint')}
+        />
+      </Screen>
+    );
+  const dateBad = !/^\d{4}-\d{2}-\d{2}$/.test(date) || date > todayYmd();
   const total = advanceTotal(
     picked,
     { monthly: s.monthlyFee, discount: s.discount ?? 0 },
@@ -89,7 +104,7 @@ export function AdvancePaymentScreen({
       const r = await api<{ total: number; payments: { receiptNo: string }[] }>(
         'POST',
         '/fees/advance',
-        { studentId, months: picked, mode },
+        { studentId, months: picked, mode, paidOn: date, note: note.trim() },
         { idempotencyKey: idem.key },
       );
       idem.reset();
@@ -102,8 +117,12 @@ export function AdvancePaymentScreen({
       navigation.goBack();
     } catch (e) {
       idem.settle(e);
-      if (e instanceof ApiError && e.code === 'already_paid')
-        toast(t('fees.advanceNothing'), 'error');
+      const code = e instanceof ApiError ? e.code : '';
+      if (code === 'already_paid') toast(t('fees.advanceNothing'), 'error');
+      // a month before the student joined, or further ahead than a year: not a connection problem
+      else if (code === 'bad_month') toast(t('fees.advanceBadMonth'), 'error');
+      else if (code === 'bad_date') toast(t('validation.date'), 'error');
+      else if (code === 'student_not_billable') toast(t('fees.advanceMonthlyOnly'), 'error');
       else {
         reportError(e);
         toast(t('fees.recordFailed'), 'error');
@@ -139,16 +158,23 @@ export function AdvancePaymentScreen({
           />
         ))}
       </View>
-      <Card style={{ marginTop: spacing.md, gap: 2 }}>
+      <View style={{ height: spacing.md }} />
+      <PaidOnField
+        value={date}
+        onChange={setDate}
+        error={dateBad ? t('validation.date') : undefined}
+      />
+      <Input label={t('fees.note')} value={note} onChangeText={setNote} maxLength={200} />
+      <Card style={{ gap: 2, marginBottom: spacing.md }}>
         <Text style={type.caption}>{t('fees.advanceTotal', { count: picked.length })}</Text>
-        <Text style={[type.heading, { fontSize: 24, lineHeight: 30 }]}>{formatINR(total)}</Text>
+        <Text style={type.title2}>{formatINR(total)}</Text>
         <Text style={type.caption}>{t('fees.advanceHint')}</Text>
       </Card>
       <Button
         title={t('fees.advanceSave', { amount: formatINR(total) })}
         onPress={save}
         loading={busy}
-        disabled={!picked.length}
+        disabled={!picked.length || dateBad}
       />
     </Screen>
   );

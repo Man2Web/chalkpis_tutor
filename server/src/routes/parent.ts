@@ -29,7 +29,7 @@ const viewBody = z.object({ token: z.string().max(100), child: z.string().uuid()
 
 /** The parent page may load only its own script and style, talk only to this server, and show https pictures. */
 const PAGE_CSP =
-  "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+  "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' https: data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
 function pageHeaders(reply: FastifyReply, noStore: boolean) {
   reply

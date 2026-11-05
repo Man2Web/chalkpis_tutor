@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -254,7 +254,7 @@ export interface DropdownOption<T extends string> {
 
 /**
  * A compact select for a toolbar: the chosen option on a button, and a menu of options under it. Picking the first
- * option ("All batches") usually means no filter.
+ * option ("All batches") usually means no filter. Like any menu it closes on a click anywhere else and on Escape.
  */
 export function Dropdown<T extends string>({
   label,
@@ -271,13 +271,35 @@ export function Dropdown<T extends string>({
   width?: number;
 }) {
   const [open, setOpen] = useState(false);
+  const box = useRef<View>(null);
   const current = options.find((o) => o.value === value) ?? options[0];
+
+  // the browser version only (the desktop pages never run in the phone apps): a press outside the menu, or Escape,
+  // closes it. Listening on the page is sturdier than an invisible backdrop, which other layers could sit above.
+  useEffect(() => {
+    if (!open || typeof document === 'undefined') return;
+    const node = box.current as unknown as HTMLElement | null;
+    const onDown = (e: MouseEvent) => {
+      if (node && !node.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
   return (
-    <View style={{ width, zIndex: open ? 30 : 1 }}>
+    <View ref={box} style={{ width, zIndex: open ? 30 : 1 }}>
       <Pressable
         onPress={() => setOpen((o) => !o)}
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${current?.label ?? ''}`}
+        accessibilityState={{ expanded: open }}
         style={(s: HoverState) => [
           {
             height: 40,

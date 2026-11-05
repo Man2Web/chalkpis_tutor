@@ -11,6 +11,7 @@ import { authErrorKey, resendWaitOf } from '../auth/authErrors';
 import { AuthStepLayout, WhatsAppPreview } from '../auth/brand';
 import { DevCodeHint } from '../auth/DevCodeHint';
 import { refreshProfile } from '../auth/session';
+import { colors } from '../../theme';
 import { devPhoneCodeFor, requestPhoneCode, verifyPhoneCode } from './addPhone';
 
 /**
@@ -133,7 +134,7 @@ export function AddPhoneScreen({
     return (
       <AuthStepLayout
         icon="logo-whatsapp"
-        iconColor="#1DA851"
+        iconColor={colors.whatsapp}
         title={t('addPhone.title')}
         subtitle={t('addPhone.hint')}
         step={[1, 2]}

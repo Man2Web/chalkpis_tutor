@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components';
 import { useInstitute, useInstituteId } from '../../data/hooks';
@@ -151,19 +152,22 @@ export function WelcomeTour() {
                   gap: spacing.lg,
                 }}
               >
-                <View
+                {/* the brand's board navy to logo blue, with the icon in chalk white */}
+                <LinearGradient
+                  colors={[colors.brand, colors.primary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
                   style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 18,
-                    borderWidth: 1,
-                    borderColor: colors.border,
+                    width: 88,
+                    height: 88,
+                    borderRadius: 26,
                     alignItems: 'center',
                     justifyContent: 'center',
+                    marginBottom: spacing.sm,
                   }}
                 >
-                  <Ionicons name={s.icon} size={30} color={colors.text} />
-                </View>
+                  <Ionicons name={s.icon} size={40} color="#FFFFFF" />
+                </LinearGradient>
                 <Text style={[type.title1, { color: colors.text }]} accessibilityRole="header">
                   {t(`tour.${s.key}.title`)}
                 </Text>
@@ -187,7 +191,7 @@ export function WelcomeTour() {
                     width: i === page ? 18 : 6,
                     height: 6,
                     borderRadius: 3,
-                    backgroundColor: i === page ? colors.text : colors.border,
+                    backgroundColor: i === page ? colors.brand : colors.border,
                   }}
                 />
               ))}

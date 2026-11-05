@@ -7,6 +7,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import {
   Avatar,
+  Button,
   Card,
   InsetSeparator,
   SearchField,
@@ -24,7 +25,7 @@ import { formatINR } from '../../lib/money';
 import type { MainStackParams } from '../../navigation/types';
 import { colors, radius, spacing, type } from '../../theme';
 import { FeesHistoryCard } from './FeesHistoryCard';
-import { groupByStudent, netCollected, totals } from './logic';
+import { compactINR, groupByStudent, netCollected, totals } from './logic';
 
 type Sort = 'unpaid' | 'name' | 'amount';
 
@@ -69,7 +70,8 @@ export function FeesOverviewScreen() {
     void month.refetch();
   };
 
-  if (dues.isError) {
+  // a failed refetch keeps the list that is on screen; only a first load that failed shows the error
+  if (dues.isError && !dues.data) {
     return (
       <Screen>
         <EmptyState
@@ -106,20 +108,31 @@ export function FeesOverviewScreen() {
           <View style={{ padding: spacing.lg, gap: spacing.md }}>
             <TopBar title={t('tabs.fees')} />
             {noWayToPay ? (
-              <Card
-                style={{
-                  gap: spacing.xs,
-                  borderLeftWidth: 4,
-                  borderLeftColor: colors.danger,
-                  borderColor: colors.dangerSoft,
-                }}
-              >
-                <Text style={type.heading}>{t('fees.noUpiTitle')}</Text>
-                <Text style={type.caption}>{t('fees.noUpiText')}</Text>
-                <Chip
-                  small
-                  tone="danger"
-                  label={t('fees.noUpiAction')}
+              // a setup step, not an error: calm, with one clear button
+              <Card style={{ gap: spacing.md, borderColor: colors.brandSoft }}>
+                <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' }}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 12,
+                      backgroundColor: colors.brandSoft,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Ionicons name="qr-code-outline" size={20} color={colors.brand} />
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={type.heading}>{t('fees.noUpiTitle')}</Text>
+                    <Text style={[type.footnote, { color: colors.textMuted }]}>
+                      {t('fees.noUpiText')}
+                    </Text>
+                  </View>
+                </View>
+                <Button
+                  size="small"
+                  title={t('fees.noUpiAction')}
                   onPress={() => nav.navigate('PaymentSettings')}
                 />
               </Card>
@@ -134,7 +147,7 @@ export function FeesOverviewScreen() {
                       <Kpi.Title>{t('fees.pending')}</Kpi.Title>
                     </Kpi.Header>
                     <Kpi.Content>
-                      <Kpi.Value className="text-xl">{formatINR(sum.outstanding)}</Kpi.Value>
+                      <Kpi.Value className="text-xl">{compactINR(sum.outstanding)}</Kpi.Value>
                     </Kpi.Content>
                     <Text style={type.caption2}>
                       {t('fees.studentsCount', { count: sum.students })}
@@ -148,7 +161,7 @@ export function FeesOverviewScreen() {
                       <Kpi.Value
                         className={sum.overdueAmount ? 'text-xl text-destructive' : 'text-xl'}
                       >
-                        {formatINR(sum.overdueAmount)}
+                        {compactINR(sum.overdueAmount)}
                       </Kpi.Value>
                     </Kpi.Content>
                     <Text style={type.caption2}>
@@ -161,7 +174,7 @@ export function FeesOverviewScreen() {
                     </Kpi.Header>
                     <Kpi.Content>
                       <Kpi.Value className="text-xl text-success">
-                        {formatINR(netCollected(month.data ?? []))}
+                        {compactINR(netCollected(month.data ?? []))}
                       </Kpi.Value>
                     </Kpi.Content>
                     <Text style={type.caption2}>{t('fees.collectedThisMonth')}</Text>
@@ -213,7 +226,19 @@ export function FeesOverviewScreen() {
           </View>
         }
         ListEmptyComponent={
-          dues.isLoading ? null : (
+          dues.isLoading ? null : groups.length ? (
+            // students do owe: it is the search or the Overdue filter that leaves nobody to show
+            <EmptyState
+              icon="search-outline"
+              title={t('fees.noMatches')}
+              message={t('fees.noMatchesHint')}
+              actionLabel={t('fees.showAll')}
+              onAction={() => {
+                setSearch('');
+                setFilter('all');
+              }}
+            />
+          ) : (
             <EmptyState
               icon="checkmark-circle-outline"
               title={t('fees.allClear')}
@@ -250,10 +275,7 @@ export function FeesOverviewScreen() {
                 right={
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                     <Text
-                      style={[
-                        type.label,
-                        { fontSize: 16, color: item.overdue ? colors.danger : colors.text },
-                      ]}
+                      style={[type.heading, { color: item.overdue ? colors.danger : colors.text }]}
                     >
                       {formatINR(item.outstanding)}
                     </Text>

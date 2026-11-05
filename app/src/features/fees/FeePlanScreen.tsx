@@ -10,6 +10,7 @@ import {
   Button,
   Card,
   Chip,
+  DateField,
   EmptyState,
   FormInput,
   Input,
@@ -70,6 +71,18 @@ export function FeePlanScreen({
     return (
       <Screen>
         <Skeleton height={48} />
+      </Screen>
+    );
+  // a failed load with nothing cached is not "not found": offer to try again
+  if (students.isError && !students.data)
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => void students.refetch()}
+        />
       </Screen>
     );
   if (!student)
@@ -230,6 +243,9 @@ function YearlyPlanForm({
     dueYmd: p.dueYmd.trim(),
   }));
   const sum = paise.reduce((s, p) => s + (p.amount ?? 0), 0);
+  const totalPaise = parseRupeesToPaise(total);
+  // after a part is changed by hand the parts may no longer make the year's fee: say so, in red
+  const sumOff = totalPaise !== null && sum !== totalPaise;
 
   const save = async () => {
     setError(undefined);
@@ -314,15 +330,13 @@ function YearlyPlanForm({
           />
         ))}
       </View>
-      <Input
+      <DateField
         label={t('fees.yearly.firstDue')}
         value={first}
-        onChangeText={(v) => {
+        onChange={(v) => {
           setFirst(v);
           if (/^\d{4}-\d{2}-\d{2}$/.test(v)) resplit({ first: v });
         }}
-        placeholder="YYYY-MM-DD"
-        maxLength={10}
       />
 
       <Card style={{ gap: spacing.sm, marginBottom: spacing.md }}>
@@ -339,20 +353,23 @@ function YearlyPlanForm({
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Input
+              <DateField
                 label={t('fees.dueDate')}
                 value={p.dueYmd}
-                onChangeText={(v) =>
+                onChange={(v) =>
                   setParts((all) => all.map((x, j) => (j === i ? { ...x, dueYmd: v } : x)))
                 }
-                placeholder="YYYY-MM-DD"
-                maxLength={10}
               />
             </View>
           </View>
         ))}
-        <Text style={[type.footnote, { color: colors.textMuted }]}>
-          {t('fees.yearly.sum', { amount: formatINR(sum) })}
+        <Text
+          style={[type.footnote, { color: sumOff ? colors.danger : colors.textMuted }]}
+          accessibilityLiveRegion="polite"
+        >
+          {sumOff
+            ? t('fees.yearly.sumOff', { amount: formatINR(sum), total: formatINR(totalPaise ?? 0) })
+            : t('fees.yearly.sum', { amount: formatINR(sum) })}
         </Text>
       </Card>
 

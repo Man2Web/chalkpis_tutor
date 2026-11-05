@@ -10,6 +10,8 @@ import {
   Button,
   Card,
   Chip,
+  ConfirmSheet,
+  DateField,
   EmptyState,
   Input,
   ListItem,
@@ -55,8 +57,15 @@ export function FeeLedgerScreen({
   const [desc, setDesc] = useState('');
   const [amount, setAmount] = useState('');
   const [chargeDate, setChargeDate] = useState(today);
+  const [chargeErrors, setChargeErrors] = useState<{
+    desc?: string;
+    amount?: string;
+    date?: string;
+  }>({});
   const [selected, setSelected] = useState<FeeDue | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  // waiving forgives money for good, so it is asked first (in its own sheet, the due's sheet closed)
+  const [waiving, setWaiving] = useState<FeeDue | null>(null);
   const [discount, setDiscountText] = useState('');
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string>();
@@ -120,9 +129,15 @@ export function FeeLedgerScreen({
 
   const saveCharge = async () => {
     const paise = parseRupeesToPaise(amount);
-    if (!desc.trim()) return setFormError(t('validation.required'));
-    if (paise === null || paise <= 0) return setFormError(t('fees.errors.amount'));
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(chargeDate)) return setFormError(t('validation.date'));
+    // every problem under its own field, all at once
+    const errors = {
+      desc: desc.trim() ? undefined : t('validation.required'),
+      amount: paise === null || paise <= 0 ? t('fees.errors.amount') : undefined,
+      date: /^\d{4}-\d{2}-\d{2}$/.test(chargeDate) ? undefined : t('validation.date'),
+    };
+    setChargeErrors(errors);
+    setFormError(undefined);
+    if (errors.desc || errors.amount || errors.date || paise === null) return;
     const ok = await run(
       () =>
         addCharge(
@@ -147,6 +162,7 @@ export function FeeLedgerScreen({
       setCharge(false);
       setDesc('');
       setAmount('');
+      setChargeDate(today);
     }
   };
 
@@ -182,13 +198,22 @@ export function FeeLedgerScreen({
     }
   };
 
-  const toggleWaive = async () => {
+  const restoreDue = async () => {
     if (!selected) return;
     const ok = await run(
-      () => setWaived({ instituteId, due: selected, waived: selected.status !== 'waived' }),
-      t(selected.status === 'waived' ? 'fees.restored' : 'fees.waivedToast'),
+      () => setWaived({ instituteId, due: selected, waived: false }),
+      t('fees.restored'),
     );
     if (ok) setSelected(null);
+  };
+
+  const waive = async () => {
+    if (!waiving) return;
+    const ok = await run(
+      () => setWaived({ instituteId, due: waiving, waived: true }),
+      t('fees.waivedToast'),
+    );
+    if (ok) setWaiving(null);
   };
 
   const statusChip = (d: FeeDue) => {
@@ -239,6 +264,7 @@ export function FeeLedgerScreen({
           label={t('fees.addChargeShort')}
           onPress={() => {
             setFormError(undefined);
+            setChargeErrors({});
             setCharge(true);
           }}
         />
@@ -274,7 +300,15 @@ export function FeeLedgerScreen({
           <ListItem
             key={d.id}
             title={`${d.description} · ${periodLabel(d.period, locale)}`}
-            subtitle={`${formatINR(netDue(d))}${d.discount ? ` (${t('fees.discountOf', { amount: formatINR(d.discount) })})` : ''} · ${t('fees.paidOf', { amount: formatINR(d.paid) })}`}
+            subtitle={`${formatINR(netDue(d))} · ${t('fees.paidOf', { amount: formatINR(d.paid) })}`}
+            // the discount on a line of its own, so it is never cut off the end of the row
+            below={
+              d.discount ? (
+                <Text style={[type.caption, { flexShrink: 1 }]} numberOfLines={1}>
+                  {t('fees.discountLine', { amount: formatINR(d.discount) })}
+                </Text>
+              ) : undefined
+            }
             right={statusChip(d)}
             onPress={() => {
               setSelected(d);
@@ -287,7 +321,24 @@ export function FeeLedgerScreen({
       </Section>
 
       <Section title={t('fees.payments')}>
-        {(payments.data ?? []).length === 0 ? (
+        {payments.isLoading ? (
+          <View style={{ padding: spacing.lg }}>
+            <Skeleton height={48} />
+          </View>
+        ) : payments.isError && !payments.data ? (
+          // not "No payments yet": they could not be loaded
+          <View style={{ padding: spacing.lg, gap: spacing.sm, alignItems: 'flex-start' }}>
+            <Text style={[type.subhead, { color: colors.textMuted }]}>
+              {t('fees.paymentsFailed')}
+            </Text>
+            <Button
+              size="small"
+              variant="secondary"
+              title={t('common.retry')}
+              onPress={() => void payments.refetch()}
+            />
+          </View>
+        ) : (payments.data ?? []).length === 0 ? (
           <Text style={[type.subhead, { padding: spacing.lg, color: colors.textMuted }]}>
             {t('fees.noPayments')}
           </Text>
@@ -332,20 +383,26 @@ export function FeeLedgerScreen({
             />
           ))}
         </View>
-        <Input label={t('fees.chargeFor')} value={desc} onChangeText={setDesc} maxLength={60} />
+        <Input
+          label={t('fees.chargeFor')}
+          value={desc}
+          onChangeText={setDesc}
+          maxLength={60}
+          error={chargeErrors.desc}
+        />
         <Input
           label={t('fees.chargeAmount')}
           value={amount}
           onChangeText={setAmount}
           keyboardType="decimal-pad"
+          // the server's answer about the amount shows here too
+          error={chargeErrors.amount ?? formError}
         />
-        <Input
+        <DateField
           label={t('fees.dueDate')}
           value={chargeDate}
-          onChangeText={setChargeDate}
-          placeholder="YYYY-MM-DD"
-          maxLength={10}
-          error={formError}
+          onChange={setChargeDate}
+          error={chargeErrors.date}
         />
         <Button title={t('common.save')} onPress={saveCharge} loading={busy} />
       </BottomSheet>
@@ -383,12 +440,25 @@ export function FeeLedgerScreen({
               onPress={saveDiscount}
               loading={busy}
             />
-            <Button
-              variant={selected.status === 'waived' ? 'secondary' : 'danger'}
-              title={t(selected.status === 'waived' ? 'fees.restore' : 'fees.waive')}
-              onPress={toggleWaive}
-              disabled={busy}
-            />
+            {selected.status === 'waived' ? (
+              <Button
+                variant="secondary"
+                title={t('fees.restore')}
+                onPress={() => void restoreDue()}
+                disabled={busy}
+              />
+            ) : outstanding(selected) > 0 ? (
+              // nothing left to forgive on a paid due: waiving it would only turn "Paid" into "Waived"
+              <Button
+                variant="danger"
+                title={t('fees.waive')}
+                onPress={() => {
+                  setWaiving(selected);
+                  setSelected(null);
+                }}
+                disabled={busy}
+              />
+            ) : null}
             {selected.planId ? (
               confirmRemove ? (
                 <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
@@ -412,6 +482,24 @@ export function FeeLedgerScreen({
           </View>
         ) : null}
       </BottomSheet>
+
+      <ConfirmSheet
+        visible={!!waiving}
+        onClose={() => setWaiving(null)}
+        title={t('fees.waiveTitle')}
+        message={
+          waiving
+            ? t('fees.waiveText', {
+                amount: formatINR(outstanding(waiving)),
+                due: `${waiving.description} · ${periodLabel(waiving.period, locale)}`,
+              })
+            : undefined
+        }
+        confirmLabel={t('fees.waiveConfirm')}
+        onConfirm={() => void waive()}
+        destructive
+        loading={busy}
+      />
     </Screen>
   );
 }

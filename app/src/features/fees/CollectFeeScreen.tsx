@@ -14,6 +14,7 @@ import { spacing, type } from '../../theme';
 import { useSession } from '../auth/session';
 import { recordPayment, type FeeApiError } from './api';
 import { applyPayment, outstanding, periodLabel } from './logic';
+import { PaidOnField } from './PaidOnField';
 
 const ERRORS: FeeApiError[] = ['amount', 'exceeds', 'waived', 'notFound'];
 
@@ -153,12 +154,9 @@ export function CollectFeeScreen({
           />
         ))}
       </View>
-      <Input
-        label={t('fees.paymentDate')}
+      <PaidOnField
         value={date}
-        onChangeText={setDate}
-        placeholder="YYYY-MM-DD"
-        maxLength={10}
+        onChange={setDate}
         error={dateBad ? t('validation.date') : undefined}
       />
       <Input label={t('fees.note')} value={note} onChangeText={setNote} maxLength={200} />

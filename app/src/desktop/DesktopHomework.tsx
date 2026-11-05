@@ -90,7 +90,12 @@ export function DesktopHomework() {
             <Table.Body>
               {items.map((h) => {
                 const st = homeworkStatus(h, t);
-                const due = dueLabel(t, h.dueOn, today);
+                const dateText = shortDate(h.dueOn, 'en-IN');
+                // red "Overdue" only while someone is still not checked
+                const due = dueLabel(t, h.dueOn, today, {
+                  unchecked: h.students - h.done - h.missing,
+                  dateText,
+                });
                 return (
                   <Table.Row key={h.id} onPress={() => nav.navigate('HomeworkCheck', { id: h.id })}>
                     <Table.Cell>
@@ -108,10 +113,12 @@ export function DesktopHomework() {
                     <Table.Cell>{h.batchName}</Table.Cell>
                     <Table.Cell>
                       <View>
-                        <Text style={type.subhead}>{shortDate(h.dueOn, 'en-IN')}</Text>
-                        <Text style={[type.caption2, due.late ? { color: colors.danger } : null]}>
-                          {due.text}
-                        </Text>
+                        <Text style={type.subhead}>{dateText}</Text>
+                        {due.closed ? null : (
+                          <Text style={[type.caption2, due.late ? { color: colors.danger } : null]}>
+                            {due.text}
+                          </Text>
+                        )}
                       </View>
                     </Table.Cell>
                     <Table.Cell>

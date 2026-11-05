@@ -32,7 +32,7 @@ export function StudentHomeworkCard({ studentId }: { studentId: string }) {
             >
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={type.subhead} numberOfLines={1}>
-                  {h.subject ? `${h.subject} · ${h.title}` : h.title}
+                  {h.subject ? `${h.title} · ${h.subject}` : h.title}
                 </Text>
                 <Text style={type.caption2}>
                   {t('homework.due')} {shortDate(h.dueOn, 'en-IN')}

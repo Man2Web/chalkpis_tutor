@@ -113,3 +113,28 @@ it('shows a retry state when loading fails', async () => {
   await render(<StudentsListScreen />);
   expect(screen.getByText('Try again')).toBeTruthy();
 });
+
+it('when filters hide everyone, one tap clears them', async () => {
+  setup([student('1', 'Asha Rao')]);
+  await render(<StudentsListScreen />);
+  await fireEvent.changeText(screen.getByLabelText('Name or phone number'), 'zzz');
+  expect(screen.getByText('No students match')).toBeTruthy();
+  await fireEvent.press(screen.getByRole('button', { name: 'Clear filters' }));
+  expect(screen.getByText('Asha Rao')).toBeTruthy();
+});
+
+it('an empty Inactive tab says so, not "No students match"', async () => {
+  setup([student('1', 'Asha Rao')]);
+  await render(<StudentsListScreen />);
+  await fireEvent.press(screen.getByRole('button', { name: 'Inactive' }));
+  expect(screen.getByText('No inactive students')).toBeTruthy();
+  expect(screen.queryByText('No students match')).toBeNull();
+});
+
+it('keeps the list when a refresh fails after a good load', async () => {
+  setup([student('1', 'Asha Rao')]);
+  (useStudents as jest.Mock).mockReturnValue(query([student('1', 'Asha Rao')], { isError: true }));
+  await render(<StudentsListScreen />);
+  expect(screen.getByText('Asha Rao')).toBeTruthy();
+  expect(screen.queryByText('Try again')).toBeNull();
+});

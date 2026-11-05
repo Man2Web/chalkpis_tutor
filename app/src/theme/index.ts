@@ -1,13 +1,17 @@
 import { PixelRatio, Platform, type TextStyle } from 'react-native';
 
 /**
- * PanelUI "Panel" theme (panelui.dev), light: neutral greys, a near-black primary, hairline borders instead of
- * shadows, and soft tinted status colours. Text colours keep at least 4.5:1 on white.
+ * PanelUI "Panel" theme (panelui.dev) in Chalkpis colours: the blackboard navy of the sign-in screens as the primary
+ * (buttons, selected states, the money card), the logo blue as the accent (links, focus, progress), neutral greys,
+ * hairline borders instead of shadows, and soft tinted status colours. Text colours keep at least 4.5:1 on white.
+ * global.css sets the same values on PanelUI's own tokens, so its components match.
  */
 export const colors = {
-  primary: '#262626', // buttons, selected states, tint
-  primaryDark: '#262626', // links and tinted text
-  primarySoft: 'rgba(0,0,0,0.06)', // secondary button / chip background
+  primary: '#0F2D40', // buttons, selected states, tint (the sign-in blackboard)
+  primaryDark: '#0B64A0', // links and tinted text (the logo blue, darkened to 5.6:1 on white)
+  primarySoft: 'rgba(14,119,190,0.08)', // a selected row or card, a soft brand wash
+  brand: '#0E77BE', // the logo blue: progress, focus rings, highlights
+  brandSoft: 'rgba(14,119,190,0.10)',
   bg: '#FFFFFF', // screen background
   surface: '#FFFFFF', // cards and inner panels
   shell: '#F7F7F7', // the grey panel around a card's header and body
@@ -18,7 +22,7 @@ export const colors = {
   textFaint: '#A3A3A3',
   border: 'rgba(0,0,0,0.08)',
   input: 'rgba(0,0,0,0.10)',
-  ring: '#A3A3A3',
+  ring: '#0E77BE',
   success: '#047857',
   successFill: '#10B981',
   successSoft: 'rgba(16,185,129,0.10)',
@@ -38,6 +42,8 @@ export const colors = {
   gray: '#A3A3A3',
   onPrimary: '#FAFAFA',
   overlay: 'rgba(0,0,0,0.4)',
+  whatsapp: '#1DA851', // WhatsApp buttons (white text on it)
+  whatsappText: '#128C4B', // WhatsApp green as text or an icon on white (4.6:1)
 } as const;
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
@@ -116,13 +122,13 @@ export const type = {
   footnote: { fontSize: 13, lineHeight: 18, ...font('400'), color: colors.textMuted },
   caption: { fontSize: 13, lineHeight: 18, ...font('400'), color: colors.textMuted },
   caption2: { fontSize: 12, lineHeight: 16, ...font('400'), color: colors.textMuted },
-  /** The small grey label above a field or a group of choices (same as Input's label). */
+  /** The label above a field or a group of choices: exactly Input's label (PanelUI Label, text-sm medium). */
   fieldLabel: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
     ...font('500'),
-    color: colors.textMuted,
-    marginLeft: 2,
+    color: colors.text,
+    marginBottom: 6,
   },
   sectionHeader: {
     fontSize: 11,

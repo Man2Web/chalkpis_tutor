@@ -6,7 +6,9 @@ import {
   Button,
   Chip,
   EmptyState,
+  InsetSeparator,
   ListItem,
+  listCard,
   Screen,
   Skeleton,
   UpgradePrompt,
@@ -14,7 +16,7 @@ import {
 import { useAddGuard } from '../../data/guards';
 import { useBatches } from '../../data/hooks';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, radius, spacing, type } from '../../theme';
+import { spacing, type } from '../../theme';
 import { scheduleLabel } from './format';
 
 export function BatchesScreen({ navigation }: NativeStackScreenProps<MainStackParams, 'Batches'>) {
@@ -31,7 +33,8 @@ export function BatchesScreen({ navigation }: NativeStackScreenProps<MainStackPa
     if (guard.check('batch')) navigation.navigate('BatchForm');
   };
 
-  if (batches.isError) {
+  // a failed refresh keeps the list on screen; only a first load with nothing to show becomes an error
+  if (batches.isError && !batches.data) {
     return (
       <Screen>
         <EmptyState
@@ -74,12 +77,8 @@ export function BatchesScreen({ navigation }: NativeStackScreenProps<MainStackPa
         </View>
       ) : (
         <FlatList
-          style={{
-            marginHorizontal: spacing.lg,
-            marginBottom: spacing.md,
-            borderRadius: radius.lg,
-            overflow: 'hidden',
-          }}
+          style={{ flex: 1 }}
+          contentContainerStyle={list.length ? listCard : undefined}
           data={list}
           keyExtractor={(b) => b.id}
           refreshControl={
@@ -88,9 +87,7 @@ export function BatchesScreen({ navigation }: NativeStackScreenProps<MainStackPa
               onRefresh={() => void batches.refetch()}
             />
           }
-          ItemSeparatorComponent={() => (
-            <View style={{ height: 1, backgroundColor: colors.border }} />
-          )}
+          ItemSeparatorComponent={InsetSeparator}
           ListEmptyComponent={
             tab === 'active' ? (
               <EmptyState

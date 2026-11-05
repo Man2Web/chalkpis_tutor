@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   Chip,
+  DateField,
   EmptyState,
   Input,
   Row,
@@ -20,11 +21,11 @@ import { useBatches, useInstitute } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
 import { useCategory } from '../../lib/category';
 import { callUrl, open, whatsappUrl } from '../../lib/contact';
-import { prettyDate, shortDate, todayYmd } from '../../lib/dates';
-import { normalizeIndianPhone } from '../../lib/phone';
+import { prettyDate, shortDate, todayYmd, toYmd } from '../../lib/dates';
+import { parseRupeesToPaise } from '../../lib/money';
+import { formatIndianPhone, nationalNumber, normalizeIndianPhone } from '../../lib/phone';
 import type { MainStackParams } from '../../navigation/types';
 import { colors, spacing, type } from '../../theme';
-import { DateStrip } from '../attendance/DateStrip';
 import { useEnquiry, useEnquiryActions } from './api';
 import {
   followUpLabel,
@@ -62,22 +63,26 @@ export function EnquiryScreen({
   const [jLevel, setJLevel] = useState('');
   const [jFee, setJFee] = useState('');
   const [jBatches, setJBatches] = useState<string[]>([]);
+  // the admission form's mistakes, shown once Add student is tapped
+  const [jTried, setJTried] = useState(false);
   const e = q.data?.enquiry;
-  useEffect(() => {
-    if (!e) return;
-    setJName(e.name);
-    setJParent(e.parentName);
-    setJPhone(e.phone.replace(/^\+91/, ''));
-    setJLevel(e.class);
-    setJBatches(e.batchId ? [e.batchId] : []);
-    const b = batches.data?.find((x) => x.id === e.batchId);
-    if (b) setJFee(String(b.defaultFee / 100));
-  }, [e, batches.data]);
 
   if (q.isLoading)
     return (
       <Screen>
         <Skeleton height={300} />
+      </Screen>
+    );
+  // a failed load (no internet) is not a deleted enquiry: offer to try again
+  if (q.isError && !e)
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => void q.refetch()}
+        />
       </Screen>
     );
   if (!e)
@@ -102,11 +107,12 @@ export function EnquiryScreen({
       return;
     }
     if (s === 'joined' && !e.studentId) {
-      setJoinOpen(true);
+      openJoin();
       return;
     }
     update.mutate({ id, status: s }, { onError: fail });
   };
+  // the screen shows the new day at once (the enquiry is updated in place before the server answers)
   const setFollowUp = (d: string | null) =>
     update.mutate(
       { id, nextFollowUp: d, ...(d && e.status === 'new' ? { status: 'follow_up' as const } : {}) },
@@ -117,10 +123,28 @@ export function EnquiryScreen({
     if (!text) return;
     addNote.mutate({ id, note: text }, { onSuccess: () => setNote(''), onError: fail });
   };
-  const fee = Number(jFee || '0');
-  const joinValid =
-    jName.trim().length >= 2 && !!normalizeIndianPhone(jPhone) && Number.isFinite(fee) && fee >= 0;
-  const admit = () =>
+  // the admission form, filled from the enquiry each time it opens
+  const openJoin = () => {
+    setJName(e.name);
+    setJParent(e.parentName);
+    setJPhone(nationalNumber(e.phone));
+    setJLevel(e.class);
+    setJBatches(e.batchId ? [e.batchId] : []);
+    const b = batches.data?.find((x) => x.id === e.batchId);
+    setJFee(b ? String(b.defaultFee / 100) : '');
+    setJTried(false);
+    setJoinOpen(true);
+  };
+  // "1,500" and "₹1500" are both fine; an empty fee is no fee
+  const fee = jFee.trim() ? parseRupeesToPaise(jFee) : 0;
+  const joinErrors = {
+    name: jName.trim().length < 2 ? t('enquiries.nameTooShort') : undefined,
+    phone: !normalizeIndianPhone(jPhone) ? t('validation.phone') : undefined,
+    fee: fee === null ? t('validation.amount') : undefined,
+  };
+  const admit = () => {
+    setJTried(true);
+    if (fee === null || Object.values(joinErrors).some(Boolean)) return;
     join.mutate(
       {
         id,
@@ -129,7 +153,7 @@ export function EnquiryScreen({
           parentName: jParent.trim(),
           parentPhone: jPhone,
           class: jLevel.trim(),
-          monthlyFee: Math.round(fee * 100),
+          monthlyFee: fee,
           batchIds: jBatches,
         },
       },
@@ -146,6 +170,7 @@ export function EnquiryScreen({
         },
       },
     );
+  };
 
   return (
     <Screen>
@@ -153,7 +178,9 @@ export function EnquiryScreen({
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={type.title3}>{e.name}</Text>
-            <Text style={type.footnote}>{[e.parentName, e.phone].filter(Boolean).join(' · ')}</Text>
+            <Text style={type.footnote}>
+              {[e.parentName, formatIndianPhone(e.phone)].filter(Boolean).join(' · ')}
+            </Text>
           </View>
           <Chip small tone={stageTone(e.status)} label={t(`enquiries.stage.${e.status}`)} />
         </View>
@@ -169,7 +196,7 @@ export function EnquiryScreen({
             size="small"
             variant="outline"
             title={t('enquiries.whatsapp')}
-            icon={<Ionicons name="logo-whatsapp" size={16} color="#1DA851" />}
+            icon={<Ionicons name="logo-whatsapp" size={16} color={colors.whatsapp} />}
             onPress={() =>
               void open(
                 whatsappUrl(
@@ -225,7 +252,7 @@ export function EnquiryScreen({
         <Button
           title={t('enquiries.admit')}
           icon={<Ionicons name="person-add-outline" size={18} color={colors.onPrimary} />}
-          onPress={() => setJoinOpen(true)}
+          onPress={openJoin}
           style={{ marginBottom: spacing.lg }}
         />
       )}
@@ -242,16 +269,26 @@ export function EnquiryScreen({
                 key={qf.key}
                 label={t(`enquiries.quick.${qf.key}`)}
                 selected={e.nextFollowUp === qf.date}
-                onPress={() => setFollowUp(qf.date)}
+                onPress={() => {
+                  if (e.nextFollowUp !== qf.date) setFollowUp(qf.date);
+                }}
               />
             ))}
-            {e.nextFollowUp ? (
-              <Chip label={t('enquiries.clearFollowUp')} onPress={() => setFollowUp(null)} />
-            ) : null}
+            <Chip
+              label={t('enquiries.noFollowUp')}
+              selected={!e.nextFollowUp}
+              onPress={() => {
+                if (e.nextFollowUp) setFollowUp(null);
+              }}
+            />
           </View>
-          {e.nextFollowUp ? (
-            <DateStrip date={e.nextFollowUp} onChange={(d) => setFollowUp(d)} allowFuture />
-          ) : null}
+          <DateField
+            label={t('enquiries.followUpDate')}
+            value={e.nextFollowUp ?? ''}
+            onChange={(d) => setFollowUp(d || null)}
+            minDate={today}
+            clearable
+          />
         </View>
       )}
 
@@ -260,7 +297,11 @@ export function EnquiryScreen({
         {e.interest ? <Row title={t('enquiries.interest')} value={e.interest} /> : null}
         {e.batchName ? <Row title={t('enquiries.batch')} value={e.batchName} /> : null}
         <Row title={t('enquiries.source')} value={t(`enquiries.sources.${e.source}`)} />
-        <Row title={t('enquiries.added')} value={prettyDate(e.createdAt.slice(0, 10), 'en-IN')} />
+        <Row
+          title={t('enquiries.added')}
+          // the day in India, not in UTC (an enquiry at 1 am is not the day before)
+          value={prettyDate(toYmd(new Date(e.createdAt)), 'en-IN')}
+        />
         <Row
           icon="create-outline"
           iconColor={colors.gray}
@@ -350,6 +391,7 @@ export function EnquiryScreen({
             value={jName}
             onChangeText={setJName}
             maxLength={80}
+            error={jTried ? joinErrors.name : undefined}
           />
           <Input
             label={t('enquiries.parentName')}
@@ -364,6 +406,7 @@ export function EnquiryScreen({
             prefix="+91"
             keyboardType="phone-pad"
             maxLength={14}
+            error={jTried ? joinErrors.phone : undefined}
           />
           <View style={{ flexDirection: 'row', gap: spacing.md }}>
             <View style={{ flex: 1 }}>
@@ -375,8 +418,9 @@ export function EnquiryScreen({
                 value={jFee}
                 onChangeText={setJFee}
                 prefix="₹"
-                keyboardType="number-pad"
-                maxLength={8}
+                keyboardType="decimal-pad"
+                maxLength={10}
+                error={jTried ? joinErrors.fee : undefined}
               />
             </View>
           </View>
@@ -400,7 +444,6 @@ export function EnquiryScreen({
           <Button
             title={t('enquiries.admitConfirm')}
             loading={join.isPending}
-            disabled={!joinValid}
             onPress={admit}
             style={{ marginTop: spacing.sm }}
           />

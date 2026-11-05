@@ -38,13 +38,15 @@ export function StudentsScreen({
     dueDay: 1,
     notifyParent: true,
   };
-  const { control, handleSubmit, reset, formState } = useForm<StudentForm>({
+  const { control, handleSubmit, reset, formState, watch } = useForm<StudentForm>({
     resolver: zodResolver(studentSchema),
     defaultValues: blank,
   });
+  // a name typed but not yet added must not be lost when the owner taps Finish
+  const typed = (watch('name') ?? '').trim().length > 0;
 
-  const add = handleSubmit(async (values) => {
-    if (!instituteId) return;
+  const save = async (values: StudentForm) => {
+    if (!instituteId) return false;
     try {
       await createStudent(instituteId, values, [batchId], undefined, {
         idempotencyKey: idem.key,
@@ -52,11 +54,16 @@ export function StudentsScreen({
       idem.reset();
       setAdded((a) => [...a, values.name.trim()]);
       reset(blank);
+      return true;
     } catch (e) {
       idem.settle(e);
       reportError(e);
       toast(t('common.error'), 'error');
+      return false;
     }
+  };
+  const add = handleSubmit(async (values) => {
+    await save(values);
   });
 
   // Finishing (or skipping) marks onboarding done; the navigator then switches to the main app.
@@ -73,6 +80,11 @@ export function StudentsScreen({
       setFinishing(false);
     }
   };
+
+  // with a student typed in, Finish adds them first (a form error stops it, so nothing is lost)
+  const addThenFinish = handleSubmit(async (values) => {
+    if (await save(values)) await finish();
+  });
 
   return (
     <SetupLayout
@@ -93,12 +105,16 @@ export function StudentsScreen({
         label={t('onboarding.parentPhone')}
         keyboardType="phone-pad"
         maxLength={16}
+        prefix="+91"
+        placeholder="98765 43210"
+        autoComplete="tel"
       />
       <FormInput
         control={control}
         name="monthlyFee"
         label={t('onboarding.monthlyFee')}
         keyboardType="decimal-pad"
+        prefix="₹"
       />
       <Button
         variant="secondary"
@@ -108,10 +124,16 @@ export function StudentsScreen({
       />
       <View style={{ height: spacing.lg }} />
       <Button
-        title={added.length ? t('onboarding.finish') : t('common.skip')}
-        variant={added.length ? 'primary' : 'ghost'}
-        onPress={finish}
-        loading={finishing}
+        title={
+          typed
+            ? t('onboarding.addAndFinish')
+            : added.length
+              ? t('onboarding.finish')
+              : t('common.skip')
+        }
+        variant={added.length || typed ? 'primary' : 'ghost'}
+        onPress={typed ? addThenFinish : finish}
+        loading={finishing || (typed && formState.isSubmitting)}
       />
     </SetupLayout>
   );

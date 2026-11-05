@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client';
-import { Button, Card, toast } from '../../components';
+import { Button, Card, ConfirmSheet, toast } from '../../components';
 import { useInstituteId, useRefreshData } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
 import { formatINR } from '../../lib/money';
@@ -27,6 +27,8 @@ export function PaymentReportsCard() {
   const id = useInstituteId();
   const refresh = useRefreshData();
   const [busy, setBusy] = useState<string | null>(null);
+  // "Not received" closes the parent's report for good: asked first
+  const [rejecting, setRejecting] = useState<PaymentReport | null>(null);
   const q = useQuery({
     queryKey: ['paymentReports', id],
     queryFn: async () => (await api<{ reports: PaymentReport[] }>('GET', '/fees/reports')).reports,
@@ -44,6 +46,7 @@ export function PaymentReportsCard() {
         'success',
       );
       await refresh();
+      if (!confirm) setRejecting(null);
     } catch (e) {
       reportError(e);
       toast(t('common.error'), 'error');
@@ -80,8 +83,7 @@ export function PaymentReportsCard() {
                 size="small"
                 variant="secondary"
                 title={t('paidReports.notReceived')}
-                onPress={() => void decide(r, false)}
-                loading={busy === `${r.id}:false`}
+                onPress={() => setRejecting(r)}
                 disabled={busy !== null}
               />
             </View>
@@ -89,6 +91,23 @@ export function PaymentReportsCard() {
         </View>
       ))}
       <Text style={type.caption}>{t('paidReports.hint')}</Text>
+      <ConfirmSheet
+        visible={!!rejecting}
+        onClose={() => setRejecting(null)}
+        title={t('paidReports.rejectTitle')}
+        message={
+          rejecting
+            ? t('paidReports.rejectText', {
+                name: rejecting.studentName,
+                amount: formatINR(rejecting.amountPaise),
+              })
+            : undefined
+        }
+        confirmLabel={t('paidReports.rejectConfirm')}
+        onConfirm={() => rejecting && void decide(rejecting, false)}
+        destructive
+        loading={!!rejecting && busy === `${rejecting.id}:false`}
+      />
     </Card>
   );
 }

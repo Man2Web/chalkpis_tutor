@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FlatList, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { FlatList, Platform, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -56,8 +56,16 @@ export function StudentsListScreen() {
   const add = () => {
     if (guard.check('student')) nav.navigate('StudentForm');
   };
+  const filtered = !!search.trim() || !!batchId || !!className || pendingOnly;
+  const clearFilters = () => {
+    setSearch('');
+    setBatchId(undefined);
+    setClassName(undefined);
+    setPendingOnly(false);
+  };
 
-  if (students.isError) {
+  // a failed refresh keeps the list on screen; only a first load with nothing to show becomes an error
+  if (students.isError && !students.data) {
     return (
       <Screen>
         <EmptyState
@@ -152,11 +160,24 @@ export function StudentsListScreen() {
                 icon="people-outline"
                 title={t('students.emptyTitle')}
                 message={t('students.emptyMessage')}
-                actionLabel={t('students.add')}
-                onAction={add}
+                actionLabel={t('students.addTitle')}
+                onAction={() => setMenu(true)}
+              />
+            ) : inTab.length === 0 ? (
+              <EmptyState
+                icon="archive-outline"
+                title={t('students.noInactive')}
+                message={t('students.noInactiveHint')}
               />
             ) : (
-              <EmptyState icon="search-outline" title={t('students.noMatch')} />
+              // everyone is hidden by the search or a filter: one tap brings them back
+              <EmptyState
+                icon="search-outline"
+                title={t('students.noMatch')}
+                message={filtered ? t('students.noMatchHint') : undefined}
+                actionLabel={filtered ? t('students.clearFilters') : undefined}
+                onAction={filtered ? clearFilters : undefined}
+              />
             )
           }
           renderItem={({ item }) => (
@@ -181,7 +202,7 @@ export function StudentsListScreen() {
         />
       )}
 
-      <BottomSheet visible={menu} onClose={() => setMenu(false)} title={t('students.add')}>
+      <BottomSheet visible={menu} onClose={() => setMenu(false)} title={t('students.addTitle')}>
         <View style={{ gap: spacing.sm }}>
           <Button
             title={t('students.addManually')}
@@ -198,14 +219,17 @@ export function StudentsListScreen() {
               nav.navigate('StudentImport', { mode: 'csv' });
             }}
           />
-          <Button
-            variant="secondary"
-            title={t('import.fromContacts')}
-            onPress={() => {
-              setMenu(false);
-              nav.navigate('StudentImport', { mode: 'contacts' });
-            }}
-          />
+          {/* the browser cannot read phone contacts, so it is not offered there */}
+          {Platform.OS === 'web' ? null : (
+            <Button
+              variant="secondary"
+              title={t('import.fromContacts')}
+              onPress={() => {
+                setMenu(false);
+                nav.navigate('StudentImport', { mode: 'contacts' });
+              }}
+            />
+          )}
         </View>
       </BottomSheet>
       <UpgradePrompt

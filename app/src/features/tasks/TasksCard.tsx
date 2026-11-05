@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
-import { Panel, Skeleton, toast } from '../../components';
+import { ConfirmSheet, Panel, Skeleton, toast } from '../../components';
 import { reportError } from '../../lib/analytics';
 import { haptic } from '../../lib/haptics';
 import { colors, font, radius, spacing, TAP, type } from '../../theme';
@@ -14,6 +14,8 @@ export function TasksCard({ date }: { date: string }) {
   const tasks = useTasks(date);
   const { add, toggle, remove } = useTaskActions(date);
   const [text, setText] = useState('');
+  // the task waiting for "Remove this task?"
+  const [removing, setRemoving] = useState<Task | null>(null);
 
   const submit = () => {
     const title = text.trim();
@@ -30,6 +32,22 @@ export function TasksCard({ date }: { date: string }) {
 
   const list = tasks.data ?? [];
   const open = list.filter((x) => !x.done).length;
+  const failed = tasks.isError && !tasks.data;
+
+  const confirmRemove = () => {
+    const task = removing;
+    if (!task) return;
+    // a second tap while the first delete is on its way would only fail with "not found"
+    if (remove.isPending && remove.variables?.id === task.id) return;
+    remove.mutate(task, {
+      onSuccess: () => setRemoving(null),
+      onError: (e) => {
+        reportError(e);
+        setRemoving(null);
+        toast(t('tasks.removeError'), 'error');
+      },
+    });
+  };
 
   return (
     <Panel
@@ -38,7 +56,25 @@ export function TasksCard({ date }: { date: string }) {
       bodyStyle={{ gap: spacing.sm }}
     >
       {tasks.isLoading ? <Skeleton height={44} /> : null}
-      {!tasks.isLoading && list.length === 0 ? (
+      {failed ? (
+        // a list that did not load is not an empty list
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <Text style={[type.caption, { flex: 1, color: colors.danger }]}>
+            {t('tasks.loadError')}
+          </Text>
+          <Pressable
+            onPress={() => void tasks.refetch()}
+            accessibilityRole="button"
+            hitSlop={8}
+            style={{ paddingVertical: spacing.xs }}
+          >
+            <Text style={[type.caption, font('600'), { color: colors.info }]}>
+              {t('common.retry')}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {!tasks.isLoading && !failed && list.length === 0 ? (
         <Text style={type.caption}>{t('tasks.empty')}</Text>
       ) : null}
       {list.map((task) => (
@@ -49,13 +85,15 @@ export function TasksCard({ date }: { date: string }) {
           onToggle={() => {
             if (task.done) haptic.select();
             else haptic.success();
-            toggle.mutate(task);
+            // the tick shows at once; if the server says no it goes back, and the owner is told
+            toggle.mutate(task, {
+              onError: (e) => {
+                reportError(e);
+                toast(t('tasks.toggleError'), 'error');
+              },
+            });
           }}
-          onRemove={() => {
-            // a second tap while the first delete is on its way would only fail with "not found"
-            if (remove.isPending && remove.variables?.id === task.id) return;
-            remove.mutate(task);
-          }}
+          onRemove={() => setRemoving(task)}
           removing={remove.isPending && remove.variables?.id === task.id}
           removeLabel={t('tasks.remove')}
         />
@@ -97,6 +135,16 @@ export function TasksCard({ date }: { date: string }) {
           <Ionicons name="add-circle" size={30} color={colors.primary} />
         </Pressable>
       </View>
+      <ConfirmSheet
+        visible={!!removing}
+        onClose={() => setRemoving(null)}
+        title={t('tasks.removeTitle')}
+        message={removing ? t('tasks.removeText', { title: removing.title }) : undefined}
+        confirmLabel={t('tasks.remove')}
+        onConfirm={confirmRemove}
+        destructive
+        loading={remove.isPending}
+      />
     </Panel>
   );
 }

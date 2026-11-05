@@ -3,7 +3,17 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { Avatar, Button, Card, Chip, EmptyState, Screen, Skeleton, toast } from '../../components';
+import {
+  Avatar,
+  Button,
+  Card,
+  Chip,
+  EmptyState,
+  Screen,
+  Skeleton,
+  toast,
+  useDiscardGuard,
+} from '../../components';
 import { useInstitute, useStudents } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
 import { open, whatsappUrl } from '../../lib/contact';
@@ -50,6 +60,8 @@ export function ExamMarksScreen({
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [dirty, setDirty] = useState(false);
   const inputs = useRef<Record<string, TextInput | null>>({});
+  // typed marks are not lost to Back, a swipe or the browser: "Discard changes?" first
+  const guard = useDiscardGuard(dirty);
 
   // what the server has, as boxes to edit (again whenever a save brings fresh results)
   const results = q.data?.results;
@@ -85,6 +97,21 @@ export function ExamMarksScreen({
       <Screen>
         <Skeleton height={120} />
         <Skeleton height={320} />
+      </Screen>
+    );
+  // a failed load (no internet) is not a deleted test: offer to try again
+  if ((q.isError && !q.data) || (students.isError && !students.data))
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => {
+            void q.refetch();
+            void students.refetch();
+          }}
+        />
       </Screen>
     );
   if (!q.data)
@@ -141,7 +168,11 @@ export function ExamMarksScreen({
     saveMarks.mutate(
       { id, marks },
       {
-        onSuccess: () => toast(t('exams.marksSaved'), 'success'),
+        onSuccess: () => {
+          // saved: leaving is safe now even if the fresh results are slow to come back
+          setDirty(false);
+          toast(t('exams.marksSaved'), 'success');
+        },
         onError: (e) => {
           reportError(e);
           toast(t('common.error'), 'error');
@@ -316,7 +347,9 @@ export function ExamMarksScreen({
                         },
                       ]}
                     />
-                    <Text style={[type.caption, { width: 34 }]}>/ {marksText(max)}</Text>
+                    <Text style={[type.caption, { minWidth: 34 }]} numberOfLines={1}>
+                      / {marksText(max)}
+                    </Text>
                   </View>
                   <View
                     style={{
@@ -351,8 +384,10 @@ export function ExamMarksScreen({
                         hitSlop={8}
                         style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                       >
-                        <Ionicons name="logo-whatsapp" size={18} color="#1DA851" />
-                        <Text style={[type.caption, { color: '#128C4B' }]}>{t('exams.send')}</Text>
+                        <Ionicons name="logo-whatsapp" size={18} color={colors.whatsapp} />
+                        <Text style={[type.caption, { color: colors.whatsappText }]}>
+                          {t('exams.send')}
+                        </Text>
                       </Pressable>
                     ) : null}
                   </View>
@@ -403,6 +438,7 @@ export function ExamMarksScreen({
           />
         </View>
       </View>
+      {guard.sheet}
     </Screen>
   );
 }

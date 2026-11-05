@@ -18,6 +18,7 @@ import {
   Button,
   Card,
   Chip,
+  ConfirmSheet,
   EmptyState,
   Screen,
   Segmented,
@@ -46,7 +47,7 @@ import {
   type StoreOffer,
 } from '../../lib/purchases';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, radius, spacing, type, font } from '../../theme';
+import { colors, radius, spacing, type } from '../../theme';
 import {
   checkPlanOrder,
   createPlanLink,
@@ -74,7 +75,9 @@ function Meter({ label, used, limit }: { label: string; used: number; limit: num
           {limit === null ? t('billing.unlimitedUsed', { used }) : `${used} / ${limit}`}
         </Text>
       </View>
-      <View style={{ height: 8, borderRadius: 4, backgroundColor: '#ECEFF8', overflow: 'hidden' }}>
+      <View
+        style={{ height: 8, borderRadius: 4, backgroundColor: colors.fill, overflow: 'hidden' }}
+      >
         <View
           style={{
             width: `${usageFraction(used, limit) * 100}%`,
@@ -121,7 +124,7 @@ function PlanCard({
       >
         <Text style={type.heading}>{t(`billing.plan.${plan.id}`)}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-          <Text style={[type.heading, { fontSize: 22, ...font('700') }]}>{price}</Text>
+          <Text style={type.title2}>{price}</Text>
           <Text style={type.caption}>{per}</Text>
         </View>
       </View>
@@ -185,6 +188,7 @@ export function BillingScreen() {
   const [link, setLink] = useState<{ plan: PlanId; cycle: Cycle; data: PlanLink } | null>(null);
   const [paying, setPaying] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [confirmOff, setConfirmOff] = useState(false);
 
   // Web: while a checkout is open, ask the server where the order stands: when the tutor comes back to the app, and
   // every few seconds for ten minutes. The plan switches on here the moment Razorpay confirms.
@@ -343,6 +347,7 @@ export function BillingScreen() {
     try {
       await stopAutoRenew();
       await refresh();
+      setConfirmOff(false);
       toast(t('billing.autoRenewOff'), 'success');
     } catch (e) {
       reportError(e);
@@ -484,7 +489,9 @@ export function BillingScreen() {
                       : t(upgrade ? 'billing.upgradeAuto' : 'billing.startAuto', {
                           plan: planName(p.id),
                           price: formatINR(price),
-                          per: t(cycle === 'year' ? 'billing.perYear' : 'billing.perMonth'),
+                          per: t(
+                            cycle === 'year' ? 'billing.perYearShort' : 'billing.perMonthShort',
+                          ),
                         })
                 }
                 onPress={() => void autoRenew(p.id)}
@@ -492,18 +499,13 @@ export function BillingScreen() {
                 disabled={!!current || !!lower || busy !== null}
               />
               {!webAuto && cycle === 'year' ? (
-                <Pressable
-                  accessibilityRole="button"
+                <Button
+                  variant="ghost"
+                  title={t('billing.payOnce')}
                   onPress={() => void choose(p.id)}
+                  loading={busy === p.id}
                   disabled={busy !== null}
-                  hitSlop={6}
-                >
-                  <Text
-                    style={[type.caption, { textAlign: 'center', textDecorationLine: 'underline' }]}
-                  >
-                    {t('billing.payOnce')}
-                  </Text>
-                </Pressable>
+                />
               ) : null}
             </View>
           }
@@ -512,6 +514,14 @@ export function BillingScreen() {
     });
 
   const accountName = Platform.OS === 'ios' ? 'Apple ID' : 'Google Play';
+  // the plans could not be loaded: say so and offer to try again, rather than showing no plans at all
+  const catalogueFailed = catalogue.isError && !catalogue.data;
+  const plansRetry = (
+    <Card style={{ gap: spacing.sm }}>
+      <Text style={type.body}>{t('billing.storeUnavailable')}</Text>
+      <Button variant="ghost" title={t('common.retry')} onPress={() => void catalogue.refetch()} />
+    </Card>
+  );
 
   return (
     <Screen padded={false}>
@@ -539,7 +549,12 @@ export function BillingScreen() {
           <Text style={type.caption}>
             {webAuto
               ? webAuto.status === 'pending'
-                ? t('billing.autoPayRetrying')
+                ? // the store apps may not point at another way to pay (UPI, card): plain words there
+                  t(
+                    Platform.OS === 'web'
+                      ? 'billing.autoPayRetrying'
+                      : 'billing.autoPayRetryingApp',
+                  )
                 : t('billing.autoRenewOn', {
                     date: webAuto.nextChargeAtMs ? date(webAuto.nextChargeAtMs) : expiryText,
                   })
@@ -572,9 +587,14 @@ export function BillingScreen() {
           <Meter label={t('home.batches')} used={l.batchCount} limit={l.batchLimit} />
         </Card>
 
-        {webAuto && !canPayWeb ? null : sellInStore || canPayWeb ? (
+        {webAuto && !canPayWeb ? null : catalogue.isLoading && Platform.OS !== 'web' ? (
+          // the store keys come with the catalogue: wait for it rather than saying nothing can be bought
+          <Skeleton height={200} />
+        ) : catalogueFailed && Platform.OS !== 'web' ? (
+          plansRetry
+        ) : sellInStore || canPayWeb ? (
           <>
-            <Text style={[type.heading, { fontSize: 20, paddingHorizontal: 4 }]}>
+            <Text style={[type.title3, { paddingHorizontal: 4 }]}>
               {t(l.store || webAuto ? 'billing.changePlan' : 'billing.choosePlan')}
             </Text>
             {cycleSwitch}
@@ -585,15 +605,22 @@ export function BillingScreen() {
               <Button
                 variant="ghost"
                 title={t('billing.turnOffAuto')}
-                onPress={() => void turnOff()}
-                loading={busy === 'off'}
+                onPress={() => setConfirmOff(true)}
                 disabled={busy !== null}
               />
             ) : null}
             {keptNote ? (
               <Text style={[type.caption, { paddingHorizontal: 4 }]}>{keptNote}</Text>
             ) : null}
-            {sellInStore ? storeCards() : webCards()}
+            {catalogue.isLoading ? (
+              <Skeleton height={200} />
+            ) : catalogueFailed ? (
+              plansRetry
+            ) : sellInStore ? (
+              storeCards()
+            ) : (
+              webCards()
+            )}
             {sellInStore ? (
               <View style={{ gap: spacing.sm }}>
                 <Text style={[type.caption, { paddingHorizontal: 4 }]}>
@@ -650,11 +677,26 @@ export function BillingScreen() {
           </Card>
         )}
 
-        <Text style={[type.heading, { fontSize: 20, paddingHorizontal: 4, marginTop: spacing.sm }]}>
+        <Text style={[type.title3, { paddingHorizontal: 4, marginTop: spacing.sm }]}>
           {t('billing.history')}
         </Text>
         <Card style={{ padding: 0, overflow: 'hidden' }}>
-          {(history.data ?? []).length === 0 ? (
+          {history.isLoading ? (
+            <View style={{ padding: spacing.lg }}>
+              <Skeleton height={48} />
+            </View>
+          ) : history.isError && !history.data ? (
+            // not "No payments yet": the list could not be loaded
+            <View style={{ padding: spacing.lg, gap: spacing.sm, alignItems: 'flex-start' }}>
+              <Text style={type.caption}>{t('billing.historyFailed')}</Text>
+              <Button
+                size="small"
+                variant="secondary"
+                title={t('common.retry')}
+                onPress={() => void history.refetch()}
+              />
+            </View>
+          ) : (history.data ?? []).length === 0 ? (
             <Text style={[type.caption, { padding: spacing.lg }]}>{t('billing.noHistory')}</Text>
           ) : null}
           {(history.data ?? []).map((r, i) => (
@@ -737,6 +779,17 @@ export function BillingScreen() {
           </View>
         )}
       </BottomSheet>
+
+      <ConfirmSheet
+        visible={confirmOff}
+        onClose={() => setConfirmOff(false)}
+        title={t('billing.turnOffTitle')}
+        message={t('billing.turnOffText', { date: expiryText })}
+        confirmLabel={t('billing.turnOffConfirm')}
+        onConfirm={() => void turnOff()}
+        destructive
+        loading={busy === 'off'}
+      />
     </Screen>
   );
 }

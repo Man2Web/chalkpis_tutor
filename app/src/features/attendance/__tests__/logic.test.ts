@@ -172,6 +172,34 @@ describe('registerSheet', () => {
     ]);
   });
 
+  it('keeps both marks when two batches met the same day, so totals match studentStats', () => {
+    const docs = [
+      { id: '1', batchId: 'm', date: '2026-10-05', marks: { z: 'P' } },
+      { id: '2', batchId: 's', date: '2026-10-05', marks: { z: 'A' } },
+      { id: '3', batchId: 'm', date: '2026-10-06', marks: { z: 'L' } },
+    ] as AttendanceDoc[];
+    const names: Record<string, string> = { m: 'Maths', s: 'Science' };
+    const sheet = registerSheet(
+      docs,
+      [{ id: 'z', name: 'Zoya' }],
+      'Class',
+      (id: string) => names[id],
+    );
+    expect(sheet[0]).toEqual([
+      'Student',
+      'Class',
+      '2026-10-05 Maths',
+      '2026-10-05 Science',
+      '2026-10-06',
+      'Present',
+      'Late',
+      'Absent',
+      '%',
+    ]);
+    expect(sheet[1]).toEqual(['Zoya', '', 'P', 'A', 'L', 1, 1, 1, 66.7]);
+    expect(studentStats(docs).get('z')?.pct).toBe(66.7);
+  });
+
   it('heads the class column the way the centre names it', () => {
     const sheet = registerSheet(
       [{ id: '1', batchId: 'b', date: '2026-10-07', marks: { z: 'P' } }],

@@ -45,7 +45,7 @@ export function BatchScreen({
     try {
       const batchId = await createBatch(instituteId, values, { idempotencyKey: idem.key });
       idem.reset();
-      navigation.navigate('Students', { batchId, defaultFee: values.defaultFee });
+      navigation.replace('Students', { batchId, defaultFee: values.defaultFee });
     } catch (e) {
       idem.settle(e);
       reportError(e);

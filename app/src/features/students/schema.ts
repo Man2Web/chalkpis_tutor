@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { normalizeIndianPhone } from '../../lib/phone';
 import { parseRupeesToPaise } from '../../lib/money';
+import { todayYmd } from '../../lib/dates';
 
 const phone = (msg = 'phone') => z.string().refine((v) => normalizeIndianPhone(v) !== null, msg);
 
@@ -21,9 +22,7 @@ export const studentSchema = z.object({
     .refine(
       (v) =>
         v === '' ||
-        (/^\d{4}-\d{2}-\d{2}$/.test(v) &&
-          !Number.isNaN(Date.parse(v)) &&
-          v <= new Date().toISOString().slice(0, 10)),
+        (/^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)) && v <= todayYmd()),
       'date',
     )
     .optional(),
@@ -35,6 +34,8 @@ export const studentSchema = z.object({
       (v) => v === '' || (/^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v))),
       'date',
     )
+    // a student "joining" later is left off every roster until then, which looks like they vanished
+    .refine((v) => v === '' || v <= todayYmd(), 'joinedFuture')
     .optional(),
 });
 

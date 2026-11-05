@@ -202,20 +202,20 @@ describe('web app: website payments', () => {
     expect(screen.getByText('3 / 3')).toBeTruthy();
     expect(screen.getByText('Expired')).toBeTruthy();
     expect(screen.getByText(/read-only/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Start ₹1,999 / year' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Subscribe · ₹1,999/year' })).toBeTruthy();
   });
 
   it('every plan starts as auto-renew (first payment when the trial ends); yearly can also be paid once', async () => {
     await show();
     expect(screen.getByText(/the first payment is taken when the trial ends/)).toBeTruthy();
     expect(screen.getAllByText('or pay once for 1 year (no auto-renew)')).toHaveLength(3);
-    await fireEvent.press(screen.getByRole('button', { name: 'Start ₹2,999 / year' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Subscribe · ₹2,999/year' }));
     await waitFor(() => expect(startAutoRenew).toHaveBeenCalledWith('standard', 'year'));
     expect(open).toHaveBeenCalledWith('https://rzp.io/i/sub1');
     expect(toast).toHaveBeenCalledWith(expect.stringContaining('Approve UPI Autopay'));
     // monthly is auto-renew only
     await fireEvent.press(screen.getByText('Monthly'));
-    expect(await screen.findByRole('button', { name: 'Start ₹299 / month' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Subscribe · ₹299/month' })).toBeTruthy();
     expect(screen.queryByText('or pay once for 1 year (no auto-renew)')).toBeNull();
   });
 
@@ -231,11 +231,14 @@ describe('web app: website payments', () => {
     await show();
     expect(screen.getByText(/Renews automatically on/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Your current plan' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'At renewal' })).toBeTruthy(); // Starter is lower
+    expect(screen.getByRole('button', { name: 'Available at renewal' })).toBeTruthy(); // Starter is lower
     expect(screen.queryByText('or pay once for 1 year (no auto-renew)')).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: 'Upgrade · ₹4,999 / year' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Upgrade · ₹4,999/year' }));
     await waitFor(() => expect(startAutoRenew).toHaveBeenCalledWith('pro', 'year'));
     await fireEvent.press(screen.getByRole('button', { name: 'Turn off auto-renew' }));
+    // asked first: nothing is stopped until the owner says yes
+    expect(stopAutoRenew).not.toHaveBeenCalled();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Yes, turn it off' }));
     await waitFor(() => expect(stopAutoRenew).toHaveBeenCalled());
     expect(mockRefresh).toHaveBeenCalled();
   });
@@ -246,6 +249,19 @@ describe('web app: website payments', () => {
     );
     await show();
     expect(screen.getByText(/did not go through/)).toBeTruthy();
+  });
+
+  it('plans that are still loading or failed to load are not shown as "no plans"', async () => {
+    (useBillingCatalogue as jest.Mock).mockReturnValue({
+      ...catalogue(),
+      data: undefined,
+      isError: true,
+    });
+    await show();
+    expect(screen.getByText(/Plans could not be loaded/)).toBeTruthy();
+    (useBillingHistory as jest.Mock).mockReturnValue({ ...q(undefined), isError: true });
+    await show();
+    expect(screen.queryByText('No payments yet')).toBeNull();
   });
 
   it('test mode: choosing a plan opens the test sheet for that cycle, and paying activates it', async () => {
@@ -301,7 +317,7 @@ describe('web app: website payments', () => {
     (useBillingCatalogue as jest.Mock).mockReturnValue(catalogue({ paymentsAvailable: false }));
     await show();
     expect(screen.getByText('About your plan')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Start ₹1,999 / year' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Subscribe · ₹1,999/year' })).toBeNull();
     expect(screen.getByText('Free trial')).toBeTruthy();
   });
 
@@ -450,6 +466,16 @@ describe.each(['ios', 'android'] as const)('%s app: store subscriptions', (os) =
     expect(screen.getByText(/Renews automatically on/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Subscribe' })).toBeNull();
     expect(screen.queryByText(/UPI/)).toBeNull();
+  });
+
+  it('a failed website renewal is told without pointing at UPI or cards', async () => {
+    withStore();
+    (useLimits as jest.Mock).mockReturnValue(
+      limits({ plan: 'standard', cycle: 'year', ...webAuto({ status: 'pending' }) }),
+    );
+    await show();
+    expect(screen.getByText(/did not go through/)).toBeTruthy();
+    expect(screen.queryByText(/UPI|card/)).toBeNull();
   });
 
   it('Restore purchases asks the store, then the server', async () => {

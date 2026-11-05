@@ -67,7 +67,7 @@ export function DateStrip({ date, onChange, allowFuture = false }: Props) {
           alignItems: 'center',
           justifyContent: 'space-between',
           backgroundColor: colors.surface,
-          borderRadius: radius.md + 2,
+          borderRadius: radius.md,
           borderWidth: 1,
           borderColor: colors.border,
           paddingHorizontal: spacing.xs,
@@ -89,7 +89,7 @@ export function DateStrip({ date, onChange, allowFuture = false }: Props) {
             justifyContent: 'center',
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
             <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
             <Text style={type.heading}>{prettyDate(date, 'en-IN')}</Text>
             <Ionicons

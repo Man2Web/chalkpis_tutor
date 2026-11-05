@@ -7,6 +7,7 @@ import { Avatar, Button, Logo, UpgradePrompt } from '../components';
 import { useAddGuard } from '../data/guards';
 import { useInstitute, useStudents } from '../data/hooks';
 import { useCategory } from '../lib/category';
+import { formatIndianPhone } from '../lib/phone';
 import { navigationRef } from '../navigation/ref';
 import { colors, font, radius, shadow, spacing, type } from '../theme';
 import { useUpdates } from '../features/announcements/updates';
@@ -98,7 +99,7 @@ function Sidebar({ active, staff }: { active: SectionItem['key']; staff: boolean
       <Pressable
         onPress={() => openKey(staff ? 'attendance' : 'home')}
         accessibilityRole="link"
-        accessibilityLabel="ChalkPis"
+        accessibilityLabel="Chalkpis"
         style={{ height: 64, justifyContent: 'center', paddingHorizontal: 22 }}
       >
         <Logo height={24} />
@@ -345,7 +346,7 @@ function Bell() {
           }}
         >
           <Text
-            style={[type.caption2, font('600'), { color: '#fff', fontSize: 10, lineHeight: 12 }]}
+            style={[type.caption2, font('600'), { color: '#FFFFFF', fontSize: 10, lineHeight: 12 }]}
           >
             {unread > 9 ? '9+' : unread}
           </Text>
@@ -476,7 +477,10 @@ function StudentSearch() {
                     {s.name}
                   </Text>
                   <Text style={type.caption2} numberOfLines={1}>
-                    {[s.class && ct('levelValue', { n: s.class }), s.parentPhone || s.phone]
+                    {[
+                      s.class && ct('levelValue', { n: s.class }),
+                      formatIndianPhone(s.parentPhone || s.phone || ''),
+                    ]
                       .filter(Boolean)
                       .join(' · ')}
                   </Text>

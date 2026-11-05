@@ -19,7 +19,7 @@ import type { MainStackParams } from '../navigation/types';
 import { colors, spacing, type } from '../theme';
 import { useSession } from '../features/auth/session';
 import { AnnouncementBanner } from '../features/announcements/AnnouncementBanner';
-import { scheduleLabel } from '../features/batches/format';
+import { timeRange } from '../features/batches/format';
 import { PlanBanner } from '../features/billing/PlanBanner';
 import { AttendanceRing } from '../features/dashboard/AttendanceRing';
 import { greetingKey } from '../features/dashboard/greeting';
@@ -33,6 +33,7 @@ import { OwnerDetailsCard } from '../features/onboarding/OwnerDetailsCard';
 import { WelcomeTour } from '../features/onboarding/WelcomeTour';
 import { TasksCard } from '../features/tasks/TasksCard';
 import { CellLink, DesktopPage, LinkButton, Split, StatCard, StatGrid } from './parts';
+import { presentTone } from '../features/attendance/logic';
 
 /** How many students the "Fees to collect" panel lists before "View all". */
 const FEES_SHOWN = 6;
@@ -59,8 +60,8 @@ export function DesktopHome() {
     attendance.isLoading ||
     unpaid.isLoading ||
     month.isLoading;
-  const failed =
-    students.isError || batches.isError || attendance.isError || unpaid.isError || month.isError;
+  // only a list that never loaded is a failure: a background refresh that fails keeps the numbers already shown
+  const failed = [students, batches, attendance, unpaid, month].some((q) => q.isError && !q.data);
 
   const s = dashboardStats({
     students: students.data ?? [],
@@ -175,7 +176,11 @@ export function DesktopHome() {
               }
               padded={false}
             >
-              {s.todaysBatches.length ? (
+              {loading ? (
+                <View style={{ padding: spacing.lg }}>
+                  <Skeleton height={120} />
+                </View>
+              ) : s.todaysBatches.length ? (
                 <Table
                   columns={[
                     { flex: 2 },
@@ -205,13 +210,13 @@ export function DesktopHome() {
                             }
                           />
                         </Table.Cell>
-                        <Table.Cell>{scheduleLabel(tb.batch, t)}</Table.Cell>
+                        <Table.Cell>{timeRange(tb.batch.startTime, tb.batch.endTime)}</Table.Cell>
                         <Table.Cell>{String(tb.batch.studentCount)}</Table.Cell>
                         <Table.Cell>
                           {tb.status === 'marked' ? (
                             <Chip
                               small
-                              tone="success"
+                              tone={presentTone(tb.present, tb.total)}
                               label={t('attendance.presentOf', {
                                 present: tb.present,
                                 total: tb.total,
@@ -263,7 +268,11 @@ export function DesktopHome() {
               }
               padded={false}
             >
-              {owing.length ? (
+              {loading ? (
+                <View style={{ padding: spacing.lg }}>
+                  <Skeleton height={120} />
+                </View>
+              ) : owing.length ? (
                 <Table
                   columns={[
                     { flex: 2.2 },
@@ -342,18 +351,22 @@ export function DesktopHome() {
         side={
           <>
             <Panel title={t('home.heroTitle')}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg }}>
-                {s.todaysBatches.length ? (
-                  <AttendanceRing present={s.presentToday} total={s.markedToday} size={84} />
-                ) : null}
-                <Text style={[type.subhead, { flex: 1, color: colors.textMuted }]}>
-                  {s.markedToday
-                    ? t(toMark ? 'home.toMark' : 'home.allMarked', { count: toMark })
-                    : s.todaysBatches.length
-                      ? t('home.notMarkedYet')
-                      : t('home.noClassesToday')}
-                </Text>
-              </View>
+              {loading ? (
+                <Skeleton height={84} />
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg }}>
+                  {s.todaysBatches.length ? (
+                    <AttendanceRing present={s.presentToday} total={s.markedToday} size={84} />
+                  ) : null}
+                  <Text style={[type.subhead, { flex: 1, color: colors.textMuted }]}>
+                    {s.markedToday
+                      ? t(toMark ? 'home.toMark' : 'home.allMarked', { count: toMark })
+                      : s.todaysBatches.length
+                        ? t('home.notMarkedYet')
+                        : t('home.noClassesToday')}
+                  </Text>
+                </View>
+              )}
             </Panel>
             {week.data?.length ? (
               <WeekChart points={weekAttendance(week.data, today, addDays)} today={today} />

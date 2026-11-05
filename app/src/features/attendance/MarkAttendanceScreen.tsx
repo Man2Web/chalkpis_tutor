@@ -9,10 +9,14 @@ import {
   Button,
   Card,
   Chip,
+  ConfirmSheet,
   EmptyState,
+  InsetSeparator,
+  listCard,
   Screen,
   Skeleton,
   toast,
+  useDiscardGuard,
 } from '../../components';
 import {
   useAttendanceDoc,
@@ -25,7 +29,7 @@ import { reportError, track } from '../../lib/analytics';
 import { prettyDate, todayYmd } from '../../lib/dates';
 import type { Mark } from '../../lib/types';
 import type { MainStackParams } from '../../navigation/types';
-import { TAP, colors, radius, spacing, type, font } from '../../theme';
+import { TAP, colors, radius, spacing, type } from '../../theme';
 import { useSession } from '../auth/session';
 import { saveAttendance } from './api';
 import { DateStrip } from './DateStrip';
@@ -63,6 +67,8 @@ export function MarkAttendanceScreen({
   } | null>(null);
   const [sheet, setSheet] = useState(false);
   const [busy, setBusy] = useState(false);
+  // a day picked while taps are unsaved waits here for "Discard?"
+  const [pendingDate, setPendingDate] = useState<string | null>(null);
 
   const savedDoc = saved.data;
   const rows = useMemo(
@@ -77,12 +83,8 @@ export function MarkAttendanceScreen({
   }, [rows, local]);
   const c = counts(Object.values(marks));
 
-  const holiday =
-    dayType?.date === date
-      ? dayType.value
-      : savedDoc?.holiday
-        ? (savedDoc.reason ?? 'holiday')
-        : null;
+  const savedHoliday = savedDoc?.holiday ? (savedDoc.reason ?? 'holiday') : null;
+  const holiday = dayType?.date === date ? dayType.value : savedHoliday;
   const future = date > todayYmd();
   // Without the saved day the roster would show everyone Present, and saving that would overwrite the real marks.
   const docFailed = saved.isError;
@@ -99,6 +101,16 @@ export function MarkAttendanceScreen({
     setEdits({ date, marks: Object.fromEntries(rows.map((r) => [r.student.id, 'P' as Mark])) });
   };
 
+  // Taps or a holiday that differ from what is saved: Back (or another day) would lose them.
+  const hasUnsavedEdits =
+    Object.entries(local).some(([id, m]) => baseMark.has(id) && baseMark.get(id) !== m) ||
+    (dayType?.date === date && dayType.value !== savedHoliday);
+  const guard = useDiscardGuard(hasUnsavedEdits && !busy);
+  const changeDate = (next: string) => {
+    if (hasUnsavedEdits) setPendingDate(next);
+    else setDate(next);
+  };
+
   const save = async () => {
     if (!docReady) return;
     setBusy(true);
@@ -113,8 +125,10 @@ export function MarkAttendanceScreen({
         createdAt: (savedDoc as { createdAt?: unknown } | null | undefined)?.createdAt,
       });
       track('attendance_saved');
-      await refresh();
+      // the lists refresh behind us; waiting for every refetch kept the spinner going for seconds
+      void refresh();
       toast(t('attendance.saved'), 'success');
+      guard.allowLeave();
       navigation.goBack();
     } catch (e) {
       reportError(e);
@@ -123,10 +137,17 @@ export function MarkAttendanceScreen({
     }
   };
 
-  if (students.isLoading || batches.isLoading || saved.isLoading) {
+  // Only the first load blanks the screen; a new day's marks load under the header, so the date arrows stay usable.
+  if (students.isLoading || batches.isLoading) {
     return (
       <Screen>
-        <Skeleton height={64} />
+        <View style={{ gap: spacing.md }}>
+          <Skeleton height={32} width="60%" />
+          <Skeleton height={56} />
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} height={56} />
+          ))}
+        </View>
       </Screen>
     );
   }
@@ -155,11 +176,11 @@ export function MarkAttendanceScreen({
     <Screen scroll={false} padded={false}>
       <View style={{ padding: spacing.lg, gap: spacing.sm }}>
         <Text style={type.title}>{batch.name}</Text>
-        <DateStrip date={date} onChange={setDate} />
+        <DateStrip date={date} onChange={changeDate} />
         {future ? (
           <Text style={[type.caption, { color: colors.danger }]}>{t('attendance.future')}</Text>
         ) : null}
-        {docFailed ? null : holiday ? (
+        {docFailed || saved.isLoading ? null : holiday ? (
           <Card style={{ backgroundColor: colors.primarySoft, gap: spacing.sm }}>
             <Text style={type.label}>
               {t(
@@ -208,7 +229,16 @@ export function MarkAttendanceScreen({
         )}
       </View>
 
-      {docFailed ? (
+      {saved.isLoading ? (
+        <View
+          style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}
+          accessibilityLabel={t('common.loading')}
+        >
+          {[0, 1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} height={56} />
+          ))}
+        </View>
+      ) : docFailed ? (
         <View style={{ flex: 1, justifyContent: 'center' }}>
           <EmptyState
             icon="alert-circle-outline"
@@ -221,12 +251,8 @@ export function MarkAttendanceScreen({
         <View style={{ flex: 1 }} />
       ) : (
         <FlatList
-          style={{
-            marginHorizontal: spacing.lg,
-            marginBottom: spacing.md,
-            borderRadius: radius.lg,
-            overflow: 'hidden',
-          }}
+          style={{ flex: 1 }}
+          contentContainerStyle={rows.length ? listCard : undefined}
           data={rows}
           extraData={marks}
           keyExtractor={(r) => r.student.id}
@@ -239,9 +265,7 @@ export function MarkAttendanceScreen({
               message={t('attendance.noStudentsHint')}
             />
           }
-          ItemSeparatorComponent={() => (
-            <View style={{ height: 1, backgroundColor: colors.border }} />
-          )}
+          ItemSeparatorComponent={InsetSeparator}
           renderItem={({ item }) => {
             const m = marks[item.student.id];
             const tone = TONE[m];
@@ -275,7 +299,7 @@ export function MarkAttendanceScreen({
                     paddingHorizontal: spacing.md,
                   }}
                 >
-                  <Text style={{ color: tone.fg, ...font('700') }}>{t(tone.key)}</Text>
+                  <Text style={[type.label, { color: tone.fg }]}>{t(tone.key)}</Text>
                 </View>
               </Pressable>
             );
@@ -322,6 +346,20 @@ export function MarkAttendanceScreen({
           />
         </View>
       </BottomSheet>
+      <ConfirmSheet
+        visible={!!pendingDate}
+        onClose={() => setPendingDate(null)}
+        title={t('discard.title')}
+        message={t('discard.text')}
+        confirmLabel={t('discard.confirm')}
+        cancelLabel={t('discard.keep')}
+        destructive
+        onConfirm={() => {
+          if (pendingDate) setDate(pendingDate);
+          setPendingDate(null);
+        }}
+      />
+      {guard.sheet}
     </Screen>
   );
 }

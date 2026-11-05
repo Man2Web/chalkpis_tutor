@@ -30,7 +30,7 @@ export function AttendanceSummary({ studentId, batchId }: Props) {
       ) : (
         <View style={{ gap: spacing.xs }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-            <Text style={[type.title, { fontSize: 28 }]}>{stat.pct}%</Text>
+            <Text style={type.title}>{stat.pct}%</Text>
             {low ? <Chip label={t('attendance.low')} tone="danger" /> : null}
           </View>
           <Text style={type.caption}>

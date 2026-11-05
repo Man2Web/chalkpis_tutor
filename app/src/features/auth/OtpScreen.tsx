@@ -52,7 +52,10 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
       await confirmCode(phone, value); // signing in switches the navigator automatically
     } catch (e) {
       setBusy(false);
-      setError(t(`auth.errors.${authErrorKey(e)}`));
+      const key = authErrorKey(e);
+      setError(t(`auth.errors.${key}`));
+      // a wrong code is cleared so the right one can be typed straight away (the boxes keep focus and shake red)
+      if (key === 'invalidCode') setCode('');
     } finally {
       inFlight.current = false;
     }
@@ -89,7 +92,14 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
         <PrimaryButton title={t('auth.verify')} onPress={() => void verify()} loading={busy} />
       }
     >
-      <DevCodeHint phone={phone} onUse={setCode} />
+      <DevCodeHint
+        phone={phone}
+        onUse={(c) => {
+          setError(undefined);
+          setCode(c);
+          void verify(c);
+        }}
+      />
       <CodeBoxes
         value={code}
         onChange={(v) => {

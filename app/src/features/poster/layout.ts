@@ -38,6 +38,29 @@ export function wrapText(text: string, max: number, lines: number): string[] {
   return kept;
 }
 
+/** About how wide a bold character is, as a share of the font size (digits and capitals run wide, so err wide). */
+const CHAR_W = 0.62;
+
+/**
+ * Fits text into `width` (poster units): one line at the largest size up to `max` that fits; text that would need
+ * less than `min` wraps to two lines instead (the second cut with "…" if it must be).
+ */
+export function fitText(
+  text: string,
+  width: number,
+  max: number,
+  min: number,
+): { lines: string[]; size: number } {
+  const clean = text.trim();
+  if (!clean) return { lines: [], size: max };
+  const sizeFor = (chars: number) => Math.min(max, width / (Math.max(chars, 1) * CHAR_W));
+  const one = sizeFor(clean.length);
+  if (one >= min) return { lines: [clean], size: Math.floor(one) };
+  const lines = wrapText(clean, Math.max(1, Math.floor(width / (min * CHAR_W))), 2);
+  const longest = Math.max(...lines.map((l) => l.length));
+  return { lines, size: Math.floor(sizeFor(longest)) };
+}
+
 /** Up to 6 topper cards: 1-3 in one row, 4 in two rows of 2, 5-6 in two rows of 3. */
 export function gridFor(count: number): { cols: number; rows: number } {
   const n = Math.min(Math.max(count, 0), 6);

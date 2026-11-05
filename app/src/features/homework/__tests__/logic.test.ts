@@ -14,6 +14,23 @@ describe('homework', () => {
     expect(dueLabel(t, '2026-11-05', today).text).toBe('homework.dueInDays count=4');
   });
 
+  it('is overdue only while someone is still not checked', () => {
+    const today = '2026-11-01';
+    expect(dueLabel(t, '2026-10-31', today, { unchecked: 2, dateText: '31 Oct' })).toEqual({
+      text: 'homework.overdue',
+      late: true,
+    });
+    expect(dueLabel(t, '2026-10-31', today, { unchecked: 0, dateText: '31 Oct' })).toEqual({
+      text: 'homework.wasDue date=31 Oct',
+      late: false,
+      closed: true,
+    });
+    // not due yet: everyone checked early changes nothing
+    expect(dueLabel(t, '2026-11-02', today, { unchecked: 0, dateText: '2 Nov' }).text).toBe(
+      'homework.dueTomorrow',
+    );
+  });
+
   it('offers tomorrow, the day after and a week as quick due days', () => {
     expect(quickDueDays('2026-12-30').map((q) => q.date)).toEqual([
       '2026-12-31',

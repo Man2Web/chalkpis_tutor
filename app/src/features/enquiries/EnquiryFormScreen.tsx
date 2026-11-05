@@ -2,7 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { Button, Chip, EmptyState, Input, Screen, Skeleton, toast } from '../../components';
+import {
+  Button,
+  Chip,
+  DateField,
+  EmptyState,
+  Input,
+  Screen,
+  Skeleton,
+  toast,
+} from '../../components';
 import { useBatches } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
 import { useCategory } from '../../lib/category';
@@ -10,7 +19,6 @@ import { todayYmd } from '../../lib/dates';
 import { normalizeIndianPhone } from '../../lib/phone';
 import type { MainStackParams } from '../../navigation/types';
 import { colors, spacing, type } from '../../theme';
-import { DateStrip } from '../attendance/DateStrip';
 import { useEnquiry, useEnquiryActions } from './api';
 import { quickFollowUps, SOURCES, type Source } from './logic';
 
@@ -59,6 +67,18 @@ export function EnquiryFormScreen({
     return (
       <Screen>
         <Skeleton height={300} />
+      </Screen>
+    );
+  // a failed load is not a deleted enquiry: offer to try again
+  if (id && existing.isError && !loaded)
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => void existing.refetch()}
+        />
       </Screen>
     );
   if (id && !loaded)
@@ -183,11 +203,6 @@ export function EnquiryFormScreen({
       </Text>
       {chipRow(
         <>
-          <Chip
-            label={t('enquiries.noFollowUp')}
-            selected={!followUp}
-            onPress={() => setFollowUp(null)}
-          />
           {quickFollowUps(today).map((q) => (
             <Chip
               key={q.key}
@@ -196,13 +211,20 @@ export function EnquiryFormScreen({
               onPress={() => setFollowUp(q.date)}
             />
           ))}
+          <Chip
+            label={t('enquiries.noFollowUp')}
+            selected={!followUp}
+            onPress={() => setFollowUp(null)}
+          />
         </>,
       )}
-      {followUp ? (
-        <View style={{ marginBottom: spacing.md }}>
-          <DateStrip date={followUp} onChange={setFollowUp} allowFuture />
-        </View>
-      ) : null}
+      <DateField
+        label={t('enquiries.followUpDate')}
+        value={followUp ?? ''}
+        onChange={(d) => setFollowUp(d || null)}
+        minDate={today}
+        clearable
+      />
       {id ? null : (
         <Input
           label={t('enquiries.firstNote')}

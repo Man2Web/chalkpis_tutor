@@ -130,8 +130,22 @@ const rupeesNum = (paise: number) => Math.round(paise) / 100;
 const batchName = (data: ReportData, id: string | null) =>
   id ? (data.batches.find((b) => b.id === id)?.name ?? id) : 'No batch';
 
-/** Rows for a spreadsheet: summary, by mode, by batch, then one row per student. Money in rupees. */
-export function reportCsvRows(data: ReportData, numeric = false): (string | number)[][] {
+const MODE_NAMES: Record<string, string> = {
+  cash: 'Cash',
+  upi: 'UPI',
+  bank: 'Bank',
+  other: 'Other',
+};
+
+/**
+ * Rows for a spreadsheet: summary, by mode, by batch, then one row per student. Money in rupees. `modeLabel` names
+ * the payment modes ("Cash", not "cash"), as the PDF does.
+ */
+export function reportCsvRows(
+  data: ReportData,
+  numeric = false,
+  modeLabel: (m: string) => string = (m) => MODE_NAMES[m] ?? m,
+): (string | number)[][] {
   const c = data.collection;
   const rupees = numeric ? rupeesNum : rupeesText;
   const level = data.levelLabel ?? 'Class';
@@ -145,7 +159,7 @@ export function reportCsvRows(data: ReportData, numeric = false): (string | numb
     ['Waived', rupees(c.waived)],
     [],
     ['Collected by payment mode'],
-    ...Object.entries(c.byMode).map(([mode, amt]) => [mode, rupees(amt)]),
+    ...Object.entries(c.byMode).map(([mode, amt]) => [modeLabel(mode), rupees(amt)]),
     [],
     ['Collected by batch'],
     ...c.byBatch.map((b) => [batchName(data, b.batchId), rupees(b.amount)]),
@@ -224,7 +238,7 @@ export function reportHtml(
   const kv = (k: string, v: string) => `<tr><td>${esc(k)}</td><td class="r">${esc(v)}</td></tr>`;
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>body{font-family:-apple-system,Roboto,Arial,sans-serif;color:#14171F;padding:24px;max-width:720px;margin:auto}
-h1{font-size:20px;margin:0}h2{font-size:15px;margin:20px 0 6px;color:#2F5BEA}.muted{color:#5B6275;font-size:13px}
+h1{font-size:20px;margin:0}h2{font-size:15px;margin:20px 0 6px;color:#0E77BE}.muted{color:#5B6275;font-size:13px}
 table{width:100%;border-collapse:collapse}td,th{padding:6px 4px;border-bottom:1px solid #E1E4ED;font-size:14px;text-align:left}.r{text-align:right}</style></head><body>
 <h1>${esc(data.institute)}</h1><div class="muted">${esc(L.title)} • ${esc(monthText)}</div>
 <h2>${esc(L.collection)}</h2><table>${kv(L.billed, fmt(c.billed))}${kv(L.collected, fmt(c.collected))}${kv(L.pending, fmt(c.pending))}${kv(L.waived, fmt(c.waived))}</table>

@@ -7,10 +7,13 @@ import { readFlag, setFlag } from '../../lib/onceFlag';
 import { colors, spacing, type } from '../../theme';
 
 const FLAG = 'install_hint_hidden';
-const PLAY_URL =
-  'https://play.google.com/store/apps/details?id=in.chalkpis.tutors&referrer=utm_source%3Dtutor.chalkpis.com%26utm_medium%3Dweb_app';
+const STORE_URL = {
+  android:
+    'https://play.google.com/store/apps/details?id=in.chalkpis.tutors&referrer=utm_source%3Dtutor.chalkpis.com%26utm_medium%3Dweb_app',
+  iphone: 'https://apps.apple.com/in/app/chalkpis-class-fee-manager/id6822059424',
+} as const;
 
-/** Which hint this browser gets: none when ChalkPis already opens from the Home Screen, or on a computer. */
+/** Which hint this browser gets: none when Chalkpis already opens from the Home Screen, or on a computer. */
 function hintKind(): 'iphone' | 'android' | null {
   const standalone =
     window.matchMedia?.('(display-mode: standalone)').matches ||
@@ -25,8 +28,8 @@ function hintKind(): 'iphone' | 'android' | null {
 }
 
 /**
- * On Home in the browser version: on an iPhone, how to put ChalkPis on the Home Screen (there is no App Store app yet);
- * on an Android phone, the Google Play app (faster, with notifications). Hidden for good once dismissed.
+ * On Home in the browser version on a phone: the store app for that phone (App Store on an iPhone or iPad, Google
+ * Play on Android), which is faster and sends notifications. Hidden for good once dismissed.
  */
 export function InstallHint() {
   const { t } = useTranslation();
@@ -49,9 +52,9 @@ export function InstallHint() {
     <Card style={{ gap: spacing.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         <Ionicons
-          name={kind === 'iphone' ? 'add-circle-outline' : 'logo-google-playstore'}
+          name={kind === 'iphone' ? 'logo-apple-appstore' : 'logo-google-playstore'}
           size={22}
-          color={colors.text}
+          color={colors.brand}
         />
         <Text style={[type.heading, { flex: 1 }]}>{t(`installHint.${kind}Title`)}</Text>
         <Pressable accessibilityRole="button" onPress={hide} hitSlop={10}>
@@ -63,14 +66,12 @@ export function InstallHint() {
       <Text style={[type.footnote, { color: colors.textMuted }]}>
         {t(`installHint.${kind}Text`)}
       </Text>
-      {kind === 'android' && (
-        <Button
-          title={t('installHint.androidButton')}
-          size="small"
-          variant="outline"
-          onPress={() => void Linking.openURL(PLAY_URL)}
-        />
-      )}
+      <Button
+        title={t(`installHint.${kind}Button`)}
+        size="small"
+        variant="outline"
+        onPress={() => void Linking.openURL(STORE_URL[kind])}
+      />
     </Card>
   );
 }

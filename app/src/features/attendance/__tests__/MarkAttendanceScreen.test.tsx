@@ -12,6 +12,12 @@ jest.mock('../../../data/hooks', () => ({
   useRefreshData: () => jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('../api', () => ({ saveAttendance: jest.fn().mockResolvedValue(undefined) }));
+// the discard guard reads the navigator; these screens render without one
+jest.mock('@react-navigation/native', () => ({
+  ...jest.requireActual('@react-navigation/native'),
+  useNavigation: () => ({ dispatch: jest.fn() }),
+  usePreventRemove: jest.fn(),
+}));
 jest.mock('../../auth/session', () => ({
   useSession: (sel: (s: { uid: string }) => unknown) => sel({ uid: 'owner1' }),
 }));
@@ -155,4 +161,18 @@ it('does not offer the default roster for saving when the saved day could not be
   expect(refetch).toHaveBeenCalled();
   await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
   expect(saveAttendance).not.toHaveBeenCalled();
+});
+
+it("keeps the batch name and date arrows while a day's saved marks load", async () => {
+  setup();
+  (useAttendanceDoc as jest.Mock).mockReturnValue({
+    data: undefined,
+    isLoading: true,
+    isError: false,
+  });
+  await render(<MarkAttendanceScreen navigation={navigation} route={route} />);
+  expect(screen.getByText('Maths 10')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Previous day' })).toBeTruthy();
+  expect(screen.queryByText('Present 3')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Save' }).props.accessibilityState.disabled).toBe(true);
 });

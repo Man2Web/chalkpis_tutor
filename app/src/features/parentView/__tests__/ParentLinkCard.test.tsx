@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '../../../i18n';
 import { ParentLinkCard } from '../ParentLinkCard';
 import { createParentLink, getParentLinkStatus, revokeParentLinks } from '../api';
+import { open } from '../../../lib/contact';
 
 jest.mock('../../../data/hooks', () => ({
   useInstituteId: () => 'I1',
@@ -14,6 +15,10 @@ jest.mock('../api', () => ({
   revokeParentLinks: jest.fn(),
 }));
 jest.mock('../../../lib/analytics', () => ({ reportError: jest.fn() }));
+jest.mock('../../../lib/contact', () => ({
+  ...jest.requireActual('../../../lib/contact'),
+  open: jest.fn().mockResolvedValue(true),
+}));
 
 const student = { id: 's1', name: 'Asha', parentName: 'Mr Rao', parentPhone: '+919876543210' };
 const wrap = (ui: React.ReactElement) => (
@@ -90,4 +95,31 @@ it('a failed create shows nothing sensitive and no link', async () => {
   );
   await waitFor(() => expect(createParentLink).toHaveBeenCalled());
   expect(screen.queryByText(/TOKEN/)).toBeNull();
+});
+
+it('when the server could not send the link, says so and offers WhatsApp with the note', async () => {
+  (createParentLink as jest.Mock).mockResolvedValue({
+    url: 'https://x.web.app/p/TOKEN',
+    expiresAt: '2026-11-07T00:00:00Z',
+    sent: false,
+  });
+  await render(wrap(<ParentLinkCard student={student} />));
+  await fireEvent.press(
+    await screen.findByRole('button', { name: 'Send link to parent on WhatsApp' }),
+  );
+  expect(await screen.findByText(/was not sent/)).toBeTruthy();
+  await fireEvent.press(screen.getByRole('button', { name: 'Send on WhatsApp' }));
+  await waitFor(() => expect(open).toHaveBeenCalled());
+  const url = (open as jest.Mock).mock.calls[0][0] as string;
+  expect(url.startsWith('https://wa.me/919876543210?text=')).toBe(true);
+  expect(decodeURIComponent(url)).toContain('https://x.web.app/p/TOKEN');
+  expect(screen.getByRole('button', { name: 'Share…' })).toBeTruthy();
+});
+
+it('a failed status check is not "no link": it offers a retry and keeps the switch-off', async () => {
+  (getParentLinkStatus as jest.Mock).mockRejectedValue(new Error('offline'));
+  await render(wrap(<ParentLinkCard student={student} />));
+  expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy();
+  expect(screen.queryByText('No active link')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Switch off all links' })).toBeTruthy();
 });

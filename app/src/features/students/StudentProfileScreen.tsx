@@ -7,6 +7,7 @@ import {
   ActionButton,
   Avatar,
   Button,
+  Chip,
   EmptyState,
   Row,
   Screen,
@@ -22,9 +23,10 @@ import { StudentExamsCard } from '../exams/StudentExamsCard';
 import { StudentHomeworkCard } from '../homework/StudentHomeworkCard';
 import { callUrl, open, whatsappUrl } from '../../lib/contact';
 import { formatINR } from '../../lib/money';
-import { nationalNumber } from '../../lib/phone';
+import { formatIndianPhone } from '../../lib/phone';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, radius, spacing, type, font } from '../../theme';
+import { colors, spacing, type } from '../../theme';
+import { ordinalDay } from './logic';
 
 /** A student's card, laid out like a contact in iOS Contacts: who, quick actions, then grouped details. */
 export function StudentProfileScreen({
@@ -85,7 +87,8 @@ export function StudentProfileScreen({
     .map((id) => batches.data?.find((b) => b.id === id)?.name)
     .filter(Boolean)
     .join(', ');
-  const owes = pending.data?.has(s.id) ?? false;
+  // undefined while the dues load or after they failed: then no fee pill at all, never a wrong "All paid"
+  const owes = pending.data ? pending.data.has(s.id) : undefined;
   const locale = i18n.language === 'hi' ? 'hi-IN' : 'en-IN';
   const dob = s.dob
     ? new Date(`${s.dob}T00:00:00Z`).toLocaleDateString(locale, {
@@ -107,27 +110,17 @@ export function StudentProfileScreen({
         <Text style={[type.subhead, { color: colors.textMuted, textAlign: 'center' }]}>
           {[s.class && ct('levelValue', { n: s.class }), names].filter(Boolean).join(' · ')}
         </Text>
-        <View
-          style={{
-            paddingHorizontal: spacing.sm + 2,
-            paddingVertical: 3,
-            borderRadius: radius.pill,
-            backgroundColor: !active ? colors.fill : owes ? colors.warningSoft : colors.successSoft,
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 13,
-              ...font('600'),
-              color: !active ? colors.textMuted : owes ? colors.warning : colors.success,
-            }}
-          >
-            {!active
-              ? t('students.inactive')
-              : owes
-                ? t('students.feesPending')
-                : t('students.allPaid')}
-          </Text>
+        {/* wrapped: Chip aligns itself to the start, and this header is centred */}
+        <View>
+          {!active ? (
+            <Chip small label={t('students.inactive')} />
+          ) : owes === undefined ? null : (
+            <Chip
+              small
+              label={t(owes ? 'students.feesPending' : 'students.allPaid')}
+              tone={owes ? 'warning' : 'success'}
+            />
+          )}
         </View>
       </View>
 
@@ -150,13 +143,13 @@ export function StudentProfileScreen({
         <Row title={t('students.parentName')} value={s.parentName || '—'} />
         <Row
           title={t('students.parentPhone')}
-          value={nationalNumber(s.parentPhone)}
+          value={formatIndianPhone(s.parentPhone)}
           onPress={() => go(callUrl(s.parentPhone))}
         />
         {s.phone ? (
           <Row
             title={t('students.phone')}
-            value={nationalNumber(s.phone)}
+            value={formatIndianPhone(s.phone)}
             onPress={() => go(callUrl(s.phone))}
           />
         ) : null}
@@ -177,7 +170,10 @@ export function StudentProfileScreen({
         />
         <Row title={t('students.feeCycle')} value={t(`students.cycle.${cycleKey}`)} />
         {s.feeCycle === 'yearly' ? null : (
-          <Row title={t('students.dueDay')} value={String(s.dueDay)} />
+          <Row
+            title={t('students.dueDay')}
+            value={t('students.dueDayValue', { day: ordinalDay(s.dueDay) })}
+          />
         )}
       </Section>
 

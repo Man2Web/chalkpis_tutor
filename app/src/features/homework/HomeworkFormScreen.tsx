@@ -6,6 +6,7 @@ import {
   BottomSheet,
   Button,
   Chip,
+  DateField,
   EmptyState,
   Input,
   Screen,
@@ -17,7 +18,6 @@ import { reportError } from '../../lib/analytics';
 import { addDays, todayYmd } from '../../lib/dates';
 import type { MainStackParams } from '../../navigation/types';
 import { colors, spacing, type } from '../../theme';
-import { DateStrip } from '../attendance/DateStrip';
 import { useHomework, useHomeworkActions } from './api';
 import { quickDueDays } from './logic';
 
@@ -68,6 +68,18 @@ export function HomeworkFormScreen({
     return (
       <Screen>
         <Skeleton height={240} />
+      </Screen>
+    );
+  // a failed load is not deleted homework: offer to try again
+  if (id && existing.isError && !loaded)
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => void existing.refetch()}
+        />
       </Screen>
     );
   if (id && !loaded)
@@ -154,13 +166,20 @@ export function HomeworkFormScreen({
         numberOfLines={3}
         style={{ minHeight: 80, textAlignVertical: 'top' }}
       />
-      <Text style={[type.fieldLabel, { marginBottom: spacing.xs }]}>{t('homework.dueOn')}</Text>
+      <DateField
+        label={t('homework.dueOn')}
+        value={dueOn}
+        onChange={setDueOn}
+        minDate={setOn}
+        error={tried ? errors.due : undefined}
+      />
       <View
         style={{
           flexDirection: 'row',
           flexWrap: 'wrap',
           gap: spacing.sm,
-          marginBottom: spacing.sm,
+          marginTop: -spacing.xs,
+          marginBottom: spacing.md,
         }}
       >
         {quickDueDays(today).map((q) => (
@@ -171,12 +190,6 @@ export function HomeworkFormScreen({
             onPress={() => setDueOn(q.date)}
           />
         ))}
-      </View>
-      <View style={{ marginBottom: spacing.md, gap: spacing.xs }}>
-        <DateStrip date={dueOn} onChange={setDueOn} allowFuture />
-        {tried && errors.due ? (
-          <Text style={[type.caption, { color: colors.danger }]}>{errors.due}</Text>
-        ) : null}
       </View>
       <Button
         title={t(id ? 'common.save' : 'homework.setIt')}

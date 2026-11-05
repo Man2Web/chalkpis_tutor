@@ -12,7 +12,7 @@ import type { MainStackParams } from '../navigation/types';
 import { colors, radius, spacing, type } from '../theme';
 import { useIsStaff } from '../features/auth/session';
 import { DateStrip } from '../features/attendance/DateStrip';
-import { counts } from '../features/attendance/logic';
+import { counts, presentTone } from '../features/attendance/logic';
 import { scheduleLabel } from '../features/batches/format';
 import { card, DesktopPage, usePageWidth, type HoverState } from './parts';
 
@@ -168,7 +168,11 @@ function BatchCard({
             label={t(doc.reason === 'cancelled' ? 'attendance.cancelled' : 'attendance.holiday')}
           />
         ) : (
-          <Chip small tone="success" label={t('attendance.presentOf', { present, total })} />
+          <Chip
+            small
+            tone={presentTone(present, total)}
+            label={t('attendance.presentOf', { present, total })}
+          />
         )}
       </View>
 

@@ -35,7 +35,8 @@
     "state": "Choose your state",
     "pincode": "Enter your 6-digit PIN code",
     "heardFrom": "Pick one",
-    "heardFromOther": "Tell us where"
+    "heardFromOther": "Tell us where",
+    "joinedFuture": "The joining date cannot be in the future"
   },
   "language": {
     "title": "Choose your language",
@@ -109,6 +110,7 @@
     "parentPhone": "Parent's mobile number",
     "monthlyFee": "Monthly fee (₹)",
     "addStudent": "Add student",
+    "addAndFinish": "Add and finish",
     "added": "{{count}} added",
     "finish": "Finish",
     "setupError": "Could not set up your institute.",
@@ -292,6 +294,8 @@
   },
   "more": {
     "logout": "Log out",
+    "logoutTitle": "Log out of Chalkpis?",
+    "logoutText": "Your students, fees and records stay safe. To come back, sign in with the same number and a WhatsApp code.",
     "staffNote": "You can take attendance for the batches the owner has given you.",
     "business": "Business",
     "parents": "Parents",
@@ -372,7 +376,27 @@
     "feesAndPayments": "Fees and payments",
     "details": "Details",
     "dobShort": "Date of birth",
-    "genderShort": "Gender"
+    "genderShort": "Gender",
+    "addTitle": "Add students",
+    "feeLabel": {
+      "monthly": "Monthly fee",
+      "quarterly": "Monthly fee",
+      "oneTime": "One-time fee",
+      "yearly": "Yearly fee"
+    },
+    "quarterlyHint": "Billed every 3 months, as one due of 3 months' fees.",
+    "quarterlyHintAmount": "Billed every 3 months: one due of {{amount}} (3 months' fees).",
+    "feeNowQuarterly": "Current fee: {{fee}} a month, billed every 3 months",
+    "feeNowOneTime": "Current one-time fee: {{fee}}",
+    "feeNowYearly": "Current yearly fee: {{fee}}",
+    "deactivateTitle": "Deactivate {{name}}?",
+    "deactivateText": "{{name}} leaves attendance lists, no new fees are added and parent messages stop. Their history stays, and you can reactivate them from the Inactive list at any time.",
+    "deactivateConfirm": "Yes, deactivate",
+    "dueDayValue": "{{day}} of every month",
+    "noInactive": "No inactive students",
+    "noInactiveHint": "Students you deactivate appear here, with their history.",
+    "noMatchHint": "Try another name, or clear the filters.",
+    "clearFilters": "Clear filters"
   },
   "batches": {
     "title": "Batches",
@@ -399,7 +423,15 @@
     "addN": "Add {{count}}",
     "remove": "Remove",
     "studentsN_one": "{{count}} student",
-    "studentsN_other": "{{count}} students"
+    "studentsN_other": "{{count}} students",
+    "takeAttendance": "Take attendance",
+    "addNewStudent": "Add a new student",
+    "archiveTitle": "Archive {{name}}?",
+    "archiveText": "It leaves attendance and the batch list. Its students stay, with their attendance and fee history, and you can restore it from Archived at any time.",
+    "archiveConfirm": "Yes, archive",
+    "removeTitle": "Remove {{name}} from this batch?",
+    "removeText": "{{name}} stays a student, with their fees and attendance history, but is no longer on this batch's attendance.",
+    "removeConfirm": "Yes, remove"
   },
   "import": {
     "title": "Import students",
@@ -437,7 +469,11 @@
     "fromFile": "Import from Excel, Sheets, CSV or Notion",
     "fileTitle": "Import from a file",
     "fileHelp": "Choose an Excel (.xlsx) or CSV file. From Google Sheets use File > Download; from Notion export the table as CSV. First row must be column names. Useful columns: name, parent phone, phone, parent name, class, batch, monthly fee, fee cycle, due day. Only name and parent phone are required.",
-    "chooseAnyFile": "Choose Excel or CSV file"
+    "chooseAnyFile": "Choose Excel or CSV file",
+    "noPermissionHelp": "To pick students from your contacts, allow Contacts for Chalkpis in your phone's Settings, then come back.",
+    "openSettings": "Open settings",
+    "selectAll": "Select all",
+    "selectNone": "Clear selection"
   },
   "attendance": {
     "markTitle": "Mark attendance",
@@ -494,7 +530,9 @@
     "openCalendar": "open calendar",
     "closeCalendar": "close calendar",
     "pickDate": "Tap to pick another day",
-    "goToToday": "Go to today"
+    "goToToday": "Go to today",
+    "noClassToday": "No class today",
+    "noClassOnDay": "No class this day"
   },
   "fees": {
     "pending": "Pending",
@@ -505,6 +543,11 @@
     "allPending": "All pending",
     "allClear": "No fees pending",
     "allClearHint": "Fee dues appear here on each student's due day.",
+    "noMatches": "No matches",
+    "noMatchesHint": "No pending fees match your search or filter.",
+    "showAll": "Show all pending",
+    "today": "Today",
+    "yesterday": "Yesterday",
     "overdueSince": "Overdue since",
     "dueOn": "Due",
     "remind": "Remind",
@@ -561,9 +604,11 @@
     "noDues": "No dues yet",
     "noDuesHint": "Monthly dues are created automatically on the due day.",
     "discountOf": "discount {{amount}}",
+    "discountLine": "After a discount of {{amount}}",
     "paidOf": "paid {{amount}}",
     "payments": "Payments",
     "noPayments": "No payments yet",
+    "paymentsFailed": "Payments could not be loaded.",
     "chargeFor": "Charge for",
     "chargeAmount": "Amount (₹)",
     "dueDate": "Due date",
@@ -580,6 +625,9 @@
     "waive": "Waive remaining balance",
     "restored": "Due restored",
     "waivedToast": "Balance waived",
+    "waiveTitle": "Waive the remaining balance?",
+    "waiveText": "The {{amount}} still owed for {{due}} will be forgiven and no longer asked for. You can restore the due later.",
+    "waiveConfirm": "Yes, waive it",
     "status": {
       "paid": "Paid",
       "partial": "Part paid",
@@ -596,16 +644,17 @@
     "planTitle": "Fee plan",
     "upiQrTitle": "Pay by UPI",
     "upiQrCaption": "Scan to pay {{amount}} to {{name}}",
-    "upiMissing": "Add your UPI id in Settings to show a payment QR code here.",
+    "upiMissing": "Add your UPI ID in Settings to show a payment QR code here.",
     "shareQr": "Share QR image",
     "markPaid": "Mark as paid by UPI",
     "markPaidAsk": "Record {{amount}} as received by UPI? The receipt goes to the parent if parent messages are on.",
     "markPaidConfirm": "Yes, record payment",
     "markPaidDone": "Payment recorded",
+    "markPaidPartial": "Some months were recorded before it stopped. Check your internet, then tap Mark as paid again for the rest.",
     "payLinkUsed": "Reminders send your payment link: {{link}}",
-    "noUpiTitle": "No UPI id yet",
+    "noUpiTitle": "No UPI ID yet",
     "noUpiText": "Parents have no way to pay you from a reminder until you add one.",
-    "noUpiAction": "Add your UPI id",
+    "noUpiAction": "Add your UPI ID",
     "advanceTitle": "Record advance payment",
     "advanceWhich": "Which months did they pay for?",
     "advanceTotal_one": "Total for {{count}} month",
@@ -616,11 +665,15 @@
     "advanceDone_other": "{{amount}} recorded for {{count}} months",
     "advanceNothing": "Those months are already paid.",
     "advanceMonthlyOnly": "Advance payment works for students on a monthly fee.",
+    "advanceBadMonth": "One of these months is before the student joined or more than a year ahead. Choose other months.",
+    "advanceAllPaid": "Every month is already paid",
+    "advanceAllPaidHint": "This month and the next 12 are paid for, so there is nothing to pay in advance now.",
     "perMonth": "{{amount}} a month",
     "history": "Fees history",
     "historyMonths_one": "{{count}} month",
     "historyMonths_other": "{{count}} months",
     "historyEmpty": "No fees in these months yet.",
+    "historyFailed": "The fees history could not be loaded.",
     "historySummary": "Collected {{paid}} of {{billed}} billed",
     "sort": {
       "unpaid": "Most overdue",
@@ -632,7 +685,7 @@
     "planShort": "Fee plan",
     "duesFooter": "Tap a due to give a discount or waive it.",
     "parentWillGet": "What the parent will get",
-    "viaApi": "Sent from your business WhatsApp number through the WhatsApp API. You do not need to open WhatsApp.",
+    "viaApi": "Sent from the Chalkpis WhatsApp business number. You do not need to open WhatsApp.",
     "reminderSent": "Reminder sent on WhatsApp",
     "reminderRecent": "A reminder was just sent. Try again in a few minutes.",
     "reminderFailed": "Could not send the reminder. Check your internet and try again.",
@@ -660,6 +713,7 @@
       "firstDue": "First part due on",
       "partAmount": "Part {{n}} (₹)",
       "sum": "Parts add up to {{amount}}",
+      "sumOff": "Parts add up to {{amount}}, not {{total}}. Change a part or the fee for the year.",
       "for": "For",
       "onlyStudent": "Only {{name}}",
       "wholeBatch": "Everyone in {{batch}}",
@@ -755,7 +809,12 @@
       "percent": "%",
       "noBatch": "No batch"
     },
-    "exportExcel": "Export Excel"
+    "exportExcel": "Export Excel",
+    "export": "Export report",
+    "exportTitle": "Export {{month}}",
+    "exportHint": "Excel and CSV open in Excel or Google Sheets. PDF is for printing or sharing on WhatsApp.",
+    "received": "Received in {{month}}",
+    "receivedHint": "All payments that came in this month, including for earlier months' fees."
   },
   "settings": {
     "title": "Settings",
@@ -776,9 +835,9 @@
     "typeToConfirm": "Type {{word}}",
     "deleteForever": "Delete forever",
     "deleteFailed": "Could not delete the account. Check your internet and try again.",
-    "upiId": "Your UPI id",
-    "upiHint": "Parents pay you directly. A QR code with this UPI id is shown on fee reminders. Example: name@okhdfcbank",
-    "upiInvalid": "Enter a UPI id like name@bank",
+    "upiId": "Your UPI ID",
+    "upiHint": "Parents pay you directly. A QR code with this UPI ID is shown on fee reminders. Example: name@okhdfcbank",
+    "upiInvalid": "Enter a UPI ID like name@bank",
     "paymentLink": "Payment link (optional)",
     "paymentLinkHint": "Your own payment page (Razorpay, Instamojo...). When set, fee reminders send this link instead of your UPI QR.",
     "linkInvalid": "Enter a full link starting with https://",
@@ -788,7 +847,9 @@
     "instituteTitle": "Institute and receipts",
     "paymentsTitle": "Payments and UPI",
     "editProfile": "Edit profile",
-    "notSet": "Not set"
+    "notSet": "Not set",
+    "logoUploading": "Uploading the logo…",
+    "logoSaved": "Logo updated"
   },
   "billing": {
     "title": "Plans & billing",
@@ -817,6 +878,7 @@
     "renew": "Renew {{plan}}",
     "history": "Payment history",
     "noHistory": "No payments yet",
+    "historyFailed": "Payment history could not be loaded.",
     "notConfigured": "Online payments are not set up yet. Please contact support.",
     "failed": "Could not start the payment. Please try again.",
     "activated": "Plan activated",
@@ -883,14 +945,20 @@
     "storeUnavailable": "Plans could not be loaded just now. Check your connection and try again.",
     "autoRenewOn": "Renews automatically on {{date}}",
     "autoPayRetrying": "The last automatic payment did not go through. It will be tried again; make sure your UPI app or card allows it.",
+    "autoPayRetryingApp": "The last automatic renewal payment did not go through. It will be tried again.",
     "approveAutopay": "Approve UPI Autopay or a card on the next page. Auto-renew shows here once you are back.",
     "alreadyRenewing": "This plan already renews automatically.",
     "downgradeAtRenewal": "A lower plan starts at renewal: turn auto-renew off first, then choose it when your plan ends.",
     "autoRenewOff": "Auto-renew is off. Your plan runs to its end date.",
     "turnOffAuto": "Turn off auto-renew",
-    "atRenewal": "At renewal",
-    "startAuto": "Start {{price}} {{per}}",
-    "upgradeAuto": "Upgrade · {{price}} {{per}}",
+    "turnOffTitle": "Turn off auto-renew?",
+    "turnOffText": "Your plan stays active until {{date}} and will not renew after that. You can turn auto-renew on again any time.",
+    "turnOffConfirm": "Yes, turn it off",
+    "atRenewal": "Available at renewal",
+    "startAuto": "Subscribe · {{price}}{{per}}",
+    "upgradeAuto": "Upgrade · {{price}}{{per}}",
+    "perYearShort": "/year",
+    "perMonthShort": "/month",
     "payOnce": "or pay once for 1 year (no auto-renew)",
     "webAutoNote": "Plans renew automatically by UPI Autopay or card until you turn it off. You are told before each payment.",
     "webFirstTrial": "Your free trial runs until {{date}}. Start auto-renew any time: the first payment is taken when the trial ends.",
@@ -951,7 +1019,8 @@
       "bad-phone": "Parent's number is not valid",
       "switched-off": "Messages were switched off",
       "plan-expired": "Your plan has ended",
-      "opted-out": "Updates are off for this parent"
+      "opted-out": "Updates are off for this parent",
+      "undelivered": "Could not deliver"
     }
   },
   "parentLink": {
@@ -975,10 +1044,13 @@
     "failed": "Something went wrong. Please try again.",
     "cannotShare": "Could not open the share menu",
     "createAndSend": "Send link to parent on WhatsApp",
-    "sentApi": "Link sent to the parent on WhatsApp"
+    "sentApi": "Link sent to the parent on WhatsApp",
+    "notSent": "The link was not sent automatically. Send it to the parent yourself:",
+    "sentTo": "Sent to {{phone}} on WhatsApp.",
+    "statusFailed": "Could not check the parent links."
   },
   "staff": {
-    "title": "Staff",
+    "title": "Helpers",
     "help": "Helpers you add can take attendance for the batches you choose. They cannot see fees, messages or settings, and cannot change anything else.",
     "emptyTitle": "No helpers yet",
     "emptyMessage": "Add an assistant so they can take attendance on their own phone.",
@@ -991,6 +1063,8 @@
     "noneAssigned": "No batches assigned",
     "remove": "Remove helper",
     "removeNote": "Removing a helper ends their access straight away.",
+    "removeTitle": "Remove {{name}}?",
+    "removeConfirm": "Yes, remove",
     "added": "Helper added. They can sign in with their number.",
     "saved": "Saved",
     "removed": "Helper removed",
@@ -1006,9 +1080,14 @@
     "left_one": "{{count}} left",
     "left_other": "{{count}} left",
     "empty": "Nothing on your list. Add something below.",
-    "placeholder": "Add a task, e.g. Call Rohan’s parent",
+    "placeholder": "Add a task",
     "add": "Add task",
-    "remove": "Remove task"
+    "remove": "Remove task",
+    "removeTitle": "Remove this task?",
+    "removeText": "“{{title}}” comes off your list.",
+    "loadError": "Could not load your list.",
+    "toggleError": "Could not update the task. Please try again.",
+    "removeError": "Could not remove the task. Please try again."
   },
   "week": {
     "title": "This week's attendance",
@@ -1058,7 +1137,7 @@
     "remove": "Remove",
     "addStudent": "+ Add student",
     "centre": "Centre name",
-    "phone": "Call us — phone",
+    "phone": "Phone number",
     "addLogo": "Add logo (optional)",
     "changeLogo": "Change logo",
     "download": "Download poster",
@@ -1105,7 +1184,10 @@
     "notReceived": "Not received",
     "confirmed": "Payment recorded for {{name}}. The receipt is on its way on WhatsApp.",
     "rejected": "Marked as not received for {{name}}.",
-    "hint": "Check your UPI or bank app first. Confirm records the payment and sends the receipt to the parent."
+    "hint": "Check your UPI or bank app first. Confirm records the payment and sends the receipt to the parent.",
+    "rejectTitle": "Mark as not received?",
+    "rejectText": "The report for {{name}} ({{amount}}) will be closed and no payment is recorded. Check your UPI or bank app first.",
+    "rejectConfirm": "Yes, not received"
   },
   "tour": {
     "skip": "Skip",
@@ -1150,9 +1232,10 @@
     }
   },
   "installHint": {
-    "iphoneTitle": "Keep ChalkPis on your Home Screen",
-    "iphoneText": "In Safari, tap Share, then \"Add to Home Screen\". ChalkPis then opens like an app.",
-    "androidTitle": "Get the ChalkPis app",
+    "iphoneTitle": "Get the Chalkpis app",
+    "iphoneText": "Faster, and you get reminders as notifications. Sign in with the same number; everything is there.",
+    "iphoneButton": "Open the App Store",
+    "androidTitle": "Get the Chalkpis app",
     "androidText": "Faster, and you get reminders as notifications. Sign in with the same number; everything is there.",
     "androidButton": "Open Google Play",
     "dismiss": "Not now"
@@ -1176,7 +1259,7 @@
     "col": {
       "batch": "Batch",
       "batches": "Batches",
-      "time": "Days and time",
+      "time": "Time",
       "students": "Students",
       "student": "Student",
       "status": "Status",
@@ -1293,6 +1376,7 @@
     "sendHint": "Tap Send to share a result with the parent on WhatsApp.",
     "saveMarks": "Save marks",
     "statusNone": "Not marked",
+    "statusUpcoming": "Upcoming",
     "statusSome": "{{entered}}/{{total}} marked",
     "statusDone": "Marked",
     "allBatches": "All batches",
@@ -1376,6 +1460,7 @@
     "dueInDays_one": "In {{count}} day",
     "dueInDays_other": "In {{count}} days",
     "dueLine": "Due {{date}} · {{when}}",
+    "wasDue": "Was due {{date}}",
     "due": "Due",
     "shareGroup": "Share in the batch group on WhatsApp",
     "doneCount_one": "{{count}} handed in",
@@ -1436,8 +1521,8 @@
       "other": "Other"
     },
     "nextFollowUp": "Next follow-up",
-    "noFollowUp": "None",
-    "clearFollowUp": "No follow-up",
+    "noFollowUp": "No follow-up",
+    "followUpDate": "Follow-up date",
     "quick": {
       "today": "Today",
       "tomorrow": "Tomorrow",
@@ -1471,6 +1556,7 @@
     "admit": "Admit as student",
     "admitTitle": "Admit as a student",
     "admitConfirm": "Add student",
+    "nameTooShort": "Enter at least 2 letters",
     "admitted": "{{name}} is now a student",
     "openStudent": "Open the student",
     "monthlyFee": "Monthly fee",
@@ -1504,6 +1590,8 @@
     "statConversion": "Conversion",
     "statConversionSub": "Enquiries this month that joined",
     "columnEmpty": "Nobody here",
+    "showMore": "Show {{count}} more",
+    "showFewer": "Show fewer",
     "msg": {
       "hello": "Hello!",
       "helloName": "Hello {{name}}!",
@@ -1539,7 +1627,7 @@
     "clashTitle_one": "1 clash in your timetable",
     "clashTitle_other": "{{count}} clashes in your timetable",
     "clashLine": "{{day}}: {{a}} and {{b}}, both with {{who}}",
-    "clashHint": "Change a batch's time in Batches, or its helper in Staff.",
+    "clashHint": "Change a batch's time in Batches, or its helper in Helpers.",
     "kind": "What is it?",
     "kinds": {
       "holiday": "Holiday",
@@ -1612,5 +1700,19 @@
     "willLink": "Will be linked with {{name}} as brother or sister. One parent link will show both.",
     "undo": "Undo",
     "addingFor": "Adding a brother or sister of {{name}}. The parent's details are filled in, and one parent link will show all of them."
+  },
+  "picker": {
+    "chooseTime": "Choose a time",
+    "chooseDate": "Choose a date",
+    "hour": "Hour",
+    "minutes": "Minutes",
+    "done": "Done",
+    "clear": "Clear date"
+  },
+  "discard": {
+    "title": "Discard changes?",
+    "text": "You have changes that are not saved yet. If you leave now, they are lost.",
+    "confirm": "Discard",
+    "keep": "Keep editing"
   }
 }

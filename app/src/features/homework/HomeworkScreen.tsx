@@ -110,13 +110,18 @@ export function HomeworkScreen({
           }
           renderItem={({ item }) => {
             const st = homeworkStatus(item, t);
+            const dateText = shortDate(item.dueOn, 'en-IN');
+            const due = dueLabel(t, item.dueOn, today, {
+              unchecked: item.students - item.done - item.missing,
+              dateText,
+            });
             return (
               <ListItem
-                title={item.subject ? `${item.subject} · ${item.title}` : item.title}
+                title={item.subject ? `${item.title} · ${item.subject}` : item.title}
                 subtitle={[
                   item.batchName,
-                  `${t('homework.due')} ${shortDate(item.dueOn, 'en-IN')}`,
-                  dueLabel(t, item.dueOn, today).text,
+                  // past and everyone checked: just "Was due 5 Nov"
+                  ...(due.closed ? [due.text] : [`${t('homework.due')} ${dateText}`, due.text]),
                 ].join(' · ')}
                 right={<Chip small label={st.label} tone={st.tone} />}
                 onPress={() => navigation.navigate('HomeworkCheck', { id: item.id })}

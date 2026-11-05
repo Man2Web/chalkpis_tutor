@@ -5,7 +5,17 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
-import { Avatar, Button, Card, Row, Screen, Section, TopBar } from '../../components';
+import {
+  Avatar,
+  Button,
+  Card,
+  ConfirmSheet,
+  Row,
+  Screen,
+  Section,
+  TopBar,
+} from '../../components';
+import { formatIndianPhone } from '../../lib/phone';
 import { useInstitute, useLimits } from '../../data/hooks';
 import { open as openUrl } from '../../lib/contact';
 import type { MainStackParams } from '../../navigation/types';
@@ -46,7 +56,9 @@ function ProfileCard({ onEdit, plan }: { onEdit?: () => void; plan?: string }) {
         {name}
       </Text>
       <Text style={[type.footnote, { textAlign: 'center' }]} numberOfLines={1}>
-        {[inst.data?.name, profile?.phone].filter(Boolean).join(' · ')}
+        {[inst.data?.name, profile?.phone ? formatIndianPhone(profile.phone) : undefined]
+          .filter(Boolean)
+          .join(' · ')}
       </Text>
       {plan ? (
         <Badge variant="secondary" className="mt-1 self-center">
@@ -72,11 +84,16 @@ function SignInSection({ onAddPhone }: { onAddPhone: () => void }) {
   return (
     <Section title={t('account.signIn')}>
       {phone ? (
-        <Row icon="logo-whatsapp" iconColor="#1DA851" title="WhatsApp" value={phone} />
+        <Row
+          icon="logo-whatsapp"
+          iconColor={colors.whatsapp}
+          title="WhatsApp"
+          value={formatIndianPhone(phone)}
+        />
       ) : (
         <Row
           icon="logo-whatsapp"
-          iconColor="#1DA851"
+          iconColor={colors.whatsapp}
           title="WhatsApp"
           subtitle={t('addPhone.title')}
           value={t('account.notAdded')}
@@ -88,7 +105,15 @@ function SignInSection({ onAddPhone }: { onAddPhone: () => void }) {
 }
 
 /** Everything that is not a daily task: profile, business settings, parent messages, tools, plan, help, sign out. */
-function AccountContent({ go, onDelete }: { go: Nav['navigate']; onDelete: () => void }) {
+function AccountContent({
+  go,
+  onDelete,
+  onLogout,
+}: {
+  go: Nav['navigate'];
+  onDelete: () => void;
+  onLogout: () => void;
+}) {
   const { t } = useTranslation();
   const staff = useIsStaff();
   const inst = useInstitute();
@@ -112,7 +137,8 @@ function AccountContent({ go, onDelete }: { go: Nav['navigate']; onDelete: () =>
         icon="mail"
         iconColor={colors.infoFill}
         title={t('legal.contact')}
-        value={SUPPORT_EMAIL}
+        // under the title, so neither is cut short on a narrow phone
+        subtitle={SUPPORT_EMAIL}
         onPress={() => void openUrl(mailto('Chalkpis support'))}
       />
     </Section>
@@ -134,7 +160,7 @@ function AccountContent({ go, onDelete }: { go: Nav['navigate']; onDelete: () =>
         </Text>
         {about}
         <Section>
-          <Row title={t('more.logout')} onPress={() => void logout()} destructive />
+          <Row title={t('more.logout')} onPress={onLogout} destructive />
         </Section>
         {footer}
       </>
@@ -263,7 +289,7 @@ function AccountContent({ go, onDelete }: { go: Nav['navigate']; onDelete: () =>
       {about}
 
       <Section>
-        <Row title={t('more.logout')} onPress={() => void logout()} destructive />
+        <Row title={t('more.logout')} onPress={onLogout} destructive />
       </Section>
       <Section footer={t('more.deleteFooter')}>
         <Row title={t('settings.deleteButton')} onPress={onDelete} destructive />
@@ -281,12 +307,32 @@ export function AccountScreen() {
   const { t } = useTranslation();
   const nav = useNavigation<Nav>();
   const [deleting, setDeleting] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   return (
     <Screen>
       <TopBar title={t('tabs.account')} />
       <View style={{ height: spacing.sm }} />
-      <AccountContent go={nav.navigate} onDelete={() => setDeleting(true)} />
+      <AccountContent
+        go={nav.navigate}
+        onDelete={() => setDeleting(true)}
+        onLogout={() => setLeaving(true)}
+      />
       <DeleteAccountSheet visible={deleting} onClose={() => setDeleting(false)} />
+      {/* signing back in needs a WhatsApp code, so ask first */}
+      <ConfirmSheet
+        visible={leaving}
+        onClose={() => setLeaving(false)}
+        title={t('more.logoutTitle')}
+        message={t('more.logoutText')}
+        confirmLabel={t('more.logout')}
+        destructive
+        loading={signingOut}
+        onConfirm={() => {
+          setSigningOut(true);
+          void logout().finally(() => setSigningOut(false));
+        }}
+      />
     </Screen>
   );
 }

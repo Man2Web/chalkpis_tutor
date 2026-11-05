@@ -25,7 +25,8 @@ export function MessageLogScreen() {
   const byId = useMemo(() => new Map((students.data ?? []).map((s) => [s.id, s])), [students.data]);
   const list = (messages.data ?? []).filter((m) => filter === 'all' || m.status === filter);
 
-  if (messages.isError)
+  // a failed refetch keeps the list on screen; only a first load that failed shows the error
+  if (messages.isError && !messages.data)
     return (
       <Screen>
         <EmptyState
@@ -95,20 +96,39 @@ export function MessageLogScreen() {
           renderItem={({ item }) => {
             const s = byId.get(item.studentId);
             const rk = reasonKey(item.reason);
-            const detail = rk ? t(rk) : (item.error ?? item.reason ?? '');
+            // a known reason in plain words; a provider's raw code ("http-401") means nothing to an owner
+            const detail = rk
+              ? t(rk)
+              : item.status === 'failed'
+                ? t('messages.reason.undelivered')
+                : '';
             return (
               <ListItem
                 title={s?.name ?? '—'}
                 subtitle={[
                   t(`messages.type.${item.type}`),
                   prettyDate(toYmd(item.createdAt.toDate()), locale),
-                  detail,
-                ]
-                  .filter(Boolean)
-                  .join(' • ')}
+                ].join(' • ')}
                 left={<Avatar name={s?.name ?? '?'} uri={s?.photoUrl} size={40} />}
                 right={
                   <Chip label={t(`messages.status.${item.status}`)} tone={TONE[item.status]} />
+                }
+                // why it failed or was skipped gets a line of its own, so it is never cut off
+                below={
+                  detail ? (
+                    <Text
+                      style={[
+                        type.caption,
+                        {
+                          flexShrink: 1,
+                          color: item.status === 'failed' ? colors.danger : colors.textMuted,
+                        },
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {detail}
+                    </Text>
+                  ) : undefined
                 }
               />
             );

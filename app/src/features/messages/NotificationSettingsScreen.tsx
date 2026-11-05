@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { EmptyState, Row, Screen, Section, Skeleton, toast } from '../../components';
 import { useInstituteId, useNotifySettings, useRefreshData } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
-import { colors, spacing, type, font } from '../../theme';
+import { colors, font, radius, spacing, TAP, type } from '../../theme';
 import { saveNotifySettings } from './api';
 import { clampDays, type NotifySettings } from './settings';
 
@@ -25,15 +25,15 @@ function Stepper({
       accessibilityLabel={name}
       disabled={disabled}
       onPress={() => onChange(value + delta)}
-      style={{
-        width: 40,
-        height: 32,
-        borderRadius: 8,
+      // 48 x 48: a comfortable thumb target (the old 40 x 32 was easy to miss)
+      style={({ pressed }) => ({
+        width: TAP,
+        height: TAP,
+        borderRadius: radius.md,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: colors.fill,
-      }}
-      hitSlop={6}
+        backgroundColor: pressed ? colors.border : colors.fill,
+      })}
     >
       <Text style={{ fontSize: 20, ...font('500'), color: colors.text }}>{sign}</Text>
     </Pressable>

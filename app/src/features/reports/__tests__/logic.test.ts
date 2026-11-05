@@ -112,6 +112,10 @@ describe('exports', () => {
     const rows = reportCsvRows(data);
     const text = toCsv(rows);
     expect(text).toContain('Collected this month,1500.00');
+    // payment modes by name, as on the PDF, not the stored codes
+    expect(text).toMatch(/^Cash,/m);
+    expect(text).not.toMatch(/^cash,/m);
+    expect(toCsv(reportCsvRows(data, false, (m) => `M-${m}`))).toMatch(/^M-upi,/m);
     expect(text).toContain('Maths 10,1500.00');
     const back = parseCsv(text);
     expect(back[0]).toEqual(['Report', '2026-10', 'Sunrise, "Classes"']);

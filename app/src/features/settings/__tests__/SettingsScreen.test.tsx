@@ -101,11 +101,11 @@ it('rejects a bad receipt prefix without saving', async () => {
 
 it('saves a valid UPI id in lower case and refuses a bad one', async () => {
   await render(<PaymentSettingsScreen navigation={nav} route={{} as never} />);
-  await fireEvent.changeText(screen.getByLabelText('Your UPI id'), 'not-a-upi');
+  await fireEvent.changeText(screen.getByLabelText('Your UPI ID'), 'not-a-upi');
   await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
-  expect(screen.getByText('Enter a UPI id like name@bank')).toBeTruthy();
+  expect(screen.getByText('Enter a UPI ID like name@bank')).toBeTruthy();
   expect(api).not.toHaveBeenCalled();
-  await fireEvent.changeText(screen.getByLabelText('Your UPI id'), 'Meena@OkSBI');
+  await fireEvent.changeText(screen.getByLabelText('Your UPI ID'), 'Meena@OkSBI');
   await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() =>
     expect(api).toHaveBeenCalledWith('PATCH', '/institute', {

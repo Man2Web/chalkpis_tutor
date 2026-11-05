@@ -14,8 +14,8 @@ export function AttendanceRing({ present, total, size = 96 }: Props) {
             label: 'Present',
             value: present,
             maxValue: Math.max(total, 1),
-            // nothing marked yet: a quiet grey ring
-            color: total ? colors.successFill : colors.border,
+            // nothing marked yet: no ring at all (no stray cap at the top); nobody came: a faint red ring
+            color: !total ? 'transparent' : present ? colors.successFill : colors.dangerFill,
           },
         ]}
         size={size}

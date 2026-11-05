@@ -18,7 +18,7 @@ import { useAttendanceRange, useBatches, useStudents } from '../../data/hooks';
 import { rangeFor, todayYmd, type RangePreset } from '../../lib/dates';
 import { LOW_ATTENDANCE_PERCENT } from '../../lib/types';
 import type { MainStackParams } from '../../navigation/types';
-import { colors, spacing, type } from '../../theme';
+import { colors, radius, spacing, type } from '../../theme';
 import { useIsStaff } from '../auth/session';
 import { shareBinaryFile } from '../../lib/exportFile';
 import { reportError } from '../../lib/analytics';
@@ -55,9 +55,18 @@ export function AttendanceReportScreen({
   const rows = [...data.stats].sort((a, b) => (a[1].pct ?? 101) - (b[1].pct ?? 101));
   const loading = docs.isLoading || students.isLoading || batches.isLoading;
 
+  // A second tap while the file is being built would open a second share sheet.
+  const [exporting, setExporting] = useState(false);
   const exportExcel = async () => {
+    if (exporting) return;
+    setExporting(true);
     try {
-      const sheet = registerSheet(docs.data ?? [], students.data ?? [], ct('level'));
+      const sheet = registerSheet(
+        docs.data ?? [],
+        students.data ?? [],
+        ct('level'),
+        (id) => batches.data?.find((b) => b.id === id)?.name,
+      );
       await shareBinaryFile(
         `chalkpis-attendance-${from}-to-${to}.xlsx`,
         buildXlsx(sheet, 'Attendance', true),
@@ -65,6 +74,8 @@ export function AttendanceReportScreen({
     } catch (e) {
       reportError(e);
       toast(t('reports.exportFailed'), 'error');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -116,12 +127,15 @@ export function AttendanceReportScreen({
           />
         ) : (
           <>
-            <Button variant="secondary" title={t('attendance.exportExcel')} onPress={exportExcel} />
+            <Button
+              variant="secondary"
+              title={t('attendance.exportExcel')}
+              onPress={exportExcel}
+              loading={exporting}
+            />
             <Card style={{ gap: spacing.xs }}>
               <Text style={type.caption}>{t('attendance.average')}</Text>
-              <Text style={[type.title, { fontSize: 32, lineHeight: 38 }]}>
-                {data.overall.pct}%
-              </Text>
+              <Text style={type.largeTitle}>{data.overall.pct}%</Text>
               <Text style={type.caption}>
                 {t('attendance.sessions', { count: data.overall.sessions })}
               </Text>
@@ -186,7 +200,15 @@ export function AttendanceReportScreen({
             </Card>
 
             <Text style={type.heading}>{t('attendance.allStudents')}</Text>
-            <View style={{ backgroundColor: colors.surface, borderRadius: 12, overflow: 'hidden' }}>
+            <View
+              style={{
+                backgroundColor: colors.surface,
+                borderRadius: radius.lg,
+                borderWidth: 1,
+                borderColor: colors.border,
+                overflow: 'hidden',
+              }}
+            >
               {rows.map(([id, s]) => (
                 <ListItem
                   key={id}

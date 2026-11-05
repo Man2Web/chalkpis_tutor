@@ -1,5 +1,8 @@
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { MainStackParams } from '../../navigation/types';
 import { Chip, EmptyState, ListItem, Panel, Screen, Skeleton, TopBar } from '../../components';
 import {
   useAttendanceOn,
@@ -29,10 +32,12 @@ import { greetingKey } from './greeting';
 import { haptic } from '../../lib/haptics';
 import { TasksCard } from '../tasks/TasksCard';
 import { dashboardStats, weekAttendance } from './logic';
+import { presentTone } from '../attendance/logic';
 import { WeekChart } from './WeekChart';
 
 export function HomeScreen() {
   const { t } = useTranslation();
+  const nav = useNavigation<NativeStackNavigationProp<MainStackParams>>();
   const name = useSession((s) => s.profile?.name);
   const today = todayYmd();
   const students = useStudents();
@@ -48,8 +53,10 @@ export function HomeScreen() {
     attendance.isLoading ||
     unpaid.isLoading ||
     month.isLoading;
-  const failed =
-    students.isError || batches.isError || attendance.isError || unpaid.isError || month.isError;
+  // only a first load that failed blanks Home; a failed background refresh keeps the numbers already shown
+  const queries = [students, batches, attendance, unpaid, month];
+  const failed = queries.some((q) => q.isError && !q.data);
+  const refreshing = queries.some((q) => q.isRefetching && !q.isLoading);
 
   const refetchAll = () => {
     void students.refetch();
@@ -94,7 +101,7 @@ export function HomeScreen() {
         contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
         refreshControl={
           <RefreshControl
-            refreshing={false}
+            refreshing={refreshing}
             onRefresh={() => {
               haptic.select();
               refetchAll();
@@ -118,7 +125,6 @@ export function HomeScreen() {
         <PaymentReportsCard />
         <OwnerDetailsCard />
         <GettingStartedCard hasAttendance={(week.data?.length ?? 0) > 0} />
-        <InstallHint />
         <EnquiriesDueCard />
 
         {loading ? (
@@ -147,7 +153,10 @@ export function HomeScreen() {
           />
         )}
 
-        <Panel title={t('home.today')} padded={false}>
+        {/* the browser version on a phone suggests the store app, below the numbers that matter */}
+        <InstallHint />
+
+        <Panel title={t('home.heroTitle')} padded={false}>
           <View
             style={{
               flexDirection: 'row',
@@ -160,14 +169,15 @@ export function HomeScreen() {
             {s.todaysBatches.length ? (
               <AttendanceRing present={s.presentToday} total={s.markedToday} />
             ) : null}
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={type.heading}>{t('home.heroTitle')}</Text>
-              <Text style={[type.subhead, { color: colors.textMuted }]}>
-                {s.markedToday
-                  ? t(toMark ? 'home.toMark' : 'home.allMarked', { count: toMark })
-                  : s.todaysBatches.length
-                    ? t('home.notMarkedYet')
-                    : t('home.noClassesToday')}
+            <View style={{ flex: 1 }}>
+              <Text style={[type.callout, { color: colors.textMuted }]}>
+                {loading
+                  ? '…'
+                  : s.markedToday
+                    ? t(toMark ? 'home.toMark' : 'home.allMarked', { count: toMark })
+                    : s.todaysBatches.length
+                      ? t('home.notMarkedYet')
+                      : t('home.noClassesToday')}
               </Text>
             </View>
           </View>
@@ -179,12 +189,16 @@ export function HomeScreen() {
               <ListItem
                 title={tb.batch.name}
                 subtitle={scheduleLabel(tb.batch, t)}
+                // straight to the register: the chip says what is left to do
+                onPress={() =>
+                  nav.navigate('MarkAttendance', { batchId: tb.batch.id, date: today })
+                }
                 right={
                   tb.status === 'marked' ? (
                     <Chip
                       small
                       label={t('attendance.presentOf', { present: tb.present, total: tb.total })}
-                      tone="success"
+                      tone={presentTone(tb.present, tb.total)}
                     />
                   ) : tb.status === 'notMarked' ? (
                     <Chip small label={t('attendance.notMarked')} tone="warning" />

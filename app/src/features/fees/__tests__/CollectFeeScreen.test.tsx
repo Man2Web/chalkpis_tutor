@@ -3,6 +3,7 @@ import '../../../i18n';
 import { CollectFeeScreen } from '../CollectFeeScreen';
 import { recordPayment } from '../api';
 import { useDue, useStudents } from '../../../data/hooks';
+import { addDays, todayYmd } from '../../../lib/dates';
 
 jest.mock('../../../data/hooks', () => ({
   useDue: jest.fn(),
@@ -86,12 +87,12 @@ it.each(['0', 'abc', '-5', ''])('refuses the amount "%s"', async (v) => {
   expect(recordPayment).not.toHaveBeenCalled();
 });
 
-it('refuses a future payment date', async () => {
+it('records a payment received yesterday with one tap (the date is picked, never typed)', async () => {
   await render(<CollectFeeScreen navigation={navigation} route={route} />);
-  await fireEvent.changeText(screen.getByLabelText('Payment date'), '2999-01-01');
-  expect(
-    screen.getByRole('button', { name: 'Record payment' }).props.accessibilityState.disabled,
-  ).toBe(true);
+  await fireEvent.press(screen.getByRole('button', { name: 'Yesterday' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Record payment' }));
+  await waitFor(() => expect(recordPayment).toHaveBeenCalledTimes(1));
+  expect((recordPayment as jest.Mock).mock.calls[0][0].paidOn).toBe(addDays(todayYmd(), -1));
 });
 
 it('maps a server-side overpay error to a clear message', async () => {

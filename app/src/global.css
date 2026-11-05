@@ -16,3 +16,22 @@
   --font-bold: Inter_700Bold;
   --font-extrabold: Inter_800ExtraBold;
 }
+
+/*
+ * Chalkpis colours on PanelUI's tokens (the same values as colors in src/theme): the sign-in blackboard navy is the
+ * primary (buttons, selected chips, switches), the logo blue the focus ring and the soft accent wash. The app only
+ * runs in light mode (App.tsx), so only the light variant is changed.
+ */
+@layer theme {
+  :root {
+    @variant light {
+      --color-primary: #0f2d40;
+      --color-primary-foreground: #ffffff;
+      --color-accent: rgba(14, 119, 190, 0.08);
+      --color-accent-foreground: #0f2d40;
+      --color-ring: #0e77be;
+      --color-chart-1: #0f2d40;
+      --color-chart-2: #0e77be;
+    }
+  }
+}

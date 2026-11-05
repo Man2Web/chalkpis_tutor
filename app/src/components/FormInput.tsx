@@ -9,6 +9,8 @@ type Props<T extends FieldValues> = Omit<TextInputProps, 'value' | 'onChangeText
   label: string;
   /** Shown under the box while there is no error. */
   hint?: string;
+  /** Fixed text before the value, e.g. "₹" or "+91". */
+  prefix?: string;
 };
 
 /** react-hook-form field; error messages are translation keys under `validation.*`. */

@@ -1,6 +1,7 @@
 import { useIdempotencyKey } from '../../api/idempotency';
 import { useMemo, useState } from 'react';
-import { Image, Switch, Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
+import { Switch } from 'panelui-native/components/switch';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as ImagePicker from 'expo-image-picker';
@@ -10,7 +11,9 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Button,
   Chip,
+  ConfirmSheet,
   EmptyState,
+  FormDateField,
   FormInput,
   Input,
   Screen,
@@ -22,7 +25,7 @@ import { useAddGuard } from '../../data/guards';
 import { useBatches, useInstituteId, useRefreshData, useStudents } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
 import { todayYmd, toYmd } from '../../lib/dates';
-import { formatINR } from '../../lib/money';
+import { formatINR, parseRupeesToPaise } from '../../lib/money';
 import { nationalNumber, normalizeIndianPhone } from '../../lib/phone';
 import type { FeeCycle } from '../../lib/types';
 import type { MainStackParams } from '../../navigation/types';
@@ -33,6 +36,13 @@ import { studentSchema, type StudentForm } from './schema';
 
 const CYCLES: FeeCycle[] = ['monthly', 'quarterly', 'one-time'];
 const cycleKey = (c: FeeCycle) => (c === 'one-time' ? 'oneTime' : c);
+/** The saved fee under the Save button, in the words of its cycle ("Current one-time fee: ₹500"). */
+const FEE_NOW: Record<FeeCycle, string> = {
+  monthly: 'students.feeNow',
+  quarterly: 'students.feeNowQuarterly',
+  'one-time': 'students.feeNowOneTime',
+  yearly: 'students.feeNowYearly',
+};
 
 export function StudentFormScreen({
   navigation,
@@ -61,6 +71,11 @@ export function StudentFormScreen({
   const [batchIds, setBatchIds] = useState<string[] | undefined>(undefined);
   const [photoUri, setPhotoUri] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  // Opened for a batch (the getting-started card, a batch's "Add a new student"): its fee is the starting fee.
+  const startBatch = route.params?.batchId
+    ? batches.data?.find((b) => b.id === route.params?.batchId)
+    : undefined;
 
   const defaults: StudentForm = useMemo(
     () =>
@@ -86,7 +101,7 @@ export function StudentFormScreen({
             parentName: sibling?.parentName ?? '',
             parentPhone: sibling ? nationalNumber(sibling.parentPhone) : '',
             class: '',
-            monthlyFee: '',
+            monthlyFee: startBatch ? String(startBatch.defaultFee / 100) : '',
             feeCycle: 'monthly',
             dueDay: 1,
             notifyParent: sibling?.notifyParent ?? true,
@@ -95,17 +110,31 @@ export function StudentFormScreen({
             gender: '',
             joinedOn: todayYmd(),
           },
-    [existing, sibling],
+    [existing, sibling, startBatch],
   );
   const { control, handleSubmit, setValue, getValues, formState, watch } = useForm<StudentForm>({
     resolver: zodResolver(studentSchema),
     values: defaults,
+    // data that arrives late (the batch's fee, a refetch) must not wipe what was already typed
+    resetOptions: { keepDirtyValues: true },
   });
 
   if (id && students.isLoading)
     return (
       <Screen>
         <Skeleton height={48} />
+      </Screen>
+    );
+  // a failed load with nothing cached is not "not found": offer to try again
+  if (id && students.isError && !students.data)
+    return (
+      <Screen>
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('common.error')}
+          actionLabel={t('common.retry')}
+          onAction={() => void students.refetch()}
+        />
       </Screen>
     );
   if (id && !existing)
@@ -127,7 +156,7 @@ export function StudentFormScreen({
     // New student: pre-fill the fee from the first chosen batch.
     if (!existing && next.length && !getValues('monthlyFee')) {
       const b = batches.data?.find((x) => x.id === next[0]);
-      if (b) setValue('monthlyFee', String(b.defaultFee / 100));
+      if (b) setValue('monthlyFee', String(b.defaultFee / 100), { shouldDirty: true });
     }
   };
 
@@ -166,7 +195,8 @@ export function StudentFormScreen({
         );
         idem.reset();
       }
-      await refresh();
+      // the lists refresh behind us; waiting for every refetch kept the spinner going for seconds
+      void refresh();
       toast(t(existing ? 'students.saved' : 'students.added'), 'success');
       navigation.goBack();
     } catch (e) {
@@ -184,6 +214,7 @@ export function StudentFormScreen({
     setBusy(true);
     try {
       await setStudentStatus(instituteId, existing.id, existing.batchIds, next);
+      setConfirmDeactivate(false);
       await refresh();
       toast(t(next === 'active' ? 'students.reactivated' : 'students.deactivated'), 'success');
       navigation.goBack();
@@ -195,6 +226,10 @@ export function StudentFormScreen({
   };
 
   const photo = photoUri ?? existing?.photoUrl;
+  const cycle = watch('feeCycle');
+  // quarterly bills three months' fee at once: say how much, so the owner is not surprised
+  const quarterPaise = parseRupeesToPaise(watch('monthlyFee') ?? '');
+  const quarterTotal = quarterPaise ? quarterPaise * 3 : 0;
   const all = students.data ?? [];
   const chosen = linkWith ? all.find((s) => s.id === linkWith) : undefined;
   const suggestions = sibling
@@ -233,6 +268,8 @@ export function StudentFormScreen({
         name="phone"
         label={t('students.phone')}
         keyboardType="phone-pad"
+        prefix="+91"
+        placeholder="98765 43210"
         maxLength={16}
       />
       <FormInput
@@ -246,6 +283,8 @@ export function StudentFormScreen({
         name="parentPhone"
         label={t('students.parentPhone')}
         keyboardType="phone-pad"
+        prefix="+91"
+        placeholder="98765 43210"
         maxLength={16}
       />
       {sibling
@@ -317,7 +356,15 @@ export function StudentFormScreen({
       <FormInput
         control={control}
         name="monthlyFee"
-        label={t(watch('feeCycle') === 'yearly' ? 'fees.yearlyFee' : 'onboarding.monthlyFee')}
+        label={t(`students.feeLabel.${cycleKey(cycle)}`)}
+        hint={
+          cycle === 'quarterly'
+            ? quarterTotal
+              ? t('students.quarterlyHintAmount', { amount: formatINR(quarterTotal) })
+              : t('students.quarterlyHint')
+            : undefined
+        }
+        prefix="₹"
         keyboardType="decimal-pad"
       />
       <Text style={type.fieldLabel}>{t('students.feeCycle')}</Text>
@@ -359,13 +406,11 @@ export function StudentFormScreen({
           />
         )}
       />
-      <FormInput
+      <FormDateField
         control={control}
         name="joinedOn"
         label={t('students.joinedOn')}
-        placeholder="YYYY-MM-DD"
-        keyboardType="numbers-and-punctuation"
-        maxLength={10}
+        maxDate={todayYmd()}
       />
       <Controller
         control={control}
@@ -381,6 +426,7 @@ export function StudentFormScreen({
             }}
           >
             <Text style={[type.label, { flex: 1 }]}>{t('students.notifyParent')}</Text>
+            {/* the same switch as every other on/off in the app */}
             <Switch
               value={field.value}
               onValueChange={field.onChange}
@@ -389,13 +435,13 @@ export function StudentFormScreen({
           </View>
         )}
       />
-      <FormInput
+      <FormDateField
         control={control}
         name="dob"
         label={t('students.dob')}
-        placeholder="YYYY-MM-DD"
-        keyboardType="numbers-and-punctuation"
-        maxLength={10}
+        maxDate={todayYmd()}
+        birthday
+        clearable
       />
       <Text style={type.fieldLabel}>{t('students.gender')}</Text>
       <Controller
@@ -450,7 +496,7 @@ export function StudentFormScreen({
 
       {existing ? (
         <Text style={type.caption}>
-          {t('students.feeNow', { fee: formatINR(existing.monthlyFee) })}
+          {t(FEE_NOW[existing.feeCycle], { fee: formatINR(existing.monthlyFee) })}
         </Text>
       ) : null}
       <Button title={t('common.save')} onPress={submit} loading={busy || formState.isSubmitting} />
@@ -458,8 +504,21 @@ export function StudentFormScreen({
         <Button
           variant={existing.status === 'active' ? 'danger' : 'secondary'}
           title={t(existing.status === 'active' ? 'students.deactivate' : 'students.reactivate')}
-          onPress={toggleStatus}
+          // deactivating takes them off rosters and stops new fees, so ask first; reactivating is harmless
+          onPress={existing.status === 'active' ? () => setConfirmDeactivate(true) : toggleStatus}
           disabled={busy}
+        />
+      ) : null}
+      {existing ? (
+        <ConfirmSheet
+          visible={confirmDeactivate}
+          onClose={() => setConfirmDeactivate(false)}
+          title={t('students.deactivateTitle', { name: existing.name })}
+          message={t('students.deactivateText', { name: existing.name })}
+          confirmLabel={t('students.deactivateConfirm')}
+          onConfirm={toggleStatus}
+          loading={busy}
+          destructive
         />
       ) : null}
       <UpgradePrompt

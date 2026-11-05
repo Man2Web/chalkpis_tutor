@@ -41,6 +41,17 @@ export function GettingStartedCard({ hasAttendance }: { hasAttendance: boolean }
     };
   }, [flag]);
 
+  // finished once is finished for good: "attendance" only looks at the last week, so a week off (Diwali) would
+  // otherwise bring the checklist back for a centre that has long been set up
+  const allDone =
+    !!students.data?.length &&
+    hasAttendance &&
+    !!(inst.data?.upiId || inst.data?.paymentLink) &&
+    !!notify.data?.enabled;
+  useEffect(() => {
+    if (allDone) void setFlag(flag);
+  }, [allDone, flag]);
+
   if (hidden !== false || !students.data || !batches.data || !inst.data || !notify.data)
     return null;
   const firstBatch = batches.data[0];
@@ -98,7 +109,7 @@ export function GettingStartedCard({ hasAttendance }: { hasAttendance: boolean }
             style={{
               width: `${(done / steps.length) * 100}%`,
               height: '100%',
-              backgroundColor: colors.text,
+              backgroundColor: colors.brand,
             }}
           />
         </View>

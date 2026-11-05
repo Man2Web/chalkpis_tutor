@@ -1,6 +1,6 @@
 import { useIdempotencyKey } from '../../api/idempotency';
 import { useMemo, useState } from 'react';
-import { FlatList, Platform, Share, Text, View } from 'react-native';
+import { FlatList, Linking, Platform, Share, Text, View } from 'react-native';
 import * as Contacts from 'expo-contacts/legacy';
 import * as DocumentPicker from 'expo-document-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -10,8 +10,8 @@ import {
   Card,
   Chip,
   EmptyState,
-  Input,
   Screen,
+  SearchField,
   toast,
   UpgradePrompt,
 } from '../../components';
@@ -26,12 +26,13 @@ import { reportError } from '../../lib/analytics';
 import { readBytes } from '../../lib/files';
 import { parseXlsx } from '../../lib/xlsx';
 import { parseCsv, toCsv } from '../../lib/csv';
-import { normalizeIndianPhone } from '../../lib/phone';
+import { formatIndianPhone, normalizeIndianPhone } from '../../lib/phone';
 import type { MainStackParams } from '../../navigation/types';
 import { colors, spacing, type } from '../../theme';
 import { bulkCreateStudents } from './api';
 import { isImportable, mapImportRows, type ImportRow } from './importRows';
 import { remainingCapacity } from './logic';
+import { PickRow } from './PickRow';
 
 interface Contact {
   id: string;
@@ -59,6 +60,9 @@ export function ImportScreen({
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState(false);
+  // reading a file or the contacts takes a moment; a second tap would open a second picker
+  const [reading, setReading] = useState(false);
+  const [denied, setDenied] = useState(false);
   const [upgrade, setUpgrade] = useState(false);
 
   const ctx = () => ({
@@ -72,6 +76,8 @@ export function ImportScreen({
   });
 
   const pickCsv = async () => {
+    if (reading) return;
+    setReading(true);
     try {
       const res = await DocumentPicker.getDocumentAsync({
         type: '*/*',
@@ -88,6 +94,8 @@ export function ImportScreen({
     } catch (e) {
       reportError(e);
       toast(t('import.readFailed'), 'error');
+    } finally {
+      setReading(false);
     }
   };
 
@@ -96,12 +104,16 @@ export function ImportScreen({
       toast(t('import.contactsWeb'), 'error');
       return;
     }
+    if (reading) return;
+    setReading(true);
     try {
       const perm = await Contacts.requestPermissionsAsync();
       if (perm.status !== 'granted') {
-        toast(t('import.noPermission'), 'error');
+        // once refused, the phone stops asking: only Settings can turn it back on
+        setDenied(true);
         return;
       }
+      setDenied(false);
       const { data } = await Contacts.getContactsAsync({
         fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Name],
       });
@@ -116,6 +128,8 @@ export function ImportScreen({
     } catch (e) {
       reportError(e);
       toast(t('import.readFailed'), 'error');
+    } finally {
+      setReading(false);
     }
   };
 
@@ -219,7 +233,7 @@ export function ImportScreen({
                 }}
               >
                 <Text style={type.label}>{item.name || t('import.noName')}</Text>
-                <Text style={type.caption}>{item.parentPhone}</Text>
+                <Text style={type.caption}>{formatIndianPhone(item.parentPhone)}</Text>
                 {item.errors.map((e) => (
                   <Text key={e} style={[type.caption, { color: colors.danger }]}>
                     {t(`import.errors.${e}`)}
@@ -260,7 +274,7 @@ export function ImportScreen({
         <Text style={type.title}>{t('import.fileTitle')}</Text>
         <Text style={[type.caption, { marginBottom: spacing.md }]}>{t('import.fileHelp')}</Text>
         {batchPicker}
-        <Button title={t('import.chooseAnyFile')} onPress={pickCsv} />
+        <Button title={t('import.chooseAnyFile')} onPress={pickCsv} loading={reading} />
       </Screen>
     );
   }
@@ -272,34 +286,67 @@ export function ImportScreen({
         <Text style={type.title}>{t('import.contactsTitle')}</Text>
         <Text style={[type.caption, { marginBottom: spacing.md }]}>{t('import.contactsHelp')}</Text>
         {batchPicker}
-        <Button title={t('import.allowContacts')} onPress={loadContacts} />
+        {denied ? (
+          <Card style={{ gap: spacing.sm, marginBottom: spacing.md }}>
+            <Text style={type.label}>{t('import.noPermission')}</Text>
+            <Text style={type.caption}>{t('import.noPermissionHelp')}</Text>
+            <Button
+              variant="secondary"
+              title={t('import.openSettings')}
+              onPress={() => void Linking.openSettings()}
+            />
+          </Card>
+        ) : null}
+        <Button title={t('import.allowContacts')} onPress={loadContacts} loading={reading} />
       </Screen>
     );
   }
+  const allShownPicked = shown.length > 0 && shown.every((c) => picked.has(c.id));
+  const toggleAllShown = () =>
+    setPicked((p) => {
+      const n = new Set(p);
+      for (const c of shown) {
+        if (allShownPicked) n.delete(c.id);
+        else n.add(c.id);
+      }
+      return n;
+    });
   return (
     <Screen scroll={false}>
       <View style={{ padding: spacing.lg, gap: spacing.sm, flex: 1 }}>
-        <Input label={t('students.search')} value={filter} onChangeText={setFilter} />
-        <Text style={type.caption}>{t('import.selected', { count: picked.size })}</Text>
+        <SearchField value={filter} onChangeText={setFilter} placeholder={t('students.search')} />
+        <View
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <Text style={type.caption}>{t('import.selected', { count: picked.size })}</Text>
+          {shown.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="small"
+              title={t(allShownPicked ? 'import.selectNone' : 'import.selectAll')}
+              onPress={toggleAllShown}
+            />
+          ) : null}
+        </View>
         <FlatList
           data={shown}
           keyExtractor={(c) => c.id}
+          keyboardShouldPersistTaps="handled"
           ListEmptyComponent={<EmptyState icon="people-outline" title={t('import.noContacts')} />}
           renderItem={({ item }) => (
-            <View style={{ marginBottom: spacing.xs }}>
-              <Chip
-                label={`${item.name} • ${item.phone.slice(3)}`}
-                selected={picked.has(item.id)}
-                onPress={() =>
-                  setPicked((p) => {
-                    const n = new Set(p);
-                    if (n.has(item.id)) n.delete(item.id);
-                    else n.add(item.id);
-                    return n;
-                  })
-                }
-              />
-            </View>
+            <PickRow
+              title={item.name}
+              subtitle={formatIndianPhone(item.phone)}
+              checked={picked.has(item.id)}
+              onToggle={() =>
+                setPicked((p) => {
+                  const n = new Set(p);
+                  if (n.has(item.id)) n.delete(item.id);
+                  else n.add(item.id);
+                  return n;
+                })
+              }
+            />
           )}
         />
         <Button

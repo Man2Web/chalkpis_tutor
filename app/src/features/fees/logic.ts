@@ -1,4 +1,5 @@
 import type { DueStatus, FeeDue, Payment } from '../../lib/types';
+import { formatINR } from '../../lib/money';
 
 type DueMoney = Pick<FeeDue, 'amount' | 'discount' | 'paid' | 'status'>;
 
@@ -119,6 +120,23 @@ export const reversedIds = (payments: Pick<Payment, 'reversalOf'>[]) =>
 /** Net collected from a list of payments (reversals are negative). */
 export const netCollected = (payments: Pick<Payment, 'amount'>[]) =>
   payments.reduce((s, p) => s + p.amount, 0);
+
+/**
+ * A money figure short enough for a tile a third of a phone wide: the exact amount up to ₹9,999, then ₹12.5k,
+ * ₹1.25L and ₹1.2Cr. Rounded down, so a tile never shows more than is owed or collected.
+ */
+export function compactINR(paise: number): string {
+  const rupees = Math.abs(paise) / 100;
+  const sign = paise < 0 ? '-' : '';
+  const down = (n: number, places: number) => {
+    const f = 10 ** places;
+    return String(Math.floor(n * f + 1e-9) / f);
+  };
+  if (rupees < 10_000) return formatINR(paise);
+  if (rupees < 1_00_000) return `${sign}₹${down(rupees / 1000, 1)}k`;
+  if (rupees < 1_00_00_000) return `${sign}₹${down(rupees / 1_00_000, 2)}L`;
+  return `${sign}₹${down(rupees / 1_00_00_000, 2)}Cr`;
+}
 
 /** "Mar 2026" from "2026-03". */
 export function periodLabel(period: string, locale = 'en-IN'): string {

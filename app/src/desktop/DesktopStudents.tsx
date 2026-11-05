@@ -19,6 +19,7 @@ import { useAddGuard } from '../data/guards';
 import { useBatches, usePendingStudentIds, useStudents } from '../data/hooks';
 import { useCategory } from '../lib/category';
 import { formatINR } from '../lib/money';
+import { formatIndianPhone } from '../lib/phone';
 import type { Student } from '../lib/types';
 import type { MainStackParams } from '../navigation/types';
 import { colors, font, spacing, type } from '../theme';
@@ -219,7 +220,7 @@ export function DesktopStudents() {
                         </Text>
                         {s.phone ? (
                           <Text style={type.caption2} numberOfLines={1}>
-                            {s.phone}
+                            {formatIndianPhone(s.phone)}
                           </Text>
                         ) : null}
                       </View>
@@ -236,14 +237,17 @@ export function DesktopStudents() {
                       </Text>
                       {s.parentPhone ? (
                         <Text style={type.caption2} numberOfLines={1}>
-                          {s.parentPhone}
+                          {formatIndianPhone(s.parentPhone)}
                         </Text>
                       ) : null}
                     </View>
                   </Table.Cell>
                   <Table.Cell>{s.monthlyFee ? formatINR(s.monthlyFee) : '—'}</Table.Cell>
                   <Table.Cell>
-                    {pending.data?.has(s.id) ? (
+                    {/* nobody is "Paid up" until the fees are known: a dash while they load or if they failed */}
+                    {!pending.data ? (
+                      <Text style={[type.subhead, { color: colors.textFaint }]}>—</Text>
+                    ) : pending.data.has(s.id) ? (
                       <Chip small tone="warning" label={t('desktop.students.pending')} />
                     ) : (
                       <Chip small tone="success" label={t('desktop.students.paidUp')} />

@@ -19,6 +19,22 @@ jest.mock('../../../lib/dates', () => ({
   todayYmd: () => '2026-10-19',
 }));
 jest.mock('../../../lib/analytics', () => ({ track: jest.fn(), reportError: jest.fn() }));
+// The date picker's calendar sheet is tested on its own; here a date is set straight on the field.
+jest.mock('../../../components/PickerFields', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { TextInput } = require('react-native');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const React = require('react');
+  return {
+    ...jest.requireActual('../../../components/PickerFields'),
+    DateField: (p: { label: string; value: string; onChange: (v: string) => void }) =>
+      React.createElement(TextInput, {
+        accessibilityLabel: p.label,
+        value: p.value,
+        onChangeText: p.onChange,
+      }),
+  };
+});
 
 const q = (data: unknown) => ({ data, isLoading: false, isError: false });
 const kid = (over = {}) => ({
@@ -86,6 +102,10 @@ it('re-splits when the total or the number of parts changes, and keeps manual ed
   await fireEvent.changeText(screen.getByLabelText('Part 1 (₹)'), '14000');
   await fireEvent.changeText(screen.getByLabelText('Part 2 (₹)'), '10000');
   expect(screen.getByText('Parts add up to ₹24,000')).toBeTruthy();
+  await fireEvent.changeText(screen.getByLabelText('Part 2 (₹)'), '9000');
+  // a hand-edited part that no longer makes the year's fee is pointed out
+  expect(screen.getByText(/Parts add up to ₹23,000, not ₹24,000/)).toBeTruthy();
+  await fireEvent.changeText(screen.getByLabelText('Part 2 (₹)'), '10000');
   await fireEvent.press(screen.getByRole('button', { name: 'Create plan' }));
   await waitFor(() => expect(createFeePlans).toHaveBeenCalledTimes(1));
   expect((createFeePlans as jest.Mock).mock.calls[0][0].parts).toEqual([

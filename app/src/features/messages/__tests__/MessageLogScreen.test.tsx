@@ -46,7 +46,16 @@ it('lists messages with a readable status and reason', async () => {
   expect(screen.getByText('Asha Rao')).toBeTruthy();
   expect(screen.getByText('Sent')).toBeTruthy();
   expect(screen.getByText(/WhatsApp is not set up yet/)).toBeTruthy();
-  expect(screen.getByText(/http-401/)).toBeTruthy();
+  // a provider's raw code is not shown to the owner
+  expect(screen.queryByText(/http-401/)).toBeNull();
+  expect(screen.getByText('Could not deliver')).toBeTruthy();
+});
+
+it('keeps the list on screen when a refresh fails', async () => {
+  (useMessages as jest.Mock).mockReturnValue(q([msg('1', 's1', 'sent')], { isError: true }));
+  await render(<MessageLogScreen />);
+  expect(screen.getByText('Asha Rao')).toBeTruthy();
+  expect(screen.queryByText('Try again')).toBeNull();
 });
 
 it('filters to failed messages', async () => {
