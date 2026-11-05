@@ -11,6 +11,7 @@ import { attendanceNudges } from '../push/nudges.js';
 import { enqueueAllFeeReminders } from '../messaging/notify.js';
 import type { Mailer } from '../auth/mailer.js';
 import { warnLowBalance } from '../admin/waSpend.js';
+import { sendDailySummary } from '../admin/dailySummary.js';
 
 export interface JobLog {
   info: (o: object, msg: string) => void;
@@ -81,8 +82,11 @@ export const makeJobs = (
   links?: Parameters<typeof queuePlanReminders>[2] & { paidLinks?: boolean },
   billing?: BillingProvider | null,
   store?: StoreClient | null,
-  /** emails the super admins once a day while the WhatsApp balance is low (decision 159) */
-  waWarn?: { mailer: Mailer | null; emails: string[] },
+  /**
+   * emails the super admins: once a day while the WhatsApp balance is low (decision 159), and the daily report at 8 am
+   * (decision 166), which links to the dashboard at `dashboardUrl`
+   */
+  waWarn?: { mailer: Mailer | null; emails: string[]; dashboardUrl?: string },
 ): Job[] => [
   ...(waWarn?.mailer && waWarn.emails.length
     ? [
@@ -92,6 +96,15 @@ export const makeJobs = (
           until: 20,
           every: 'day',
           run: (pool: Pool, now: Date) => warnLowBalance(pool, waWarn.mailer, waWarn.emails, now),
+        } satisfies Job,
+        // yesterday's numbers; a server that was down at 8 still sends it later that day, not the next
+        {
+          name: 'admin-daily-summary',
+          from: 8,
+          until: 20,
+          every: 'day',
+          run: (pool: Pool, now: Date) =>
+            sendDailySummary(pool, waWarn.mailer, waWarn.emails, now, waWarn.dashboardUrl),
         } satisfies Job,
       ]
     : []),

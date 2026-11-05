@@ -92,6 +92,9 @@ per centre (each centre's page shows its own on the WhatsApp tab).
   reading from the portal is exact.
 - When the balance lasts fewer than 7 days (or is under ₹500) the Overview shows a red banner and the super admin gets
   one email a day until it is recharged. If it runs out, **login codes stop**, so tutors cannot sign in.
+- Every morning at 8 the super admin also gets the **daily report** email: yesterday's new centres, plan payments,
+  paying centres and MRR, trials ending, and the WhatsApp balance. Its balance is the same estimate, so keep the
+  balance updated here.
 
 ## Rules
 

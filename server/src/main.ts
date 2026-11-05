@@ -121,7 +121,7 @@ async function main() {
         : undefined,
       billing,
       store,
-      { mailer, emails: config.ADMIN_EMAILS },
+      { mailer, emails: config.ADMIN_EMAILS, dashboardUrl: config.PUBLIC_BASE_URL },
     ),
   );
 
