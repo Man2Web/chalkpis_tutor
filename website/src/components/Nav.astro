@@ -1,0 +1,23 @@
+---
+import Logo from './Logo.astro';
+import { START_URL, SIGN_IN_URL } from '../config';
+
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const links = [
+  { href: '/#features', label: 'Features' },
+  { href: '/#roles', label: 'Who it’s for' },
+  { href: '/pricing', label: 'Pricing' },
+];
+---
+<header class="nav">
+  <nav aria-label="Main" class="wrap nav-in">
+    <a href="/" aria-label="ChalkPis Tutor home"><Logo height={34} /></a>
+    <div class="nav-links hide-sm">
+      {links.map((l) => <a href={l.href} aria-current={path === l.href ? 'page' : undefined}>{l.label}</a>)}
+    </div>
+    <div class="nav-cta">
+      <a class="btn btn-sm btn-soft hide-sm" href={SIGN_IN_URL}>Sign in</a>
+      <a class="btn btn-sm btn-dark" href={START_URL}>Start free trial</a>
+    </div>
+  </nav>
+</header>

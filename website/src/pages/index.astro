@@ -1,0 +1,496 @@
+---
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import Logo from '../components/Logo.astro';
+import { START_URL, WHATSAPP_URL, SITE_URL, SITE_NAME, PLAY_STORE_URL, APP_STORE_URL } from '../config';
+import { PLANS, rupees } from '../data/plans';
+
+const heroRows = [
+  { initials: 'AK', name: 'Aarohi K.', status: 'Absent', cls: 'no' },
+  { initials: 'KM', name: 'Kabir M.', status: 'Present', cls: 'ok' },
+  { initials: 'DS', name: 'Diya S.', status: 'Present', cls: 'ok' },
+  { initials: 'MP', name: 'Meera P.', status: 'Present', cls: 'ok' },
+];
+
+// Cities where tutors use ChalkPis Tutor today. Repeated 4 times so the short list fills the row and loops without a gap.
+const CITIES = ['Mumbai', 'Mysore', 'Kochi', 'Chennai'];
+const cityLoop = [0, 1, 2, 3].flatMap((n) => CITIES.map((name) => ({ name, copy: n > 0 })));
+
+const ROLES = [
+  { id: 'owner', title: 'Owners and teachers', desc: 'Students, batches, attendance, fees, reports and parents, all in one place.', steps: [
+    { icon: 'page', title: 'Add your batches and students', sub: 'One by one, or import the list from Excel' },
+    { icon: 'rupee', title: 'Set each student’s fee', sub: 'Monthly, or a yearly fee in parts' },
+    { icon: 'qr', title: 'Add your UPI ID', sub: 'Your QR goes on every fee reminder' },
+    { icon: 'bell', title: 'Turn on automatic messages', sub: 'Alerts and reminders go out on their own' },
+    { icon: 'check', title: 'See who has paid this month', sub: 'Collected and pending, at a glance' },
+  ] },
+  { id: 'helper', title: 'Helpers and staff', desc: 'Take attendance for their own batches. They never see fees or phone numbers.', steps: [
+    { icon: 'chat', title: 'Invited as a helper', sub: 'The invite arrives on WhatsApp' },
+    { icon: 'user', title: 'Signs in with WhatsApp', sub: 'A 6-digit code, no password' },
+    { icon: 'cal', title: 'Sees only their batches', sub: 'Kids Bharatanatyam · Juniors' },
+    { icon: 'check', title: 'Attendance marked', sub: 'The owner sees it at once' },
+  ] },
+  { id: 'parent', title: 'Parents', desc: 'Updates on WhatsApp and a private page for their child. Nothing to install.', steps: [
+    { icon: 'chat', title: 'Welcome: Aarohi is enrolled', sub: 'Nritya Dance Academy' },
+    { icon: 'bell', title: 'Updates on WhatsApp', sub: 'Absences, fee reminders and receipts' },
+    { icon: 'page', title: 'A private page for their child', sub: 'Attendance, fees, results, homework' },
+    { icon: 'user', title: 'One link for brothers and sisters', sub: 'Every child on the same page' },
+  ] },
+] as const;
+
+// Real tutor feedback only. Text is quoted from what the tutor wrote; cuts are marked with "…" and the brand spelling
+// is corrected to ChalkPis. With fewer than three quotes the section shows them as featured cards; from three up it
+// becomes a scrolling row.
+const QUOTES = [
+  {
+    title: 'Managing my institute has never felt this easy!',
+    text: 'I had tried a few other applications before discovering ChalkPis, but I found them complicated, especially when handling student admissions and management. ChalkPis has been a completely different experience! … One feature I particularly love is the ability to add students directly from my phone contacts. It makes the admission process much faster and more convenient, saving me valuable time.',
+    who: 'Coaching institute owner',
+    where: 'Mysore, Karnataka',
+  },
+];
+const scrollQuotes = QUOTES.length >= 3;
+const quoteLoop = [...QUOTES.map((q) => ({ ...q, copy: false })), ...QUOTES.map((q) => ({ ...q, copy: true }))];
+
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: SITE_NAME,
+  url: SITE_URL,
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Android, iOS, Web',
+  description: 'Attendance, fees and WhatsApp updates for tuition centres, coaching classes and academies in India.',
+  installUrl: [PLAY_STORE_URL, APP_STORE_URL],
+  offers: PLANS.map((p) => ({ '@type': 'Offer', name: p.name, price: p.month, priceCurrency: 'INR' })),
+  publisher: { '@type': 'Organization', name: 'M2W Technologies Private Limited' },
+};
+---
+<Base
+  title="ChalkPis Tutor: attendance, fees and WhatsApp updates for your class"
+  description="Take attendance in seconds, send fee reminders with your own UPI QR, and let absent alerts and receipts reach parents on WhatsApp automatically. Try free for 7 days."
+  schema={schema}
+>
+  <!-- hero -->
+  <section class="wrap hero">
+    <div class="hero-copy">
+      <a href="#more" class="chip"><span class="chip-new">New</span>Parents can now tap “I've paid” on fee reminders</a>
+      <h1 class="h1" style="margin-top: 24px">Your class runs itself while you teach</h1>
+      <p class="lead" style="margin-top: 20px; max-width: 520px">Absent alerts, fee reminders and receipts reach parents on WhatsApp automatically. You take attendance in seconds and always know who has paid.</p>
+      <div class="hero-cta">
+        <a class="btn btn-dark" href={START_URL}>Start 7-day free trial<Icon name="arrow" size={18} /></a>
+        <a class="btn btn-soft" href={WHATSAPP_URL}><Icon name="whatsapp" size={18} />Chat on WhatsApp</a>
+      </div>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <div class="phone">
+        <p class="small" style="font-size: 12px; color: var(--faint)">Today, 5:00 pm</p>
+        <p class="num" style="font-size: 19px">Kids Bharatanatyam</p>
+        <p class="small" style="font-size: 12px; margin-bottom: 4px">17 present · 1 absent</p>
+        {heroRows.map((r) => (
+          <div class="phone-row">
+            <span class="avatar">{r.initials}</span>
+            <span style="flex: 1; font-size: 13px; font-weight: 500">{r.name}</span>
+            <span class={`pill ${r.cls}`}>{r.status}</span>
+          </div>
+        ))}
+        <div class="phone-btn">Save attendance</div>
+      </div>
+      <div class="toast panel hide-sm">
+        <span class="tile tile-wa" style="width: 32px; height: 32px; border-radius: 10px"><Icon name="whatsapp" size={16} /></span>
+        <span style="font-size: 13px; line-height: 1.4"><strong style="display: block; font-weight: 600">Aarohi's parent alerted</strong><span style="color: var(--muted)">On WhatsApp, 5:02 pm</span></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- cities -->
+  <section style="padding-top: 64px" aria-label="Where tutors use ChalkPis Tutor">
+    <p class="small" style="text-align: center; padding: 0 24px">Tutors in these cities already run their classes on ChalkPis Tutor</p>
+    <div class="marquee wrap" style="margin-top: 18px">
+      <ul class="marquee-track">
+        {cityLoop.map((c) => <li class="city" aria-hidden={c.copy ? 'true' : undefined}>{c.name}</li>)}
+      </ul>
+    </div>
+  </section>
+
+  <!-- the three daily jobs -->
+  <section id="features" class="sec">
+    <div class="wrap">
+      <div class="head"><h2 class="h2">The jobs that used to eat your evenings</h2></div>
+      <div class="jobs">
+        <div class="card job-wide">
+          <div class="job-copy">
+            <span class="tile tile-lg"><Icon name="attend" /></span>
+            <h3 class="h3">Tap only the children who didn't come, then save</h3>
+            <p class="body" style="margin-top: 12px">Everyone else is marked present. Late marks, holidays and the monthly register are there when you need them.</p>
+          </div>
+          <div class="panel job-visual" aria-hidden="true">
+            <div class="visual-head"><span class="h4">Class 9 Science</span><span class="small">Today, 4:00 pm</span></div>
+            <div style="margin-top: 14px">
+              <div class="row"><span>Ananya Rao</span><span class="pill ok">Present</span></div>
+              <div class="row"><span>Riya Shah</span><span class="pill no">Absent</span></div>
+              <div class="row"><span>Sai Kumar</span><span class="pill due">Late</span></div>
+            </div>
+            <div style="margin-top: 12px; display: flex; gap: 8px"><span class="btn btn-sm btn-dark" style="flex: 1">Save attendance</span><span class="btn btn-sm btn-soft">Holiday</span></div>
+          </div>
+        </div>
+
+        <div class="card job">
+          <div>
+            <span class="tile tile-lg"><Icon name="rupee" /></span>
+            <h3 class="h3">See who still owes this month without opening the notebook</h3>
+            <p class="body" style="margin-top: 12px">Reminders carry your own UPI QR, so the money comes straight to you.</p>
+          </div>
+          <div class="panel" aria-hidden="true" style="margin-top: auto; padding: 20px">
+            <div class="visual-head"><span class="h4">November 2026</span><span class="small">54 of 64 paid</span></div>
+            <div class="bar"><div style="width: 84%"></div></div>
+            <div style="margin-top: 10px">
+              <div class="row"><span style="flex: 1">Riya Shah</span><strong>₹1,500</strong><span class="btn btn-xs btn-soft">Remind</span></div>
+              <div class="row"><span style="flex: 1; min-width: 0">Kabir Mehta<span class="small" style="display: block; font-size: 12px">Paid ₹800 of ₹1,500</span></span><strong>₹700</strong><span class="btn btn-xs btn-soft">Remind</span></div>
+              <div class="row" style="padding-bottom: 0"><span style="flex: 1">Diya Sen</span><strong>₹1,200</strong><span class="btn btn-xs btn-soft">Remind</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card job">
+          <div>
+            <span class="tile tile-lg tile-wa"><Icon name="whatsapp" /></span>
+            <h3 class="h3">Parents hear from your centre the same day, without you typing a word</h3>
+            <p class="body" style="margin-top: 12px">These are the real messages parents get, word for word.</p>
+          </div>
+          <div class="chat" aria-hidden="true">
+            <span class="chat-day">Today</span>
+            <div class="bubble">Hello, Riya Shah was marked <strong>absent</strong> for the Class 9 Science class on 4 Nov 2026. If this is not correct, please contact Sharma Tuitions directly. Thank you.<span class="time">4:12 pm</span></div>
+            <div class="bubble">Hello, we have received the fee payment for Riya Shah: ₹1,500 (receipt 0142, balance due ₹0). Please keep this message as your receipt. Regards, Sharma Tuitions. Thank you.<span class="time">6:40 pm</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- more in the app -->
+  <section id="more" class="sec">
+    <div class="wrap">
+      <div class="head"><h2 class="h2">There's more in the app when you're ready for it</h2></div>
+      <div class="more">
+        <article class="card more-card">
+          <div class="panel more-visual" aria-hidden="true" style="display: flex; flex-direction: column">
+            <p class="small" style="font-size: 12px">Riya Shah's parent says</p>
+            <p class="num" style="margin-top: 4px; font-size: 24px">₹1,500 paid by UPI</p>
+            <p class="small" style="font-size: 12px; margin-top: 2px">Ref 4521 · 9:41 am</p>
+            <div style="margin-top: auto; display: flex; gap: 8px"><span class="btn btn-sm btn-dark" style="flex: 1">Confirm</span><span class="btn btn-sm btn-soft" style="flex: 1">Not received</span></div>
+          </div>
+          <h3 class="h4 more-title"><span class="tile tile-sm"><Icon name="paid" size={17} /></span>Parents tap “I've paid”</h3>
+          <p class="small" style="margin-top: 6px">Every reminder carries a link. You confirm in one tap and the receipt goes out.</p>
+        </article>
+
+        <article class="card more-card">
+          <div class="panel more-visual" aria-hidden="true">
+            <p style="font-size: 13px; font-weight: 600">Unit test 3 · Maths · out of 50</p>
+            <div style="margin-top: 8px">
+              <div class="row rank"><span class="r">1</span><span style="flex: 1">Ananya Rao</span><span>48</span><span class="g">A1</span></div>
+              <div class="row rank"><span class="r">2</span><span style="flex: 1">Ishaan Reddy</span><span>45</span><span class="g">A1</span></div>
+              <div class="row rank"><span class="r">3</span><span style="flex: 1">Meera Pillai</span><span>41</span><span class="g" style="color: var(--blue-ink)">A2</span></div>
+            </div>
+          </div>
+          <h3 class="h4 more-title"><span class="tile tile-sm"><Icon name="tests" size={17} /></span>Tests and report cards</h3>
+          <p class="small" style="margin-top: 6px">Marks for a whole batch on one screen, with ranks, grades and results to parents.</p>
+        </article>
+
+        <article class="card more-card">
+          <div class="panel more-visual" aria-hidden="true">
+            <p style="font-size: 13px; font-weight: 600">Yearly fee 2026-27 · ₹18,000 in 3 parts</p>
+            <div style="margin-top: 8px">
+              <div class="row tight"><span>Part 1 · ₹6,000</span><span class="pill ok">Paid</span></div>
+              <div class="row tight"><span>Part 2 · ₹6,000</span><span class="pill due">Due 10 Dec</span></div>
+              <div class="row tight"><span>Part 3 · ₹6,000</span><span class="pill mute">10 Mar</span></div>
+            </div>
+          </div>
+          <h3 class="h4 more-title"><span class="tile tile-sm"><Icon name="wallet" size={17} /></span>Yearly fees in parts</h3>
+          <p class="small" style="margin-top: 6px">Split a year's fee into up to four parts. Each part gets its own reminder.</p>
+        </article>
+
+        <article class="card more-card">
+          <div class="panel more-visual" aria-hidden="true" style="display: flex; flex-direction: column; gap: 12px">
+            <div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="pill mute">New</span><span class="pill mute">Follow-up</span><span class="pill" style="background: var(--blue-50); color: var(--blue-ink)">Trial class</span><span class="pill mute">Joined</span></div>
+            <div style="border-radius: 12px; background: var(--surface); padding: 12px"><p style="font-size: 13px; font-weight: 600">Kabir · Class 7 Maths</p><p class="small" style="font-size: 12px; margin-top: 2px">Trial class on Saturday · walk-in</p></div>
+            <p style="margin-top: auto; font-size: 13px; color: var(--blue-ink); font-weight: 600">3 parents to follow up today</p>
+          </div>
+          <h3 class="h4 more-title"><span class="tile tile-sm"><Icon name="enquiry" size={17} /></span>Enquiries to admissions</h3>
+          <p class="small" style="margin-top: 6px">Every walk-in and call, from first question to joined, with follow-ups that don't slip.</p>
+        </article>
+
+        <article class="card more-card">
+          <div class="panel more-visual week" aria-hidden="true">
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((d) => <span class="day">{d}</span>)}
+            {['b', '', 'b', '', 'b', '', 'b', 'clash', 'b', '', 'b', '', 'hol', '', 'b'].map((c) => <span class={`slot ${c}`}></span>)}
+          </div>
+          <h3 class="h4 more-title"><span class="tile tile-sm"><Icon name="cal" size={17} /></span>Timetable and calendar</h3>
+          <p class="small" style="margin-top: 6px">Your week at a glance. Clashes flagged early, holidays sent to parents.</p>
+        </article>
+
+        <article class="card more-card">
+          <div class="more-visual poster" aria-hidden="true">
+            <p style="font-size: 12px; font-weight: 600; color: #8ec5ea">Nritya Dance Academy</p>
+            <p class="num" style="margin-top: 6px; font-size: 26px; color: var(--yellow)">Our dance stars</p>
+            <div style="margin-top: auto; display: flex; gap: 10px"><span class="star"></span><span class="star"></span><span class="star"></span></div>
+          </div>
+          <h3 class="h4 more-title"><span class="tile tile-sm"><Icon name="poster" size={17} /></span>Poster maker</h3>
+          <p class="small" style="margin-top: 6px">Toppers, champions, admissions and festival posters for your WhatsApp status.</p>
+        </article>
+      </div>
+      <p class="body" style="margin: 40px auto 0; max-width: 680px; text-align: center">Also in the app: homework, one parent link for brothers and sisters, advance payments, importing students from Excel, reports to Excel and PDF, a private page for each child, and a bigger screen for your laptop.</p>
+    </div>
+  </section>
+
+  <!-- statement + laptop dashboard -->
+  <section class="sec">
+    <div class="wrap">
+      <div class="stmt">
+        <h2 class="h2" style="max-width: 720px; margin: 0 auto">We built the boring parts, so you can teach.</h2>
+        <div class="laptop" role="img" aria-label="The ChalkPis Tutor dashboard on a laptop">
+          <div class="side hide-sm">
+            <Logo height={26} />
+            <p style="margin: 18px 0 6px; font-size: 12px; font-weight: 600; color: var(--faint)">Your classes</p>
+            <span class="side-item on">Home</span><span class="side-item">Students</span><span class="side-item">Attendance</span><span class="side-item">Fees</span><span class="side-item">Reports</span>
+          </div>
+          <div class="dash">
+            <p class="num" style="font-size: 20px">Good evening, Priya</p>
+            <div class="stats">
+              <div class="panel stat"><p class="small" style="font-size: 12px">Students</p><p class="num">64</p></div>
+              <div class="panel stat"><p class="small" style="font-size: 12px">Pending</p><p class="num">₹8,200</p></div>
+              <div class="stat stat-blue"><p style="font-size: 12px; opacity: 0.85">Collected this month</p><p class="num">₹42,500</p></div>
+            </div>
+            <div class="panel" style="margin-top: 10px; padding: 14px">
+              <p style="font-size: 12px; font-weight: 600">Attendance this week</p>
+              <div class="bars">{[82, 90, 76, 94, 88, 60].map((h, i) => <span style={`height: ${h}%`} class={i === 4 ? 'now' : i === 5 ? 'later' : ''}></span>)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- roles -->
+  <section id="roles" class="sec">
+    <div class="wrap">
+      <div class="head"><h2 class="h2">Your helpers and parents use it too</h2></div>
+      <div class="roles" data-roles>
+        <div role="tablist" aria-label="Who uses ChalkPis Tutor" class="role-tabs">
+          {ROLES.map((r, i) => (
+            <button class="role-tab" type="button" role="tab" id={`tab-${r.id}`} aria-controls={`panel-${r.id}`} aria-selected={i === 0 ? 'true' : 'false'} tabindex={i === 0 ? 0 : -1}>
+              <span class="role-title">{r.title}</span>
+              <span class="role-desc">{r.desc}</span>
+            </button>
+          ))}
+        </div>
+        {ROLES.map((r, i) => (
+          <div class="card role-panel" role="tabpanel" id={`panel-${r.id}`} aria-labelledby={`tab-${r.id}`} hidden={i !== 0}>
+            {r.steps.map((s, j) => (
+              <>
+                {j > 0 && <span class="step-line" aria-hidden="true"></span>}
+                <div class={`panel step ${j === r.steps.length - 1 ? 'last' : ''}`}>
+                  <span class="tile" style="width: 40px; height: 40px; border-radius: 12px"><Icon name={s.icon} size={18} /></span>
+                  <span style="flex: 1; min-width: 0; font-size: 15px; font-weight: 600; line-height: 1.3">{s.title}<span class="step-sub">{s.sub}</span></span>
+                </div>
+              </>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- testimonials -->
+  <section class="sec" aria-labelledby="say">
+    <div class="wrap"><div class="head"><h2 class="h2" id="say">What teachers say</h2></div></div>
+    {scrollQuotes ? (
+      <div class="marquee" style="margin-top: 48px">
+        <div class="marquee-track qtrack">
+          {quoteLoop.map((q) => (
+            <figure class="card quote" aria-hidden={q.copy ? 'true' : undefined}>
+              <p class="h4">{q.title}</p>
+              <blockquote class="body" style="color: var(--text)">{q.text}</blockquote>
+              <figcaption><span class="tile" style="width: 36px; height: 36px; border-radius: 50%"><Icon name="user" size={16} /></span><span><strong style="display: block; color: var(--ink); font-weight: 600">{q.who}</strong>{q.where}</span></figcaption>
+            </figure>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <div class="wrap featured">
+        {QUOTES.map((q) => (
+          <figure class="card featured-quote">
+            <svg class="quote-mark" width="40" height="32" viewBox="0 0 40 32" aria-hidden="true"><path fill="currentColor" d="M0 32V19.2C0 8.6 5.9 2.2 16.4 0l1.8 4.2C12.6 6 9.8 9.6 9.4 14.4H17V32H0Zm22.6 0V19.2C22.6 8.6 28.5 2.2 39 0l1 4.2c-5.6 1.8-8.4 5.4-8.8 10.2h7.6V32H22.6Z" /></svg>
+            <p class="h3" style="margin-top: 20px">{q.title}</p>
+            <blockquote class="lead" style="margin-top: 14px; color: var(--text)">{q.text}</blockquote>
+            <figcaption class="featured-who">
+              <span class="tile" style="width: 44px; height: 44px; border-radius: 50%"><Icon name="user" size={20} /></span>
+              <span><strong style="display: block; font-weight: 600; color: var(--ink)">{q.who}</strong><span class="small">{q.where} · uses ChalkPis Tutor</span></span>
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+    )}
+  </section>
+
+  <!-- pricing preview -->
+  <section class="sec">
+    <div class="wrap">
+      <div class="head"><h2 class="h2">Plans from ₹199 a month</h2><p class="body" style="margin-top: 14px">Free for 7 days. Every feature in every plan. Yearly plans get 2 months free.</p></div>
+      <div class="plans">
+        {PLANS.map((p) => (
+          <div class={`card plan ${p.popular ? 'plan-dark' : ''}`}>
+            {p.popular && <span class="pill plan-badge">Most popular</span>}
+            <p class="h4">{p.name}</p>
+            <p class="small plan-sub">{p.summary}</p>
+            <p style="margin-top: 24px"><span class="num" style="font-size: 40px">{rupees(p.month)}</span><span class="small plan-sub"> / month</span></p>
+            <p class="small plan-sub" style="margin-top: 4px; font-size: 13px">or {rupees(p.year)} a year</p>
+          </div>
+        ))}
+      </div>
+      <p style="margin-top: 28px; text-align: center"><a href="/pricing" class="link-blue">See full pricing →</a></p>
+    </div>
+  </section>
+
+  <!-- closing banner -->
+  <section class="sec end">
+    <div class="wrap">
+      <div class="card banner">
+        <h2 class="h2" style="flex: 1 1 420px; max-width: 640px">Your attendance notebook did its job. Let it rest.</h2>
+        <a class="btn btn-dark" href={START_URL}>Start 7-day free trial</a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  // Role tabs: click or arrow keys switch the panel (WAI-ARIA tabs pattern).
+  document.querySelectorAll<HTMLElement>('[data-roles]').forEach((root) => {
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    const select = (tab: HTMLButtonElement) => {
+      tabs.forEach((t) => {
+        const on = t === tab;
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        t.tabIndex = on ? 0 : -1;
+        const panel = root.querySelector<HTMLElement>(`#${t.getAttribute('aria-controls')}`);
+        if (panel) panel.hidden = !on;
+      });
+    };
+    tabs.forEach((t, i) => {
+      t.addEventListener('click', () => select(t));
+      t.addEventListener('keydown', (e) => {
+        const step = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 0;
+        if (!step) return;
+        e.preventDefault();
+        const next = tabs[(i + step + tabs.length) % tabs.length];
+        select(next);
+        next.focus();
+      });
+    });
+  });
+</script>
+
+<style>
+  .hero { padding-top: 72px; display: flex; flex-wrap: wrap; align-items: center; gap: 56px; }
+  .hero-copy { flex: 1 1 480px; min-width: 0; }
+  .chip { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; background: var(--blue-50); border-radius: 999px; padding: 4px 14px 4px 4px; font-size: 13px; color: var(--blue-ink); }
+  .chip-new { background: var(--blue); color: #fff; border-radius: 999px; padding: 3px 10px; font-weight: 600; }
+  .hero-cta { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 12px; }
+  .hero-art { flex: 1 1 440px; min-width: 0; height: 560px; position: relative; background: var(--blue-50); border-radius: 28px; }
+  .phone { position: absolute; left: 50%; top: 32px; transform: translateX(-50%); width: 272px; height: 430px; background: #fff; border: 10px solid var(--ink); border-radius: 44px; padding: 26px 18px 18px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 40px 60px -30px rgba(11, 40, 70, 0.45); }
+  .phone-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--surface); }
+  .avatar { width: 30px; height: 30px; flex: none; border-radius: 50%; background: var(--blue-50); color: var(--blue-ink); font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+  .phone-btn { margin-top: auto; height: 44px; border-radius: 12px; background: var(--ink); color: #fff; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+  .toast { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); width: 252px; padding: 14px; display: flex; gap: 10px; box-shadow: 0 20px 40px -20px rgba(11, 11, 15, 0.3), 0 0 0 1px rgba(11, 11, 15, 0.06); }
+
+  .city { flex: none; font-family: var(--display); font-size: 20px; font-weight: 600; color: #a1a1aa; letter-spacing: -0.01em; }
+
+  .jobs { margin-top: 48px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 20px; }
+  .job-wide { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 40px; }
+  .job-copy { flex: 1 1 320px; min-width: 0; max-width: 460px; }
+  .job-visual { flex: 1 1 380px; min-width: 0; padding: 20px; }
+  .job { display: flex; flex-direction: column; gap: 24px; }
+  .visual-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+  .visual-head > * { white-space: nowrap; }
+  .bar { margin-top: 12px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+  .bar div { height: 100%; background: var(--blue); }
+  .chat { margin-top: auto; background: #ece5dd; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .chat-day { align-self: center; background: #fff; border-radius: 6px; padding: 3px 8px; font-size: 11px; color: var(--muted); }
+  .bubble { align-self: flex-start; background: #fff; border-radius: 2px 10px 10px 10px; padding: 8px 10px 6px; font-size: 13px; line-height: 1.45; max-width: 94%; box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08); }
+  .time { display: block; text-align: right; font-size: 10px; color: #6b7c85; margin-top: 2px; }
+
+  .more { margin-top: 48px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 20px; }
+  .more-card { padding: 24px; }
+  .more-visual { height: 188px; padding: 16px 18px; }
+  .more-title { margin-top: 20px; display: flex; align-items: center; gap: 10px; }
+  .row.rank, .row.tight { padding: 9px 0; font-size: 13px; }
+  .rank .r { width: 14px; color: var(--faint); }
+  .rank .g { width: 24px; font-weight: 600; color: #047857; }
+  .week { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; align-content: center; }
+  .day { font-size: 11px; text-align: center; color: var(--muted); }
+  .slot { height: 30px; border-radius: 8px; background: var(--surface); }
+  .slot.b { background: var(--blue-100); }
+  .slot.clash { background: #fdecec; box-shadow: inset 0 0 0 2px #e5484d; }
+  .slot.hol { background: var(--yellow); }
+  .poster { border-radius: 16px; background: #0b2540; padding: 18px; display: flex; flex-direction: column; color: #fff; }
+  .star { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--yellow); background: #1e3a5f; }
+
+  .stmt { background: var(--surface); border-radius: 28px; padding: 72px 40px 0; overflow: hidden; text-align: center; }
+  .laptop { margin: 48px auto 0; max-width: 900px; background: #fff; border-radius: 20px 20px 0 0; padding: 20px 20px 0; display: flex; gap: 20px; text-align: left; box-shadow: 0 0 0 1px rgba(11, 11, 15, 0.06), 0 -20px 50px -30px rgba(11, 11, 15, 0.25); }
+  .side { width: 168px; flex: none; display: flex; flex-direction: column; gap: 4px; padding-bottom: 24px; }
+  .side-item { padding: 9px 12px; font-size: 13px; color: var(--text); border-radius: 10px; }
+  .side-item.on { background: var(--blue-50); color: var(--blue-ink); font-weight: 600; }
+  .dash { flex: 1; min-width: 0; background: var(--surface); border-radius: 14px 14px 0 0; padding: 20px; }
+  .stats { margin-top: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+  .stat { padding: 14px; }
+  .stat .num { margin-top: 10px; font-size: 24px; }
+  .stat-blue { background: var(--blue); color: #fff; border-radius: 16px; }
+  .bars { margin-top: 12px; display: flex; align-items: flex-end; gap: 10px; height: 84px; }
+  .bars span { flex: 1; border-radius: 6px; background: var(--blue-100); }
+  .bars span.now { background: var(--blue); }
+  .bars span.later { background: #e4e4e7; }
+
+  .roles { margin-top: 48px; display: flex; flex-wrap: wrap; gap: 24px; align-items: stretch; }
+  .role-tabs { flex: 1 1 300px; display: flex; flex-direction: column; gap: 8px; }
+  .role-tab { cursor: pointer; text-align: left; border: 0; width: 100%; background: transparent; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 6px; color: var(--ink); }
+  .role-tab:hover { background: var(--surface); }
+  .role-tab[aria-selected='true'] { background: #fff; box-shadow: 0 0 0 1px rgba(11, 11, 15, 0.08), 0 8px 24px -16px rgba(11, 11, 15, 0.3); }
+  .role-title { font-size: 16px; font-weight: 600; }
+  .role-desc { font-size: 14px; line-height: 1.5; color: var(--muted); }
+  .role-panel { flex: 1.4 1 420px; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+  .role-panel[hidden] { display: none; }
+  .step { padding: 14px 16px; display: flex; align-items: center; gap: 14px; }
+  .step.last { box-shadow: 0 0 0 2px var(--blue); }
+  .step-sub { display: block; margin-top: 2px; font-size: 13px; font-weight: 400; color: var(--muted); }
+  .step-line { display: block; width: 2px; height: 16px; margin-left: 39px; background: #c9dfef; }
+
+  .quote { flex: none; width: 320px; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .quote figcaption { margin-top: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+  .featured { margin-top: 48px; }
+  .featured-quote { max-width: 880px; margin: 0 auto; padding: 48px; }
+  .quote-mark { color: var(--blue); }
+  .featured-who { margin-top: 28px; display: flex; align-items: center; gap: 14px; font-size: 15px; }
+
+  .plans { margin-top: 48px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 20px; }
+  .plan { padding: 28px; position: relative; }
+  .plan-sub { margin-top: 4px; }
+  .plan-dark { background: var(--ink); color: #fff; }
+  .plan-dark .plan-sub { color: #d4d4d8; }
+  .plan-badge { position: absolute; top: 24px; right: 24px; background: var(--blue); color: #fff; }
+  .link-blue { font-size: 15px; font-weight: 600; color: var(--blue-ink); text-decoration: none; }
+  .link-blue:hover { text-decoration: underline; }
+
+  .banner { background: var(--blue-50); padding: 48px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px; }
+
+  @media (max-width: 600px) {
+    .hero { padding-top: 32px; gap: 28px; }
+    .hero-cta { flex-direction: column; align-items: stretch; }
+    .hero-cta .btn { width: 100%; }
+    .hero-art { height: 420px; }
+    .phone { transform: translateX(-50%) scale(0.82); transform-origin: top center; }
+    .stmt { padding: 36px 12px 0; border-radius: 20px; }
+    .quote { width: 272px; }
+    .featured-quote { padding: 24px; }
+    .banner { padding: 24px; }
+    .banner .btn { width: 100%; }
+  }
+</style>
