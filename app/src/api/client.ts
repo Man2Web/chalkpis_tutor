@@ -1,10 +1,18 @@
 import { Platform } from 'react-native';
 import { tokens } from './tokens';
 
-/** The server. On the Android emulator the laptop is 10.0.2.2; in a browser preview it is localhost. Production sets EXPO_PUBLIC_API_URL. */
+/**
+ * The server. Production sets EXPO_PUBLIC_API_URL. A release bundle made without it still talks to production: on
+ * 5 Nov 2026 such a phone update sent every 1.1.0 app to the laptop's address ("No connection"). Only a development
+ * build falls back to the laptop: 10.0.2.2 on the Android emulator, localhost elsewhere.
+ */
 export const API_URL = (
   process.env.EXPO_PUBLIC_API_URL ??
-  (Platform.OS === 'android' ? 'http://10.0.2.2:8787' : 'http://127.0.0.1:8787')
+  (!__DEV__
+    ? 'https://tutor.chalkpis.com'
+    : Platform.OS === 'android'
+      ? 'http://10.0.2.2:8787'
+      : 'http://127.0.0.1:8787')
 ).replace(/\/$/, '');
 
 /** A failed call. `code` is the server's short reason (e.g. plan_expired, plan_limit, exceeds_balance); status 0 = no network. */
