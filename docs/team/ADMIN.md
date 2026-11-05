@@ -46,7 +46,7 @@ The sign-in lasts only in that browser tab and ends after 30 minutes of no use o
 
 ## 4. Plans and money
 
-Prices: Starter ₹199 a month (50 students, 3 batches), Standard ₹299 (100 students, 5 batches), Pro ₹499 (unlimited). Yearly ₹1,999 / ₹2,999 / ₹4,999. New centres get a 14-day free trial. When a plan ends the app is read-only until they pay; nothing is deleted.
+Prices: Starter ₹199 a month (50 students, 3 batches), Standard ₹299 (100 students, 5 batches), Pro ₹499 (unlimited). Yearly ₹1,999 / ₹2,999 / ₹4,999. New centres get a 3-day free trial (centres that joined before 5 Nov 2026 keep their 14 days). When a plan ends the app is read-only until they pay; nothing is deleted.
 
 On a centre → **Billing**:
 - **Extend**: add days to the current plan (a goodwill extension, or a trial extension for a serious centre).

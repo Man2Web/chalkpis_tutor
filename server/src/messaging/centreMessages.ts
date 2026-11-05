@@ -23,7 +23,8 @@ const STALE_MINUTES = 10;
 const E164 = /^\+[1-9]\d{9,14}$/;
 /**
  * How many days before a free trial (and a paid plan) ends its owner is reminded, with the pay link. A trial is
- * reminded once more on its last day.
+ * reminded once more on its last day; a trial no longer than this (the 3-day trial, decision 163) only on its last day,
+ * since the first reminder would come with the welcome.
  */
 export const PLAN_REMINDER_DAYS = { trial: 3, paid: 3 } as const;
 /**
@@ -186,7 +187,7 @@ export async function queuePlanReminders(
   const [rows] = (await pool.query(
     // a plan that renews by itself (in-app store, or auto-renew on the website) is not "ending"; it is reminded about
     // once the owner turns that off, or the automatic payment finally fails
-    `SELECT s.institute_id, s.plan, s.expires_at FROM subscriptions s
+    `SELECT s.institute_id, s.plan, s.starts_at, s.expires_at FROM subscriptions s
       WHERE ((s.expires_at > ? AND s.expires_at <= IF(s.plan = 'trial', ?, ?))
          OR (s.expires_at <= ? AND s.expires_at > ?))
         AND NOT (s.store IS NOT NULL AND s.store_will_renew = 1)
@@ -201,7 +202,7 @@ export async function queuePlanReminders(
       now,
       new Date(now.getTime() - ENDED_WITHIN_DAYS * DAY),
     ],
-  )) as unknown as [{ institute_id: string; plan: string; expires_at: Date }[]];
+  )) as unknown as [{ institute_id: string; plan: string; starts_at: Date; expires_at: Date }[]];
   let n = 0;
   for (const r of rows) {
     const c = await centre(pool, r.institute_id);
@@ -210,6 +211,14 @@ export async function queuePlanReminders(
     // a trial's last day gets its own reminder (the first one came about three days before)
     const last =
       r.plan === 'trial' && type === 'plan_ending' && r.expires_at.getTime() - now.getTime() <= DAY;
+    // a short trial has no "ends in a few days" reminder of its own: only its last day's
+    if (
+      r.plan === 'trial' &&
+      type === 'plan_ending' &&
+      !last &&
+      r.expires_at.getTime() - r.starts_at.getTime() <= PLAN_REMINDER_DAYS.trial * DAY
+    )
+      continue;
     const ref = `${r.expires_at.toISOString().slice(0, 10)}${last ? '-last' : ''}`;
     // the same news in the app (it opens Plans & billing, where owners subscribe in the store). Sent whether or not the
     // WhatsApp one can go (an owner without a phone, a template not set yet); push_log keeps it to once per end date.

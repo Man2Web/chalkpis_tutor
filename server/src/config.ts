@@ -98,8 +98,8 @@ const schema = z.object({
   PUBLIC_BASE_URL: z.string().url().optional(),
   /** JSON: { "absent": { "en": "id", "hi": "id" }, ... } for the 5 parent messages (see docs/WHATSAPP-TEMPLATES.md). */
   WA_TEMPLATES: z.string().optional(),
-  /** How long a new institute's free trial lasts (no card needed); 14 in production (decision 145). */
-  TRIAL_DAYS: z.coerce.number().int().min(1).max(3650).default(7),
+  /** How long a new institute's free trial lasts (no card needed); 3 days since 5 Nov 2026 (decision 163, was 14). */
+  TRIAL_DAYS: z.coerce.number().int().min(1).max(3650).default(3),
   // Admin dashboard emails: sign-in codes, password resets and lockout alerts (SMTP, e.g. the hello@chalkpis.com mailbox).
   SMTP_HOST: z.string().min(1).optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(465),

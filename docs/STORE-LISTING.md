@@ -118,7 +118,7 @@ Starter ₹199 a month or ₹1,999 a year (50 students, 3 batches), Standard ₹
 Pro ₹499 / ₹4,999 (unlimited). New subscribers to a monthly plan pay ₹49 for the first month. Product ids are in
 docs/SETUP.md 4c.
 
-- **Description (both stores) must end with** the subscription terms and links, e.g. "Chalkpis is free to try for 14
+- **Description (both stores) must end with** the subscription terms and links, e.g. "Chalkpis is free to try for 3
   days. Plans are monthly or yearly subscriptions that renew automatically until cancelled in your account settings.
   Terms: https://tutor.chalkpis.com/terms · Privacy: https://tutor.chalkpis.com/privacy". On the App Store also put the
   Terms URL in the "License Agreement" (EULA) field or keep Apple's standard EULA and the link in the description.

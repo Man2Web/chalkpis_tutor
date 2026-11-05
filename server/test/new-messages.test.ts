@@ -270,12 +270,17 @@ describe('messages from Chalkpis to the centre', () => {
   it(`reminds the owner with the pay link ${PLAN_REMINDER_DAYS.trial} days before a trial ends (${PLAN_REMINDER_DAYS.paid} for a paid plan), once`, async () => {
     const B = await h.tenant('+919123456789', { tutor: 'Meena', institute: 'Meena Dance' });
     await h.db.pool.query('DELETE FROM centre_messages');
+    // plans that began two weeks ago (a trial no longer than the reminder window is the next test)
     const ends = (t: Tenant, days: number, plan = 'trial') =>
-      h.db.pool.query('UPDATE subscriptions SET plan = ?, expires_at = ? WHERE institute_id = ?', [
-        plan,
-        new Date(h.clock.now.getTime() + days * 86_400_000),
-        t.instituteId,
-      ]);
+      h.db.pool.query(
+        'UPDATE subscriptions SET plan = ?, starts_at = ?, expires_at = ? WHERE institute_id = ?',
+        [
+          plan,
+          new Date(h.clock.now.getTime() - 14 * 86_400_000),
+          new Date(h.clock.now.getTime() + days * 86_400_000),
+          t.instituteId,
+        ],
+      );
     await ends(A, 1.5);
     await ends(B, 3.5); // a trial 3.5 days out is not yet due
     expect(await queuePlanReminders(h.db.pool, h.clock.now, LINKS)).toBe(1);
@@ -325,6 +330,27 @@ describe('messages from Chalkpis to the centre', () => {
     expect(h.provider.sent.find((m) => m.templateId === '405')).toMatchObject({
       imageUrl: 'https://tutor.chalkpis.com/plan-renew.png',
     });
+  });
+
+  it('a 3-day trial is reminded only on its last day, not with the welcome (decision 163)', async () => {
+    await h.db.pool.query('DELETE FROM centre_messages');
+    const DAY = 86_400_000;
+    const start = h.clock.now;
+    await h.db.pool.query('UPDATE subscriptions SET starts_at = ?, expires_at = ? WHERE institute_id = ?', [
+      start,
+      new Date(start.getTime() + 3 * DAY),
+      A.instituteId,
+    ]);
+    // the first daily run after sign-up, and the next day
+    expect(await queuePlanReminders(h.db.pool, new Date(start.getTime() + 0.2 * DAY), LINKS)).toBe(0);
+    expect(await queuePlanReminders(h.db.pool, new Date(start.getTime() + 1.5 * DAY), LINKS)).toBe(0);
+    // its last day
+    expect(await queuePlanReminders(h.db.pool, new Date(start.getTime() + 2.5 * DAY), LINKS)).toBe(1);
+    expect((await centreRows()).map((r) => [r.type, r.ref])).toEqual([
+      ['plan_ending', '2026-10-11-last'],
+    ]);
+    // and once it has ended
+    expect(await queuePlanReminders(h.db.pool, new Date(start.getTime() + 3.2 * DAY), LINKS)).toBe(1);
   });
 
   it('a reminder whose template is not set yet is not queued, and goes out once it is', async () => {
