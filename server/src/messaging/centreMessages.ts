@@ -220,8 +220,10 @@ export async function queuePlanReminders(
     )
       continue;
     const ref = `${r.expires_at.toISOString().slice(0, 10)}${last ? '-last' : ''}`;
-    // the same news in the app (it opens Plans & billing, where owners subscribe in the store). Sent whether or not the
-    // WhatsApp one can go (an owner without a phone, a template not set yet); push_log keeps it to once per end date.
+    // the same news in the app (it opens Plans & billing, which shows the plan and its end date). Only the news: the
+    // phone apps sell nothing, and Apple and Google allow no call to pay elsewhere inside them, so the way to pay is
+    // the WhatsApp message alone (decision 169). Sent whether or not that one can go (an owner without a phone, a
+    // template not set yet); push_log keeps it to once per end date.
     const label =
       r.plan === 'trial' ? 'free trial' : `${PLANS[r.plan as PlanId]?.name ?? 'Chalkpis'} plan`;
     await pushToUsers(
@@ -236,8 +238,8 @@ export async function queuePlanReminders(
             : `${last ? 'Last reminder: your' : 'Your'} ${label} ends on ${day(r.expires_at)}`,
         body:
           type === 'plan_ended'
-            ? 'Your data is safe. Choose a plan in Plans & billing to keep adding students, attendance and fees.'
-            : 'Choose a plan in Plans & billing to keep everything running. Plans start at ₹5 a day.',
+            ? 'Your students, payments and reports are safe, and you can still see everything.'
+            : 'Everything keeps working until then, and your data always stays safe.',
         screen: 'Billing',
       },
     );
