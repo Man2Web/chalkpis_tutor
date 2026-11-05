@@ -52,7 +52,8 @@ export const FAQS = [
   },
   {
     q: 'How do I pay for ChalkPis Tutor?',
-    a: 'With UPI Autopay or a card through Razorpay, every month or every year, and you can turn auto-renew off any time. You can also buy a plan inside the iPhone or Android app.',
+    // decision 169: plans are paid on the centre's own payment page, never inside the phone apps
+    a: 'On your centre’s own payment page, with UPI Autopay, any UPI app or a card through Razorpay, every month or every year. We send you the link on WhatsApp before your trial or plan ends, and you can turn auto-renew off any time.',
   },
   {
     q: 'Can my staff use it?',
