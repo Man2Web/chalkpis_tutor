@@ -24,14 +24,14 @@ describe('welcome board', () => {
   it('shows the promise, and the ticked lines only once the board has room for them', async () => {
     await render(<LanguageScreen {...welcomeProps} />);
     expect(screen.getByRole('header', { name: 'Run your classes from your phone' })).toBeTruthy();
-    expect(screen.queryByText('Tap only the absent ones')).toBeNull();
+    expect(screen.queryByText('Attendance registers')).toBeNull();
 
     await fireEvent(screen.getByTestId('welcome-board'), 'layout', {
       nativeEvent: { layout: { height: 520 } },
     });
-    expect(screen.getByText('Tap only the absent ones')).toBeTruthy();
+    expect(screen.getByText('Attendance registers')).toBeTruthy();
     expect(screen.getByText('Fee reminders with your UPI QR')).toBeTruthy();
-    expect(screen.getByText('Parents hear it on WhatsApp')).toBeTruthy();
+    expect(screen.getByText('WhatsApp updates to parents')).toBeTruthy();
   });
 
   it('a small phone keeps one line, so the way in stays on screen', async () => {
@@ -39,8 +39,8 @@ describe('welcome board', () => {
     await fireEvent(screen.getByTestId('welcome-board'), 'layout', {
       nativeEvent: { layout: { height: 330 } },
     });
-    expect(screen.getByText('Tap only the absent ones')).toBeTruthy();
-    expect(screen.queryByText('Parents hear it on WhatsApp')).toBeNull();
+    expect(screen.getByText('Attendance registers')).toBeTruthy();
+    expect(screen.queryByText('WhatsApp updates to parents')).toBeNull();
   });
 });
 

@@ -16,9 +16,9 @@ const NATIVE = Platform.OS !== 'web';
 const DEEP = '#0A5A91';
 
 /**
- * The launch finale, after the logo has drawn itself: brand blue bursts out from the centre, the white logo and
- * the tagline rise into place, then `onDone`. About 1.1 s; skipped straight to `onDone` when Reduce Motion is on.
- * The welcome screen opens on the same blue, so launch flows straight into it.
+ * The launch screen: brand blue bursts out from the centre of the white native splash, the white logo and the
+ * tagline rise into place, then `onDone`. About 1.1 s. With Reduce Motion on it shows at once, still, and calls
+ * `onDone` straight away; either way it stays up until the app is ready (AnimatedSplash).
  */
 export function BrandReveal({ onDone }: { onDone: () => void }) {
   const { width, height } = useWindowDimensions();
@@ -34,7 +34,11 @@ export function BrandReveal({ onDone }: { onDone: () => void }) {
       .catch(() => false)
       .then((reduced) => {
         if (!alive) return;
-        if (reduced) return done.current();
+        if (reduced) {
+          burst.setValue(1);
+          content.setValue(1);
+          return done.current();
+        }
         anim = Animated.sequence([
           Animated.timing(burst, {
             toValue: 1,

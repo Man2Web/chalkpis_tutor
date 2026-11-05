@@ -1,13 +1,11 @@
 import { useCallback, useState, type ReactNode } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
-import LottieView from 'lottie-react-native';
 import * as SplashScreen from 'expo-splash-screen';
-import intro from '../../assets/chalkpis-intro.json';
 import { BrandReveal } from './BrandReveal';
 import { useSplashFade } from './splashFade';
 
-// Keep the native splash (plain white, from app.json) up until the Lottie overlay is on screen,
-// so the hand-off is invisible.
+// Keep the native splash (plain white, from app.json) up until the overlay is on screen, so the hand-off is
+// invisible: the blue then grows out of that same white.
 void SplashScreen.preventAutoHideAsync();
 
 interface Props {
@@ -16,10 +14,13 @@ interface Props {
   children: ReactNode;
 }
 
+/**
+ * The one launch screen, on phones and in the browser alike: brand blue with the white logo and "MANAGE • TEACH •
+ * GROW" (see BrandReveal), held until the app is ready, then faded away.
+ */
 export default function AnimatedSplash({ appReady, children }: Props) {
-  const [drawn, setDrawn] = useState(false); // the logo has drawn itself; the blue reveal plays next
-  const [animationDone, setAnimationDone] = useState(false);
-  const { opacity, visible } = useSplashFade(appReady, animationDone);
+  const [revealed, setRevealed] = useState(false);
+  const { opacity, visible } = useSplashFade(appReady, revealed);
   const onLayout = useCallback(() => {
     void SplashScreen.hideAsync();
   }, []);
@@ -28,17 +29,12 @@ export default function AnimatedSplash({ appReady, children }: Props) {
     <View style={styles.root}>
       {children}
       {visible && (
-        <Animated.View style={[styles.overlay, { opacity }]} onLayout={onLayout}>
-          <LottieView
-            source={intro}
-            autoPlay
-            loop={false}
-            speed={1.5}
-            resizeMode="contain"
-            onAnimationFinish={() => setDrawn(true)}
-            style={styles.animation}
-          />
-          {drawn ? <BrandReveal onDone={() => setAnimationDone(true)} /> : null}
+        <Animated.View
+          testID="launch-splash"
+          style={[styles.overlay, { opacity }]}
+          onLayout={onLayout}
+        >
+          <BrandReveal onDone={() => setRevealed(true)} />
         </Animated.View>
       )}
     </View>
@@ -47,12 +43,5 @@ export default function AnimatedSplash({ appReady, children }: Props) {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  overlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // 320 x 320 keeps the mark at 104 dp, matching the canvas design
-  animation: { width: 320, height: 320 },
+  overlay: { ...StyleSheet.absoluteFill, backgroundColor: '#FFFFFF' },
 });

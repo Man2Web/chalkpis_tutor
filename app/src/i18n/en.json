@@ -83,9 +83,9 @@
     "didntGet": "Didn't get the code?",
     "board": {
       "date": "Date: {{date}}",
-      "line1": "Tap only the absent ones",
+      "line1": "Attendance registers",
       "line2": "Fee reminders with your UPI QR",
-      "line3": "Parents hear it on WhatsApp",
+      "line3": "WhatsApp updates to parents",
       "kinds": "Tuition · Coaching · Abacus · Karate · Dance · Yoga · Sports"
     },
     "mobilePlaceholder": "10-digit number"
