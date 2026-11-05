@@ -49,4 +49,5 @@
 - [x] Owner details at sign-up and the admin's payment link (decisions 156, 157)
 - [x] Admin team roles (Super admin, Admin, Customer support), Team page, deleting test centres and people with a code emailed to the super admin, "Test or empty" filter, team guide docs/ADMIN-GUIDE.md (decision 158)
 - [x] WhatsApp spend per day, kind and centre, wallet balance with recharge warning and daily email (decision 159)
+- [x] Sign-in and sign-up redesigned as a classroom board (decision 161): welcome, mobile number, code and the four sign-up steps, on phones, tablets and laptops; no native change, so it can go out over the air; 7 new app tests (416 app tests)
 - [ ] Read the WhatsApp wallet balance automatically if wa.adsme.in offers an API for it (ask adsme)

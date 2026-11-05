@@ -44,11 +44,11 @@
     "continue": "Continue"
   },
   "auth": {
-    "phoneTitle": "Enter your mobile number",
+    "phoneTitle": "Your mobile number",
     "phoneHint": "We will send you a 6-digit code on WhatsApp.",
     "phoneLabel": "Mobile number",
     "sendCode": "Send code",
-    "otpTitle": "Enter verification code",
+    "otpTitle": "Enter the code from WhatsApp",
     "otpSentTo": "Sent to {{phone}}",
     "otpLabel": "6-digit code",
     "verify": "Verify",
@@ -80,16 +80,24 @@
     "loginOrSignup": "Log in or sign up",
     "enterMobile": "Enter mobile number",
     "edit": "Edit",
-    "didntGet": "Didn't get the code?"
+    "didntGet": "Didn't get the code?",
+    "board": {
+      "date": "Date: {{date}}",
+      "line1": "Tap only the absent ones",
+      "line2": "Fee reminders with your UPI QR",
+      "line3": "Parents hear it on WhatsApp",
+      "kinds": "Tuition · Coaching · Abacus · Karate · Dance · Yoga · Sports"
+    },
+    "mobilePlaceholder": "10-digit number"
   },
   "onboarding": {
-    "profileTitle": "About you",
+    "profileTitle": "Your centre",
     "tutorName": "Your name",
     "instituteName": "Name of your class, academy or institute",
     "logo": "Logo (optional)",
     "addLogo": "Add logo",
     "changeLogo": "Change logo",
-    "batchTitle": "Create your first batch",
+    "batchTitle": "Your first batch",
     "batchName": "Batch name",
     "days": "Days",
     "startTime": "Start time",
@@ -103,11 +111,22 @@
     "addStudent": "Add student",
     "added": "{{count}} added",
     "finish": "Finish",
-    "setupError": "Could not set up your institute."
+    "setupError": "Could not set up your institute.",
+    "profileHint": "Parents see your centre's name in the WhatsApp messages it sends.",
+    "batchHint": "Students you teach together at the same time. Add more later.",
+    "board": {
+      "title": "Set up your centre",
+      "centre": "Your centre",
+      "details": "How we reach you",
+      "batch": "Your first batch",
+      "students": "Your first students",
+      "doneLabel": "{{step}}, done",
+      "nowLabel": "{{step}}, this step"
+    }
   },
   "ownerDetails": {
-    "title": "A few details about you",
-    "subtitle": "So we can reach you about your account and help you better. We never share them.",
+    "title": "How we reach you",
+    "subtitle": "Your email and where your centre is. We never share these.",
     "promptTitle": "Complete your details",
     "promptText": "We now ask every centre for a contact email and where it is. It takes 30 seconds.",
     "email": "Email",
@@ -1048,13 +1067,7 @@
     "feesTitle": "Get paid on time",
     "feesText": "Fee reminders carry your own UPI QR. Parents pay you directly.",
     "parentsTitle": "Parents stay in the loop",
-    "parentsText": "Absent alerts and receipts go to parents on WhatsApp.",
-    "cardAttendanceTitle": "Attendance saved",
-    "cardAttendanceText": "Karate Kids · 18 of 20 present",
-    "cardFeeTitle": "₹1,500 received",
-    "cardFeeText": "Riya's parent paid by UPI",
-    "cardParentTitle": "Sent to the parent on WhatsApp",
-    "cardParentText": "Riya was absent today"
+    "parentsText": "Absent alerts and receipts go to parents on WhatsApp."
   },
   "legal": {
     "about": "About",
@@ -1201,10 +1214,6 @@
       "students_other": "{{count}} students",
       "mark": "Mark attendance",
       "edit": "Edit attendance"
-    },
-    "signin": {
-      "title": "Welcome to ChalkPis",
-      "pitch": "Students, attendance, fees and WhatsApp updates to parents, for tuition, coaching, abacus, karate, dance and yoga classes. On your phone, or right here on your laptop."
     }
   },
   "updates": {

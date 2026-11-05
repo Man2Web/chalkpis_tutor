@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Button, Card, FormInput, Screen, toast } from '../../components';
+import { Button, Card, FormInput, toast } from '../../components';
 import { reportError, track } from '../../lib/analytics';
 import { api } from '../../api/client';
 import { refreshProfile } from '../auth/session';
@@ -13,6 +13,7 @@ import type { OnboardingStackParams } from '../../navigation/types';
 import { spacing, type } from '../../theme';
 import { useSession } from '../auth/session';
 import { createStudent } from '../students/api';
+import { SetupLayout } from './SetupLayout';
 import { studentSchema, type StudentForm } from '../students/schema';
 
 export function StudentsScreen({
@@ -74,11 +75,11 @@ export function StudentsScreen({
   };
 
   return (
-    <Screen>
-      <Text style={[type.title, { marginTop: spacing.lg }]}>{t('onboarding.studentsTitle')}</Text>
-      <Text style={[type.caption, { marginBottom: spacing.lg }]}>
-        {t('onboarding.studentsHint')}
-      </Text>
+    <SetupLayout
+      step="students"
+      title={t('onboarding.studentsTitle')}
+      subtitle={t('onboarding.studentsHint')}
+    >
       {added.length > 0 && (
         <Card style={{ marginBottom: spacing.lg, gap: spacing.xs }}>
           <Text style={type.label}>{t('onboarding.added', { count: added.length })}</Text>
@@ -112,6 +113,6 @@ export function StudentsScreen({
         onPress={finish}
         loading={finishing}
       />
-    </Screen>
+    </SetupLayout>
   );
 }

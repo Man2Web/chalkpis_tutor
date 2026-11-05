@@ -12,6 +12,7 @@ import { authErrorKey, confirmCode, RESEND_SECONDS, sendCode } from './phoneAuth
 import {
   CodeBoxes,
   ErrorText,
+  InlineLink,
   INK,
   PrimaryButton,
   SignInLayout,
@@ -80,13 +81,7 @@ export function OtpScreen({ navigation, route }: NativeStackScreenProps<AuthStac
       subtitle={
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
           <Subtle>{t('auth.otpSentTo', { phone: formatIndianPhone(phone) })}</Subtle>
-          <Text
-            accessibilityRole="link"
-            onPress={() => navigation.goBack()}
-            style={{ fontSize: 15, ...font('700'), color: BRAND }}
-          >
-            {t('auth.edit')}
-          </Text>
+          <InlineLink title={t('auth.edit')} onPress={() => navigation.goBack()} />
         </View>
       }
       onBack={() => navigation.goBack()}

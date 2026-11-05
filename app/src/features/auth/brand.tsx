@@ -1,15 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import {
-  AccessibilityInfo,
-  Animated,
-  Easing,
-  Linking,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useEffect, useState, type ReactNode } from 'react';
+import { AccessibilityInfo, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -22,7 +12,6 @@ import { colors, column, font, radius, spacing } from '../../theme';
 
 /** The sign-in screens' brand blue, a shade deeper at the bottom so white text stays crisp. */
 export const BRAND_DEEP = '#0A5A91';
-const NATIVE = Platform.OS !== 'web';
 
 /** True when the person asked their phone for less motion; animations then stay still. */
 export function useReducedMotion() {
@@ -102,93 +91,6 @@ export function BrandBackdrop({ children }: { children?: ReactNode }) {
         />
       </Svg>
       {children}
-    </View>
-  );
-}
-
-/** Rises into place once, then bobs gently (still when Reduce Motion is on). */
-export function Float({
-  children,
-  delay = 0,
-  drift = 6,
-  rotate = '0deg',
-}: {
-  children: ReactNode;
-  delay?: number;
-  drift?: number;
-  rotate?: string;
-}) {
-  const reduced = useReducedMotion();
-  const enter = useRef(new Animated.Value(0)).current;
-  const bob = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const rise = Animated.timing(enter, {
-      toValue: 1,
-      duration: reduced ? 0 : 520,
-      delay: reduced ? 0 : delay,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: NATIVE,
-    });
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bob, {
-          toValue: 1,
-          duration: 2200,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: NATIVE,
-        }),
-        Animated.timing(bob, {
-          toValue: 0,
-          duration: 2200,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: NATIVE,
-        }),
-      ]),
-    );
-    rise.start(() => {
-      if (!reduced) loop.start();
-    });
-    return () => {
-      rise.stop();
-      loop.stop();
-    };
-  }, [bob, delay, enter, reduced]);
-  const translateY = Animated.add(
-    enter.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }),
-    bob.interpolate({ inputRange: [0, 1], outputRange: [0, -drift] }),
-  );
-  return (
-    <Animated.View style={{ opacity: enter, transform: [{ translateY }, { rotate }] }}>
-      {children}
-    </Animated.View>
-  );
-}
-
-/** A small white "app preview" card for the welcome hero. */
-export function PreviewCard({
-  icon,
-  tint,
-  title,
-  text,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  tint: string;
-  title: string;
-  text: string;
-}) {
-  return (
-    <View style={styles.card}>
-      <View style={[styles.cardIcon, { backgroundColor: `${tint}1F` }]}>
-        <Ionicons name={icon} size={18} color={tint} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.cardTitle} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text style={styles.cardText} numberOfLines={1}>
-          {text}
-        </Text>
-      </View>
     </View>
   );
 }
@@ -341,30 +243,6 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingVertical: 4,
   },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: '#FFFFFF',
-    borderRadius: radius.lg,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    shadowColor: '#062F4D',
-    shadowOpacity: 0.22,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 6,
-    maxWidth: 320,
-  },
-  cardIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardTitle: { fontSize: 14, ...font('700'), color: colors.text },
-  cardText: { fontSize: 12.5, ...font('500'), color: colors.textMuted, marginTop: 1 },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',

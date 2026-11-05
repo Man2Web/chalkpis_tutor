@@ -1,19 +1,18 @@
 import { useIdempotencyKey } from '../../api/idempotency';
 import { useEffect } from 'react';
-import { Text } from 'react-native';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Button, Screen, toast } from '../../components';
+import { Button, toast } from '../../components';
 import { reportError } from '../../lib/analytics';
 import { api } from '../../api/client';
 import type { OnboardingStackParams } from '../../navigation/types';
-import { spacing, type } from '../../theme';
 import { createBatch } from '../batches/api';
 import { BatchFormFields, emptyBatchForm } from '../batches/BatchFormFields';
 import { batchSchema, type BatchForm } from '../batches/schema';
 import { useSession } from '../auth/session';
+import { SetupLayout } from './SetupLayout';
 
 export function BatchScreen({
   navigation,
@@ -55,10 +54,13 @@ export function BatchScreen({
   });
 
   return (
-    <Screen>
-      <Text style={[type.title, { marginVertical: spacing.lg }]}>{t('onboarding.batchTitle')}</Text>
+    <SetupLayout
+      step="batch"
+      title={t('onboarding.batchTitle')}
+      subtitle={t('onboarding.batchHint')}
+    >
       <BatchFormFields control={control} />
       <Button title={t('common.next')} onPress={submit} loading={formState.isSubmitting} />
-    </Screen>
+    </SetupLayout>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -19,15 +19,16 @@ import { useTranslation } from 'react-i18next';
 import { BRAND } from '../../components';
 import { KeyboardAvoid } from '../../components/KeyboardScroll';
 import { haptic } from '../../lib/haptics';
-import { column, font, spacing } from '../../theme';
+import { font, spacing } from '../../theme';
 import { useDesktop } from '../../desktop/useDesktop';
 import { AuthSplit } from './AuthSplit';
+import { BOARD, BoardHeader, IndiaFlag, OnBoard, SIGNIN_COLUMN, SIGNIN_INNER } from './board';
 import { useReducedMotion } from './brand';
 
 /**
- * The sign-in design: white screens, one bold title, one big field and one black button that rides above the
- * keyboard (the pattern people know from food-delivery and ride apps), with the brand blue only for focus and links
- * and WhatsApp green only where WhatsApp is meant.
+ * The sign-in design: the board on top says what the step is (see board.tsx), the white paper below holds one big
+ * field, and one slate button, the board's own colour, rides above the keyboard. Brand blue only for focus and
+ * links, WhatsApp green only where WhatsApp is meant.
  */
 export const INK = '#111111';
 export const SIGNIN = {
@@ -42,8 +43,9 @@ export const SIGNIN = {
 const NATIVE = Platform.OS !== 'web';
 
 /**
- * A sign-in step: back button, title and subtitle at the top, the form below, and `footer` (the main button) pinned
- * to the bottom, lifted above the keyboard while typing.
+ * A sign-in step: on a phone the board (back button, title, subtitle) at the top, the form on the paper below, and
+ * `footer` (the main button) pinned to the bottom, lifted above the keyboard while typing. On a laptop the board
+ * stands on the left and the form follows on the right.
  */
 export function SignInLayout({
   title,
@@ -89,23 +91,14 @@ export function SignInLayout({
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
+      {/* slate behind the top, so pulling the page down past its start (iPhone) shows more board, not white */}
+      {Platform.OS === 'ios' ? <View pointerEvents="none" style={styles.overscroll} /> : null}
       <KeyboardAvoid style={{ flex: 1 }} behavior="padding">
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{
-            flexGrow: 1,
-            paddingTop: Math.max(insets.top, spacing.md) + spacing.sm,
-            paddingBottom: spacing.lg,
-          }}
-        >
-          <View style={[column, styles.page]}>
-            {back}
-            <Text style={styles.title} accessibilityRole="header" maxFontSizeMultiplier={1.4}>
-              {title}
-            </Text>
-            {subtitle ? <View style={{ marginTop: spacing.sm }}>{subtitle}</View> : null}
-            <View style={{ marginTop: spacing.xl, gap: spacing.md }}>{children}</View>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1 }}>
+          <BoardHeader title={title} subtitle={subtitle} onBack={onBack} topInset={insets.top} />
+          <View style={styles.paper}>
+            <View style={[SIGNIN_COLUMN, styles.page, { gap: spacing.md }]}>{children}</View>
           </View>
         </ScrollView>
         {footer ? (
@@ -115,7 +108,7 @@ export function SignInLayout({
               { paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.xs },
             ]}
           >
-            <View style={[column, { width: '100%', gap: spacing.sm }]}>{footer}</View>
+            <View style={[SIGNIN_INNER, { gap: spacing.sm }]}>{footer}</View>
           </View>
         ) : null}
       </KeyboardAvoid>
@@ -123,12 +116,31 @@ export function SignInLayout({
   );
 }
 
-/** Subtitle text in the muted grey. */
+/** Subtitle text: muted grey on paper, dim chalk on the board. */
 export function Subtle({ children }: { children: ReactNode }) {
-  return <Text style={styles.subtle}>{children}</Text>;
+  const board = useContext(OnBoard);
+  return <Text style={[styles.subtle, board && { color: BOARD.chalkDim }]}>{children}</Text>;
 }
 
-/** The black, full-width main button. Shows a spinner while `loading`. */
+/** A link inside a subtitle (Edit the number): brand blue on paper, yellow chalk on the board. */
+export function InlineLink({ title, onPress }: { title: string; onPress: () => void }) {
+  const board = useContext(OnBoard);
+  return (
+    <Text
+      accessibilityRole="link"
+      onPress={onPress}
+      style={[
+        styles.inlineLink,
+        { color: board ? BOARD.yellow : BRAND },
+        board && { textDecorationLine: 'underline' },
+      ]}
+    >
+      {title}
+    </Text>
+  );
+}
+
+/** The full-width main button, in the board's slate. Shows a spinner while `loading`. */
 export function PrimaryButton({
   title,
   onPress,
@@ -142,7 +154,7 @@ export function PrimaryButton({
   icon?: keyof typeof Ionicons.glyphMap;
   tone?: 'ink' | 'whatsapp';
 }) {
-  const bg = tone === 'whatsapp' ? SIGNIN.whatsapp : INK;
+  const bg = tone === 'whatsapp' ? SIGNIN.whatsapp : BOARD.slate;
   return (
     <Pressable
       accessibilityRole="button"
@@ -215,7 +227,7 @@ export function TextButton({
 export function CountryChip() {
   return (
     <View style={styles.country} accessibilityElementsHidden importantForAccessibility="no">
-      <Text style={{ fontSize: 18 }}>🇮🇳</Text>
+      <IndiaFlag />
       <Text style={styles.countryCode}>+91</Text>
     </View>
   );
@@ -264,7 +276,7 @@ export function PhoneField({
           value={value}
           onChangeText={(v) => onChangeText(formatMobileInput(v))}
           accessibilityLabel={label}
-          placeholder={t('auth.enterMobile')}
+          placeholder={t('auth.mobilePlaceholder')}
           placeholderTextColor="#9CA3AF"
           keyboardType="phone-pad"
           autoComplete="tel"
@@ -438,6 +450,21 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 30, lineHeight: 36, ...font('800'), color: INK, letterSpacing: -0.4 },
   subtle: { fontSize: 15, lineHeight: 22, ...font('500'), color: SIGNIN.muted },
+  inlineLink: { fontSize: 15, lineHeight: 22, ...font('700') },
+  overscroll: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: '50%',
+    backgroundColor: BOARD.slate,
+  },
+  paper: {
+    flexGrow: 1,
+    backgroundColor: '#FFFFFF',
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
+  },
   footer: {
     paddingHorizontal: spacing.lg + 4,
     paddingTop: spacing.md,
@@ -462,7 +489,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   textButtonText: { fontSize: 15, ...font('700') },
-  country: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 14 },
+  country: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 14 },
   countryCode: { fontSize: 19, ...font('700'), color: INK },
   field: {
     flexDirection: 'row',
@@ -474,6 +501,8 @@ const styles = StyleSheet.create({
   fieldDivider: { width: 1.5, height: 26, backgroundColor: SIGNIN.line, marginHorizontal: 12 },
   fieldInput: {
     flex: 1,
+    // without this a browser sizes the field to its placeholder and pushes the page sideways
+    minWidth: 0,
     alignSelf: 'stretch',
     fontSize: 20,
     ...font('700'),

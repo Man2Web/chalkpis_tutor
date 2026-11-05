@@ -7,13 +7,14 @@ import { z } from 'zod';
 import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Button, FormInput, Screen, toast } from '../../components';
+import { Button, FormInput, toast } from '../../components';
 import { reportError } from '../../lib/analytics';
 import { CATEGORIES } from '../../lib/category';
 import { api, uploadImage } from '../../api/client';
 import { refreshProfile } from '../auth/session';
 import type { OnboardingStackParams } from '../../navigation/types';
 import { CategoryPicker } from '../settings/CategoryPicker';
+import { SetupLayout } from './SetupLayout';
 import { spacing, type } from '../../theme';
 
 const schema = z.object({
@@ -70,10 +71,11 @@ export function ProfileScreen({
   });
 
   return (
-    <Screen>
-      <Text style={[type.title, { marginVertical: spacing.lg }]}>
-        {t('onboarding.profileTitle')}
-      </Text>
+    <SetupLayout
+      step="centre"
+      title={t('onboarding.profileTitle')}
+      subtitle={t('onboarding.profileHint')}
+    >
       <Controller
         control={control}
         name="category"
@@ -111,6 +113,6 @@ export function ProfileScreen({
         />
       </View>
       <Button title={t('common.next')} onPress={submit} loading={formState.isSubmitting} />
-    </Screen>
+    </SetupLayout>
   );
 }

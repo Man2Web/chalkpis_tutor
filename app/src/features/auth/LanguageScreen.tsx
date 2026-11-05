@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -7,15 +7,23 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Logo } from '../../components';
 import { haptic } from '../../lib/haptics';
 import type { AuthStackParams } from '../../navigation/types';
-import { colors, column, font, spacing, type } from '../../theme';
+import { colors, font, spacing, type } from '../../theme';
 import { useDesktop } from '../../desktop/useDesktop';
-import { AuthSplit, WELCOME_CARDS as CARDS } from './AuthSplit';
-import { BrandBackdrop, BRAND_DEEP, Float, PreviewCard } from './brand';
+import { AuthSplit } from './AuthSplit';
+import {
+  BOARD,
+  BoardDate,
+  BoardLedge,
+  BoardSurface,
+  SIGNIN_COLUMN,
+  SIGNIN_INNER,
+  WelcomeBoard,
+} from './board';
 import { CountryChip, PrimaryButton, SIGNIN } from './signin';
 
 /**
- * First screen, for new and returning teachers alike (tuition, coaching, abacus, karate, dance, yoga, sports): what
- * Chalkpis does, then one tap to continue with WhatsApp.
+ * First screen, for new and returning teachers alike (tuition, coaching, abacus, karate, dance, yoga, sports): the
+ * board says what Chalkpis does, the paper under it is the way in.
  * Signing up and signing in are the same step: a WhatsApp code to the tutor's mobile number.
  */
 export function LanguageScreen({
@@ -23,14 +31,14 @@ export function LanguageScreen({
 }: NativeStackScreenProps<AuthStackParams, 'Language'>) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  // the cards only show when the hero has room for them (they are illustration, never needed to sign in)
-  const [heroH, setHeroH] = useState(0);
-  const cards = heroH >= 430 ? 3 : heroH >= 340 ? 2 : heroH >= 260 ? 1 : 0;
+  // the ticked lines only show when the board has room for them (they are illustration, never needed to sign in)
+  const [boardH, setBoardH] = useState(0);
+  const lines = boardH >= 400 ? 3 : boardH >= 360 ? 2 : boardH >= 320 ? 1 : 0;
   const desktop = useDesktop();
 
-  // the way in, sign-up and sign-in alike: the white sheet on a phone, the form beside the brand panel on a laptop
+  // the way in, sign-up and sign-in alike: the paper under the board on a phone, beside the board on a laptop
   const signIn = (
-    <View style={[column, { width: '100%', gap: spacing.md }]}>
+    <View style={[SIGNIN_INNER, { gap: spacing.md }]}>
       {desktop ? (
         <Text
           accessibilityRole="header"
@@ -39,22 +47,20 @@ export function LanguageScreen({
             lineHeight: 36,
             ...font('800'),
             color: colors.text,
+            letterSpacing: -0.5,
             marginBottom: spacing.sm,
           }}
         >
-          {t('desktop.signin.title')}
+          {t('auth.loginOrSignup')}
         </Text>
-      ) : null}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-        <View style={{ flex: 1, height: 1, backgroundColor: SIGNIN.line }} />
+      ) : (
         <Text
           accessibilityRole="header"
-          style={{ fontSize: 15, ...font('700'), color: SIGNIN.muted }}
+          style={{ fontSize: 15, ...font('700'), color: SIGNIN.ink }}
         >
           {t('auth.loginOrSignup')}
         </Text>
-        <View style={{ flex: 1, height: 1, backgroundColor: SIGNIN.line }} />
-      </View>
+      )}
       {/* looks like the number field; the real one opens on the next screen with the keyboard up */}
       <Pressable
         accessibilityRole="button"
@@ -112,73 +118,59 @@ export function LanguageScreen({
   if (desktop) return <AuthSplit>{signIn}</AuthSplit>;
 
   return (
-    <View style={{ flex: 1, backgroundColor: BRAND_DEEP }}>
+    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
       <StatusBar style="light" />
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1 }}
-        bounces={false}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Hero: brand blue, the logo, the promise, and a glimpse of the app */}
+      {/* slate behind the top, so pulling the page down past its start (iPhone) shows more board, not white */}
+      {Platform.OS === 'ios' ? (
         <View
+          pointerEvents="none"
           style={{
-            flex: 1,
-            minHeight: 230,
-            paddingTop: Math.max(insets.top, spacing.lg) + spacing.lg,
-            overflow: 'hidden',
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            height: '50%',
+            backgroundColor: BOARD.slate,
           }}
-          onLayout={(e) => setHeroH(e.nativeEvent.layout.height)}
-        >
-          <BrandBackdrop />
-          <View style={[column, { width: '100%', flex: 1, paddingHorizontal: spacing.xl }]}>
-            <Logo height={30} variant="full" color="#FFFFFF" markColor="#FFFFFF" />
-            <Text
-              accessibilityRole="header"
-              maxFontSizeMultiplier={1.4}
-              style={{
-                color: '#FFFFFF',
-                fontSize: 32,
-                lineHeight: 38,
-                ...font('800'),
-                marginTop: spacing.xl,
-              }}
-            >
-              {t('auth.welcomeHeadline')}
-            </Text>
+        />
+      ) : null}
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+        {/* The board: logo and date, the promise, and what the app does, ticked in chalk */}
+        <BoardSurface style={{ flex: 1, minHeight: 250 }}>
+          <View
+            testID="welcome-board"
+            onLayout={(e) => setBoardH(e.nativeEvent.layout.height)}
+            style={[
+              SIGNIN_COLUMN,
+              {
+                flex: 1,
+                paddingTop: Math.max(insets.top, spacing.lg) + spacing.md,
+                paddingHorizontal: spacing.lg + 4,
+                paddingBottom: spacing.xl + spacing.sm,
+              },
+            ]}
+          >
             <View
               style={{
-                flex: 1,
-                justifyContent: 'center',
-                gap: spacing.md,
-                paddingTop: spacing.lg,
-                paddingBottom: 44,
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
               }}
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
             >
-              {CARDS.slice(0, cards).map((c, i) => (
-                <View key={c.key} style={{ alignSelf: c.align }}>
-                  <Float delay={250 + i * 160} drift={5 + i} rotate={c.rotate}>
-                    <PreviewCard
-                      icon={c.icon}
-                      tint={c.tint}
-                      title={t(`welcome.card${c.key}Title`)}
-                      text={t(`welcome.card${c.key}Text`)}
-                    />
-                  </Float>
-                </View>
-              ))}
+              <Logo height={26} variant="full" color={BOARD.chalk} markColor={BOARD.chalk} />
+              <BoardDate />
+            </View>
+            <View style={{ flex: 1, justifyContent: 'center', paddingTop: spacing.md }}>
+              <WelcomeBoard lines={lines} />
             </View>
           </View>
-        </View>
+        </BoardSurface>
+        <BoardLedge />
 
-        {/* Sheet: the way in, sign-up and sign-in alike */}
+        {/* The paper: the way in, sign-up and sign-in alike */}
         <View
           style={{
-            backgroundColor: colors.bg,
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28,
-            marginTop: -28,
+            backgroundColor: '#FFFFFF',
             paddingTop: spacing.xl,
             paddingHorizontal: spacing.lg + 4,
             paddingBottom: insets.bottom + spacing.md,

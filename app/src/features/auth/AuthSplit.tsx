@@ -1,76 +1,40 @@
 import type { ReactNode } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useTranslation } from 'react-i18next';
 import { Logo } from '../../components';
-import { font, spacing } from '../../theme';
-import { BrandBackdrop, BRAND_DEEP, Float, PreviewCard } from './brand';
-
-/** What a tutor's day looks like in Chalkpis, as three little cards floating on the brand blue. */
-export const WELCOME_CARDS = [
-  {
-    icon: 'checkmark-circle',
-    tint: '#16A34A',
-    key: 'Attendance',
-    rotate: '-3deg',
-    align: 'flex-start',
-  },
-  { icon: 'cash-outline', tint: '#0E77BE', key: 'Fee', rotate: '2.5deg', align: 'flex-end' },
-  { icon: 'logo-whatsapp', tint: '#1DA851', key: 'Parent', rotate: '-1.5deg', align: 'center' },
-] as const;
+import { spacing } from '../../theme';
+import { BOARD, BoardDate, BoardLedge, BoardSurface, OnBoard, WelcomeBoard } from './board';
 
 /**
- * Signing in on a laptop or desktop: the brand panel on the left (the promise and a glimpse of the app), the form
- * centred on the right. Each sign-in step keeps the panel and changes only the form.
+ * Signing in or setting up on a laptop or desktop: the board on the left (what Chalkpis does, or with `board`
+ * something else written on it, such as the sign-up steps), the form centred on white paper on the right. Each step
+ * keeps the board and changes only the form.
  */
-export function AuthSplit({ children }: { children: ReactNode }) {
-  const { t } = useTranslation();
+export function AuthSplit({ children, board }: { children: ReactNode; board?: ReactNode }) {
   return (
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: '#FFFFFF' }}>
       <StatusBar style="dark" />
-      <View
-        style={{ width: '46%', maxWidth: 680, backgroundColor: BRAND_DEEP, overflow: 'hidden' }}
-      >
-        <BrandBackdrop />
-        <View style={{ flex: 1, padding: 56, justifyContent: 'space-between', gap: spacing.xl }}>
-          <Logo height={32} variant="full" color="#FFFFFF" markColor="#FFFFFF" />
-          <View style={{ gap: spacing.lg, maxWidth: 520 }}>
-            <Text
-              accessibilityRole="header"
-              style={{ color: '#FFFFFF', fontSize: 44, lineHeight: 52, ...font('800') }}
-            >
-              {t('auth.welcomeHeadline')}
-            </Text>
-            <Text
-              style={{
-                color: 'rgba(255,255,255,0.82)',
-                fontSize: 17,
-                lineHeight: 26,
-                ...font('500'),
-              }}
-            >
-              {t('desktop.signin.pitch')}
-            </Text>
-          </View>
-          <View
-            style={{ gap: spacing.md, maxWidth: 440 }}
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-          >
-            {WELCOME_CARDS.map((c, i) => (
-              <View key={c.key} style={{ alignSelf: c.align }}>
-                <Float delay={250 + i * 160} drift={5 + i} rotate={c.rotate}>
-                  <PreviewCard
-                    icon={c.icon}
-                    tint={c.tint}
-                    title={t(`welcome.card${c.key}Title`)}
-                    text={t(`welcome.card${c.key}Text`)}
-                  />
-                </Float>
+      <View style={{ width: '46%', maxWidth: 680, backgroundColor: BOARD.slate }}>
+        <OnBoard.Provider value>
+          <BoardSurface style={{ flex: 1 }}>
+            <View style={{ flex: 1, padding: 56, paddingBottom: 48, gap: spacing.xl }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <Logo height={32} variant="full" color={BOARD.chalk} markColor={BOARD.chalk} />
+                <BoardDate />
               </View>
-            ))}
-          </View>
-        </View>
+              <View style={{ flex: 1, justifyContent: 'center', maxWidth: 520 }}>
+                {board ?? <WelcomeBoard big kinds />}
+              </View>
+            </View>
+          </BoardSurface>
+          <BoardLedge />
+        </OnBoard.Provider>
       </View>
       <ScrollView
         style={{ flex: 1 }}
