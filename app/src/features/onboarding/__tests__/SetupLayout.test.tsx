@@ -22,3 +22,19 @@ it('the laptop board lists the steps, done ones and this one said as such', asyn
   expect(screen.getByLabelText('Your first batch, this step')).toBeTruthy();
   expect(screen.getByLabelText('Your first students')).toBeTruthy();
 });
+
+it('a set-up centre that skipped the details step gets it alone: no step count, the others ticked', async () => {
+  await render(
+    <SetupLayout step="details" finishing title="Complete your details">
+      <Text>form</Text>
+    </SetupLayout>,
+  );
+  expect(screen.getByRole('header', { name: 'Complete your details' })).toBeTruthy();
+  expect(screen.queryByLabelText('Step 2 of 4')).toBeNull();
+
+  await render(<SetupBoard step="details" finishing />);
+  expect(screen.getByLabelText('Your centre, done')).toBeTruthy();
+  expect(screen.getByLabelText('How we reach you, this step')).toBeTruthy();
+  expect(screen.getByLabelText('Your first batch, done')).toBeTruthy();
+  expect(screen.getByLabelText('Your first students, done')).toBeTruthy();
+});

@@ -129,6 +129,7 @@
     "subtitle": "Your email and where your centre is. We never share these.",
     "promptTitle": "Complete your details",
     "promptText": "We now ask every centre for a contact email and where it is. It takes 30 seconds.",
+    "requiredText": "One last step before you start: a contact email and where your centre is. It takes 30 seconds.",
     "email": "Email",
     "emailHint": "For your Chalkpis plan receipts and important updates.",
     "city": "City or town",

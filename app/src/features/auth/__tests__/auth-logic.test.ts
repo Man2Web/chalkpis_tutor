@@ -45,4 +45,12 @@ describe('statusFor', () => {
   it('ready only when institute exists and onboarding is done', () => {
     expect(statusFor('u', profile({ instituteId: 'I', onboardingDone: true }), true)).toBe('ready');
   });
+  it('back to the details step for an owner who skipped it at sign-up (decision 162)', () => {
+    const done = { instituteId: 'I', onboardingDone: true };
+    expect(
+      statusFor('u', profile({ ...done, detailsDone: false, detailsRequired: true }), true),
+    ).toBe('needsOnboarding');
+    // an older centre may put them off; an older server does not say
+    expect(statusFor('u', profile({ ...done, detailsDone: false }), true)).toBe('ready');
+  });
 });

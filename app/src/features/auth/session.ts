@@ -41,6 +41,8 @@ export interface MeResponse {
     onboardingDone: boolean;
     /** the owner's basic details are in (decision 156); missing from older servers */
     detailsDone?: boolean;
+    /** the owner must give them before using the app (decision 162); missing from older servers */
+    detailsRequired?: boolean;
   } | null;
 }
 
@@ -56,6 +58,7 @@ export function applyMe(me: MeResponse) {
           instituteId: me.membership.instituteId,
           onboardingDone: me.membership.onboardingDone,
           detailsDone: me.membership.detailsDone ?? true,
+          detailsRequired: me.membership.detailsRequired ?? false,
         }
       : {}),
   };

@@ -47,6 +47,27 @@ describe('owner details', () => {
     expect((await me(B)).detailsDone).toBe(false);
   });
 
+  it('a centre made since sign-up asked must give them first; an older one may put them off (decision 162)', async () => {
+    const madeAt = (t: Tenant, at: string) =>
+      h.db.pool.query('UPDATE institutes SET created_at = ? WHERE id = ?', [
+        new Date(at),
+        t.instituteId,
+      ]);
+    // signed up on a phone whose first launch ran the store build's sign-up, which had no details step
+    await madeAt(A, '2026-11-05T09:31:00Z');
+    // set up the day before sign-up asked for them
+    await madeAt(B, '2026-11-04T18:29:59Z');
+    expect(await me(A)).toMatchObject({ detailsDone: false, detailsRequired: true });
+    expect(await me(B)).toMatchObject({ detailsDone: false, detailsRequired: false });
+
+    const r = await A.call('POST', '/staff', { phone: '9876511111', name: 'Helper One' });
+    const helper = h.login(r.body.id as string, A.instituteId);
+    expect(await me(helper)).toMatchObject({ detailsDone: true, detailsRequired: false });
+
+    await A.call('PUT', '/institute/details', DETAILS);
+    expect(await me(A)).toMatchObject({ detailsDone: true, detailsRequired: false });
+  });
+
   it('can be changed later; the Other text is kept only with Other', async () => {
     await A.call('PUT', '/institute/details', { ...DETAILS, heardFromOther: 'ignored' });
     expect((await A.call('GET', '/institute')).body.details.heardFromOther).toBe('');

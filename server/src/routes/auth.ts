@@ -5,6 +5,7 @@ import type { AppDeps } from '../app.js';
 import { authenticate } from '../auth/guard.js';
 import { confirmPhoneOwnership, requestOtp, verifyOtp } from '../auth/otp.js';
 import { endSession, refreshSession, startSession } from '../auth/sessions.js';
+import { detailsRequired } from '../institutes/details.js';
 import { noteAppSignIn } from '../institutes/service.js';
 import type { MessageProvider } from '../messaging/provider.js';
 
@@ -32,7 +33,8 @@ async function isBlocked(pool: Deps['pool'], userId: string) {
 /** The profile the app needs right after login. Never includes anything about other users. */
 async function profile(deps: Deps, userId: string) {
   const [rows] = (await deps.pool.query(
-    `SELECT u.id, u.phone, u.name, u.language, m.institute_id, m.role, m.onboarding_done, i.details_at
+    `SELECT u.id, u.phone, u.name, u.language, m.institute_id, m.role, m.onboarding_done, i.details_at,
+            i.created_at
        FROM users u LEFT JOIN memberships m ON m.user_id = u.id LEFT JOIN institutes i ON i.id = m.institute_id
       WHERE u.id = ?`,
     [userId],
@@ -46,6 +48,7 @@ async function profile(deps: Deps, userId: string) {
       role: string | null;
       onboarding_done: number | null;
       details_at: Date | null;
+      created_at: Date | null;
     }[],
   ];
   const r = rows[0];
@@ -59,6 +62,8 @@ async function profile(deps: Deps, userId: string) {
           onboardingDone: !!r.onboarding_done,
           // the owner's basic details are in (decision 156); a helper is never asked
           detailsDone: r.role !== 'owner' || !!r.details_at,
+          // ...and must be before the app can be used: a centre made since sign-up asked for them (decision 162)
+          detailsRequired: detailsRequired(r),
         }
       : null,
   };

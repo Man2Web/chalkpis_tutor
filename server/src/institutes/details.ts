@@ -99,6 +99,24 @@ export async function saveOwnerDetails(
   );
 }
 
+/**
+ * Centres made from this moment (5 Nov 2026, midnight in India) were meant to give their details at sign-up. One that
+ * did not (a phone's first launch still ran the store build's older sign-up, which had no such step) must give them
+ * before using the app (decision 162). Older centres can still put the request off.
+ */
+export const DETAILS_AT_SIGNUP_FROM = new Date('2026-11-04T18:30:00Z');
+
+/** Whether this owner must fill in their details before going on: none yet, on a centre made since sign-up asked. */
+export const detailsRequired = (r: {
+  role: string | null;
+  details_at: Date | null;
+  created_at: Date | null;
+}) =>
+  r.role === 'owner' &&
+  !r.details_at &&
+  !!r.created_at &&
+  r.created_at.getTime() >= DETAILS_AT_SIGNUP_FROM.getTime();
+
 export interface DetailsRow {
   contact_email: string | null;
   city: string | null;

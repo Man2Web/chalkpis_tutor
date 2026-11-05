@@ -16,17 +16,20 @@ export type SetupStep = (typeof SETUP_STEPS)[number];
 /**
  * A sign-up step. On a phone: the board on top with "Step n of 4", the title and a line on why it is asked, and the
  * form on the paper below, kept above the keyboard. On a laptop the board on the left lists the four steps, ticked
- * off as they are done, and the form stands on the right.
+ * off as they are done, and the form stands on the right. `finishing`: the centre is already set up and only this step
+ * was skipped (decision 162), so there is no step count and every other step is ticked.
  */
 export function SetupLayout({
   step,
   title,
   subtitle,
+  finishing = false,
   children,
 }: {
   step: SetupStep;
   title: string;
   subtitle?: string;
+  finishing?: boolean;
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
@@ -35,7 +38,7 @@ export function SetupLayout({
 
   if (desktop)
     return (
-      <AuthSplit board={<SetupBoard step={step} />}>
+      <AuthSplit board={<SetupBoard step={step} finishing={finishing} />}>
         <Text style={[type.largeTitle, { ...font('800') }]} accessibilityRole="header">
           {title}
         </Text>
@@ -57,7 +60,7 @@ export function SetupLayout({
         <BoardHeader
           title={title}
           subtitle={subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : undefined}
-          step={[n, SETUP_STEPS.length]}
+          step={finishing ? undefined : [n, SETUP_STEPS.length]}
           topInset={insets.top}
         />
         <View style={[styles.paper, { paddingBottom: insets.bottom + spacing.lg }]}>
@@ -69,7 +72,7 @@ export function SetupLayout({
 }
 
 /** The laptop board during sign-up: the four steps as a list, done ones ticked, this one underlined in chalk. */
-export function SetupBoard({ step }: { step: SetupStep }) {
+export function SetupBoard({ step, finishing = false }: { step: SetupStep; finishing?: boolean }) {
   const { t } = useTranslation();
   const current = SETUP_STEPS.indexOf(step);
   return (
@@ -82,7 +85,7 @@ export function SetupBoard({ step }: { step: SetupStep }) {
       </View>
       <View style={{ marginTop: 40, gap: 22 }}>
         {SETUP_STEPS.map((s, i) => {
-          const done = i < current;
+          const done = finishing ? i !== current : i < current;
           const now = i === current;
           const label = t(`onboarding.board.${s}`);
           return (

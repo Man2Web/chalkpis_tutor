@@ -13,6 +13,8 @@ export interface UserProfile {
   onboardingDone?: boolean;
   /** The owner's basic details are in (decision 156). Always true for a helper, and when an older server does not say. */
   detailsDone?: boolean;
+  /** ...and must be before the app can be used: a centre made since sign-up asked for them (decision 162). */
+  detailsRequired?: boolean;
 }
 
 export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
