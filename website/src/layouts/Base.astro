@@ -20,7 +20,11 @@ interface Props {
   noindex?: boolean;
 }
 const { title, description, schema, noindex } = Astro.props;
-const canonical = new URL(Astro.url.pathname, SITE_URL).href;
+// build.format 'file' makes Astro.url end in .html (/index.html, /pricing.html), but the site is served and listed in the
+// sitemap without it (/, /pricing), so the canonical address drops it.
+const path = Astro.url.pathname.replace(/\.html$/, '').replace(/(^|\/)index$/, '/') || '/';
+const canonical = new URL(path, SITE_URL).href;
+const ogImage = new URL('/og.png', SITE_URL).href;
 ---
 <!doctype html>
 <html lang="en-IN">
@@ -30,7 +34,9 @@ const canonical = new URL(Astro.url.pathname, SITE_URL).href;
     <title>{title}</title>
     <meta name="description" content={description} />
     {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="theme-color" content="#ffffff" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content={SITE_NAME} />
@@ -38,7 +44,13 @@ const canonical = new URL(Astro.url.pathname, SITE_URL).href;
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:locale" content="en_IN" />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="ChalkPis Tutor: your class runs itself while you teach. The attendance screen and a WhatsApp alert to a parent." />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={ogImage} />
     {schema && <script type="application/ld+json" set:html={JSON.stringify(schema)} />}
     <Analytics />
   </head>
