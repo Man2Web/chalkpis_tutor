@@ -1,0 +1,46 @@
+---
+/** Asks once; the choice is kept in this browser. Any element with data-cookie-settings opens it again. */
+---
+<div class="consent panel" id="consent" role="region" aria-label="Cookies" hidden>
+  <p class="small">
+    We use cookies to see which pages help and which ads bring people here. <a href="/cookies">Cookie policy</a>
+  </p>
+  <div class="consent-actions">
+    <button type="button" class="btn btn-sm btn-soft" data-choice="denied">Reject</button>
+    <button type="button" class="btn btn-sm btn-dark" data-choice="granted">Accept all</button>
+  </div>
+</div>
+
+<script is:inline>
+  (function () {
+    var box = document.getElementById('consent');
+    if (!window.cpConsentChoice || !window.cpConsentChoice()) box.hidden = false;
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-choice]');
+      if (!b) return;
+      window.cpConsent(b.getAttribute('data-choice'));
+      box.hidden = true;
+    });
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest('[data-cookie-settings]')) return;
+      e.preventDefault();
+      box.hidden = false;
+      box.querySelector('[data-choice="granted"]').focus();
+    });
+  })();
+</script>
+
+<style>
+  .consent {
+    position: fixed; z-index: 50; left: 24px; bottom: 24px; width: min(400px, calc(100% - 32px));
+    padding: 20px; box-shadow: 0 0 0 1px rgba(11, 11, 15, 0.06), 0 12px 32px rgba(11, 11, 15, 0.12);
+  }
+  .consent[hidden] { display: none; }
+  .consent p { margin: 0; color: var(--ink); }
+  .consent a { color: var(--blue); }
+  .consent-actions { margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end; }
+  @media (max-width: 640px) {
+    .consent { left: 16px; bottom: 16px; }
+    .consent-actions .btn { flex: 1; }
+  }
+</style>

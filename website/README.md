@@ -1,0 +1,48 @@
+# ChalkPis Tutor website (chalkpistutor.com)
+
+The marketing site for ChalkPis Tutor: a static [Astro](https://astro.build) site. The app, sign-up (`/start`) and legal pages
+stay on `tutor.chalkpis.com`; this site only links to them. The design was approved on the Claude Design canvas first.
+
+## Commands
+
+Run from this folder (`website/`). Node 22.12 or newer.
+
+| Command | What it does |
+| --- | --- |
+| `npm install` | Install dependencies |
+| `npm run dev` | Dev server at http://localhost:4321 |
+| `npm run build` | Build the site into `dist/` |
+| `npm run preview` | Serve the built `dist/` locally |
+
+## Where things live
+
+- `src/config.ts`: every outside link and contact detail (sign-up, sign-in, stores, support email, WhatsApp number).
+- `src/data/plans.ts`: plans, prices, the "every plan has" list and the pricing FAQ. Mirrors `server/src/billing/plans.ts`;
+  change both together.
+- `src/styles/global.css`: the design system (colours, type scale, cards, buttons, spacing).
+- `src/components/`: `Logo` (the C mark + "tutor", drawn as paths), `Icon`, `Nav`, `Footer`.
+- `src/pages/`: `index` (home), `pricing`, `welcome` (where web sign-ups land, `?os=android|ios`; not indexed), `404`.
+- `public/`: favicon, official App Store and Google Play badges, `robots.txt`.
+
+## Before going live
+
+- Set `SUPPORT_WHATSAPP` in `src/config.ts`. Until then, "Chat on WhatsApp" links fall back to email.
+- Add more real testimonials in `src/pages/index.astro` (`QUOTES`). With three or more, the section becomes a scrolling row.
+
+## Tracking
+
+`src/components/Analytics.astro` (IDs in `src/config.ts`), with the cookie banner in `CookieBanner.astro` and the policy at
+`/cookies`. The full spec is TRACKING-GUIDE.md. There is no Google Ads account, so no Google Ads tag or `gclid` handling.
+
+- **GA4** `G-FG0YJS71R6` in Consent Mode: always loads, cookieless until "Accept all". Ad storage stays denied.
+- **Meta Pixel** `1863203504670970`: loads only after "Accept all".
+- Events: `start_signup_click` / `StartSignUp`, `play_store_click` / `PlayStoreClick` (with `placement`), `app_store_click`
+  (GA only), and on `/welcome?os=…` once per visit `sign_up` / `CompleteRegistration`.
+- The visit's `utm_*` are added to every `/start` link (the server saves them with the new centre) and to Google Play
+  links as the install `referrer`. `fbclid` and the GA client ID are not passed on: the server keeps `utm_*` only.
+
+## Hosting
+
+`npm run build` produces plain files in `dist/` (`index.html`, `pricing.html`, `404.html`, `sitemap-index.xml`). Any static host
+works; the domain's DNS is on Cloudflare, so Cloudflare Pages is the simplest fit (build command `npm run build`, output `dist`,
+root directory `website`).

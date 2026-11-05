@@ -1,0 +1,51 @@
+---
+import Base from '../layouts/Base.astro';
+import { COMPANY, PRIVACY_URL, SUPPORT_EMAIL } from '../config';
+---
+<Base title="Cookie policy · ChalkPis Tutor" description="Which cookies chalkpistutor.com uses and how to change your choice.">
+  <article class="wrap sec end legal">
+    <h1 class="h2">Cookie policy</h1>
+    <p class="body">
+      This website, chalkpistutor.com, is run by {COMPANY}. It uses a few cookies and similar browser storage to learn
+      which pages are useful and which ads bring people here. The ChalkPis Tutor app and sign-up pages on
+      tutor.chalkpis.com do not use these tools.
+    </p>
+
+    <h2 class="h4">What we use</h2>
+    <ul class="body">
+      <li>
+        <strong>Your cookie choice.</strong> Saved in your browser so we don't ask on every page. Always on.
+      </li>
+      <li>
+        <strong>Google Analytics.</strong> Counts visits, pages viewed and steps such as tapping "Start free trial". Before
+        you choose, or if you reject, it sends visit counts without cookies. If you accept, it sets its own cookies
+        (<code>_ga</code>, <code>_ga_*</code>), kept for up to 14 months.
+      </li>
+      <li>
+        <strong>Meta Pixel.</strong> Tells Meta (Facebook and Instagram) when a visit from one of our ads leads to a
+        sign-up, so we can see which ads work. It runs only if you choose "Accept all", and sets the <code>_fbp</code>
+        cookie, kept for up to 90 days.
+      </li>
+    </ul>
+    <p class="body">
+      We never send your name, phone number or email to these tools. How we handle the details you give when you sign
+      up is in our <a href={PRIVACY_URL}>Privacy Policy</a>.
+    </p>
+
+    <h2 class="h4">Changing your choice</h2>
+    <p class="body">
+      <a href="#" data-cookie-settings>Change your cookie choice</a> at any time, or clear this site's data in your
+      browser. Questions: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
+    </p>
+    <p class="small">Last updated 5 November 2026.</p>
+  </article>
+</Base>
+
+<style>
+  .legal { max-width: 720px; }
+  .legal h2 { margin: 40px 0 0; }
+  .legal p, .legal ul { margin: 16px 0 0; }
+  .legal ul { padding-left: 20px; display: flex; flex-direction: column; gap: 12px; }
+  .legal a { color: var(--blue); }
+  .legal code { font-size: 0.9em; }
+</style>

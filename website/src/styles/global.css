@@ -1,0 +1,114 @@
+/* ChalkPis Tutor website: one design system for every page (matches the approved canvas). */
+:root {
+  --blue: #0e77be;
+  --blue-ink: #0a5f99;
+  --blue-50: #eaf4fb;
+  --blue-100: #d5e9f7;
+  --ink: #0b0b0f;
+  --text: #3f3f46;
+  --muted: #52525b;
+  --faint: #71717a;
+  --line: #f1f2f4;
+  --surface: #f6f7f9;
+  --yellow: #fce38a;
+  --wa-green: #25d366;
+  --display: 'Inter Tight', Inter, system-ui, sans-serif;
+  --sans: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 88px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; background: #fff; color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+h1, h2, h3, h4, p, figure, blockquote, ul { margin: 0; }
+h1, h2, h3 { text-wrap: balance; }
+a { color: inherit; }
+img, svg { display: block; }
+button { font: inherit; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 6px; }
+
+.skip { position: absolute; left: -9999px; top: 8px; background: var(--ink); color: #fff; padding: 10px 14px; border-radius: 10px; z-index: 50; }
+.skip:focus { left: 16px; }
+
+/* layout */
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.sec { padding-top: 112px; }
+.end { padding-bottom: 112px; }
+.head { max-width: 760px; margin: 0 auto; text-align: center; }
+
+/* type */
+.h1 { font-family: var(--display); font-weight: 700; font-size: clamp(40px, 5.2vw, 66px); line-height: 1.03; letter-spacing: -0.03em; }
+.h2 { font-family: var(--display); font-weight: 700; font-size: clamp(30px, 3.4vw, 44px); line-height: 1.1; letter-spacing: -0.025em; }
+.h3 { font-family: var(--display); font-weight: 700; font-size: clamp(22px, 2vw, 26px); line-height: 1.2; letter-spacing: -0.015em; }
+.h4 { font-size: 17px; font-weight: 600; line-height: 1.35; }
+.lead { font-size: 18px; line-height: 1.6; color: var(--text); }
+.body { font-size: 16px; line-height: 1.6; color: var(--muted); }
+.small { font-size: 14px; line-height: 1.5; color: var(--muted); }
+.num { font-family: var(--display); font-weight: 700; letter-spacing: -0.02em; }
+
+/* buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; padding: 0 20px; border: 0; border-radius: 12px; font-size: 15px; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; transition: background-color 0.15s ease; }
+.btn-dark { background: var(--ink); color: #fff; }
+.btn-dark:hover { background: #27272a; }
+.btn-light { background: #fff; color: var(--ink); }
+.btn-soft { background: #f1f2f4; color: var(--ink); }
+.btn-soft:hover { background: #e4e4e7; }
+.btn-sm { height: 40px; padding: 0 16px; font-size: 14px; border-radius: 10px; }
+.btn-xs { height: 32px; padding: 0 12px; font-size: 13px; border-radius: 10px; }
+
+/* surfaces */
+.card { background: var(--surface); border-radius: 24px; padding: 32px; }
+.panel { background: #fff; border-radius: 16px; box-shadow: 0 0 0 1px rgba(11, 11, 15, 0.06), 0 1px 2px rgba(11, 11, 15, 0.04); }
+.pill { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.ok { background: #e7f6ef; color: #047857; }
+.no { background: #fdecec; color: #b91c1c; }
+.due { background: #fef3e2; color: #b45309; }
+.mute { background: #f1f2f4; color: var(--muted); }
+.tile { display: inline-flex; align-items: center; justify-content: center; flex: none; background: var(--blue-50); color: var(--blue-ink); }
+.tile-lg { width: 44px; height: 44px; border-radius: 12px; margin-bottom: 18px; }
+.tile-sm { width: 32px; height: 32px; border-radius: 10px; }
+.tile-wa { background: #e7f6ef; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line); font-size: 14px; }
+
+/* nav */
+.nav { position: sticky; top: 0; z-index: 20; background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid rgba(11, 11, 15, 0.06); }
+.nav-in { height: 72px; display: flex; align-items: center; gap: 32px; }
+.nav-links { display: flex; align-items: center; gap: 28px; }
+.nav-links a { color: var(--text); text-decoration: none; font-size: 14px; font-weight: 500; }
+.nav-links a:hover, .nav-links a[aria-current='page'] { color: var(--ink); }
+.nav-cta { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+/* marquee */
+.marquee { overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 10%, #000 90%, transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 10%, #000 90%, transparent 100%); }
+.marquee-track { display: flex; gap: 56px; width: max-content; margin: 0; padding: 0; list-style: none; animation: marquee 36s linear infinite; }
+.marquee:hover .marquee-track, .marquee:focus-within .marquee-track { animation-play-state: paused; }
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(calc(-50% - 28px)); } }
+.qtrack { gap: 20px; animation: marquee-q 50s linear infinite; }
+@keyframes marquee-q { from { transform: translateX(0); } to { transform: translateX(calc(-50% - 10px)); } }
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track { animation: none; flex-wrap: wrap; justify-content: center; width: auto; row-gap: 12px; }
+  .marquee { -webkit-mask-image: none; mask-image: none; }
+  .marquee [aria-hidden='true'] { display: none; }
+}
+
+/* footer */
+.foot { background: var(--surface); border-top: 1px solid rgba(11, 11, 15, 0.06); }
+.foot a { color: var(--muted); text-decoration: none; }
+.foot a:hover { color: var(--ink); }
+
+@media (max-width: 860px) {
+  .hide-sm { display: none !important; }
+}
+@media (max-width: 600px) {
+  .wrap { padding: 0 16px; }
+  .sec { padding-top: 64px; }
+  .end { padding-bottom: 64px; }
+  .card { padding: 18px; border-radius: 20px; }
+  .card .panel { padding-left: 14px !important; padding-right: 14px !important; }
+  .h1 { font-size: 38px; }
+  .lead { font-size: 17px; }
+  .head { text-align: left; }
+  .nav-in { gap: 12px; }
+  .marquee-track { gap: 36px; animation-duration: 26s; }
+  .qtrack { gap: 14px; animation-duration: 40s; }
+}
