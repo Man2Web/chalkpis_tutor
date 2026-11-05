@@ -31,7 +31,8 @@ removing someone signs them out at once.
 - **Centres**: every centre with its plan, students, last activity and health. Filters include **At risk** and
   **Test or empty** (try-out sign-ups).
 - **A centre's page**: Overview (activity, features used, owner details), **Billing** (plan, auto-renew, payments, pay
-  link), **People** (owner and helpers), **Activity log**, **WhatsApp** (what its messages cost), **Notes**.
+  link), **People** (owner and helpers), **Activity log**, **WhatsApp** (what its messages cost, its messages to parents,
+  owner and helpers, and **Send welcome again**), **Notes**.
 - **People**: every tutor and helper. Click a person for their devices, recent login codes and actions.
 - **Login codes**: the latest WhatsApp login codes and what happened to each.
 - **Auto-refresh** (top bar) reloads the open page every 30 seconds. Every change you make reloads the lists by itself.
@@ -43,7 +44,7 @@ removing someone signs them out at once.
 | "The login code does not come" | **Login codes**: find their number. *Sent* but not used → wrong number or WhatsApp not on that phone. Nothing there → they never asked; check the number they type. Many tries → wait an hour (the limit resets). |
 | "I'm signed in on a lost phone" | Open the person → **Sign out everywhere**. They sign in again with a new code. |
 | "Parents did not get the absent / fee message" | **WhatsApp → Parents**: filter **Failed**. A failure from the last 7 days has **Retry**; older ones cannot be sent again. Check the centre has parent messages switched on (centre page → Setup). |
-| "I never got the welcome message" | **WhatsApp → Owners & helpers** → **Send welcome again**. |
+| "I never got the welcome message" | The centre's **WhatsApp** tab (or **WhatsApp → Owners & helpers**) → **Send welcome again**. |
 | "When does my plan end? / I paid" | Centre page → **Billing**. Support can see it; an Admin records a payment or changes the plan. |
 | Anything worth remembering | Centre page → **Notes** (only the team sees them) and **Tags** (VIP, follow-up, churn risk…). |
 
@@ -55,6 +56,12 @@ removing someone signs them out at once.
 - **Block** someone abusive: open the person → **Block** (they are signed out and cannot sign in).
 - **Announcements**: news in the app's banner and Updates inbox, optionally a push notification.
 - **Revenue & growth**, **Payments**, **Subscriptions**, **Retention**, **Audit log** and CSV exports.
+- **How the numbers count.** A centre is **paying** (and in MRR, ARR and ARPU) only while a real payment covers today:
+  money received on the website, in the App Store or Google Play, or recorded by an admin, above ₹0 and not a store
+  test. A plan an admin gave with *Extend* or *Change plan* is **Given by admin**: on its own line and its own
+  Subscriptions tab, never counted as paying. **Ending in 7 days** leaves out plans that renew by themselves (the card
+  says how many), and **Renewing automatically** counts paying centres only. The cards and the Subscriptions tabs use the
+  same rules, so a card's number is the length of its list.
 
 ## Deleting test and dummy centres or people
 

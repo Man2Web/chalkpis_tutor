@@ -35,10 +35,11 @@ function toCsv(d: BillingData): string {
     ['MRR (INR)', rupees(s.mrr)],
     ['ARR (INR)', rupees(s.arr)],
     ['ARPU per month (INR)', rupees(s.arpu)],
-    ['Paying centres', s.paying],
+    ['Paying centres (a payment covers today)', s.paying],
     ['Paying in the app (App Store / Google Play)', s.inStore],
+    ['Plans given by an admin (not paying, not in MRR)', s.granted],
     ['On free trial', s.trials],
-    ['Renewing automatically', s.autoRenewing],
+    ['Paying centres renewing automatically', s.autoRenewing],
     ['  of them on the website (UPI Autopay / card)', s.autoRenewingWeb],
     ['Monthly plans', s.byCycle.month],
     ['Yearly plans', s.byCycle.year],
@@ -98,18 +99,18 @@ export function Revenue() {
         }
       />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Kpi label="Monthly recurring revenue" value={money(s.mrr)} hint="List price of the plans running now, per month" />
+        <Kpi label="Monthly recurring revenue" value={money(s.mrr)} hint="List price of the paid plans running now, per month" />
         <Kpi label="Annual run rate (ARR)" value={money(s.arr)} hint="MRR × 12" />
         <Kpi label="Average per paying centre" value={money(s.arpu)} hint="ARPU, per month" />
         <Kpi
           label="Paying centres"
           value={s.paying}
-          hint={`${s.inStore} paying in the app · ${s.trials} on free trial`}
+          hint={`${s.inStore} paying in the app · ${s.trials} on free trial${s.granted ? ` · ${s.granted} given by an admin, not counted` : ''}`}
         />
         <Kpi
           label="Renewing automatically"
           value={`${s.autoRenewing} (${pct(s.autoRenewing, s.paying)})`}
-          hint={`${s.autoRenewingWeb} by UPI Autopay or card on the website · ${s.autoRenewing - s.autoRenewingWeb} in the apps`}
+          hint={`Of the paying centres: ${s.autoRenewingWeb} by UPI Autopay or card on the website · ${s.autoRenewing - s.autoRenewingWeb} in the apps`}
         />
         <Kpi
           label="Trial to paid"
@@ -146,7 +147,7 @@ export function Revenue() {
         <Card>
           <CardHeader>
             <CardTitle>How centres pay</CardTitle>
-            <CardDescription>Plans running now.</CardDescription>
+            <CardDescription>Paid plans running now (a payment covers today).</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -162,7 +163,7 @@ export function Revenue() {
                   <TableCell className="text-right text-muted-foreground">{pct(s.byCycle.month, s.paying)}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell>Older packs or set by an admin</TableCell>
+                  <TableCell>Older packs</TableCell>
                   <TableCell className="text-right tabular">{s.byCycle.pack}</TableCell>
                   <TableCell className="text-right text-muted-foreground">{pct(s.byCycle.pack, s.paying)}</TableCell>
                 </TableRow>
@@ -173,6 +174,11 @@ export function Revenue() {
                     <TableCell className="text-right text-muted-foreground">{pct(s.byPlan[p] ?? 0, s.paying)}</TableCell>
                   </TableRow>
                 ))}
+                <TableRow className="text-muted-foreground">
+                  <TableCell>Given by an admin (not paying)</TableCell>
+                  <TableCell className="text-right tabular">{s.granted}</TableCell>
+                  <TableCell className="text-right">—</TableCell>
+                </TableRow>
               </TableBody>
             </Table>
           </CardContent>

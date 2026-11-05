@@ -5,10 +5,10 @@ import { confirmDialog } from '@/components/app/dialogs';
 import { Pill } from '@/components/app/pill';
 import { toast } from '@/components/app/toast';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, can } from '@/lib/api';
 import { go, useApi } from '@/lib/hooks';
 import { plural, when } from '@/lib/format';
 import { msgType, type Tone } from '@/lib/names';
@@ -18,6 +18,7 @@ import { ByType } from './Centre';
 type OwnerMsg = {
   instituteId: string;
   type: string;
+  ref: string;
   status: string;
   why: string;
   to: string;
@@ -47,6 +48,27 @@ const WHY: Record<string, string> = {
   'not-configured': 'WhatsApp not set up on the server',
 };
 
+/** Asks first, then queues the centre's welcome to its owner on WhatsApp; says why when it cannot. True when queued. */
+async function queueWelcome(instituteId: string, name: string, again: boolean): Promise<boolean> {
+  const ok = await confirmDialog({
+    title: again ? `Send ${name}'s welcome again?` : `Send ${name} its welcome?`,
+    body: "The owner gets the welcome message on WhatsApp now, with today's trial end date.",
+    action: 'Send welcome',
+  });
+  if (!ok) return false;
+  try {
+    await api('POST', `/admin/api/institutes/${instituteId}/welcome`);
+    toast('Welcome queued; it goes out within a minute');
+    return true;
+  } catch (e) {
+    const code = (e as ApiError).code;
+    toast(code === 'no_phone' ? 'The owner has no mobile number' : code === 'in_progress' ? 'One is already on its way' : (e as Error).message, false);
+    return false;
+  }
+}
+
+const recipientOf = (m: OwnerMsg) => `${m.recipient || (m.toOwner ? 'Owner' : 'Helper')} ${m.toOwner ? '(owner)' : '(helper)'} · ${m.to}`;
+
 /**
  * Messages Chalkpis sends to a centre's own people: the owner's welcome, plan active, plan ending and ended, and helper
  * invites. New centres whose owner never got a welcome are listed on their own, with a button to send it.
@@ -62,20 +84,9 @@ export function OwnerMessages() {
   const tot = (s: string) => data.summary.filter((r) => r.status === s).reduce((a, r) => a + r.count, 0);
 
   const sendWelcome = async (instituteId: string, name: string, again: boolean) => {
-    const ok = await confirmDialog({
-      title: again ? `Send ${name}'s welcome again?` : `Send ${name} its welcome?`,
-      body: "The owner gets the welcome message on WhatsApp now, with today's trial end date.",
-      action: 'Send welcome',
-    });
-    if (!ok) return;
     setBusy(instituteId);
     try {
-      await api('POST', `/admin/api/institutes/${instituteId}/welcome`);
-      toast('Welcome queued; it goes out within a minute');
-      await reload();
-    } catch (e) {
-      const code = (e as ApiError).code;
-      toast(code === 'no_phone' ? 'The owner has no mobile number' : code === 'in_progress' ? 'One is already on its way' : (e as Error).message, false);
+      if (await queueWelcome(instituteId, name, again)) await reload();
     } finally {
       setBusy(null);
     }
@@ -176,15 +187,13 @@ export function OwnerMessages() {
           <TableBody>
             {data.messages.length ? (
               data.messages.map((m) => (
-                <TableRow key={`${m.instituteId}-${m.type}-${m.createdAt}`}>
+                <TableRow key={`${m.instituteId}-${m.type}-${m.ref}-${m.createdAt}`}>
                   <TableCell className="pl-4 text-muted-foreground">{when(m.createdAt)}</TableCell>
                   <TableCell>
                     <button className="max-w-[16rem] truncate text-left font-medium hover:underline" onClick={() => go(`centre/${m.instituteId}`)}>
                       {m.institute}
                     </button>
-                    <div className="text-xs text-muted-foreground">
-                      {m.recipient || (m.toOwner ? 'Owner' : 'Helper')} {m.toOwner ? '(owner)' : '(helper)'} · {m.to}
-                    </div>
+                    <div className="text-xs text-muted-foreground">{recipientOf(m)}</div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">{msgType(m.type)}</TableCell>
                   <TableCell>
@@ -216,5 +225,72 @@ export function OwnerMessages() {
         </Table>
       </Card>
     </div>
+  );
+}
+
+/**
+ * One centre's messages to its owner and helpers, on its WhatsApp tab, with "Send welcome again" for when the owner
+ * says the welcome never came.
+ */
+export function CentreOwnerMessages({ id, name }: { id: string; name: string }) {
+  const { data, error, reload } = useApi<Res>(`/admin/api/owner-messages?institute=${id}&limit=50`);
+  const [busy, setBusy] = useState(false);
+  const welcome = data?.messages.find((m) => m.type === 'centre_welcome') ?? null;
+  const onItsWay = welcome?.status === 'queued' || welcome?.status === 'sending';
+  const noPhone = data?.noWelcome[0]?.hasPhone === false;
+  const send = async () => {
+    setBusy(true);
+    try {
+      if (await queueWelcome(id, name, !!welcome)) await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader>
+        <CardTitle>Messages to the owner and helpers</CardTitle>
+        <CardDescription>
+          {onItsWay
+            ? 'The welcome is on its way; it can be sent again once it has gone or failed.'
+            : noPhone
+              ? 'The owner has no mobile number, so no welcome can be sent.'
+              : 'Welcome, plan active, plan ending and ended, and helper invites.'}
+        </CardDescription>
+        {can('help') ? (
+          <CardAction>
+            <Button size="sm" variant="outline" disabled={!data || busy || onItsWay || noPhone} onClick={() => void send()}>
+              <Send /> {welcome ? 'Send welcome again' : 'Send welcome'}
+            </Button>
+          </CardAction>
+        ) : null}
+      </CardHeader>
+      <CardContent>
+        {error ? (
+          <ErrorBox error={error} onRetry={reload} />
+        ) : !data ? (
+          <Loading rows={3} />
+        ) : data.messages.length ? (
+          <div className="grid gap-1">
+            {data.messages.map((m) => (
+              <div key={`${m.type}-${m.ref}-${m.createdAt}`} className="flex items-start justify-between gap-3 rounded-lg px-2 py-2 text-sm">
+                <div className="min-w-0">
+                  <div className="font-medium">{msgType(m.type)}</div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {recipientOf(m)} · {when(m.createdAt)}
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <Pill tone={TONE[m.status] ?? 'neutral'}>{m.status === 'queued' ? 'waiting' : m.status}</Pill>
+                  {m.why ? <div className="mt-0.5 text-xs text-muted-foreground">{WHY[m.why] ?? m.why}</div> : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Empty text="No messages to the owner or helpers yet." />
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -91,16 +91,25 @@ export const ownerMessagesQuery = z.object({
   status: z.enum(['all', 'queued', 'sending', 'sent', 'failed', 'skipped']).default('all'),
   type: z.string().max(30).default(''),
   limit: z.coerce.number().int().min(1).max(200).default(100),
+  /** One centre's messages only (its WhatsApp tab). */
+  institute: z.string().uuid().optional(),
 });
 
 /**
  * Every message Chalkpis sends to a centre's own people (newest first): the owner's welcome, plan active, plan ending
  * and ended, and helper invites; a 7-day summary by type and status; and the centres made in the last 30 days whose
- * owner was never even queued a welcome (an owner without a mobile number, for example).
+ * owner was never even queued a welcome (an owner without a mobile number, for example). With `institute`, all of it
+ * for that one centre (whenever it was made).
  */
 export async function ownerMessages(pool: Pool, q: z.infer<typeof ownerMessagesQuery>, now: Date) {
   const where: string[] = [];
   const args: unknown[] = [];
+  const one = q.institute ? ' AND institute_id = ?' : '';
+  const oneArg = q.institute ? [q.institute] : [];
+  if (q.institute) {
+    where.push('m.institute_id = ?');
+    args.push(q.institute);
+  }
   if (q.status !== 'all') {
     where.push('m.status = ?');
     args.push(q.status);
@@ -136,21 +145,21 @@ export async function ownerMessages(pool: Pool, q: z.infer<typeof ownerMessagesQ
   ];
   const since = new Date(now.getTime() - 7 * DAY);
   const [summary] = (await pool.query(
-    'SELECT type, status, COUNT(*) c FROM centre_messages WHERE created_at >= ? GROUP BY type, status',
-    [since],
+    `SELECT type, status, COUNT(*) c FROM centre_messages WHERE created_at >= ?${one} GROUP BY type, status`,
+    [since, ...oneArg],
   )) as unknown as [{ type: string; status: string; c: number }[]];
   const [errors] = (await pool.query(
     `SELECT COALESCE(error, reason, 'unknown') e, COUNT(*) c FROM centre_messages
-      WHERE status IN ('failed','skipped') AND created_at >= ? GROUP BY e ORDER BY c DESC LIMIT 10`,
-    [since],
+      WHERE status IN ('failed','skipped') AND created_at >= ?${one} GROUP BY e ORDER BY c DESC LIMIT 10`,
+    [since, ...oneArg],
   )) as unknown as [{ e: string; c: number }[]];
   const [missing] = (await pool.query(
     `SELECT i.id, i.name, i.created_at, u.name AS owner, u.phone IS NOT NULL AND u.phone <> '' AS has_phone
        FROM institutes i JOIN users u ON u.id = i.owner_user_id
-      WHERE i.created_at >= ?
+      WHERE ${q.institute ? 'i.id = ?' : 'i.created_at >= ?'}
         AND NOT EXISTS (SELECT 1 FROM centre_messages m WHERE m.institute_id = i.id AND m.type = 'centre_welcome')
       ORDER BY i.created_at DESC LIMIT 50`,
-    [new Date(now.getTime() - 30 * DAY)],
+    [q.institute ?? new Date(now.getTime() - 30 * DAY)],
   )) as unknown as [
     { id: string; name: string; created_at: Date; owner: string | null; has_phone: number }[],
   ];

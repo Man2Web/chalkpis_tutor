@@ -88,8 +88,12 @@ export async function events(pool: Pool, q: z.infer<typeof eventsQuery>, now: Da
                FROM messages m JOIN institutes i ON i.id = m.institute_id WHERE m.status = 'failed' AND m.created_at >= ? AND m.created_at < ?`,
     plan: `SELECT 'plan' kind, e.created_at at, i.name actor, CONCAT('bought the ', COALESCE(e.plan_id, ''), ' plan') text, e.amount amount, NULL user_id, i.id institute_id, i.name institute
                FROM billing_events e JOIN institutes i ON i.id = e.institute_id WHERE e.status = 'applied' AND e.created_at >= ? AND e.created_at < ?`,
-    admin: `SELECT 'admin' kind, a.created_at at, a.admin_phone actor, CONCAT_WS(CHAR(31), a.action, COALESCE(a.target_phone, ''), COALESCE(a.detail, '')) text, NULL amount, a.target_user_id user_id, a.target_institute_id institute_id, NULL institute
-               FROM admin_audit a WHERE a.created_at >= ? AND a.created_at < ?`,
+    // the centre or person it was done to, by name; ids only while they still exist (a deleted one cannot be opened)
+    admin: `SELECT 'admin' kind, a.created_at at, a.admin_phone actor,
+                   CONCAT_WS(CHAR(31), a.action, COALESCE(i.name, NULLIF(a.target_phone, ''), ''), COALESCE(a.detail, '')) text,
+                   NULL amount, tu.id user_id, i.id institute_id, i.name institute
+               FROM admin_audit a LEFT JOIN institutes i ON i.id = a.target_institute_id LEFT JOIN users tu ON tu.id = a.target_user_id
+              WHERE a.created_at >= ? AND a.created_at < ?`,
   };
   // the platform-wide feed leaves out routine messages; one centre's log shows everything
   const defaults = (Object.keys(all) as EventKind[]).filter((k) => q.institute || k !== 'message');
@@ -140,23 +144,63 @@ export async function events(pool: Pool, q: z.infer<typeof eventsQuery>, now: Da
   };
 }
 
-const ADMIN_ACTIONS: Record<string, string> = {
-  block: 'blocked',
-  unblock: 'unblocked',
-  'sign-out': 'signed out everywhere',
-  'set-plan': 'changed the plan of',
-  announce: 'published an announcement',
-  'end-announcement': 'ended an announcement',
-  'retry-message': 'retried a WhatsApp message',
+/** A centre named in the sentence, or what it was if it has since been deleted. */
+const centre = (t: string) => t || 'a deleted centre';
+/** A person named in the sentence (their number), or nobody in particular. */
+const person = (t: string) => t || 'a login';
+/**
+ * What an admin did, as a sentence about whom it was done to (`t`: the centre's name or the person's number). The
+ * details follow after a dot; a sign-in to the dashboard itself is not in the feed's wording, it falls back to the code.
+ */
+const ADMIN_ACTIONS: Record<string, (t: string) => string> = {
+  block: (t) => `blocked ${person(t)}`,
+  unblock: (t) => `unblocked ${person(t)}`,
+  'sign-out': (t) => `signed ${person(t)} out everywhere`,
+  'set-plan': (t) => `added plan days for ${centre(t)}`,
+  'set-subscription': (t) => `changed the plan of ${centre(t)}`,
+  'plan-payment': (t) => `recorded a plan payment from ${centre(t)}`,
+  'stop-autorenew': (t) => `stopped website auto-renew for ${centre(t)}`,
+  'resend-welcome': (t) => `sent the welcome message again to ${centre(t)}`,
+  'retry-message': (t) => `retried a WhatsApp message of ${centre(t)}`,
+  'note-delete': (t) => `deleted a note on ${centre(t)}`,
+  'tags-set': (t) => `changed the tags of ${centre(t)}`,
+  'export-centre-logs': (t) => `downloaded the activity log of ${centre(t)}`,
+  'export-users': () => 'downloaded the list of people',
+  'export-institutes': () => 'downloaded the list of centres',
+  announce: () => 'published an announcement',
+  'announce-test': () => 'sent a test announcement',
+  'end-announcement': () => 'ended an announcement',
+  // the centre is gone, so its name is in the details
+  'delete-centre': () => 'deleted a centre',
+  'delete-person': (t) => `deleted the login ${person(t)}`,
+  'delete-requested': () => 'asked the super admin for a deletion code',
+  'team-add': () => 'added a team member',
+  'team-change': () => "changed a team member's role",
+  'team-remove': () => 'removed a team member',
+  'team-sign-out': () => 'signed a team member out',
+  'wa-rates': () => 'set the WhatsApp rates',
+  'wa-recharge': () => 'noted a WhatsApp recharge',
+  'wa-balance': () => 'noted the WhatsApp balance',
+  'wa-wallet-delete': () => 'removed a WhatsApp wallet entry',
 };
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** What a detail says in plain words ("was failed" is what a resent welcome was before). */
+const DETAIL: Record<string, string> = {
+  'was failed': 'the last one failed',
+  'was skipped': 'the last one was not sent',
+  'was sent': 'the last one was delivered',
+  'never queued': 'it was never sent before',
+};
 
-/** "blocked +91… · reason", "published an announcement · New: poster maker": a sentence, never an internal id. */
+/**
+ * "added plan days for Bright Tuition · standard +30 days", "blocked +91… · reason": a sentence that names the centre
+ * or person, never an internal id.
+ */
 export function adminText(raw: string): string {
   const [action = '', target = '', detail = ''] = raw.split(String.fromCharCode(31));
-  const parts = [ADMIN_ACTIONS[action] ?? action.replace(/-/g, ' ')];
-  if (target) parts[0] += ` ${target}`;
-  if (detail && !ID.test(detail)) parts.push(detail);
+  const say = ADMIN_ACTIONS[action];
+  const parts = [say ? say(target) : `${action.replace(/-/g, ' ')}${target ? ` ${target}` : ''}`];
+  if (detail && !ID.test(detail)) parts.push(DETAIL[detail] ?? detail);
   return parts.join(' · ');
 }
 

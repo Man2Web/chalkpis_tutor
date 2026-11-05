@@ -76,7 +76,11 @@ export function EventRow({
           ) : null}
         </div>
         <div className="mt-0.5 truncate text-xs text-muted-foreground">
-          {compact ? ago(e.at) : !inCentre && e.institute && e.institute !== e.actor ? e.institute : null}
+          {compact
+            ? ago(e.at)
+            : !inCentre && e.institute && e.institute !== e.actor && !e.text.includes(e.institute)
+              ? e.institute
+              : null}
         </div>
       </div>
       {!compact ? <span className="shrink-0 pt-0.5 text-xs text-muted-foreground tabular">{time(e.at)}</span> : null}

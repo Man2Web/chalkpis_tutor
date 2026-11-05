@@ -40,6 +40,12 @@ export type CentreRow = {
   expiresAt: string | null;
   planStatus?: string | null;
   cycle?: string | null;
+  /** a real payment covers today: counted as paying and in MRR */
+  paidNow?: boolean;
+  /** a paid plan running with no payment behind it: an admin gave it */
+  givenByAdmin?: boolean;
+  /** the plan renews by itself (App Store, Google Play or the website), so it is not "ending soon" */
+  renews?: boolean;
   store?: import('@/components/app/billing').StoreFacts | null;
   webAutoRenew?: import('@/components/app/billing').WebAutoRenew | null;
   studentLimit?: number | null;

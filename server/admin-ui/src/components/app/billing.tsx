@@ -87,6 +87,8 @@ type CentreBilling = SubFacts & {
   id: string;
   name: string;
   cycle?: string | null;
+  /** a paid plan running with no payment behind it: an admin gave it */
+  givenByAdmin?: boolean;
   store?: StoreFacts | null;
   webAutoRenew?: WebAutoRenew | null;
   planStatus?: string | null;
@@ -854,9 +856,10 @@ export function PlanDetailsCard({ c, last }: { c: CentreBilling; last?: LastPaym
   ) : (
     <Pill tone="neutral">Off</Pill>
   );
+  const given = !upcoming && !!c.givenByAdmin;
   const rows: [string, ReactNode][] = [
     ['Plan', planName(plan)],
-    ['Billed', cycleName(cycle) || '—'],
+    ['Billed', given ? 'Not billed · given by an admin' : cycleName(cycle) || '—'],
     upcoming
       ? ['Starts on', dateOnly(web!.nextChargeAt ?? c.expiresAt)]
       : [renews ? 'Renews on' : 'Valid until', c.expiresAt ? dateOnly(c.expiresAt) : '—'],
@@ -871,7 +874,9 @@ export function PlanDetailsCard({ c, last }: { c: CentreBilling; last?: LastPaym
         <CardDescription>
           {upcoming
             ? 'Auto-renew is approved: the plan starts by itself when the trial ends, so there is no payment link to send.'
-            : 'Paid, so there is no payment link to send. It comes back here if the plan ends without renewing.'}
+            : given
+              ? 'Plan given by an admin, so there is no payment link to send. It comes back here when the plan ends.'
+              : 'Paid, so there is no payment link to send. It comes back here if the plan ends without renewing.'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -904,7 +909,13 @@ export type BillingSummary = {
   paying: number;
   inStore: number;
   trials: number;
+  /** running paid plans no real payment covers: given by an admin, not paying and not in MRR */
+  granted: number;
+  /** ending within 7 days and not renewing by themselves (the "Ending soon" list) */
   endingSoon: number;
+  /** also ending within 7 days, but they renew by themselves */
+  endingSoonRenewing: number;
+  /** paying centres whose plan renews by itself */
   autoRenewing: number;
   autoRenewingWeb: number;
   ended: number;
@@ -937,7 +948,11 @@ export function BillingKpis({ onPick }: { onPick?: (view: 'paying' | 'trial' | '
       <Kpi
         label="Monthly recurring revenue"
         value={v(money(s?.mrr))}
-        hint={s ? `${money(s.arr)} a year · from ${s.paying} paying ${s.paying === 1 ? 'centre' : 'centres'}` : undefined}
+        hint={
+          s
+            ? `${money(s.arr)} a year · from ${s.paying} paying ${s.paying === 1 ? 'centre' : 'centres'}${s.granted ? ` · ${s.granted} given by an admin not counted` : ''}`
+            : undefined
+        }
         onClick={onPick ? () => onPick('paying') : undefined}
       />
       <Kpi
@@ -954,7 +969,11 @@ export function BillingKpis({ onPick }: { onPick?: (view: 'paying' | 'trial' | '
       <Kpi
         label="Ending in 7 days"
         value={v(s?.endingSoon)}
-        hint={s?.autoRenewing ? `Not counting ${s.autoRenewing} renewing in the app` : 'Remind them to renew'}
+        hint={
+          s?.endingSoonRenewing
+            ? `Not counting ${s.endingSoonRenewing} that ${s.endingSoonRenewing === 1 ? 'renews by itself' : 'renew by themselves'}`
+            : 'Remind them to renew'
+        }
         onClick={onPick ? () => onPick('ending') : undefined}
       />
       <Kpi

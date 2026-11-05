@@ -1,6 +1,6 @@
 import type { Pool } from '../db.js';
 import { notFound } from '../errors.js';
-import { REAL } from './billing.js';
+import { PAID_NOW_SQL, REAL } from './billing.js';
 import { tagsFor } from './crm.js';
 import { toOwnerDetails, type DetailsRow } from '../institutes/details.js';
 
@@ -213,6 +213,8 @@ interface InstRow extends DetailsRow {
   web_cycle: string | null;
   web_amount: number | string | null;
   web_charge_at: Date | null;
+  /** a real payment covers today (billing.ts PAID_NOW_SQL) */
+  paid_now: number;
   students: number;
   batches: number;
   staff: number;
@@ -260,7 +262,7 @@ const INST_SELECT = `SELECT i.id, i.name, i.category, i.created_at, i.upi_id, i.
     s.plan, s.status AS plan_status, s.expires_at, s.student_limit, s.batch_limit, ns.enabled AS messages_on,
     s.cycle, s.store, s.store_will_renew, s.store_issue, s.store_sandbox, s.banked_ms,
     w.status AS web_status, w.plan_id AS web_plan, w.cycle AS web_cycle, w.amount AS web_amount,
-    COALESCE(w.charge_at, w.start_at) AS web_charge_at,
+    COALESCE(w.charge_at, w.start_at) AS web_charge_at, ${PAID_NOW_SQL} AS paid_now,
     (SELECT COUNT(*) FROM students st WHERE st.institute_id = i.id AND st.status = 'active') AS students,
     (SELECT COUNT(*) FROM batches b WHERE b.institute_id = i.id AND b.status = 'active') AS batches,
     (SELECT COUNT(*) FROM memberships m WHERE m.institute_id = i.id AND m.role = 'staff') AS staff,
@@ -293,6 +295,8 @@ function toInstitute(r: InstRow, now: Date) {
     r.last_seen,
   );
   const canBePaid = !!(r.upi_id || r.payment_link);
+  const planActive = r.plan_status === 'active' && !!r.expires_at && r.expires_at > now;
+  const paidNow = !!n(r.paid_now);
   return {
     id: r.id,
     name: r.name,
@@ -305,8 +309,14 @@ function toInstitute(r: InstRow, now: Date) {
       ? { id: r.owner_id, name: r.owner_name ?? '', phone: r.owner_phone ?? '' }
       : null,
     plan: r.plan,
-    planActive: r.plan_status === 'active' && !!r.expires_at && r.expires_at > now,
+    planActive,
     expiresAt: r.expires_at?.toISOString() ?? null,
+    // a real payment covers today: the centre is paying (and in MRR) on the Subscriptions and Revenue pages
+    paidNow,
+    // a paid plan running with no payment behind it: an admin gave it (Extend or Change plan)
+    givenByAdmin: planActive && !!r.plan && r.plan !== 'trial' && !paidNow && !r.store,
+    // the plan renews by itself (store or website), so it is not "ending soon"
+    renews: (!!r.store && !!r.store_will_renew) || !!r.web_status,
     planStatus: r.plan_status ?? null,
     cycle: r.cycle ?? null,
     // an App Store / Google Play subscription deciding the plan, and the days that resume after it
@@ -392,7 +402,7 @@ export async function listInstitutes(
 ) {
   const since = new Date(now.getTime() - 30 * DAY);
   const where: string[] = [];
-  const args: unknown[] = [since, since, since];
+  const args: unknown[] = [now, since, since, since];
   if (q.q) {
     const like = `%${q.q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
     where.push(
@@ -402,12 +412,14 @@ export async function listInstitutes(
   }
   const cond = {
     trial: "s.plan = 'trial' AND s.status = 'active' AND s.expires_at > ?",
-    paid: "s.plan <> 'trial' AND s.status = 'active' AND s.expires_at > ?",
+    // paying, as the Subscriptions and Revenue pages count it: a real payment covers today
+    paid: `s.plan <> 'trial' AND s.status = 'active' AND s.expires_at > ? AND ${PAID_NOW_SQL}`,
     ended: "(s.status = 'expired' OR s.expires_at <= ?)",
   } as const;
   if (q.filter === 'trial' || q.filter === 'paid' || q.filter === 'ended') {
     where.push(cond[q.filter]);
     args.push(now);
+    if (q.filter === 'paid') args.push(now);
   }
   const [rows] = (await pool.query(
     `${INST_SELECT} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} LIMIT 1000`,
@@ -435,6 +447,7 @@ export async function listInstitutes(
 export async function getInstitute(pool: Pool, id: string, now: Date) {
   const since = new Date(now.getTime() - 30 * DAY);
   const [rows] = (await pool.query(`${INST_SELECT} WHERE i.id = ?`, [
+    now,
     since,
     since,
     since,

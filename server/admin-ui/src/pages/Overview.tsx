@@ -26,6 +26,7 @@ type Ov = {
   institutes: number;
   trials: number;
   paid: number;
+  granted: number;
   expired: number;
   students: number;
   blocked: number;
@@ -219,7 +220,12 @@ export function Overview() {
               <dt className="text-muted-foreground">Logins</dt>
               <dd className="text-right tabular">{num(o.users)} <span className="text-muted-foreground">({plural(o.owners, 'tutor')}, {plural(o.staff, 'helper')})</span></dd>
               <dt className="text-muted-foreground">Centres</dt><dd className="text-right tabular">{num(o.institutes)}</dd>
-              <dt className="text-muted-foreground">On trial · paid · ended</dt><dd className="text-right tabular">{o.trials} · {o.paid} · {o.expired}</dd>
+              <dt className="text-muted-foreground">On trial · paying · ended</dt><dd className="text-right tabular">{o.trials} · {o.paid} · {o.expired}</dd>
+              {o.granted ? (
+                <>
+                  <dt className="text-muted-foreground">Plan given by an admin</dt><dd className="text-right tabular">{o.granted}</dd>
+                </>
+              ) : null}
               <dt className="text-muted-foreground">Active students</dt><dd className="text-right tabular">{num(o.students)}</dd>
               <dt className="text-muted-foreground">Blocked logins</dt><dd className="text-right tabular">{o.blocked}</dd>
             </dl>

@@ -29,6 +29,7 @@ import { ago, dateOnly, dlong, dshort, money, plural, when } from '@/lib/format'
 import { go, useApi, useDebounced } from '@/lib/hooks';
 import { AREA, category, DEVICE, heardLabel, KIND, METHOD, msgType, NOPHONE, TAGS, tagLabel } from '@/lib/names';
 import { cn } from '@/lib/utils';
+import { CentreOwnerMessages } from './OwnerMessages';
 import type { CentreRow } from './types';
 
 type Detail = {
@@ -364,6 +365,7 @@ export function Centre({ id, tab: initialTab, onName }: { id: string; tab?: stri
             </CardHeader>
             <CardContent><ByType rows={data.messages} empty="No messages yet." /></CardContent>
           </Card>
+          <CentreOwnerMessages id={id} name={c.name} />
         </TabsContent>
 
         <TabsContent value="notes" className="mt-4">

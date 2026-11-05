@@ -23,14 +23,26 @@ const SOURCE_SQL = `CASE provider WHEN 'apple' THEN 'appStore' WHEN 'google' THE
   WHEN 'manual' THEN 'manual' ELSE 'website' END`;
 /** Money that counts: paid (not refused or refunded), not a store sandbox test, in rupees. */
 export const REAL = "status = 'applied' AND sandbox = 0 AND currency = 'INR'";
+/** REAL for a `billing_events` row under another name, and more than ₹0 (a ₹0 "payment" is a plan given free). */
+const realAs = (alias: string) => `${alias}.${REAL.replace(/ AND /g, ` AND ${alias}.`)} AND ${alias}.amount > 0`;
+/** The newest real payment of the centre in `subscriptions s` whose plan runs past `?` (now): it covers today. */
+const COVERING_SQL = `SELECT pe.payment_id FROM billing_events pe
+  WHERE pe.institute_id = s.institute_id AND ${realAs('pe')} AND pe.expires_at > ? ORDER BY pe.created_at DESC LIMIT 1`;
+/**
+ * SQL (for a `subscriptions s` row, one `?` = now) that is true while a real payment covers today. A paid plan running
+ * without one was given by an admin (Extend or Change plan); it is neither paying nor in MRR (it is shown on its own).
+ */
+export const PAID_NOW_SQL = `EXISTS (${COVERING_SQL})`;
 const ymOf = (d: Date) => new Date(d.getTime() + IST).toISOString().slice(0, 7);
 
 /**
  * The Billing page, with the numbers investors ask for:
  * - revenue (this month, last month, all time; gross, and net of store tax and commission), by source (App Store,
  *   Google Play, website, recorded by an admin) and month by month for the last 6 months;
- * - MRR from the plans running now (each plan's list price spread over its months), ARR, ARPU, how many centres pay
- *   monthly / yearly / an old pack, and through the store or not;
+ * - MRR from the plans a real payment covers today (each running plan's list price spread over its months), ARR,
+ *   ARPU, how many centres pay monthly / yearly / an old pack, and through the store or not; plans an admin gave free
+ *   are counted on their own and never as paying;
+ * - "Ending in 7 days" and "Renewing automatically" counted exactly like the Subscriptions list filters them.
  * - trial to paid conversion per sign-up month, and last month's churn (centres paying when it began and not when it
  *   ended);
  * - every plan payment (gateway, store, or recorded by an admin), newest first.
@@ -66,50 +78,89 @@ export async function billingOverview(pool: Pool, q: z.infer<typeof billingQuery
        FROM billing_events WHERE ${REAL} AND created_at >= ? GROUP BY ym`,
     [sixMonths],
   )) as unknown as [{ ym: string; gross: number; net: number; payments: number }[]];
+  // every plan running now, with the newest real payment covering today (none: a trial, or given by an admin)
   const [subs] = (await pool.query(
-    `SELECT plan, cycle, store IS NOT NULL AS in_store, COUNT(*) AS n FROM subscriptions
-      WHERE status = 'active' AND expires_at > ? AND store_sandbox = 0 GROUP BY plan, cycle, in_store`,
-    [now],
-  )) as unknown as [{ plan: string; cycle: string | null; in_store: number; n: number }[]];
+    `SELECT plan, cycle, paid, paid_plan, paid_cycle, no_store, renews, store_renews, COUNT(*) AS n FROM (
+       SELECT s.plan, s.cycle, e.payment_id IS NOT NULL AS paid, e.plan_id AS paid_plan, e.cycle AS paid_cycle,
+              s.store IS NULL AS no_store, ${RENEWS_SQL} AS renews,
+              (s.store IS NOT NULL AND s.store_will_renew = 1) AS store_renews
+         FROM subscriptions s LEFT JOIN billing_events e ON e.payment_id = (${COVERING_SQL})
+        WHERE s.status = 'active' AND s.expires_at > ?) x
+      GROUP BY plan, cycle, paid, paid_plan, paid_cycle, no_store, renews, store_renews`,
+    [now, now],
+  )) as unknown as [
+    {
+      plan: string;
+      cycle: string | null;
+      paid: number;
+      paid_plan: string | null;
+      paid_cycle: string | null;
+      no_store: number;
+      renews: number;
+      store_renews: number;
+      n: number;
+    }[],
+  ];
+  // ending within 7 days, as the Subscriptions list's "Ending soon" counts them: not the ones that renew by themselves
+  const week = new Date(now.getTime() + 7 * DAY);
   const [[ends]] = (await pool.query(
     `SELECT COALESCE(SUM(s.status = 'active' AND s.expires_at > ? AND s.expires_at <= ? AND NOT ${RENEWS_SQL}), 0) AS soon,
-            COALESCE(SUM(s.status = 'expired' OR s.expires_at <= ?), 0) AS ended,
-            COALESCE(SUM(s.status = 'active' AND s.expires_at > ? AND ${RENEWS_SQL}), 0) AS renewing,
-            COALESCE(SUM(s.status = 'active' AND s.expires_at > ? AND NOT (s.store IS NOT NULL AND s.store_will_renew = 1)
-              AND ${RENEWS_SQL}), 0) AS renewing_web
+            COALESCE(SUM(s.status = 'active' AND s.expires_at > ? AND s.expires_at <= ? AND ${RENEWS_SQL}), 0) AS soon_renewing,
+            COALESCE(SUM(s.status = 'expired' OR s.expires_at <= ?), 0) AS ended
        FROM subscriptions s`,
-    [now, new Date(now.getTime() + 7 * DAY), now, now, now],
-  )) as unknown as [[{ soon: number; ended: number; renewing: number; renewing_web: number }]];
+    [now, week, now, week, now],
+  )) as unknown as [[{ soon: number; soon_renewing: number; ended: number }]];
 
   let paying = 0;
   let trials = 0;
+  let granted = 0;
   let mrr = 0;
   let inStore = 0;
+  let renewing = 0;
+  let renewingWeb = 0;
   const byPlan: Record<string, number> = {};
   const byCycle = { month: 0, year: 0, pack: 0 };
   for (const s of subs) {
     const n = Number(s.n);
-    byPlan[s.plan] = (byPlan[s.plan] ?? 0) + n;
-    if (s.plan === 'trial') trials += n;
-    else if (isPlanId(s.plan)) {
-      const cycle = isCycle(s.cycle) ? s.cycle : null;
-      paying += n;
-      if (Number(s.in_store)) inStore += n;
-      byCycle[cycle ?? 'pack'] += n;
-      mrr += (priceOf(s.plan, cycle) / monthsOf(s.plan, cycle)) * n;
+    if (s.plan === 'trial') {
+      trials += n;
+      continue;
+    }
+    if (!Number(s.paid)) {
+      // a store test purchase is neither paying nor given by an admin
+      if (Number(s.no_store)) granted += n;
+      continue;
+    }
+    if (!isPlanId(s.plan)) continue;
+    const plan = s.plan;
+    // an admin's Extend clears the cycle; the payment covering today still says monthly or yearly
+    const cycle = isCycle(s.cycle)
+      ? s.cycle
+      : s.paid_plan === plan && isCycle(s.paid_cycle)
+        ? s.paid_cycle
+        : null;
+    paying += n;
+    byPlan[plan] = (byPlan[plan] ?? 0) + n;
+    if (!Number(s.no_store)) inStore += n;
+    byCycle[cycle ?? 'pack'] += n;
+    mrr += (priceOf(plan, cycle) / monthsOf(plan, cycle)) * n;
+    // only paying plans, so it is never more than 100% of them (a trial with auto-renew approved is not paying yet)
+    if (Number(s.renews)) {
+      renewing += n;
+      if (!Number(s.store_renews)) renewingWeb += n;
     }
   }
 
-  // trial to paid: of the centres that signed up each month, how many have ever paid (a store test does not count)
+  // trial to paid: of the centres that signed up each month, how many have ever paid (a store test or ₹0 does not count)
   const [cohorts] = (await pool.query(
     `SELECT DATE_FORMAT(i.created_at + INTERVAL 330 MINUTE, '%Y-%m') AS ym, COUNT(*) AS signups,
-            SUM(EXISTS (SELECT 1 FROM billing_events e WHERE e.institute_id = i.id AND e.${REAL.replace(/ AND /g, ' AND e.')})) AS paid
+            SUM(EXISTS (SELECT 1 FROM billing_events e WHERE e.institute_id = i.id AND ${realAs('e')})) AS paid
        FROM institutes i WHERE i.created_at >= ? GROUP BY ym ORDER BY ym`,
     [sixMonths],
   )) as unknown as [{ ym: string; signups: number; paid: number }[]];
   // churn: centres with a paid plan running when last month began that had none running when it ended
   const covered = (alias: string, at: string) =>
-    `${alias}.status = 'applied' AND ${alias}.sandbox = 0 AND ${alias}.created_at <= ${at} AND ${alias}.expires_at > ${at}`;
+    `${realAs(alias)} AND ${alias}.created_at <= ${at} AND ${alias}.expires_at > ${at}`;
   const [[churn]] = (await pool.query(
     `SELECT COUNT(*) AS start_n,
             COALESCE(SUM(NOT EXISTS (SELECT 1 FROM billing_events b WHERE b.institute_id = a.institute_id AND ${covered('b', '?')})), 0) AS churned
@@ -197,9 +248,15 @@ export async function billingOverview(pool: Pool, q: z.infer<typeof billingQuery
       paying,
       inStore,
       trials,
+      /** running paid plans no real payment covers: given by an admin, not in paying or MRR */
+      granted,
+      /** ending within 7 days and not renewing by themselves (the Subscriptions list's "Ending soon") */
       endingSoon: Number(ends.soon),
-      autoRenewing: Number(ends.renewing),
-      autoRenewingWeb: Number(ends.renewing_web),
+      /** also ending within 7 days, but they renew by themselves (store or website) */
+      endingSoonRenewing: Number(ends.soon_renewing),
+      /** paying centres whose plan renews by itself, and of them on the website */
+      autoRenewing: renewing,
+      autoRenewingWeb: renewingWeb,
       ended: Number(ends.ended),
       byPlan,
       byCycle,

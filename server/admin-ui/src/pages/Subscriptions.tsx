@@ -15,6 +15,7 @@ import type { CentreRow } from './types';
 const VIEWS = [
   ['all', 'All'],
   ['paying', 'Paying'],
+  ['granted', 'Given by admin'],
   ['trial', 'Trial'],
   ['ending', 'Ending soon'],
   ['ended', 'Ended'],
@@ -36,10 +37,12 @@ export function Subscriptions({ query = {} }: { query?: Record<string, string> }
   const all = data?.institutes ?? [];
   const rows = all
     .filter((c) => {
+      // the same rules as the counts above (server billing.ts), so a card and its list always agree
       const s = subscriptionState(c).key;
-      if (view === 'paying') return (s === 'active' || s === 'ending') && c.plan !== 'trial';
+      if (view === 'paying') return (s === 'active' || s === 'ending') && c.plan !== 'trial' && !!c.paidNow;
+      if (view === 'granted') return !!c.givenByAdmin;
       if (view === 'trial') return c.plan === 'trial' && s !== 'ended';
-      if (view === 'ending') return s === 'ending';
+      if (view === 'ending') return s === 'ending' && !c.renews;
       if (view === 'ended') return s === 'ended';
       return true;
     })
@@ -110,8 +113,9 @@ export function Subscriptions({ query = {} }: { query?: Record<string, string> }
                             <span className="block">{planName(c.plan)}</span>
                             {isPlan(c.plan) && c.plan !== 'trial' ? (
                               <span className="block text-xs text-muted-foreground">
-                                {c.cycle ? planPrice(c.plan, c.cycle) : 'Set by admin or an older pack'}
+                                {c.givenByAdmin ? 'Given by an admin, not paid' : c.cycle ? planPrice(c.plan, c.cycle) : 'An older pack'}
                                 {c.store ? ` · ${STORE_NAME[c.store.name] ?? c.store.name}${c.store.willRenew ? ', renews' : ''}` : ''}
+                                {c.webAutoRenew ? ' · renews on the website' : ''}
                               </span>
                             ) : null}
                           </TableCell>

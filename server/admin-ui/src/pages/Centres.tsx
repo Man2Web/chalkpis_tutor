@@ -22,7 +22,7 @@ import type { CentreRow } from './types';
 const FILTERS = [
   ['all', 'All centres'],
   ['trial', 'On trial'],
-  ['paid', 'Paid'],
+  ['paid', 'Paying'],
   ['ended', 'Plan ended'],
   ['at-risk', 'At risk'],
   ['test', 'Test or empty'],

@@ -36,7 +36,8 @@ export const payUrl = (baseUrl: string | undefined, secret: string, instituteId:
 /**
  * Whether the admin dashboard still offers a centre its pay page link (decision 157): while it is on its free trial
  * (running or ended) and again once a paid plan has ended. Not while a paid plan runs, and not while auto-renew through
- * the store or the website is on, since the pay page refuses a second payment then; the dashboard shows the plan instead.
+ * the store or the website is on, since the pay page refuses a second payment then; the dashboard shows the plan instead
+ * (a plan an admin gave counts as running too; the card then says it was given, not paid).
  */
 export function offersPayLink(i: {
   plan: string | null;

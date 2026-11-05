@@ -3,6 +3,7 @@ import { withTransaction, type Pool } from '../db.js';
 import { AppError, notFound } from '../errors.js';
 import { PLANS, isPlanId } from '../billing/plans.js';
 import { applyPurchase, SUB_COLUMNS, type SubRow } from '../billing/service.js';
+import { PAID_NOW_SQL } from './billing.js';
 import { queuePlanActive } from '../messaging/centreMessages.js';
 import { newId } from '../lib/ids.js';
 
@@ -25,7 +26,10 @@ export const planBody = z.object({
   days: z.number().int().min(1).max(3660),
 });
 
-/** Every count the dashboard's first screen needs, in one round trip. */
+/**
+ * Every count the dashboard's first screen needs, in one round trip. `paid` counts the centres a real payment covers
+ * today and `granted` the paid plans an admin gave, exactly as the Revenue and Subscriptions pages do.
+ */
 export async function overview(pool: Pool, now: Date) {
   const since = new Date(now.getTime() - DAY);
   const [[r]] = (await pool.query(
@@ -36,7 +40,9 @@ export async function overview(pool: Pool, now: Date) {
        (SELECT COUNT(*) FROM users WHERE blocked_at IS NOT NULL) AS blocked,
        (SELECT COUNT(*) FROM institutes) AS institutes,
        (SELECT COUNT(*) FROM subscriptions WHERE status = 'active' AND expires_at > ? AND plan = 'trial') AS trials,
-       (SELECT COUNT(*) FROM subscriptions WHERE status = 'active' AND expires_at > ? AND plan <> 'trial') AS paid,
+       (SELECT COUNT(*) FROM subscriptions s WHERE s.status = 'active' AND s.expires_at > ? AND s.plan <> 'trial' AND ${PAID_NOW_SQL}) AS paid,
+       (SELECT COUNT(*) FROM subscriptions s WHERE s.status = 'active' AND s.expires_at > ? AND s.plan <> 'trial' AND s.store IS NULL
+          AND NOT ${PAID_NOW_SQL}) AS granted,
        (SELECT COUNT(*) FROM subscriptions WHERE status = 'expired' OR expires_at <= ?) AS expired,
        (SELECT COUNT(*) FROM students WHERE status = 'active') AS students,
        (SELECT COUNT(*) FROM users WHERE last_login_at > ?) AS logins24h,
@@ -45,7 +51,7 @@ export async function overview(pool: Pool, now: Date) {
        (SELECT COUNT(*) FROM messages WHERE status = 'sent' AND sent_at > ?) AS messagesSent24h,
        (SELECT COUNT(*) FROM messages WHERE status = 'failed' AND created_at > ?) AS messagesFailed24h,
        (SELECT COUNT(DISTINCT user_id) FROM refresh_tokens WHERE revoked_at IS NULL AND rotated_at IS NULL AND expires_at > ?) AS signedIn`,
-    [now, now, now, since, since, since, since, since, now],
+    [now, now, now, now, now, now, since, since, since, since, since, now],
   )) as unknown as [[Record<string, number>]];
   return Object.fromEntries(Object.entries(r!).map(([k, v]) => [k, Number(v)]));
 }
