@@ -899,6 +899,9 @@
   "messages": {
     "settingsTitle": "Parent messages",
     "settingsHint": "Automatic WhatsApp messages to parents. You choose what is sent and when.",
+    "forYou": "For you",
+    "dailyReport": "Daily report on WhatsApp",
+    "dailyReportHint": "Every morning at 6 AM: yesterday's attendance and fees collected, and today's classes, pending fees and follow-ups, sent to your own WhatsApp number.",
     "master": "Send messages to parents",
     "masterHint": "Off until you turn it on. Only parents whose \"Send updates to parent\" switch is on get messages.",
     "sendWhen": "Send a message when",

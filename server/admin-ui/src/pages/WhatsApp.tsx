@@ -71,7 +71,7 @@ export function WhatsApp({ query = {} }: { query?: Record<string, string> }) {
 }
 
 const PARENT_TYPES = Object.entries(MESSAGE_TYPES).filter(
-  ([k]) => !['centre_welcome', 'trial_ending', 'plan_active', 'helper_invite', 'plan_ending', 'plan_ended'].includes(k),
+  ([k]) => !['centre_welcome', 'trial_ending', 'plan_active', 'helper_invite', 'plan_ending', 'plan_ended', 'daily_report'].includes(k),
 );
 
 function ParentMessages() {

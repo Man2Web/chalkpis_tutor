@@ -146,6 +146,7 @@ export const MESSAGE_TYPES: Record<string, string> = {
   helper_invite: 'Helper invite',
   plan_ending: 'Owner · plan ending',
   plan_ended: 'Owner · plan ended',
+  daily_report: 'Owner · daily report',
 };
 export const msgType = (t: string) => MESSAGE_TYPES[t] ?? t.replace(/_/g, ' ');
 

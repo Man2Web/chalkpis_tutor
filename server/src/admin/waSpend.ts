@@ -36,6 +36,7 @@ export const KINDS: Record<string, string> = {
   plan_ending: 'Plan ending reminder',
   plan_ended: 'Plan ended reminder',
   helper_invite: 'Helper invites',
+  daily_report: 'Daily reports to owners',
 };
 /** As Meta classed the templates (docs/WHATSAPP-TEMPLATES.md): the plan reminders ask the owner to buy, so Marketing. */
 const MARKETING = new Set(['plan_ending', 'plan_ended']);

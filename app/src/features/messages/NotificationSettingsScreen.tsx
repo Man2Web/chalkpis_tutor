@@ -123,6 +123,15 @@ export function NotificationSettingsScreen() {
 
   return (
     <Screen>
+      <Section title={t('messages.forYou')} footer={t('messages.dailyReportHint')}>
+        <Row
+          icon="sunny"
+          iconColor={colors.warningFill}
+          title={t('messages.dailyReport')}
+          toggle={{ value: s.dailyReport, onChange: (v) => set({ dailyReport: v }) }}
+        />
+      </Section>
+
       <Section footer={t('messages.masterHint')}>
         <Row
           icon="logo-whatsapp"

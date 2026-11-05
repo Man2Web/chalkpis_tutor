@@ -22,6 +22,8 @@ const settingsBody = z.object({
   // older app builds do not send these two; their saved value is kept
   studentWelcome: z.boolean().optional(),
   classCancelled: z.boolean().optional(),
+  // the owner's 6 am report (decision 167); app builds before it do not send it
+  dailyReport: z.boolean().optional(),
   // English only now; an old app may still send 'hi', which is stored as English.
   language: z.enum(['en', 'hi']).transform(() => 'en' as const),
 });
@@ -50,6 +52,7 @@ export function messageRoutes(app: FastifyInstance, deps: Deps) {
         ...body,
         studentWelcome: body.studentWelcome ?? current.studentWelcome,
         classCancelled: body.classCancelled ?? current.classCancelled,
+        dailyReport: body.dailyReport ?? current.dailyReport,
       },
       now(),
     );

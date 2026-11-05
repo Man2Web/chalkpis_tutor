@@ -70,7 +70,7 @@ const ownerName = (c: Centre) => cleanVar(c.owner_name.trim() || 'there');
  * Queues one message from Chalkpis to a person at a centre. The same (centre, type, ref) never queues twice, so a
  * retried request or a job run twice sends nothing new. Someone without a mobile number is simply not told.
  */
-async function queueCentre(
+export async function queueCentre(
   db: Db,
   m: { instituteId: string; type: CentreMessageType; ref: string; userId: string; vars: string[] },
   now: Date,

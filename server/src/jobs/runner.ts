@@ -12,6 +12,7 @@ import { enqueueAllFeeReminders } from '../messaging/notify.js';
 import type { Mailer } from '../auth/mailer.js';
 import { warnLowBalance } from '../admin/waSpend.js';
 import { sendDailySummary } from '../admin/dailySummary.js';
+import { queueDailyReports } from '../reports/daily.js';
 
 export interface JobLog {
   info: (o: object, msg: string) => void;
@@ -165,6 +166,14 @@ export const makeJobs = (
     run: (pool, now) => expireDueSubscriptions(pool, now),
   },
   { name: 'cleanup', from: 4, until: 23, every: 'day', run: cleanupJob },
+  // the owner's daily report on WhatsApp at 6 am (decision 167); a server that was down then sends it until 8:59, not later
+  {
+    name: 'daily-report',
+    from: 6,
+    until: 8,
+    every: 'day',
+    run: (pool, now) => queueDailyReports(pool, now, links?.templates),
+  },
   {
     name: 'reminders',
     from: 9,

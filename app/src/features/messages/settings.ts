@@ -12,6 +12,8 @@ export interface NotifySettings {
   studentWelcome: boolean;
   /** Parents hear when today's class is marked as a holiday or cancelled. */
   classCancelled: boolean;
+  /** The owner's own report on WhatsApp every morning at 6 (decision 167); on by default, apart from the master switch. */
+  dailyReport: boolean;
   language: 'en' | 'hi';
 }
 
@@ -26,6 +28,7 @@ export const DEFAULT_SETTINGS: NotifySettings = {
   paymentReceived: true,
   studentWelcome: true,
   classCancelled: true,
+  dailyReport: true,
   language: 'en',
 };
 
@@ -51,6 +54,7 @@ export function normalizeSettings(raw: Record<string, unknown> | undefined): Not
     paymentReceived: flag(raw?.paymentReceived, d.paymentReceived),
     studentWelcome: flag(raw?.studentWelcome, d.studentWelcome),
     classCancelled: flag(raw?.classCancelled, d.classCancelled),
+    dailyReport: flag(raw?.dailyReport, d.dailyReport),
     language: raw?.language === 'hi' ? 'hi' : 'en',
   };
 }

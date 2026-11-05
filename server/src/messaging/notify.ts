@@ -29,6 +29,11 @@ export interface NotifySettings {
   studentWelcome: boolean;
   /** A note to parents when today's class is marked as a holiday or cancelled. */
   classCancelled: boolean;
+  /**
+   * The owner's own daily report on WhatsApp at 6 am (decision 167). Not a parent message: on by default and apart
+   * from the master switch.
+   */
+  dailyReport: boolean;
   language: Lang;
 }
 
@@ -43,6 +48,7 @@ export const DEFAULT_SETTINGS: NotifySettings = {
   paymentReceived: true,
   studentWelcome: true,
   classCancelled: true,
+  dailyReport: true,
   language: 'en',
 };
 
@@ -57,6 +63,7 @@ interface SettingsRow {
   payment_received: number;
   student_welcome: number;
   class_cancelled: number;
+  daily_report: number;
   language: Lang;
 }
 
@@ -77,6 +84,7 @@ export async function getSettings(db: Db, instituteId: string): Promise<NotifySe
     paymentReceived: !!r.payment_received,
     studentWelcome: !!r.student_welcome,
     classCancelled: !!r.class_cancelled,
+    dailyReport: !!r.daily_report,
     language: r.language,
   };
 }
@@ -84,12 +92,12 @@ export async function getSettings(db: Db, instituteId: string): Promise<NotifySe
 export async function saveSettings(pool: Pool, instituteId: string, s: NotifySettings, now: Date) {
   await requireActivePlan(pool, instituteId, now);
   await pool.query(
-    `INSERT INTO notify_settings (institute_id, enabled, absent, late, fee_due, fee_due_days_before, fee_overdue, overdue_every_days, payment_received, student_welcome, class_cancelled, language)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO notify_settings (institute_id, enabled, absent, late, fee_due, fee_due_days_before, fee_overdue, overdue_every_days, payment_received, student_welcome, class_cancelled, daily_report, language)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), absent = VALUES(absent), late = VALUES(late), fee_due = VALUES(fee_due),
        fee_due_days_before = VALUES(fee_due_days_before), fee_overdue = VALUES(fee_overdue), overdue_every_days = VALUES(overdue_every_days),
        payment_received = VALUES(payment_received), student_welcome = VALUES(student_welcome), class_cancelled = VALUES(class_cancelled),
-       language = VALUES(language)`,
+       daily_report = VALUES(daily_report), language = VALUES(language)`,
     [
       instituteId,
       +s.enabled,
@@ -102,6 +110,7 @@ export async function saveSettings(pool: Pool, instituteId: string, s: NotifySet
       +s.paymentReceived,
       +s.studentWelcome,
       +s.classCancelled,
+      +s.dailyReport,
       s.language,
     ],
   );

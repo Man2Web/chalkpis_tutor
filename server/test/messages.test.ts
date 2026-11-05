@@ -100,6 +100,7 @@ describe('settings', () => {
       paymentReceived: true,
       studentWelcome: true,
       classCancelled: true,
+      dailyReport: true,
       language: 'en',
     });
     expect((await on(A, { language: 'hi', feeDueDaysBefore: 5 })).status).toBe(200);

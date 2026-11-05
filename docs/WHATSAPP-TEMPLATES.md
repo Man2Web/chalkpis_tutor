@@ -59,6 +59,7 @@ Footer on all of them: "Sent via Chalkpis on behalf of your centre". ("/" marks 
 | `helper_invite` | `cp_helper_invite` | 1815400 | helper's name | owner's name | centre | a helper is added (once per helper) |
 | `plan_ending` | `cp_plan_ending` (**image header**, Meta classed it Marketing) | 1815843 | owner's name | `free trial for Kiran Karate Academy` / `Standard plan for …` | end date | daily job: a trial ends within 2 days, a paid plan within 3 (once per end date); `{{4}}` is the centre's pay link |
 | `plan_ended` | `cp_plan_ended` (**image header**, Meta classed it Marketing) | 1815844 | owner's name | same | end date | daily job: on the day it ended (within 2 days, not renewed; once per end date); `{{4}}` is the pay link |
+| `daily_report` | `cp_daily_report` (Utility, text only) | waiting for approval | owner's name | centre | yesterday, e.g. `Wed, 4 Nov: 42 present, 3 absent, 1 late in 4 classes; ₹4,500 collected (3 payments); 2 new enquiries.` | every day at 6 am (decision 167); `{{4}}` is today, e.g. `Thu, 5 Nov: 5 classes, first at 7:00 AM; ₹12,000 fees pending from 8 students (₹6,000 overdue); 2 enquiry follow-ups due.` |
 
 These are queued in `centre_messages` in the same transaction as their event and sent by the same worker as parent
 messages (with retries); the number is read from the person's account at send time.
@@ -68,6 +69,8 @@ messages (with retries); the number is read from the person's account at send ti
 - **cp_helper_invite**: Hi {{1}}, {{2}} has added you as a helper at {{3}} on Chalkpis. / Install the Chalkpis app and sign in with this WhatsApp number to take attendance for your batches.
 - **cp_plan_ending** (header: image, the Chalkpis banner at `<PUBLIC_BASE_URL>/plan-renew.png`): Hi {{1}}, the {{2}} ends on {{3}}. / To keep attendance, fees and parent messages running without a break, choose a plan on this secure page: {{4}} / Need help? Write to hello@chalkpis.com.
 - **cp_plan_ended** (header: image, same banner): Hi {{1}}, the {{2}} ended on {{3}}. Your data is safe, and you can still see everything in the app. / To add students, take attendance and send fee updates again, choose a plan on this secure page: {{4}} / Need help? Write to hello@chalkpis.com.
+- **cp_daily_report**: Good morning {{1}}, here is the daily report for {{2}}. / \*Yesterday:\* {{3}} / \*Today:\* {{4}} / Open the Chalkpis app to see every student, class and fee. To stop this report, turn off "Daily report on WhatsApp" in the app under Account > Parent messages. Need help? Write to hello@chalkpis.com.
+  Submitted on 5 Nov 2026 (Utility, footer "Chalkpis by M2W Technologies"). wa.adsme.in answered `ER_DATA_TOO_LONG: Data too long for column 'body_text'` but created it anyway, as Pending with no Template Id yet; a second submit is refused as "Template name already exist". Keep new bodies under about 250 characters to avoid that error.
 
 The two plan reminders replace `cp_trial_ending` (text only; deleted on 14 Oct 2026): the server no longer queues
 `trial_ending`.
@@ -123,7 +126,7 @@ The server reads the template per app message type from `WA_TEMPLATES` (JSON), p
 Through wa.adsme.in use the **Template Id numbers** above (add `helper_invite` once it is approved):
 
 ```
-{"absent":{"en":"1815393"},"late":{"en":"1815389"},"fee_due":{"en":"1815863"},"fee_overdue":{"en":"1815859"},"payment_received":{"en":"1815826"},"fee_reminder":{"en":"1815861"},"fee_link":{"en":"1815858"},"parent_link":{"en":"1815395"},"student_welcome":{"en":"1815398"},"class_cancelled":{"en":"1815394"},"centre_welcome":{"en":"1815396"},"plan_active":{"en":"1815397"},"plan_ending":{"en":"1815843"},"plan_ended":{"en":"1815844"},"helper_invite":{"en":"1815400"}}
+{"absent":{"en":"1815393"},"late":{"en":"1815389"},"fee_due":{"en":"1815863"},"fee_overdue":{"en":"1815859"},"payment_received":{"en":"1815826"},"fee_reminder":{"en":"1815861"},"fee_link":{"en":"1815858"},"parent_link":{"en":"1815395"},"student_welcome":{"en":"1815398"},"class_cancelled":{"en":"1815394"},"centre_welcome":{"en":"1815396"},"plan_active":{"en":"1815397"},"plan_ending":{"en":"1815843"},"plan_ended":{"en":"1815844"},"helper_invite":{"en":"1815400"},"daily_report":{"en":"<cp_daily_report id>"}}
 ```
 
 A message type with no template is skipped and shows in the Message log as "No template for this message".

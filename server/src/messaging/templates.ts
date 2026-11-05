@@ -31,7 +31,8 @@ export type CentreMessageType =
   | 'plan_active'
   | 'helper_invite'
   | 'plan_ending'
-  | 'plan_ended';
+  | 'plan_ended'
+  | 'daily_report';
 export const CENTRE_MESSAGE_TYPES: CentreMessageType[] = [
   'centre_welcome',
   'trial_ending',
@@ -39,6 +40,7 @@ export const CENTRE_MESSAGE_TYPES: CentreMessageType[] = [
   'helper_invite',
   'plan_ending',
   'plan_ended',
+  'daily_report',
 ];
 /** Centre messages whose template has an image header (the Chalkpis banner, served at /plan-renew.png). */
 export const CENTRE_IMAGE_TYPES: ReadonlySet<CentreMessageType> = new Set([
