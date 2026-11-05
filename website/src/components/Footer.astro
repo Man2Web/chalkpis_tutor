@@ -2,8 +2,7 @@
 import Logo from './Logo.astro';
 import Icon from './Icon.astro';
 import {
-  APP_STORE_URL, PLAY_STORE_URL, START_URL, SIGN_IN_URL, TERMS_URL, PRIVACY_URL, DELETE_ACCOUNT_URL,
-  WHATSAPP_URL, SUPPORT_EMAIL, COMPANY, SCHOOL_ERP_URL,
+  APP_STORE_URL, PLAY_STORE_URL, WHATSAPP_URL, SUPPORT_EMAIL, COMPANY, SCHOOL_ERP_URL,
 } from '../config';
 
 // Only pages that exist today are linked; the class-type, about and contact pages get added here when they are built.
@@ -13,18 +12,6 @@ const cols = [
     { label: 'Who it’s for', href: '/#roles' },
     { label: 'Pricing', href: '/pricing' },
     { label: 'Questions', href: '/pricing#faq' },
-  ] },
-  { title: 'Get started', links: [
-    { label: 'Start free trial', href: START_URL },
-    { label: 'Sign in', href: SIGN_IN_URL },
-    { label: 'Chat on WhatsApp', href: WHATSAPP_URL },
-    { label: SUPPORT_EMAIL, href: `mailto:${SUPPORT_EMAIL}` },
-  ] },
-  { title: 'Legal', links: [
-    { label: 'Terms and Conditions', href: TERMS_URL },
-    { label: 'Privacy Policy', href: PRIVACY_URL },
-    { label: 'Cookie policy', href: '/cookies' },
-    { label: 'Delete your account', href: DELETE_ACCOUNT_URL },
   ] },
 ];
 ---

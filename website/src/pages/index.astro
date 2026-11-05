@@ -2,8 +2,9 @@
 import Base from '../layouts/Base.astro';
 import Icon from '../components/Icon.astro';
 import Logo from '../components/Logo.astro';
-import { START_URL, WHATSAPP_URL, SITE_URL, SITE_NAME, PLAY_STORE_URL, APP_STORE_URL } from '../config';
-import { PLANS, rupees } from '../data/plans';
+import PlanCards from '../components/PlanCards.astro';
+import { START_URL, WHATSAPP_URL, SITE_URL, SITE_NAME, PLAY_STORE_URL, APP_STORE_URL, TRIAL_DAYS } from '../config';
+import { PLANS } from '../data/plans';
 
 const heroRows = [
   { initials: 'AK', name: 'Aarohi K.', status: 'Absent', cls: 'no' },
@@ -332,22 +333,14 @@ const schema = {
     )}
   </section>
 
-  <!-- pricing preview -->
-  <section class="sec">
+  <!-- pricing: the same plan picker as /pricing -->
+  <section id="pricing" class="sec">
     <div class="wrap">
-      <div class="head"><h2 class="h2">Plans from ₹199 a month</h2><p class="body" style="margin-top: 14px">Free for 7 days. Every feature in every plan. Yearly plans get 2 months free.</p></div>
-      <div class="plans">
-        {PLANS.map((p) => (
-          <div class={`card plan ${p.popular ? 'plan-dark' : ''}`}>
-            {p.popular && <span class="pill plan-badge">Most popular</span>}
-            <p class="h4">{p.name}</p>
-            <p class="small plan-sub">{p.summary}</p>
-            <p style="margin-top: 24px"><span class="num" style="font-size: 40px">{rupees(p.month)}</span><span class="small plan-sub"> / month</span></p>
-            <p class="small plan-sub" style="margin-top: 4px; font-size: 13px">or {rupees(p.year)} a year</p>
-          </div>
-        ))}
+      <div class="head">
+        <h2 class="h2">Pick a plan by how many students you teach</h2>
+        <p class="body" style="margin-top: 14px">Try everything free for {TRIAL_DAYS} days. Every feature is in every plan, so you only choose a size.</p>
       </div>
-      <p style="margin-top: 28px; text-align: center"><a href="/pricing" class="link-blue">See full pricing →</a></p>
+      <PlanCards />
     </div>
   </section>
 
@@ -470,14 +463,6 @@ const schema = {
   .quote-mark { color: var(--blue); }
   .featured-who { margin-top: 28px; display: flex; align-items: center; gap: 14px; font-size: 15px; }
 
-  .plans { margin-top: 48px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 20px; }
-  .plan { padding: 28px; position: relative; }
-  .plan-sub { margin-top: 4px; }
-  .plan-dark { background: var(--ink); color: #fff; }
-  .plan-dark .plan-sub { color: #d4d4d8; }
-  .plan-badge { position: absolute; top: 24px; right: 24px; background: var(--blue); color: #fff; }
-  .link-blue { font-size: 15px; font-weight: 600; color: var(--blue-ink); text-decoration: none; }
-  .link-blue:hover { text-decoration: underline; }
 
   .banner { background: var(--blue-50); padding: 48px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px; }
 

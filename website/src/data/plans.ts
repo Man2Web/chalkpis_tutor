@@ -60,6 +60,6 @@ export const FAQS = [
   },
   {
     q: 'Can I delete my account and data?',
-    a: 'Yes, any time. Use the Delete your account page linked at the bottom of this page.',
+    a: 'Yes, any time, at tutor.chalkpis.com/delete-account.',
   },
 ];

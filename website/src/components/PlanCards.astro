@@ -1,0 +1,90 @@
+---
+/**
+ * The plan picker shared by the home page and /pricing: Monthly / Yearly switch, the three plan cards and the note.
+ * The page above it supplies the heading.
+ */
+import Icon from './Icon.astro';
+import { START_URL, TRIAL_DAYS } from '../config';
+import { PLANS, rupees } from '../data/plans';
+---
+<div class="plan-picker" data-plan-picker>
+  <div class="switch-row">
+    <div class="switch" role="group" aria-label="Billing period">
+      <button type="button" aria-pressed="true" data-value="month">Monthly</button>
+      <button type="button" aria-pressed="false" data-value="year">Yearly <span class="save">2 months free</span></button>
+    </div>
+  </div>
+
+  <div class="plans" data-cycle-value="month">
+    {PLANS.map((p) => (
+      <div class={`card plan ${p.popular ? 'plan-dark' : ''}`}>
+        <div class="plan-head">
+          <h3 class="plan-name">{p.name}</h3>
+          {p.popular && <span class="pill plan-badge">Most popular</span>}
+        </div>
+        <p class="plan-price">
+          <span class="num price">
+            <span class="m">{rupees(p.month)}</span><span class="y">{rupees(p.year)}</span>
+          </span>
+          <span class="per"><span class="m">/ month</span><span class="y">/ year</span></span>
+        </p>
+        <p class="note"><span class="m">or {rupees(p.year)} a year</span><span class="y">Works out to {rupees(Math.round(p.year / 12))} a month</span></p>
+        <ul class="ticks">
+          <li><Icon name="check" size={18} stroke={2.4} />{p.students}</li>
+          <li><Icon name="check" size={18} stroke={2.4} />{p.batches}</li>
+          <li><Icon name="check" size={18} stroke={2.4} />WhatsApp messages included</li>
+        </ul>
+        <a class={`btn ${p.popular ? 'btn-light' : 'btn-dark'} plan-cta`} href={START_URL}>Start {TRIAL_DAYS}-day free trial</a>
+      </div>
+    ))}
+  </div>
+  <p class="small foot-note">Your plan starts when the free week ends, so you never lose a trial day.</p>
+</div>
+
+<script>
+  // Monthly / Yearly switch: flips a data attribute; CSS shows the matching prices.
+  document.querySelectorAll<HTMLElement>('[data-plan-picker]').forEach((picker) => {
+    const plans = picker.querySelector<HTMLElement>('.plans');
+    const buttons = picker.querySelectorAll<HTMLButtonElement>('.switch button');
+    buttons.forEach((b) => {
+      b.addEventListener('click', () => {
+        buttons.forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+        if (plans) plans.dataset.cycleValue = b.dataset.value;
+      });
+    });
+  });
+</script>
+
+<style>
+  .switch-row { text-align: center; }
+  .switch { margin-top: 36px; display: inline-flex; align-items: center; gap: 4px; background: #f1f2f4; border-radius: 14px; padding: 4px; }
+  .switch button { border: 0; cursor: pointer; background: transparent; border-radius: 11px; padding: 0 18px; height: 44px; font-size: 15px; font-weight: 600; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
+  .switch button[aria-pressed='true'] { background: #fff; box-shadow: 0 1px 3px rgba(11, 11, 15, 0.12); }
+  .save { background: var(--yellow); border-radius: 999px; padding: 3px 8px; font-size: 12px; font-weight: 600; }
+
+  .plans { margin-top: 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 20px; }
+  .plan { display: flex; flex-direction: column; }
+  .plan-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 26px; }
+  .plan-name { font-size: 20px; font-weight: 600; }
+  .plan-badge { background: var(--blue); color: #fff; }
+  .plan-price { margin-top: 24px; display: flex; align-items: baseline; gap: 6px; }
+  .price { font-size: 52px; line-height: 1; }
+  .per, .note { color: var(--muted); }
+  .per { font-size: 15px; }
+  .note { margin-top: 8px; font-size: 14px; min-height: 20px; }
+  .ticks { list-style: none; padding: 0; margin-top: 28px; display: flex; flex-direction: column; gap: 12px; font-size: 15px; }
+  .ticks li { display: flex; gap: 10px; align-items: center; color: var(--ink); }
+  .ticks svg { color: var(--blue); }
+  .plan-cta { margin-top: auto; }
+  .ticks { margin-bottom: 32px; }
+  .plan-dark { background: var(--ink); color: #fff; }
+  .plan-dark .per, .plan-dark .note { color: #d4d4d8; }
+  .plan-dark .ticks li { color: #fff; }
+  .plan-dark .ticks svg { color: #7dd3fc; }
+  [data-cycle-value='month'] .y, [data-cycle-value='year'] .m { display: none; }
+  .foot-note { margin-top: 22px; text-align: center; }
+
+  @media (max-width: 600px) {
+    .switch-row { text-align: left; }
+  }
+</style>
