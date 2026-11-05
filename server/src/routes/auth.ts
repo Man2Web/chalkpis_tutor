@@ -52,7 +52,6 @@ async function profile(deps: Deps, userId: string) {
   if (!r) return null;
   return {
     user: { id: r.id, phone: r.phone, name: r.name, language: r.language },
-    isAdmin: !!r.phone && deps.config.ADMIN_PHONES.includes(r.phone),
     membership: r.institute_id
       ? {
           instituteId: r.institute_id,

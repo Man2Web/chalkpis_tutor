@@ -22,7 +22,7 @@ function istMonthStart(now: Date, back = 0): Date {
 const SOURCE_SQL = `CASE provider WHEN 'apple' THEN 'appStore' WHEN 'google' THEN 'googlePlay'
   WHEN 'manual' THEN 'manual' ELSE 'website' END`;
 /** Money that counts: paid (not refused or refunded), not a store sandbox test, in rupees. */
-const REAL = "status = 'applied' AND sandbox = 0 AND currency = 'INR'";
+export const REAL = "status = 'applied' AND sandbox = 0 AND currency = 'INR'";
 const ymOf = (d: Date) => new Date(d.getTime() + IST).toISOString().slice(0, 7);
 
 /**

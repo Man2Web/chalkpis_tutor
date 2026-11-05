@@ -68,12 +68,11 @@ interface UserRow {
   sessions: number;
 }
 
-const toUser = (r: UserRow, admins: string[], now: Date) => ({
+const toUser = (r: UserRow, now: Date) => ({
   id: r.id,
   phone: r.phone,
   name: r.name,
   role: r.role,
-  isAdmin: admins.includes(r.phone),
   createdAt: r.created_at.toISOString(),
   lastLoginAt: r.last_login_at?.toISOString() ?? null,
   blocked: !!r.blocked_at,
@@ -101,12 +100,7 @@ const USER_SELECT = `SELECT u.id, u.phone, u.name, u.created_at, u.last_login_at
   LEFT JOIN subscriptions s ON s.institute_id = m.institute_id`;
 
 /** Every login (tutors and helpers), newest activity first, with search by name, phone or institute. */
-export async function listUsers(
-  pool: Pool,
-  q: z.infer<typeof userListQuery>,
-  admins: string[],
-  now: Date,
-) {
+export async function listUsers(pool: Pool, q: z.infer<typeof userListQuery>, now: Date) {
   const where: string[] = [];
   const args: unknown[] = [now];
   if (q.q) {
@@ -123,16 +117,16 @@ export async function listUsers(
      ORDER BY COALESCE(u.last_login_at, u.created_at) DESC, u.id LIMIT ? OFFSET ?`,
     [...args, q.limit, q.offset],
   )) as unknown as [UserRow[]];
-  return rows.map((r) => toUser(r, admins, now));
+  return rows.map((r) => toUser(r, now));
 }
 
 /** One login in full: the account, its sign-ins (sessions) and its recent login-code requests. */
-export async function getUser(pool: Pool, id: string, admins: string[], now: Date) {
+export async function getUser(pool: Pool, id: string, now: Date) {
   const [rows] = (await pool.query(`${USER_SELECT} WHERE u.id = ?`, [now, id])) as unknown as [
     UserRow[],
   ];
   if (!rows[0]) throw notFound();
-  const user = toUser(rows[0], admins, now);
+  const user = toUser(rows[0], now);
   const [sessions] = (await pool.query(
     `SELECT family_id, MIN(created_at) AS started, MAX(created_at) AS last_used,
             MAX(expires_at) AS expires, MAX(revoked_at) AS revoked,
@@ -224,14 +218,12 @@ export async function audit(
   );
 }
 
-async function target(pool: Pool, id: string, admins: string[], actor: AdminActor) {
+async function target(pool: Pool, id: string) {
   const [rows] = (await pool.query('SELECT id, phone FROM users WHERE id = ?', [
     id,
   ])) as unknown as [{ id: string; phone: string }[]];
   const u = rows[0];
   if (!u) throw notFound();
-  if (u.id === actor.userId || admins.includes(u.phone))
-    throw new AppError(409, 'cannot_change_admin');
   return u;
 }
 
@@ -249,12 +241,11 @@ const revokeAll = async (pool: Pool, userId: string, now: Date) => {
 export async function blockUser(
   pool: Pool,
   actor: AdminActor,
-  admins: string[],
   id: string,
   reason: string,
   now: Date,
 ) {
-  const u = await target(pool, id, admins, actor);
+  const u = await target(pool, id);
   await pool.query('UPDATE users SET blocked_at = ?, blocked_reason = ? WHERE id = ?', [
     now,
     reason,
@@ -264,21 +255,15 @@ export async function blockUser(
   await audit(pool, actor, 'block', { userId: id, phone: u.phone, detail: reason });
 }
 
-export async function unblockUser(pool: Pool, actor: AdminActor, admins: string[], id: string) {
-  const u = await target(pool, id, admins, actor);
+export async function unblockUser(pool: Pool, actor: AdminActor, id: string) {
+  const u = await target(pool, id);
   await pool.query("UPDATE users SET blocked_at = NULL, blocked_reason = '' WHERE id = ?", [id]);
   await audit(pool, actor, 'unblock', { userId: id, phone: u.phone });
 }
 
 /** Ends every sign-in of a login (all phones); they can sign in again with a new code. */
-export async function signOutUser(
-  pool: Pool,
-  actor: AdminActor,
-  admins: string[],
-  id: string,
-  now: Date,
-) {
-  const u = await target(pool, id, admins, actor);
+export async function signOutUser(pool: Pool, actor: AdminActor, id: string, now: Date) {
+  const u = await target(pool, id);
   const [res] = (await revokeAll(pool, id, now)) as unknown as [{ affectedRows: number }];
   await audit(pool, actor, 'sign-out', { userId: id, phone: u.phone });
   return { ended: res.affectedRows };
@@ -337,10 +322,34 @@ export async function setPlan(
   return { plan: b.plan, expiresAt: expires.toISOString() };
 }
 
-export async function auditLog(pool: Pool, limit = 100) {
+export const auditQuery = z.object({
+  /** 'changes' leaves out admin sign-ins and sign-outs */
+  show: z.enum(['changes', 'all', 'sign-ins']).default('changes'),
+  limit: z.coerce.number().int().min(1).max(500).default(200),
+});
+const SIGN_IN_ACTIONS = [
+  'admin-login',
+  'admin-logout',
+  'admin-login-failed',
+  'admin-login-refused',
+  'admin-locked',
+  'admin-code-failed',
+  'admin-reset-requested',
+  'admin-reset-failed',
+  'admin-password-reset',
+];
+/** What admins did, newest first, with the centre's name (or the person's number) it was done to. */
+export async function auditLog(
+  pool: Pool,
+  q: z.infer<typeof auditQuery> = { show: 'changes', limit: 200 },
+) {
+  const where =
+    q.show === 'all' ? '' : `WHERE a.action ${q.show === 'changes' ? 'NOT ' : ''}IN (?)`;
   const [rows] = (await pool.query(
-    'SELECT admin_phone, action, target_phone, target_institute_id, detail, created_at FROM admin_audit ORDER BY created_at DESC LIMIT ?',
-    [limit],
+    `SELECT a.admin_phone, a.action, a.target_phone, a.target_institute_id, a.detail, a.created_at, i.name AS centre
+       FROM admin_audit a LEFT JOIN institutes i ON i.id = a.target_institute_id
+       ${where} ORDER BY a.created_at DESC LIMIT ?`,
+    q.show === 'all' ? [q.limit] : [SIGN_IN_ACTIONS, q.limit],
   )) as unknown as [
     {
       admin_phone: string;
@@ -349,13 +358,15 @@ export async function auditLog(pool: Pool, limit = 100) {
       target_institute_id: string | null;
       detail: string;
       created_at: Date;
+      centre: string | null;
     }[],
   ];
   return rows.map((r) => ({
     at: r.created_at.toISOString(),
     admin: r.admin_phone,
     action: r.action,
-    target: r.target_phone || r.target_institute_id || '',
+    target: r.centre ?? (r.target_phone || (r.target_institute_id ? 'Deleted centre' : '')),
+    instituteId: r.centre ? r.target_institute_id : null,
     detail: r.detail,
   }));
 }

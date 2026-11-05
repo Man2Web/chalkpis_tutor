@@ -9,7 +9,7 @@ let admin: Tenant;
 let A: Tenant;
 let B: Tenant;
 beforeAll(async () => {
-  h = await startHarness({ ADMIN_PHONES: [ADMIN] });
+  h = await startHarness();
 });
 afterAll(async () => {
   await h.close();

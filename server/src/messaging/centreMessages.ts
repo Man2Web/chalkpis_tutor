@@ -3,6 +3,7 @@ import { payUrl } from '../billing/payLink.js';
 import { pushToUsers, type PushSender } from '../push/expo.js';
 import { PLANS, type PlanId } from '../billing/plans.js';
 import { newId } from '../lib/ids.js';
+import { meterSend } from './meter.js';
 import type { MessageProvider } from './provider.js';
 import {
   CENTRE_IMAGE_TYPES,
@@ -353,6 +354,7 @@ export async function processCentreQueue(deps: CentreQueueDeps, limit = 25) {
       ...(imageUrl ? { imageUrl } : {}),
     });
     if (result.ok) {
+      await meterSend(pool, now, r.type, r.institute_id);
       await settle(r, 'sent', { providerId: result.providerId });
       continue;
     }

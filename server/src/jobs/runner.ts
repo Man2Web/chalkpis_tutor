@@ -9,6 +9,8 @@ import { currentPeriod, istHour, todayYmd } from '../lib/ist.js';
 import { queuePlanReminders } from '../messaging/centreMessages.js';
 import { attendanceNudges } from '../push/nudges.js';
 import { enqueueAllFeeReminders } from '../messaging/notify.js';
+import type { Mailer } from '../auth/mailer.js';
+import { warnLowBalance } from '../admin/waSpend.js';
 
 export interface JobLog {
   info: (o: object, msg: string) => void;
@@ -79,7 +81,20 @@ export const makeJobs = (
   links?: Parameters<typeof queuePlanReminders>[2] & { paidLinks?: boolean },
   billing?: BillingProvider | null,
   store?: StoreClient | null,
+  /** emails the super admins once a day while the WhatsApp balance is low (decision 159) */
+  waWarn?: { mailer: Mailer | null; emails: string[] },
 ): Job[] => [
+  ...(waWarn?.mailer && waWarn.emails.length
+    ? [
+        {
+          name: 'wa-balance-warning',
+          from: 10,
+          until: 20,
+          every: 'day',
+          run: (pool: Pool, now: Date) => warnLowBalance(pool, waWarn.mailer, waWarn.emails, now),
+        } satisfies Job,
+      ]
+    : []),
   ...(billing?.checkStatus
     ? [
         {

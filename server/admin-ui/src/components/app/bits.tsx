@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { hue, initials, pctChange } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { errorText } from '@/lib/api';
 
 export function PageHeader({
   title,
@@ -107,7 +108,7 @@ export function ErrorBox({ error, onRetry }: { error: Error; onRetry?: () => voi
         <AlertCircle className="size-5 shrink-0 text-destructive" />
         <div className="min-w-0 flex-1">
           <div className="font-medium">Could not load</div>
-          <div className="truncate text-sm text-muted-foreground">{error.message}</div>
+          <div className="truncate text-sm text-muted-foreground">{errorText(error)}</div>
         </div>
         {onRetry ? (
           <Button variant="outline" size="sm" onClick={onRetry}>

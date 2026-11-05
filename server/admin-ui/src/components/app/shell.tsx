@@ -38,7 +38,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { api, getSession } from '@/lib/api';
 import { go, useStored } from '@/lib/hooks';
-import { JUMP, NAV, pageOf } from '@/lib/nav';
+import { JUMP, navFor, pageOf } from '@/lib/nav';
 import { cn } from '@/lib/utils';
 import { PersonAvatar } from './bits';
 import { EventRow, type Ev } from './events';
@@ -71,7 +71,7 @@ export function Shell({
     document.title = `${title} · Chalkpis Admin`;
   }, [title]);
 
-  // Live: every 30 s the open page reloads its data (not while a panel or dialog is open, or the tab is hidden).
+  // Auto-refresh: every 30 s the open page reloads its data (not while a panel or dialog is open, or the tab is hidden).
   useEffect(() => {
     if (!live || view === 'activity') return;
     const id = setInterval(() => {
@@ -80,6 +80,17 @@ export function Shell({
     }, 30000);
     return () => clearInterval(id);
   }, [live, view]);
+  // Coming back to this tab after a while: the page reloads, so it never shows numbers from an hour ago.
+  useEffect(() => {
+    let hiddenAt = 0;
+    const on = () => {
+      if (document.hidden) hiddenAt = Date.now();
+      else if (hiddenAt && Date.now() - hiddenAt > 60_000 && !document.querySelector('[role="dialog"]'))
+        window.dispatchEvent(new Event('adm:refresh'));
+    };
+    document.addEventListener('visibilitychange', on);
+    return () => document.removeEventListener('visibilitychange', on);
+  }, []);
 
   // Keyboard: ⌘K or / search, ? help, t theme, [ sidebar, g then a letter jumps.
   const gAt = useRef(0);
@@ -147,7 +158,7 @@ export function Shell({
                   {live ? <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" /> : null}
                   <span className={cn('relative inline-flex size-2 rounded-full', live ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
                 </span>
-                {live ? 'Live' : 'Paused'}
+                {live ? 'Auto-refresh on' : 'Auto-refresh off'}
               </Button>
             </TooltipTrigger>
             <TooltipContent>{live ? 'Refreshing every 30 seconds' : 'Turn on to refresh every 30 seconds'}</TooltipContent>
@@ -161,8 +172,9 @@ export function Shell({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel className="font-normal">
-                <div className="text-xs text-muted-foreground">Signed in as</div>
-                <div className="truncate text-sm font-medium">{getSession()?.email ?? 'Admin'}</div>
+                <div className="text-xs text-muted-foreground">Signed in as {getSession()?.roleLabel ?? 'admin'}</div>
+                <div className="truncate text-sm font-medium">{getSession()?.name || getSession()?.email || 'Admin'}</div>
+                {getSession()?.name ? <div className="truncate text-xs text-muted-foreground">{getSession()?.email}</div> : null}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={onTheme}>
@@ -189,7 +201,8 @@ export function Shell({
 function AppSidebar({ view }: { view: string }) {
   const { isMobile, setOpenMobile } = useSidebar();
   const active = view === 'centre' ? 'centres' : view;
-  const email = getSession()?.email ?? 'Admin';
+  const me = getSession();
+  const email = me?.email ?? 'Admin';
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
@@ -201,7 +214,7 @@ function AppSidebar({ view }: { view: string }) {
         </a>
       </SidebarHeader>
       <SidebarContent>
-        {NAV.map((g) => (
+        {navFor(me?.caps ?? ['view']).map((g) => (
           <SidebarGroup key={g.group}>
             <SidebarGroupLabel>{g.group}</SidebarGroupLabel>
             <SidebarMenu>
@@ -226,10 +239,10 @@ function AppSidebar({ view }: { view: string }) {
       </SidebarContent>
       <SidebarFooter>
         <div className="flex items-center gap-2 rounded-lg p-1.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0">
-          <PersonAvatar name={email} className="size-7" />
+          <PersonAvatar name={me?.name || email} className="size-7" />
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-            <div className="text-xs text-muted-foreground">Admin</div>
-            <div className="truncate text-sm">{email}</div>
+            <div className="text-xs text-muted-foreground">{me?.roleLabel ?? 'Admin'}</div>
+            <div className="truncate text-sm">{me?.name || email}</div>
           </div>
         </div>
       </SidebarFooter>
@@ -308,17 +321,13 @@ function Notifications() {
   );
 }
 
-const SHORTCUTS: [string, string][] = [
+// built from the pages, so it never goes out of date
+const SHORTCUTS = (): [string, string][] => [
   ['Search anything', '⌘ K'],
-  ['Go to Overview', 'g o'],
-  ['Go to Analytics', 'g a'],
-  ['Go to Retention', 'g r'],
-  ['Go to Centres', 'g c'],
-  ['Go to Logins', 'g l'],
-  ['Go to Live activity', 'g f'],
-  ['Go to WhatsApp', 'g w'],
-  ['Go to Announcements', 'g n'],
-  ['Go to System health', 'g s'],
+  ...navFor(getSession()?.caps ?? ['view'])
+    .flatMap((g) => g.pages)
+    .filter((p) => p.keys)
+    .map((p): [string, string] => [`Go to ${p.label}`, p.keys!]),
   ['Toggle light / dark', 't'],
   ['Collapse the sidebar', '['],
   ['Close a panel', 'esc'],
@@ -333,7 +342,7 @@ function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
           <DialogDescription>Work faster without the mouse.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-1.5 text-sm">
-          {SHORTCUTS.map(([a, k]) => (
+          {SHORTCUTS().map(([a, k]) => (
             <div key={a} className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-muted">
               <span>{a}</span>
               <span className="flex gap-1">

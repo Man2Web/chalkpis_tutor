@@ -83,7 +83,11 @@ describe('admin sign-in: email, password, then an emailed code', () => {
 
     const { step2, token } = await signIn();
     expect(step2!.statusCode).toBe(200);
-    expect((await get('/admin/auth/me', token!)).json()).toEqual({ email: TEST_ADMIN_EMAIL });
+    expect((await get('/admin/auth/me', token!)).json()).toMatchObject({
+      email: TEST_ADMIN_EMAIL,
+      role: 'super',
+      roleLabel: 'Super admin',
+    });
     expect((await get('/admin/api/overview', token!)).statusCode).toBe(200);
     // codes arrive by email, never anywhere else
     expect(mailer.sent.map((m) => m.subject)).toEqual(

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Building2, LogOut, MessageCircle, Phone, ShieldBan, ShieldCheck } from 'lucide-react';
+import { Building2, LogOut, MessageCircle, Phone, ShieldBan, ShieldCheck, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { api, ApiError } from '@/lib/api';
-import { ago, when } from '@/lib/format';
+import { api, can, errorText } from '@/lib/api';
+import { ago, dateOnly, when } from '@/lib/format';
+import { planName } from '@/lib/plans';
+import { deleteDialog } from './delete';
 import { go, useApi } from '@/lib/hooks';
 import { NOPHONE } from '@/lib/names';
 import { ErrorBox, Loading, PersonAvatar } from './bits';
@@ -17,13 +19,12 @@ export type UserRow = {
   phone: string | null;
   name: string | null;
   role: 'owner' | 'staff' | null;
-  isAdmin: boolean;
   createdAt: string;
   lastLoginAt: string | null;
   blocked: boolean;
   blockedReason: string | null;
   activeSessions: number;
-  institute: { id: string; name: string; plan: string; active: boolean; expiresAt: string | null; students: number } | null;
+  institute: { id: string; name: string; plan: string | null; active: boolean; expiresAt: string | null; students: number } | null;
 };
 type Detail = {
   user: UserRow;
@@ -35,11 +36,11 @@ let setOpenId: (id: string | null) => void = () => undefined;
 /** Opens the person panel from anywhere (tables, feeds, search). */
 export const openUser = (id: string) => setOpenId(id);
 
-export function UserStatus({ u }: { u: Pick<UserRow, 'blocked' | 'isAdmin' | 'activeSessions'> }) {
+/** Blocked, signed in on at least one phone (a session from the last 60 days), or signed out everywhere. */
+export function UserStatus({ u }: { u: Pick<UserRow, 'blocked' | 'activeSessions'> }) {
   if (u.blocked) return <Pill tone="red">Blocked</Pill>;
-  if (u.isAdmin) return <Pill tone="blue">Admin</Pill>;
-  if (u.activeSessions) return <Pill tone="green">Online</Pill>;
-  return <Pill>Offline</Pill>;
+  if (u.activeSessions) return <Pill tone="green">Signed in</Pill>;
+  return <Pill>Signed out</Pill>;
 }
 
 const digits = (p: string) => p.replace(/\D/g, '');
@@ -52,7 +53,7 @@ export function UserSheet() {
   return (
     <Sheet open={!!id} onOpenChange={(o) => !o && setId(null)}>
       <SheetContent className="w-full gap-0 overflow-y-auto p-0 sm:max-w-lg">
-        {id ? <UserBody id={id} close={() => setId(null)} /> : null}
+        {id ? <UserBody key={id} id={id} close={() => setId(null)} /> : null}
       </SheetContent>
     </Sheet>
   );
@@ -74,8 +75,7 @@ function UserBody({ id, close }: { id: string; close: () => void }) {
       toast(ok);
       await reload();
     } catch (e) {
-      const code = (e as ApiError).code;
-      setErr(code === 'cannot_change_admin' ? 'Admin accounts cannot be changed here.' : (e as Error).message);
+      setErr(errorText(e));
     } finally {
       setBusy(false);
     }
@@ -136,7 +136,7 @@ function UserBody({ id, close }: { id: string; close: () => void }) {
           <CardContent className="flex flex-wrap gap-2">
             <Button
               variant="outline"
-              disabled={busy || u.isAdmin || !u.activeSessions}
+              disabled={busy || !u.activeSessions}
               onClick={async () => {
                 if (await confirmDialog({ title: `Sign ${who} out on every device?`, action: 'Sign out everywhere' }))
                   void act(() => api('POST', `/admin/api/users/${u.id}/sign-out`), 'Signed out everywhere');
@@ -144,14 +144,14 @@ function UserBody({ id, close }: { id: string; close: () => void }) {
             >
               <LogOut /> Sign out everywhere
             </Button>
-            {u.blocked ? (
+            {!can('manage') ? null : u.blocked ? (
               <Button variant="outline" disabled={busy} onClick={() => void act(() => api('POST', `/admin/api/users/${u.id}/unblock`), 'Unblocked')}>
                 <ShieldCheck /> Unblock
               </Button>
             ) : (
               <Button
                 variant="destructive"
-                disabled={busy || u.isAdmin}
+                disabled={busy}
                 onClick={async () => {
                   const reason = await promptDialog({
                     title: `Block ${who}?`,
@@ -166,6 +166,20 @@ function UserBody({ id, close }: { id: string; close: () => void }) {
                 <ShieldBan /> Block
               </Button>
             )}
+            {can('delete') ? (
+              <Button
+                variant="outline"
+                className="text-destructive"
+                disabled={busy}
+                onClick={() =>
+                  u.role === 'owner' && u.institute
+                    ? deleteDialog({ kind: 'centre', ids: [u.institute.id], onDone: close })
+                    : deleteDialog({ kind: 'person', ids: [u.id], onDone: close })
+                }
+              >
+                <Trash2 /> {u.role === 'owner' ? 'Delete with their centre' : 'Delete login'}
+              </Button>
+            ) : null}
             {err ? <p className="w-full text-sm text-destructive">{err}</p> : null}
           </CardContent>
         </Card>
@@ -175,8 +189,8 @@ function UserBody({ id, close }: { id: string; close: () => void }) {
             <CardHeader><CardTitle>Plan</CardTitle></CardHeader>
             <CardContent className="flex items-center justify-between gap-2 text-sm">
               <span className="text-muted-foreground">
-                {u.institute.plan} · {u.institute.active ? 'active' : 'ended'}
-                {u.institute.expiresAt ? ` · until ${when(u.institute.expiresAt)}` : ''}
+                {planName(u.institute.plan)} · {u.institute.active ? 'running' : 'ended'}
+                {u.institute.expiresAt ? ` · ${u.institute.active ? 'until' : 'on'} ${dateOnly(u.institute.expiresAt)}` : ''}
               </span>
               <Button
                 variant="outline"
@@ -186,7 +200,7 @@ function UserBody({ id, close }: { id: string; close: () => void }) {
                   go(`centre/${u.institute!.id}`);
                 }}
               >
-                Manage plan
+                {can('manage') ? 'Manage plan' : 'See plan'}
               </Button>
             </CardContent>
           </Card>

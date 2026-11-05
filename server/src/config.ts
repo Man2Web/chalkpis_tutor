@@ -1,4 +1,3 @@
-import { normalizeIndianPhone } from './lib/phone.js';
 import { z } from 'zod';
 
 const flag = (fallback: 'true' | 'false') =>
@@ -67,11 +66,10 @@ const schema = z.object({
     .regex(/^v\d+\.\d+$/)
     .default('v23.0'),
   /**
-   * Mobile numbers that may open the admin dashboard (/admin), comma separated, e.g. "9876543210,+919000000001".
-   * They sign in with the usual WhatsApp code; admin rights are checked against this list on every request.
+   * The super admins of the dashboard (/admin): the product owner, comma separated. They sign in with email + password
+   * + an emailed code, manage the team on the Team page, and get the code for every deletion. Removing an address ends
+   * its access at once. The rest of the team (admin, customer support) is added on the Team page, not here.
    */
-  // Who may use the admin dashboard (email + password + emailed code). Comma-separated; removing an address
-  // ends that admin's access at once.
   ADMIN_EMAILS: z
     .string()
     .default('')
@@ -80,15 +78,6 @@ const schema = z.object({
         .split(',')
         .map((e) => e.trim().toLowerCase())
         .filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e)),
-    ),
-  ADMIN_PHONES: z
-    .string()
-    .default('')
-    .transform((v) =>
-      v
-        .split(',')
-        .map((p) => normalizeIndianPhone(p.trim()))
-        .filter((p): p is string => !!p),
     ),
   /** Approved authentication template id for the login code (one value: the code). */
   WA_TEMPLATE_OTP: z.string().min(1).optional(),

@@ -55,6 +55,10 @@ export interface Tenant {
 }
 
 const TABLES = [
+  'admin_deletions',
+  'wa_usage',
+  'wa_wallet',
+  'wa_billing',
   'admin_sessions',
   'admin_codes',
   'admin_accounts',

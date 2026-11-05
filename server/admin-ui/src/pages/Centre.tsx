@@ -23,7 +23,8 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Toggle } from '@/components/ui/toggle';
-import { api, downloadCsv } from '@/lib/api';
+import { api, can, downloadCsv, errorText } from '@/lib/api';
+import { deleteDialog } from '@/components/app/delete';
 import { ago, dateOnly, dlong, dshort, money, plural, when } from '@/lib/format';
 import { go, useApi, useDebounced } from '@/lib/hooks';
 import { AREA, category, DEVICE, heardLabel, KIND, METHOD, msgType, NOPHONE, TAGS, tagLabel } from '@/lib/names';
@@ -59,7 +60,25 @@ type Detail = {
   }[];
   /** The centre's pay page; null while it is on a paid plan (decision 157). */
   payUrl: string | null;
+  /** how much of each part of the app it has used, ever */
+  features: Record<string, number>;
 };
+type Spend = { sent30: number; paise30: number; paiseAll: number; kinds: { kind: string; label: string; sent30: number; paise30: number }[] };
+
+/** Paise with paise shown when under ₹10 (WhatsApp costs are small). */
+export const rupees = (paise: number) =>
+  paise < 1000 ? `₹${(paise / 100).toFixed(2)}` : money(paise);
+
+const FEATURES: [string, string][] = [
+  ['exams', 'Tests'],
+  ['homework', 'Homework'],
+  ['enquiries', 'Enquiries'],
+  ['joined', 'Enquiries joined'],
+  ['events', 'Calendar events'],
+  ['families', 'Families linked'],
+  ['feePlans', 'Yearly fee plans'],
+  ['parentLinks', 'Parent links'],
+];
 
 const digits = (p: string) => p.replace(/\D/g, '');
 
@@ -80,7 +99,7 @@ export function Centre({ id, tab: initialTab, onName }: { id: string; tab?: stri
       toast('Tags saved');
       await reload();
     } catch (e) {
-      toast((e as Error).message, false);
+      toast(errorText(e), false);
     }
   };
 
@@ -88,7 +107,7 @@ export function Centre({ id, tab: initialTab, onName }: { id: string; tab?: stri
     <div className="grid gap-6">
       <div>
         <Button variant="ghost" size="sm" className="-ml-2 mb-3" onClick={() => (history.length > 1 ? history.back() : go('centres'))}>
-          <ArrowLeft /> Centres
+          <ArrowLeft /> Back
         </Button>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 items-start gap-4">
@@ -104,7 +123,7 @@ export function Centre({ id, tab: initialTab, onName }: { id: string; tab?: stri
                 {[
                   category(c.category),
                   owner ? [owner.name, owner.phone || NOPHONE].filter(Boolean).join(' · ') : null,
-                  `joined ${dshort(c.createdAt)}`,
+                  `joined ${dateOnly(c.createdAt)}`,
                   `last active ${ago(c.lastActivityAt)}`,
                 ]
                   .filter(Boolean)
@@ -133,21 +152,33 @@ export function Centre({ id, tab: initialTab, onName }: { id: string; tab?: stri
               </div>
             </div>
           </div>
-          {owner?.phone ? (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" asChild><a href={`tel:${owner.phone}`}><Phone /> Call</a></Button>
-              <Button variant="outline" size="sm" asChild>
-                <a href={`https://wa.me/${digits(owner.phone)}`} target="_blank" rel="noreferrer"><MessageCircle /> WhatsApp</a>
-              </Button>
+          <div className="flex flex-wrap gap-2">
+            {owner?.phone ? (
+              <>
+                <Button variant="outline" size="sm" asChild><a href={`tel:${owner.phone}`}><Phone /> Call</a></Button>
+                <Button variant="outline" size="sm" asChild>
+                  <a href={`https://wa.me/${digits(owner.phone)}`} target="_blank" rel="noreferrer"><MessageCircle /> WhatsApp</a>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void navigator.clipboard.writeText(owner.phone!).then(() => toast('Number copied'))}
+                >
+                  <Copy /> Copy number
+                </Button>
+              </>
+            ) : null}
+            {can('delete') ? (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => void navigator.clipboard.writeText(owner.phone!).then(() => toast('Number copied'))}
+                className="text-destructive"
+                onClick={() => deleteDialog({ kind: 'centre', ids: [id], onDone: () => go('centres') })}
               >
-                <Copy /> Copy number
+                <Trash2 /> Delete centre
               </Button>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -253,6 +284,22 @@ export function Centre({ id, tab: initialTab, onName }: { id: string; tab?: stri
               )}
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Features used</CardTitle>
+              <CardDescription>Since they joined</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-[1fr_auto] gap-y-2.5 text-sm">
+                {FEATURES.map(([k, l]) => (
+                  <div key={k} className="contents">
+                    <dt className="text-muted-foreground">{l}</dt>
+                    <dd className={cn('text-right tabular', !data.features?.[k] && 'text-muted-foreground')}>{data.features?.[k] ?? 0}</dd>
+                  </div>
+                ))}
+              </dl>
+            </CardContent>
+          </Card>
           <Card className="xl:col-span-2">
             <CardHeader>
               <CardTitle>Setup</CardTitle>
@@ -308,10 +355,11 @@ export function Centre({ id, tab: initialTab, onName }: { id: string; tab?: stri
           </Card>
         </TabsContent>
 
-        <TabsContent value="messages" className="mt-4">
+        <TabsContent value="messages" className="mt-4 grid items-start gap-4 lg:grid-cols-2">
+          <CentreSpend id={id} />
           <Card>
             <CardHeader>
-              <CardTitle>WhatsApp · last 30 days</CardTitle>
+              <CardTitle>Parent messages · last 30 days</CardTitle>
               <CardDescription>Sent of total, by message</CardDescription>
             </CardHeader>
             <CardContent><ByType rows={data.messages} empty="No messages yet." /></CardContent>
@@ -343,6 +391,41 @@ export function Centre({ id, tab: initialTab, onName }: { id: string; tab?: stri
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+/** What this centre's WhatsApp messages cost Chalkpis (estimated from the rates on the WhatsApp page). */
+function CentreSpend({ id }: { id: string }) {
+  const { data, error, reload } = useApi<Spend>(`/admin/api/institutes/${id}/wa-spend`);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>WhatsApp spend · last 30 days</CardTitle>
+        <CardDescription>
+          {data ? `${plural(data.sent30, 'message')} · about ${rupees(data.paise30)} · ${rupees(data.paiseAll)} since counting began` : 'Estimated from the rates on the WhatsApp page'}
+        </CardDescription>
+        <CardAction><Button variant="ghost" size="sm" onClick={() => go('whatsapp?tab=spend')}>All centres</Button></CardAction>
+      </CardHeader>
+      <CardContent>
+        {error ? (
+          <ErrorBox error={error} onRetry={reload} />
+        ) : !data ? (
+          <Loading rows={3} />
+        ) : data.kinds.length ? (
+          <dl className="grid grid-cols-[1fr_auto_auto] gap-x-4 gap-y-2.5 text-sm">
+            {data.kinds.map((k) => (
+              <div key={k.kind} className="contents">
+                <dt className="text-muted-foreground">{k.label}</dt>
+                <dd className="text-right tabular">{k.sent30}</dd>
+                <dd className="text-right font-medium tabular">{rupees(k.paise30)}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <Empty text="No WhatsApp messages in the last 30 days." />
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -415,12 +498,14 @@ function Logs({ id, name }: { id: string; name: string }) {
             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search this centre’s log: a student, a batch, a person" className="pl-8" />
           </div>
-          <Button
-            variant="outline"
-            onClick={() => downloadCsv(`/admin/api/institutes/${id}/logs.csv`, file).then(() => toast(`Downloaded ${file}`)).catch((e: Error) => toast(e.message, false))}
-          >
-            <Download /> Export
-          </Button>
+          {can('export') ? (
+            <Button
+              variant="outline"
+              onClick={() => downloadCsv(`/admin/api/institutes/${id}/logs.csv`, file).then(() => toast(`Downloaded ${file}`)).catch((e: Error) => toast(errorText(e), false))}
+            >
+              <Download /> Export
+            </Button>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-1.5">
           <Toggle size="sm" variant="outline" pressed={!kinds.length} onPressedChange={() => setKinds([])}>
@@ -473,7 +558,7 @@ function Notes({ id }: { id: string }) {
       toast('Note added');
       await reload();
     } catch (e) {
-      toast((e as Error).message, false);
+      toast(errorText(e), false);
     } finally {
       setBusy(false);
     }
@@ -491,7 +576,7 @@ function Notes({ id }: { id: string }) {
             maxLength={1000}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Add a private note (only admins see it): calls, promises, problems…"
+            placeholder="Add a private note (only the team sees it): calls, promises, problems…"
           />
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground tabular">{text.length} / 1000</span>
@@ -513,7 +598,7 @@ function Notes({ id }: { id: string }) {
                   aria-label="Delete note"
                   onClick={async () => {
                     if (await confirmDialog({ title: 'Delete this note?', action: 'Delete', destructive: true })) {
-                      await api('DELETE', `/admin/api/institutes/${id}/notes/${n.id}`).catch((e: Error) => toast(e.message, false));
+                      await api('DELETE', `/admin/api/institutes/${id}/notes/${n.id}`).catch((e: Error) => toast(errorText(e), false));
                       await reload();
                     }
                   }}

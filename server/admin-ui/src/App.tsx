@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { DialogHost } from '@/components/app/dialogs';
+import { DeleteHost } from '@/components/app/delete';
 import { Shell } from '@/components/app/shell';
 import { Toaster } from '@/components/app/toast';
 import { UserSheet } from '@/components/app/user';
-import { clearSession, getSession, setOnExpired } from '@/lib/api';
+import { can, clearSession, getSession, loadMe, setOnExpired } from '@/lib/api';
 import { useHashRoute } from '@/lib/hooks';
 import { pageOf } from '@/lib/nav';
 import { useTheme } from '@/lib/theme';
@@ -24,6 +25,8 @@ import { Revenue } from '@/pages/Revenue';
 import { Signins } from '@/pages/Signins';
 import { Subscriptions } from '@/pages/Subscriptions';
 import { System } from '@/pages/System';
+import { Team } from '@/pages/Team';
+import { Empty } from '@/components/app/bits';
 import { WhatsApp } from '@/pages/WhatsApp';
 
 export default function App() {
@@ -32,6 +35,8 @@ export default function App() {
   const [flash, setFlash] = useState('');
   const route = useHashRoute();
   const [centreName, setCentreName] = useState('');
+  // the role (and so the sidebar) is read again on every load: a change on the Team page shows at once
+  const [ready, setReady] = useState(() => !!getSession()?.caps);
 
   useEffect(() => {
     setOnExpired(() => {
@@ -39,6 +44,13 @@ export default function App() {
       setSignedIn(false);
     });
   }, []);
+  useEffect(() => {
+    if (!signedIn) return;
+    // a failed read still shows the dashboard (with the last known role, or view-only); a 401 signs out instead
+    loadMe()
+      .catch(() => undefined)
+      .finally(() => setReady(true));
+  }, [signedIn]);
 
   const signOut = async () => {
     const s = getSession();
@@ -48,6 +60,7 @@ export default function App() {
     setSignedIn(false);
   };
 
+  if (signedIn && !ready) return null;
   if (!signedIn)
     return (
       <TooltipProvider>
@@ -55,6 +68,7 @@ export default function App() {
           flash={flash}
           onSignedIn={() => {
             setFlash('');
+            setReady(false);
             setSignedIn(true);
           }}
         />
@@ -63,6 +77,7 @@ export default function App() {
     );
 
   const view = route.parts[0] && (pageOf(route.parts[0]) || route.parts[0] === 'centre') ? route.parts[0] : 'overview';
+  const allowed = view === 'centre' || can(pageOf(view)?.cap ?? 'view');
   const id = route.parts[1];
   const title = view === 'centre' ? centreName || 'Centre' : (pageOf(view)?.label ?? 'Overview');
   const pages: Record<string, React.ReactNode> = {
@@ -77,19 +92,21 @@ export default function App() {
     logins: <Logins />,
     leaders: <Leaders />,
     activity: <Activity />,
-    whatsapp: <WhatsApp />,
+    whatsapp: <WhatsApp key={route.key} query={route.query} />,
     announce: <Announcements />,
     signins: <Signins />,
     audit: <Audit />,
     system: <System />,
+    team: <Team />,
   };
   return (
     <TooltipProvider>
       <Shell view={view} title={title} onSignOut={() => void signOut()} theme={mode} onTheme={toggle}>
-        {pages[view]}
+        {allowed ? pages[view] : <Empty text="Your role does not include this page. Ask the super admin if you need it." />}
       </Shell>
       <UserSheet />
       <DialogHost />
+      <DeleteHost />
       <Toaster />
     </TooltipProvider>
   );

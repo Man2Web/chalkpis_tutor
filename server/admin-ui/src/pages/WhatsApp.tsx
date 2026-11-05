@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { api, ApiError } from '@/lib/api';
+import { api, errorText } from '@/lib/api';
 import { plural, when } from '@/lib/format';
 import { useApi } from '@/lib/hooks';
 import { MESSAGE_TYPES, msgType, type Tone } from '@/lib/names';
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { ByType } from './Centre';
 import { OwnerMessages } from './OwnerMessages';
 import { Ring } from './Overview';
+import { WaSpend } from './WaSpend';
 
 type Msg = {
   id: string;
@@ -27,6 +28,7 @@ type Msg = {
   institute: string;
   student: string;
   createdAt: string;
+  canRetry?: boolean;
 };
 type Res = {
   messages: Msg[];
@@ -42,26 +44,28 @@ const STATUS = [
 ] as const;
 const TONE: Record<string, Tone> = { sent: 'green', failed: 'red', skipped: 'neutral', queued: 'blue', sending: 'blue' };
 
-/** Parent messages, or the messages to centre owners and helpers. */
-export function WhatsApp() {
-  const [who, setWho] = useState<'parents' | 'owners'>('parents');
+const ABOUT = {
+  spend: 'What WhatsApp costs Chalkpis: the balance at wa.adsme.in, when to recharge, and the spend per day, per message and per centre.',
+  parents: 'Every message Chalkpis sends to parents: what went out, what failed and why. Recent failures can be retried.',
+  owners: 'Messages to centre owners and their helpers: welcome, plan active, plan ending and ended, helper invites. A welcome that did not arrive can be sent again.',
+};
+
+/** WhatsApp spend and balance, parent messages, or the messages to centre owners and helpers. */
+export function WhatsApp({ query = {} }: { query?: Record<string, string> }) {
+  const [who, setWho] = useState<'spend' | 'parents' | 'owners'>(
+    query.tab === 'parents' || query.tab === 'owners' ? query.tab : 'spend',
+  );
   return (
     <div className="grid gap-6">
-      <PageHeader
-        title="WhatsApp"
-        description={
-          who === 'parents'
-            ? 'Every message Chalkpis sends to parents: what went out, what failed and why. Failed ones can be retried.'
-            : "Messages to centre owners and their helpers: welcome, plan active, plan ending and ended, helper invites. A welcome that did not arrive can be sent again."
-        }
-      />
+      <PageHeader title="WhatsApp" description={ABOUT[who]} />
       <Tabs value={who} onValueChange={(v) => setWho(v as typeof who)}>
         <TabsList>
+          <TabsTrigger value="spend">Spend &amp; balance</TabsTrigger>
           <TabsTrigger value="parents">Parents</TabsTrigger>
           <TabsTrigger value="owners">Owners &amp; helpers</TabsTrigger>
         </TabsList>
       </Tabs>
-      {who === 'parents' ? <ParentMessages /> : <OwnerMessages />}
+      {who === 'spend' ? <WaSpend /> : who === 'parents' ? <ParentMessages /> : <OwnerMessages />}
     </div>
   );
 }
@@ -91,7 +95,7 @@ function ParentMessages() {
       toast('Queued again');
       await reload();
     } catch (e) {
-      toast((e as ApiError).code === 'cannot_retry' ? 'Too old to retry' : (e as Error).message, false);
+      toast(errorText(e), false);
     } finally {
       setRetrying(null);
     }
@@ -175,10 +179,12 @@ function ParentMessages() {
                     {m.why ? <div className="mt-0.5 text-xs text-muted-foreground">{m.why}</div> : null}
                   </TableCell>
                   <TableCell className="pr-4">
-                    {m.status === 'failed' ? (
+                    {m.status === 'failed' && m.canRetry ? (
                       <Button variant="outline" size="sm" disabled={retrying === m.id} onClick={() => void retry(m.id)}>
                         <RotateCcw /> Retry
                       </Button>
+                    ) : m.status === 'failed' ? (
+                      <span className="text-xs text-muted-foreground" title="Its details are cleared after 7 days">Too old to retry</span>
                     ) : null}
                   </TableCell>
                 </TableRow>

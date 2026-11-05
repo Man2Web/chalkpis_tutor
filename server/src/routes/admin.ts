@@ -24,6 +24,7 @@ import type { AppDeps } from '../app.js';
 import {
   audit,
   auditLog,
+  auditQuery,
   blockBody,
   blockUser,
   getUser,
@@ -82,6 +83,37 @@ import { idParam, parse } from '../lib/params.js';
 import type { BillingProvider } from '../billing/provider.js';
 import { stopAutoRenew } from '../billing/webSubscriptions.js';
 import { AppError } from '../errors.js';
+import {
+  addMember,
+  can,
+  capsOf,
+  listTeam,
+  memberBody,
+  memberUpdate,
+  removeMember,
+  ROLE_LABEL,
+  signOutMember,
+  updateMember,
+  type Cap,
+} from '../admin/team.js';
+import {
+  cancelDeletion,
+  confirmDeletion,
+  deletionBody,
+  deletionTargets,
+  previewDeletion,
+  requestDeletion,
+} from '../admin/deletions.js';
+import {
+  addWalletEntry,
+  deleteWalletEntry,
+  ratesBody,
+  setRates,
+  walletBody,
+  waSpend,
+  waSpendByCentre,
+  waSpendForCentre,
+} from '../admin/waSpend.js';
 
 type Deps = Pick<AppDeps, 'config' | 'pool'> & {
   clock?: () => Date;
@@ -118,6 +150,17 @@ declare module 'fastify' {
   }
 }
 
+/** Analytics for a role that may not see company money (customer support): the revenue figures taken out. */
+function withoutRevenue<
+  T extends { series: Record<string, number[]>; totals: Record<string, unknown> },
+>(a: T) {
+  const series = { ...a.series };
+  const totals = { ...a.totals };
+  delete series.revenue;
+  delete totals.revenue;
+  return { ...a, series, totals, revenueByMonth: [] };
+}
+
 const bearer = (req: FastifyRequest) => {
   const h = req.headers.authorization;
   return typeof h === 'string' && h.startsWith('Bearer ') ? h.slice(7) : null;
@@ -152,10 +195,17 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
     if (!who) return reply.code(401).send({ error: 'unauthorized' });
     req.admin = who;
   };
-  const guard = {
-    preHandler: [requireAdminSession],
+  // every dashboard call names what it needs (team.ts CAPS); the role is read from the database on each request
+  const g = (cap: Cap) => ({
+    preHandler: [
+      requireAdminSession,
+      async (req: FastifyRequest, reply: import('fastify').FastifyReply) => {
+        if (!can(req.admin!.role, cap)) return reply.code(403).send({ error: 'not_allowed' });
+      },
+    ],
     config: { rateLimit: { max: 300, timeWindow: '1 minute' } },
-  };
+  });
+  const guard = g('view');
   const now = () => (deps.clock ?? (() => new Date()))();
   // who did it, for the audit log: the admin account and its email
   const actor = (req: FastifyRequest) => ({ userId: req.admin!.adminId, phone: req.admin!.email });
@@ -191,40 +241,45 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
     await adminLogout(authDeps, bearer(req));
     return { ok: true };
   });
-  app.get('/admin/auth/me', guard, async (req) => ({ email: req.admin!.email }));
+  app.get('/admin/auth/me', guard, async (req) => ({
+    email: req.admin!.email,
+    name: req.admin!.name,
+    role: req.admin!.role,
+    roleLabel: ROLE_LABEL[req.admin!.role],
+    caps: capsOf(req.admin!.role),
+  }));
   const id = (req: { params: unknown }) => idParam((req.params as { id: string }).id);
-  const admins = () => config.ADMIN_PHONES;
 
   app.get('/admin/api/overview', guard, async () => overview(pool, now()));
   app.get('/admin/api/users', guard, async (req) => ({
-    users: await listUsers(pool, parse(userListQuery, req.query), admins(), now()),
+    users: await listUsers(pool, parse(userListQuery, req.query), now()),
   }));
-  app.get('/admin/api/users/:id', guard, async (req) => getUser(pool, id(req), admins(), now()));
-  app.post('/admin/api/users/:id/block', guard, async (req) => {
-    await blockUser(
-      pool,
-      actor(req),
-      admins(),
-      id(req),
-      parse(blockBody, req.body ?? {}).reason,
-      now(),
-    );
+  app.get('/admin/api/users/:id', guard, async (req) => getUser(pool, id(req), now()));
+  app.post('/admin/api/users/:id/block', g('manage'), async (req) => {
+    await blockUser(pool, actor(req), id(req), parse(blockBody, req.body ?? {}).reason, now());
     return { ok: true };
   });
-  app.post('/admin/api/users/:id/unblock', guard, async (req) => {
-    await unblockUser(pool, actor(req), admins(), id(req));
+  app.post('/admin/api/users/:id/unblock', g('manage'), async (req) => {
+    await unblockUser(pool, actor(req), id(req));
     return { ok: true };
   });
-  app.post('/admin/api/users/:id/sign-out', guard, async (req) =>
-    signOutUser(pool, actor(req), admins(), id(req), now()),
+  app.post('/admin/api/users/:id/sign-out', g('help'), async (req) =>
+    signOutUser(pool, actor(req), id(req), now()),
   );
-  app.post('/admin/api/institutes/:id/plan', guard, async (req) =>
+  app.post('/admin/api/institutes/:id/plan', g('manage'), async (req) =>
     setPlan(pool, actor(req), id(req), parse(planBody, req.body), now()),
   );
-  app.put('/admin/api/institutes/:id/subscription', guard, async (req) =>
-    setSubscription(pool, actor(req), id(req), parse(subscriptionBody, req.body)),
-  );
-  app.post('/admin/api/institutes/:id/plan-payments', guard, async (req, reply) =>
+  app.put('/admin/api/institutes/:id/subscription', g('manage'), async (req) => {
+    const b = parse(subscriptionBody, req.body);
+    const r = await setSubscription(pool, actor(req), id(req), b);
+    // ending a plan also stops its website auto-renew, or the next charge would bring the plan back and bill the owner
+    const stopped =
+      b.status === 'expired' && deps.billing
+        ? await stopAutoRenew(pool, deps.billing, id(req), actor(req))
+        : false;
+    return { ...r, autoRenewStopped: stopped };
+  });
+  app.post('/admin/api/institutes/:id/plan-payments', g('manage'), async (req, reply) =>
     reply
       .code(201)
       .send(
@@ -232,7 +287,9 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
       ),
   );
   app.get('/admin/api/logins', guard, async () => ({ logins: await recentLogins(pool, now()) }));
-  app.get('/admin/api/audit', guard, async () => ({ audit: await auditLog(pool) }));
+  app.get('/admin/api/audit', g('export'), async (req) => ({
+    audit: await auditLog(pool, parse(auditQuery, req.query)),
+  }));
 
   // ---- analytics, centres, WhatsApp, system, announcements, search, exports ----
   app.get('/admin/api/analytics', guard, async (req) => {
@@ -240,12 +297,13 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
       z.object({ days: z.coerce.number().int().min(7).max(180).default(30) }),
       req.query,
     );
-    return analytics(pool, days, now());
+    const a = await analytics(pool, days, now());
+    return can(req.admin!.role, 'money') ? a : withoutRevenue(a);
   });
   const instQuery = z.object({
     q: z.string().trim().max(80).default(''),
     sort: z.enum(['activity', 'students', 'health', 'newest', 'expiring']).default('activity'),
-    filter: z.enum(['all', 'trial', 'paid', 'ended', 'at-risk']).default('all'),
+    filter: z.enum(['all', 'trial', 'paid', 'ended', 'at-risk', 'test']).default('all'),
   });
   app.get('/admin/api/institutes', guard, async (req) => ({
     institutes: await listInstitutes(pool, parse(instQuery, req.query), now()),
@@ -261,7 +319,7 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
         : null,
     };
   });
-  app.get('/admin/api/billing', guard, async (req) =>
+  app.get('/admin/api/billing', g('money'), async (req) =>
     billingOverview(pool, parse(billingQuery, req.query), now()),
   );
   app.get('/admin/api/messages', guard, async (req) =>
@@ -270,14 +328,14 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
   app.get('/admin/api/owner-messages', guard, async (req) =>
     ownerMessages(pool, parse(ownerMessagesQuery, req.query), now()),
   );
-  app.post('/admin/api/institutes/:id/autorenew/off', guard, async (req) => {
+  app.post('/admin/api/institutes/:id/autorenew/off', g('manage'), async (req) => {
     if (!deps.billing) throw new AppError(503, 'billing_unavailable');
     return { stopped: await stopAutoRenew(pool, deps.billing, id(req), actor(req)) };
   });
-  app.post('/admin/api/institutes/:id/welcome', guard, async (req) =>
+  app.post('/admin/api/institutes/:id/welcome', g('help'), async (req) =>
     resendWelcome(pool, actor(req), id(req), now()),
   );
-  app.post('/admin/api/messages/:id/retry', guard, async (req) => {
+  app.post('/admin/api/messages/:id/retry', g('help'), async (req) => {
     await retryMessage(pool, actor(req), id(req), now());
     return { ok: true };
   });
@@ -297,7 +355,7 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
     ),
   );
   app.get('/admin/api/announcements', guard, async () => listForAdmin(pool, now()));
-  app.post('/admin/api/announcements', guard, async (req, reply) => {
+  app.post('/admin/api/announcements', g('manage'), async (req, reply) => {
     const created = await createAnnouncement(
       pool,
       actor(req),
@@ -308,10 +366,10 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
     await dispatchDuePushes(pool, deps.push ?? null, now()).catch(() => 0);
     return reply.code(201).send(created);
   });
-  app.post('/admin/api/announcements/estimate', guard, async (req) =>
+  app.post('/admin/api/announcements/estimate', g('manage'), async (req) =>
     estimateAudience(pool, parse(audienceInput, req.body), now()),
   );
-  app.post('/admin/api/announcements/test-push', guard, async (req) => {
+  app.post('/admin/api/announcements/test-push', g('manage'), async (req) => {
     const b = parse(
       z.object({
         phone: z.string().max(20),
@@ -324,7 +382,7 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
     await audit(pool, actor(req), 'announce-test', { detail: `${b.title} · ${r.sent} phones` });
     return r;
   });
-  app.post('/admin/api/announcements/:id/end', guard, async (req) => {
+  app.post('/admin/api/announcements/:id/end', g('manage'), async (req) => {
     await endAnnouncement(pool, actor(req), id(req), now());
     return { ok: true };
   });
@@ -337,19 +395,14 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
       .header('Cache-Control', 'no-store')
       .type('text/csv; charset=utf-8')
       .send(body);
-  app.get('/admin/api/export/users.csv', guard, async (req, reply) => {
+  app.get('/admin/api/export/users.csv', g('export'), async (req, reply) => {
     // a bulk copy of personal data (every phone number): always in the audit log
     await audit(pool, actor(req), 'export-users', {});
-    const users = await listUsers(
-      pool,
-      { q: '', filter: 'all', limit: 200, offset: 0 },
-      admins(),
-      now(),
-    );
+    const users = await listUsers(pool, { q: '', filter: 'all', limit: 200, offset: 0 }, now());
     let all = users;
     for (let off = 200; users.length && all.length === off; off += 200)
       all = all.concat(
-        await listUsers(pool, { q: '', filter: 'all', limit: 200, offset: off }, admins(), now()),
+        await listUsers(pool, { q: '', filter: 'all', limit: 200, offset: off }, now()),
       );
     return csv(
       'chalkpis-logins.csv',
@@ -381,7 +434,7 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
       ]),
     )(reply);
   });
-  app.get('/admin/api/export/institutes.csv', guard, async (req, reply) => {
+  app.get('/admin/api/export/institutes.csv', g('export'), async (req, reply) => {
     await audit(pool, actor(req), 'export-institutes', {});
     const list = await listInstitutes(pool, { q: '', sort: 'newest', filter: 'all' }, now());
     return csv(
@@ -430,7 +483,7 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
     events(pool, parse(eventsQuery, req.query), now()),
   );
   // one centre's full log as a spreadsheet: the last 30 days, every kind, newest first
-  app.get('/admin/api/institutes/:id/logs.csv', guard, async (req, reply) => {
+  app.get('/admin/api/institutes/:id/logs.csv', g('export'), async (req, reply) => {
     const instituteId = id(req);
     await audit(pool, actor(req), 'export-centre-logs', { instituteId });
     const { institute } = await getInstitute(pool, instituteId, now());
@@ -459,7 +512,7 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
       ]),
     )(reply);
   });
-  app.get('/admin/api/cohorts', guard, async (req) => {
+  app.get('/admin/api/cohorts', g('money'), async (req) => {
     const { weeks } = parse(
       z.object({ weeks: z.coerce.number().int().min(2).max(26).default(10) }),
       req.query,
@@ -469,22 +522,130 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
   app.get('/admin/api/institutes/:id/notes', guard, async (req) => ({
     notes: await notes(pool, id(req)),
   }));
-  app.post('/admin/api/institutes/:id/notes', guard, async (req, reply) =>
+  app.post('/admin/api/institutes/:id/notes', g('help'), async (req, reply) =>
     reply
       .code(201)
       .send(await addNote(pool, actor(req), id(req), parse(noteBody, req.body).body, now())),
   );
-  app.delete('/admin/api/institutes/:id/notes/:noteId', guard, async (req) => {
+  app.delete('/admin/api/institutes/:id/notes/:noteId', g('help'), async (req) => {
     const noteId = idParam((req.params as { noteId: string }).noteId);
     const said = await deleteNote(pool, id(req), noteId);
     await audit(pool, actor(req), 'note-delete', { instituteId: id(req), detail: said });
     return { ok: true };
   });
-  app.put('/admin/api/institutes/:id/tags', guard, async (req) => {
+  app.put('/admin/api/institutes/:id/tags', g('help'), async (req) => {
     const tags = parse(tagsBody, req.body).tags;
     const r = await setTags(pool, id(req), tags);
     await audit(pool, actor(req), 'tags-set', { instituteId: id(req), detail: tags.join(', ') });
     return r;
+  });
+
+  // ---- the admin team (super admin only): add, change role, remove, sign out ----
+  app.get('/admin/api/team', g('team'), async () => ({
+    team: await listTeam(pool, config.ADMIN_EMAILS, now()),
+  }));
+  app.post('/admin/api/team', g('team'), async (req, reply) => {
+    const b = parse(memberBody, req.body);
+    const r = await addMember(
+      pool,
+      deps.mailer ?? null,
+      config.ADMIN_EMAILS,
+      req.admin!.email,
+      b,
+      config.PUBLIC_BASE_URL,
+    );
+    await audit(pool, actor(req), 'team-add', { detail: `${b.email} as ${ROLE_LABEL[b.role]}` });
+    return reply.code(201).send(r);
+  });
+  app.put('/admin/api/team/:id', g('team'), async (req) => {
+    const r = await updateMember(pool, config.ADMIN_EMAILS, id(req), parse(memberUpdate, req.body));
+    await audit(pool, actor(req), 'team-change', {
+      detail: `${r.email}: ${r.before} -> ${r.role}`,
+    });
+    return { ok: true };
+  });
+  app.delete('/admin/api/team/:id', g('team'), async (req) => {
+    const r = await removeMember(pool, config.ADMIN_EMAILS, id(req), now());
+    await audit(pool, actor(req), 'team-remove', { detail: r.email });
+    return { ok: true };
+  });
+  app.post('/admin/api/team/:id/sign-out', g('team'), async (req) => {
+    const r = await signOutMember(pool, config.ADMIN_EMAILS, id(req), now());
+    await audit(pool, actor(req), 'team-sign-out', { detail: `${r.email} · ${r.ended} sessions` });
+    return { ended: r.ended };
+  });
+
+  // ---- deleting test and dummy centres and people: a code emailed to the super admin approves it ----
+  const deletionDeps = () => ({
+    pool,
+    mailer: deps.mailer ?? null,
+    superEmails: config.ADMIN_EMAILS,
+    pepper: config.OTP_PEPPER,
+    devEcho: config.OTP_DEV_ECHO && config.NODE_ENV !== 'production',
+    filesDir: config.FILES_DIR,
+  });
+  app.post('/admin/api/deletions/preview', g('delete'), async (req) =>
+    previewDeletion(pool, parse(deletionTargets, req.body), now()),
+  );
+  app.post('/admin/api/deletions', { ...g('delete'), ...authLimit(20) }, async (req, reply) => {
+    const r = await requestDeletion(
+      deletionDeps(),
+      req.admin!,
+      parse(deletionBody, req.body),
+      meta(req),
+      now(),
+    );
+    await audit(pool, actor(req), 'delete-requested', { detail: r.id });
+    return reply.code(201).send(r);
+  });
+  app.post('/admin/api/deletions/:id/confirm', { ...g('delete'), ...authLimit(30) }, async (req) =>
+    confirmDeletion(deletionDeps(), req.admin!, id(req), body(req).code, now(), (action, t) =>
+      audit(pool, actor(req), action, t),
+    ),
+  );
+  app.post('/admin/api/deletions/:id/cancel', g('delete'), async (req) => {
+    await cancelDeletion(pool, req.admin!, id(req));
+    return { ok: true };
+  });
+
+  // ---- WhatsApp spend: estimated cost, per centre, and the gateway wallet with when to recharge ----
+  app.get('/admin/api/wa-spend', g('view'), async (req) => {
+    const { days } = parse(
+      z.object({ days: z.coerce.number().int().min(7).max(90).default(30) }),
+      req.query,
+    );
+    return waSpend(pool, now(), days);
+  });
+  app.get('/admin/api/wa-spend/centres', g('view'), async (req) => {
+    const { days } = parse(
+      z.object({ days: z.coerce.number().int().min(7).max(365).default(30) }),
+      req.query,
+    );
+    return waSpendByCentre(pool, now(), days);
+  });
+  app.get('/admin/api/institutes/:id/wa-spend', g('view'), async (req) =>
+    waSpendForCentre(pool, id(req), now()),
+  );
+  app.put('/admin/api/wa-spend/rates', g('manage'), async (req) => {
+    const b = parse(ratesBody, req.body);
+    await setRates(pool, req.admin!.email, b, now());
+    await audit(pool, actor(req), 'wa-rates', {
+      detail: `utility ${b.utility}p · authentication ${b.authentication}p · marketing ${b.marketing}p`,
+    });
+    return { ok: true };
+  });
+  app.post('/admin/api/wa-spend/wallet', g('manage'), async (req, reply) => {
+    const b = parse(walletBody, req.body);
+    const r = await addWalletEntry(pool, req.admin!.email, b, now());
+    await audit(pool, actor(req), b.kind === 'recharge' ? 'wa-recharge' : 'wa-balance', {
+      detail: `Rs ${(b.amount / 100).toFixed(2)}${b.note ? ` · ${b.note}` : ''}`,
+    });
+    return reply.code(201).send(r);
+  });
+  app.delete('/admin/api/wa-spend/wallet/:id', g('manage'), async (req) => {
+    await deleteWalletEntry(pool, id(req));
+    await audit(pool, actor(req), 'wa-wallet-delete', { detail: id(req) });
+    return { ok: true };
   });
 
   // ---- for tutors and helpers in the app: banners, the Updates inbox, and what they did with each ----

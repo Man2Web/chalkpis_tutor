@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Download, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Search, Trash2 } from 'lucide-react';
 import { Empty, ErrorBox, Loading, PageHeader, PersonAvatar } from '@/components/app/bits';
 import { Pill } from '@/components/app/pill';
+import { deleteDialog } from '@/components/app/delete';
+import { Checkbox } from '@/components/ui/checkbox';
+import { planName } from '@/lib/plans';
 import { toast } from '@/components/app/toast';
 import { openUser, UserStatus, type UserRow } from '@/components/app/user';
 import { Button } from '@/components/ui/button';
@@ -9,7 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { downloadCsv } from '@/lib/api';
+import { can, downloadCsv, errorText } from '@/lib/api';
 import { ago, plural } from '@/lib/format';
 import { useApi, useDebounced } from '@/lib/hooks';
 import { NOPHONE } from '@/lib/names';
@@ -20,7 +23,7 @@ const FILTERS = [
   ['owners', 'Tutors'],
   ['staff', 'Helpers'],
   ['blocked', 'Blocked'],
-  ['no-institute', 'Not set up'],
+  ['no-institute', 'No centre yet'],
 ] as const;
 const PAGE = 50;
 
@@ -33,18 +36,32 @@ export function Logins() {
     `/admin/api/users?q=${encodeURIComponent(dq)}&filter=${filter}&limit=${PAGE}&offset=${offset}`,
   );
   const rows = data?.users ?? [];
+  // ticked logins to delete together; an owner goes with their centre, so only helpers and people without a centre
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const canDelete = can('delete');
+  const deletable = rows.filter((u) => u.role !== 'owner');
+  const shown = deletable.filter((u) => picked.has(u.id));
   return (
     <div className="grid gap-6">
       <PageHeader
         title="People"
-        description="Every tutor and helper who has signed in. Open someone to block them, sign them out or see their centre."
+        description="Every tutor and helper who has signed in. Open someone to sign them out, block them or see their centre."
         actions={
-          <Button
-            variant="outline"
-            onClick={() => downloadCsv('/admin/api/export/users.csv', 'chalkpis-logins.csv').then(() => toast('Downloaded chalkpis-logins.csv')).catch((e: Error) => toast(e.message, false))}
-          >
-            <Download /> Export CSV
-          </Button>
+          <>
+            {canDelete && shown.length ? (
+              <Button variant="destructive" onClick={() => deleteDialog({ kind: 'person', ids: shown.map((u) => u.id), onDone: () => setPicked(new Set()) })}>
+                <Trash2 /> Delete {shown.length === 1 ? '1 person' : `${shown.length} people`}
+              </Button>
+            ) : null}
+            {can('export') ? (
+              <Button
+                variant="outline"
+                onClick={() => downloadCsv('/admin/api/export/users.csv', 'chalkpis-people.csv').then(() => toast('Downloaded chalkpis-people.csv')).catch((e: Error) => toast(errorText(e), false))}
+              >
+                <Download /> Export CSV
+              </Button>
+            ) : null}
+          </>
         }
       />
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
@@ -81,7 +98,16 @@ export function Logins() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-4">Person</TableHead>
+                {canDelete ? (
+                  <TableHead className="w-0 pl-4">
+                    <Checkbox
+                      aria-label="Tick every helper and person without a centre shown"
+                      checked={deletable.length > 0 && shown.length === deletable.length}
+                      onCheckedChange={(on) => setPicked(on === true ? new Set(deletable.map((u) => u.id)) : new Set())}
+                    />
+                  </TableHead>
+                ) : null}
+                <TableHead className={canDelete ? '' : 'pl-4'}>Person</TableHead>
                 <TableHead className="hidden md:table-cell">Role</TableHead>
                 <TableHead className="hidden lg:table-cell">Centre</TableHead>
                 <TableHead>Plan</TableHead>
@@ -92,8 +118,26 @@ export function Logins() {
             <TableBody>
               {rows.length ? (
                 rows.map((u) => (
-                  <TableRow key={u.id} className="cursor-pointer" onClick={() => openUser(u.id)}>
-                    <TableCell className="pl-4">
+                  <TableRow key={u.id} className="cursor-pointer" data-state={picked.has(u.id) ? 'selected' : undefined} onClick={() => openUser(u.id)}>
+                    {canDelete ? (
+                      <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
+                        {u.role === 'owner' ? null : (
+                          <Checkbox
+                            aria-label={`Tick ${u.name || u.phone || 'this person'}`}
+                            checked={picked.has(u.id)}
+                            onCheckedChange={(on) =>
+                              setPicked((p) => {
+                                const n = new Set(p);
+                                if (on === true) n.add(u.id);
+                                else n.delete(u.id);
+                                return n;
+                              })
+                            }
+                          />
+                        )}
+                      </TableCell>
+                    ) : null}
+                    <TableCell className={canDelete ? '' : 'pl-4'}>
                       <div className="flex items-center gap-3">
                         <PersonAvatar name={u.name || u.phone || '?'} />
                         <div className="min-w-0">
@@ -106,8 +150,8 @@ export function Logins() {
                     <TableCell className="hidden max-w-[14rem] truncate lg:table-cell">{u.institute?.name ?? '—'}</TableCell>
                     <TableCell>
                       {u.institute ? (
-                        <Pill tone={u.institute.active ? 'green' : 'orange'} className="capitalize">
-                          {u.institute.plan}{u.institute.active ? '' : ' · ended'}
+                        <Pill tone={u.institute.active ? 'green' : 'orange'}>
+                          {planName(u.institute.plan)}{u.institute.active ? '' : ' · ended'}
                         </Pill>
                       ) : (
                         <span className="text-muted-foreground">—</span>
@@ -121,7 +165,7 @@ export function Logins() {
                   </TableRow>
                 ))
               ) : (
-                <TableRow><TableCell colSpan={6}><Empty text="No logins match." /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={7}><Empty text="Nobody matches." /></TableCell></TableRow>
               )}
             </TableBody>
           </Table>

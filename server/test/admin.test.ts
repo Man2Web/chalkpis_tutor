@@ -9,7 +9,7 @@ let A: Tenant;
 let B: Tenant;
 
 beforeAll(async () => {
-  h = await startHarness({ ADMIN_PHONES: [ADMIN], OTP_DEV_ECHO: true });
+  h = await startHarness({ OTP_DEV_ECHO: true });
 });
 afterAll(async () => {
   await h.close();
@@ -33,7 +33,7 @@ async function signIn(phone: string) {
 }
 
 describe('admin access', () => {
-  it('only an admin session reaches the admin API; a tutor token, even an ADMIN_PHONES one, does not', async () => {
+  it('only an admin session reaches the admin API; a tutor token does not', async () => {
     expect((await admin.call('GET', '/admin/api/overview')).status).toBe(200);
     for (const url of [
       '/admin/api/overview',
@@ -44,7 +44,6 @@ describe('admin access', () => {
       expect((await A.call('GET', url)).status, url).toBe(401);
     expect((await h.app.inject({ url: '/admin/api/users' })).statusCode).toBe(401);
     expect((await adminUser.call('GET', '/admin/api/overview')).status).toBe(401);
-    expect((await A.call('GET', '/me')).body.isAdmin).toBe(false);
   });
 
   it('the dashboard page is served with a strict content policy', async () => {
@@ -136,12 +135,6 @@ describe('managing logins', () => {
       ).statusCode,
     ).toBe(401);
     expect((await signIn('+919123456789')).statusCode).toBe(200);
-  });
-
-  it('admins cannot block or sign out themselves or another admin', async () => {
-    expect(
-      (await admin.call('POST', `/admin/api/users/${adminUser.userId}/block`, {})).body.error,
-    ).toBe('cannot_change_admin');
   });
 
   it('extends a plan from its current end, and every action is in the audit log', async () => {

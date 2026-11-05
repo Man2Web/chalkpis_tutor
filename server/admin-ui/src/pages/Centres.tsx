@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { Download, Search } from 'lucide-react';
+import { Download, Search, Trash2 } from 'lucide-react';
 import { Empty, ErrorBox, Health, Loading, PageHeader } from '@/components/app/bits';
 import { StatusBadge } from '@/components/app/billing';
 import { planName, subscriptionState } from '@/lib/plans';
 import { Tag } from '@/components/app/tags';
+import { deleteDialog } from '@/components/app/delete';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/components/app/toast';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { downloadCsv } from '@/lib/api';
+import { can, downloadCsv, errorText } from '@/lib/api';
 import { ago, dateOnly, money, plural } from '@/lib/format';
 import { go, useApi, useDebounced } from '@/lib/hooks';
 import { category, TAGS, tagLabel } from '@/lib/names';
@@ -23,6 +25,7 @@ const FILTERS = [
   ['paid', 'Paid'],
   ['ended', 'Plan ended'],
   ['at-risk', 'At risk'],
+  ['test', 'Test or empty'],
 ] as const;
 const SORTS = [
   ['activity', 'Last active'],
@@ -57,6 +60,17 @@ export function Centres({ query }: { query: Record<string, string> }) {
   const url = `/admin/api/institutes?q=${encodeURIComponent(dq)}&sort=${sort}&filter=${filter}`;
   const { data, error, loading, reload } = useApi<{ institutes: CentreRow[] }>(url);
   const rows = (data?.institutes ?? []).filter((c) => tag === 'any' || c.tags.includes(tag));
+  // ticked centres, for deleting test sign-ups together (one code for all)
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const canDelete = can('delete');
+  const shown = rows.filter((r) => picked.has(r.id));
+  const toggle = (id: string, on: boolean) =>
+    setPicked((p) => {
+      const n = new Set(p);
+      if (on) n.add(id);
+      else n.delete(id);
+      return n;
+    });
 
   return (
     <div className="grid gap-6">
@@ -64,22 +78,36 @@ export function Centres({ query }: { query: Record<string, string> }) {
         title="Centres"
         description={`Every class, academy and institute using Chalkpis${data ? ` · ${plural(rows.length, 'centre')}${tag !== 'any' || filter !== 'all' || dq ? ' match' : ''}` : ''}`}
         actions={
-          <Button
-            variant="outline"
-            onClick={() =>
-              downloadCsv('/admin/api/export/institutes.csv', 'chalkpis-centres.csv')
-                .then(() => toast('Downloaded chalkpis-centres.csv'))
-                .catch((e: Error) => toast(e.message, false))
-            }
-          >
-            <Download /> Export CSV
-          </Button>
+          <>
+            {canDelete && shown.length ? (
+              <Button
+                variant="destructive"
+                onClick={() =>
+                  deleteDialog({ kind: 'centre', ids: shown.map((r) => r.id), onDone: () => setPicked(new Set()) })
+                }
+              >
+                <Trash2 /> Delete {plural(shown.length, 'centre')}
+              </Button>
+            ) : null}
+            {can('export') ? (
+              <Button
+                variant="outline"
+                onClick={() =>
+                  downloadCsv('/admin/api/export/institutes.csv', 'chalkpis-centres.csv')
+                    .then(() => toast('Downloaded chalkpis-centres.csv'))
+                    .catch((e: Error) => toast(errorText(e), false))
+                }
+              >
+                <Download /> Export CSV
+              </Button>
+            ) : null}
+          </>
         }
       />
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
         <div className="relative lg:w-80">
           <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search centre, owner or phone" className="pl-8" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search centre, owner, phone, city or email" className="pl-8" />
         </div>
         <div className="grid grid-cols-3 gap-2 lg:flex">
           <Select value={filter} onValueChange={setFilter}>
@@ -99,6 +127,12 @@ export function Centres({ query }: { query: Record<string, string> }) {
           </Select>
         </div>
       </div>
+      {filter === 'test' ? (
+        <p className="-mt-2 text-sm text-muted-foreground">
+          Centres that look like try-outs: a name such as test, demo or dummy, or still no students two days after sign-up. Never one on
+          a running paid plan. {canDelete ? 'Tick the ones to delete; one code from the super admin deletes them all.' : ''}
+        </p>
+      ) : null}
       {error ? (
         <ErrorBox error={error} onRetry={reload} />
       ) : !data ? (
@@ -108,7 +142,16 @@ export function Centres({ query }: { query: Record<string, string> }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-4">Centre</TableHead>
+                {canDelete ? (
+                  <TableHead className="w-0 pl-4">
+                    <Checkbox
+                      aria-label="Tick every centre shown"
+                      checked={rows.length > 0 && shown.length === rows.length}
+                      onCheckedChange={(on) => setPicked(on === true ? new Set(rows.slice(0, 50).map((r) => r.id)) : new Set())}
+                    />
+                  </TableHead>
+                ) : null}
+                <TableHead className={canDelete ? '' : 'pl-4'}>Centre</TableHead>
                 <TableHead>Plan</TableHead>
                 <TableHead className="text-right">Students</TableHead>
                 <TableHead className="hidden md:table-cell">Last active</TableHead>
@@ -120,8 +163,13 @@ export function Centres({ query }: { query: Record<string, string> }) {
             <TableBody>
               {rows.length ? (
                 rows.map((c) => (
-                  <TableRow key={c.id} className="cursor-pointer" onClick={() => go(`centre/${c.id}`)}>
-                    <TableCell className="max-w-[18rem] pl-4">
+                  <TableRow key={c.id} className="cursor-pointer" data-state={picked.has(c.id) ? 'selected' : undefined} onClick={() => go(`centre/${c.id}`)}>
+                    {canDelete ? (
+                      <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox aria-label={`Tick ${c.name}`} checked={picked.has(c.id)} onCheckedChange={(on) => toggle(c.id, on === true)} />
+                      </TableCell>
+                    ) : null}
+                    <TableCell className={cn('max-w-[18rem]', !canDelete && 'pl-4')}>
                       <div className="flex items-center gap-3">
                         <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-semibold">
                           {c.name.slice(0, 2).toUpperCase()}
@@ -150,7 +198,7 @@ export function Centres({ query }: { query: Record<string, string> }) {
                   </TableRow>
                 ))
               ) : (
-                <TableRow><TableCell colSpan={7}><Empty text="No centres match." /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={8}><Empty text={filter === 'test' ? 'No test or empty centres.' : 'No centres match.'} /></TableCell></TableRow>
               )}
             </TableBody>
           </Table>

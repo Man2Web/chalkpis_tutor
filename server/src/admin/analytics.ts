@@ -1,5 +1,6 @@
 import type { Pool } from '../db.js';
 import { notFound } from '../errors.js';
+import { REAL } from './billing.js';
 import { tagsFor } from './crm.js';
 import { toOwnerDetails, type DetailsRow } from '../institutes/details.js';
 
@@ -33,12 +34,14 @@ export async function analytics(pool: Pool, days: number, now: Date) {
     // usage is counted on the class day and the day the money was received (what the tutor entered)
     activeInstitutes: `SELECT d, COUNT(DISTINCT institute_id) v FROM (
         SELECT day d, institute_id FROM attendance_days WHERE day >= DATE(?)
-        UNION ALL SELECT ${IST_DAY('paid_at')} d, institute_id FROM payments WHERE paid_at >= ?) x GROUP BY d`,
+        UNION ALL SELECT ${IST_DAY('paid_at')} d, institute_id FROM payments WHERE paid_at >= ?
+        UNION ALL SELECT ${IST_DAY('created_at')} d, institute_id FROM activity_log WHERE created_at >= ?) x GROUP BY d`,
     attendanceSaved: `SELECT day d, COUNT(*) v FROM attendance_days WHERE day >= DATE(?) GROUP BY d`,
     feesRecorded: `SELECT ${IST_DAY('paid_at')} d, COALESCE(SUM(amount), 0) v FROM payments WHERE paid_at >= ? GROUP BY d`,
     messagesSent: `SELECT ${IST_DAY('sent_at')} d, COUNT(*) v FROM messages WHERE status = 'sent' AND sent_at >= ? GROUP BY d`,
     messagesFailed: `SELECT ${IST_DAY('created_at')} d, COUNT(*) v FROM messages WHERE status = 'failed' AND created_at >= ? GROUP BY d`,
-    revenue: `SELECT ${IST_DAY('created_at')} d, COALESCE(SUM(amount), 0) v FROM billing_events WHERE status = 'applied' AND created_at >= ? GROUP BY d`,
+    // the same money the Revenue page counts: paid, not a store test, in rupees
+    revenue: `SELECT ${IST_DAY('created_at')} d, COALESCE(SUM(amount), 0) v FROM billing_events WHERE ${REAL} AND created_at >= ? GROUP BY d`,
   };
   const dates = Array.from({ length: days }, (_, i) =>
     ymd(new Date(now.getTime() - (days - 1 - i) * DAY)),
@@ -46,8 +49,11 @@ export async function analytics(pool: Pool, days: number, now: Date) {
   const series: Record<string, number[]> = {};
   const totals: Record<string, { now: number; before: number }> = {};
   for (const [key, sql] of Object.entries(metrics)) {
-    const twoArgs = key === 'activeInstitutes';
-    const s = await perDay(pool, sql, twoArgs ? [prevFrom, prevFrom] : [prevFrom]);
+    const s = await perDay(
+      pool,
+      sql,
+      key === 'activeInstitutes' ? [prevFrom, prevFrom, prevFrom] : [prevFrom],
+    );
     series[key] = dates.map((d) => s[d] ?? 0);
     const prevDates = Array.from({ length: days }, (_, i) =>
       ymd(new Date(from.getTime() - (days - 1 - i) * DAY)),
@@ -62,8 +68,9 @@ export async function analytics(pool: Pool, days: number, now: Date) {
     const [[r]] = (await pool.query(
       `SELECT COUNT(DISTINCT institute_id) v FROM (
          SELECT institute_id FROM attendance_days WHERE day >= DATE(?) AND day <= DATE(?)
-         UNION ALL SELECT institute_id FROM payments WHERE paid_at >= ? AND paid_at < ?) x`,
-      [since, until, since, until],
+         UNION ALL SELECT institute_id FROM payments WHERE paid_at >= ? AND paid_at < ?
+         UNION ALL SELECT institute_id FROM activity_log WHERE created_at >= ? AND created_at < ?) x`,
+      [since, until, since, until, since, until],
     )) as unknown as [[{ v: number }]];
     return n(r!.v);
   };
@@ -82,7 +89,7 @@ export async function analytics(pool: Pool, days: number, now: Date) {
        (SELECT COUNT(DISTINCT institute_id) FROM payments) AS withPayments,
        (SELECT COUNT(*) FROM notify_settings WHERE enabled = 1) AS messagesOn,
        (SELECT COUNT(*) FROM institutes WHERE upi_id <> '' OR payment_link <> '') AS canBePaid,
-       (SELECT COUNT(*) FROM subscriptions WHERE plan <> 'trial') AS everPaid`,
+       (SELECT COUNT(DISTINCT institute_id) FROM billing_events WHERE ${REAL} AND amount > 0) AS everPaid`,
   )) as unknown as [[Record<string, number>]];
   const funnel = Object.fromEntries(Object.entries(f!).map(([k, v]) => [k, n(v)]));
 
@@ -94,7 +101,7 @@ export async function analytics(pool: Pool, days: number, now: Date) {
 
   const [months] = (await pool.query(
     `SELECT DATE_FORMAT(CONVERT_TZ(created_at, '+00:00', '+05:30'), '%Y-%m') m, SUM(amount) v
-       FROM billing_events WHERE status = 'applied' AND created_at >= ? GROUP BY m ORDER BY m`,
+       FROM billing_events WHERE ${REAL} AND created_at >= ? GROUP BY m ORDER BY m`,
     [new Date(now.getTime() - 365 * DAY)],
   )) as unknown as [{ m: string; v: number }[]];
 
@@ -212,6 +219,10 @@ interface InstRow extends DetailsRow {
   last_attendance: Date | null;
   last_payment: Date | null;
   last_login: Date | null;
+  /** anything done in the app (tests, homework, enquiries, calendar, students...): the activity log */
+  last_action: Date | null;
+  /** the app renews its session while it is in use, so this is when someone last opened it */
+  last_seen: Date | null;
   messages30: number;
   failed30: number;
   collected30: number;
@@ -256,6 +267,8 @@ const INST_SELECT = `SELECT i.id, i.name, i.category, i.created_at, i.upi_id, i.
     (SELECT MAX(created_at) FROM attendance_days a WHERE a.institute_id = i.id) AS last_attendance,
     (SELECT MAX(paid_at) FROM payments p WHERE p.institute_id = i.id) AS last_payment,
     (SELECT MAX(uu.last_login_at) FROM memberships mm JOIN users uu ON uu.id = mm.user_id WHERE mm.institute_id = i.id) AS last_login,
+    (SELECT MAX(al.created_at) FROM activity_log al WHERE al.institute_id = i.id) AS last_action,
+    (SELECT MAX(rt.created_at) FROM memberships mm JOIN refresh_tokens rt ON rt.user_id = mm.user_id WHERE mm.institute_id = i.id) AS last_seen,
     (SELECT COUNT(*) FROM messages ms WHERE ms.institute_id = i.id AND ms.status = 'sent' AND ms.sent_at >= ?) AS messages30,
     (SELECT COUNT(*) FROM messages ms WHERE ms.institute_id = i.id AND ms.status = 'failed' AND ms.created_at >= ?) AS failed30,
     (SELECT COALESCE(SUM(amount), 0) FROM payments p WHERE p.institute_id = i.id AND p.paid_at >= ?) AS collected30
@@ -272,7 +285,13 @@ const latest = (...d: (Date | null)[]) =>
   d.filter((x): x is Date => !!x).sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
 
 function toInstitute(r: InstRow, now: Date) {
-  const lastActivity = latest(r.last_attendance, r.last_payment, r.last_login);
+  const lastActivity = latest(
+    r.last_attendance,
+    r.last_payment,
+    r.last_login,
+    r.last_action,
+    r.last_seen,
+  );
   const canBePaid = !!(r.upi_id || r.payment_link);
   return {
     id: r.id,
@@ -336,12 +355,39 @@ function toInstitute(r: InstRow, now: Date) {
   };
 }
 
+/** Words people type when they only try Chalkpis out. */
+const TEST_WORDS =
+  /\b(test|tests|testing|tester|dummy|demo|sample|example|trial|check|asdf|qwerty|xyz|abc|aaa+|zzz+|hello|hi)\b/i;
+/**
+ * A centre that is probably a try-out, for the "Test or empty" filter (decision 158): a test-like name for the centre
+ * or its owner, or still no students two days after sign-up. Never one on a running paid plan.
+ */
+export function looksLikeTest(
+  i: {
+    name: string;
+    owner: { name: string } | null;
+    students: number;
+    createdAt: string;
+    plan: string | null;
+    planActive: boolean;
+  },
+  now: Date,
+) {
+  if (i.planActive && i.plan !== 'trial') return false;
+  if (TEST_WORDS.test(i.name) || TEST_WORDS.test(i.owner?.name ?? '')) return true;
+  return i.students === 0 && now.getTime() - Date.parse(i.createdAt) > 2 * DAY;
+}
+
 export type InstituteSort = 'activity' | 'students' | 'health' | 'newest' | 'expiring';
 
 /** Every centre, with the numbers an owner of Chalkpis wants to see at a glance. */
 export async function listInstitutes(
   pool: Pool,
-  q: { q: string; sort: InstituteSort; filter: 'all' | 'trial' | 'paid' | 'ended' | 'at-risk' },
+  q: {
+    q: string;
+    sort: InstituteSort;
+    filter: 'all' | 'trial' | 'paid' | 'ended' | 'at-risk' | 'test';
+  },
   now: Date,
 ) {
   const since = new Date(now.getTime() - 30 * DAY);
@@ -349,12 +395,14 @@ export async function listInstitutes(
   const args: unknown[] = [since, since, since];
   if (q.q) {
     const like = `%${q.q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
-    where.push('(i.name LIKE ? OR u.name LIKE ? OR u.phone LIKE ? OR i.city LIKE ?)');
-    args.push(like, like, like, like);
+    where.push(
+      '(i.name LIKE ? OR u.name LIKE ? OR u.phone LIKE ? OR i.city LIKE ? OR i.contact_email LIKE ?)',
+    );
+    args.push(like, like, like, like, like);
   }
   const cond = {
-    trial: "s.plan = 'trial' AND s.expires_at > ?",
-    paid: "s.plan <> 'trial' AND s.expires_at > ?",
+    trial: "s.plan = 'trial' AND s.status = 'active' AND s.expires_at > ?",
+    paid: "s.plan <> 'trial' AND s.status = 'active' AND s.expires_at > ?",
     ended: "(s.status = 'expired' OR s.expires_at <= ?)",
   } as const;
   if (q.filter === 'trial' || q.filter === 'paid' || q.filter === 'ended') {
@@ -371,6 +419,7 @@ export async function listInstitutes(
   );
   let list = rows.map((r) => ({ ...toInstitute(r, now), tags: tags.get(r.id) ?? [] }));
   if (q.filter === 'at-risk') list = list.filter((i) => i.health < 40);
+  if (q.filter === 'test') list = list.filter((i) => looksLikeTest(i, now));
   const t = (s: string | null) => (s ? Date.parse(s) : 0);
   const sorters: Record<InstituteSort, (a: (typeof list)[0], b: (typeof list)[0]) => number> = {
     activity: (a, b) => t(b.lastActivityAt) - t(a.lastActivityAt),
@@ -447,6 +496,18 @@ export async function getInstitute(pool: Pool, id: string, now: Date) {
       created_at: Date;
     }[],
   ];
+  // which parts of the app this centre uses, for support (decisions 148 to 155)
+  const [[used]] = (await pool.query(
+    `SELECT (SELECT COUNT(*) FROM exams WHERE institute_id = ?) AS exams,
+            (SELECT COUNT(*) FROM homework WHERE institute_id = ?) AS homework,
+            (SELECT COUNT(*) FROM enquiries WHERE institute_id = ?) AS enquiries,
+            (SELECT COUNT(*) FROM enquiries WHERE institute_id = ? AND status = 'joined') AS joined,
+            (SELECT COUNT(*) FROM calendar_events WHERE institute_id = ?) AS events,
+            (SELECT COUNT(DISTINCT family_id) FROM students WHERE institute_id = ? AND family_id IS NOT NULL) AS families,
+            (SELECT COUNT(*) FROM fee_plans WHERE institute_id = ?) AS feePlans,
+            (SELECT COUNT(*) FROM parent_links WHERE institute_id = ?) AS parentLinks`,
+    [id, id, id, id, id, id, id, id],
+  )) as unknown as [[Record<string, number>]];
   const [[counts]] = (await pool.query(
     `SELECT (SELECT COUNT(*) FROM attendance_days WHERE institute_id = ? AND day >= DATE(?)) AS attendance30,
             (SELECT COUNT(*) FROM payments WHERE institute_id = ? AND amount > 0 AND paid_at >= ?) AS payments30,
@@ -457,6 +518,7 @@ export async function getInstitute(pool: Pool, id: string, now: Date) {
   const tags = await tagsFor(pool, [id]);
   return {
     institute: { ...toInstitute(rows[0], now), tags: tags.get(id) ?? [] },
+    features: Object.fromEntries(Object.entries(used ?? {}).map(([k, v]) => [k, n(v)])),
     activity: {
       attendance30: n(counts!.attendance30),
       payments30: n(counts!.payments30),

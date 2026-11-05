@@ -32,7 +32,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { api, ApiError } from '@/lib/api';
+import { api, can, errorText } from '@/lib/api';
 import { dateOnly, money, ymdIst } from '@/lib/format';
 import { go, useApi } from '@/lib/hooks';
 import { cn } from '@/lib/utils';
@@ -129,26 +129,29 @@ export function SubscriptionCard({ c, onDone }: { c: CentreBilling; onDone: () =
   const period = plan === 'trial' ? 14 : c.cycle === 'month' ? 30.4 : 365;
   const leftPct = st.daysLeft == null ? 0 : Math.min(100, Math.round((st.daysLeft / period) * 100));
 
+  const manage = can('manage');
   const endNow = async () => {
     const ok = await confirmDialog({
       title: `End ${c.name}'s subscription today?`,
-      body: 'The centre can still open the app and see everything, but cannot add or change anything until a plan is paid. Nothing is deleted.',
+      body: `The centre can still open the app and see everything, but cannot add or change anything until a plan is paid. Nothing is deleted.${
+        c.webAutoRenew ? ' Website auto-renew is stopped too, so they are not charged again.' : ''
+      }`,
       action: 'End subscription',
       destructive: true,
     });
     if (!ok) return;
     try {
-      await api('PUT', `/admin/api/institutes/${c.id}/subscription`, {
+      const r = await api<{ autoRenewStopped?: boolean }>('PUT', `/admin/api/institutes/${c.id}/subscription`, {
         plan: plan ?? 'trial',
         status: 'expired',
         endsOn: ymdIst(new Date(Date.now() - DAY).toISOString()),
         studentLimit: c.studentLimit ?? null,
         batchLimit: c.batchLimit ?? null,
       });
-      toast('Subscription ended');
+      toast(r.autoRenewStopped ? 'Subscription ended and auto-renew stopped' : 'Subscription ended');
       onDone();
     } catch (e) {
-      toast((e as Error).message, false);
+      toast(errorText(e), false);
     }
   };
 
@@ -165,7 +168,7 @@ export function SubscriptionCard({ c, onDone }: { c: CentreBilling; onDone: () =
       toast(r.stopped ? 'Auto-renew stopped' : 'Auto-renew was already off');
       onDone();
     } catch (e) {
-      toast((e as Error).message, false);
+      toast(errorText(e), false);
     }
   };
 
@@ -176,7 +179,7 @@ export function SubscriptionCard({ c, onDone }: { c: CentreBilling; onDone: () =
           Subscription <StatusBadge s={c} />
         </CardTitle>
         <CardDescription>What the centre is on now, and until when.</CardDescription>
-        <CardAction>
+        <CardAction className={manage ? '' : 'hidden'}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon-sm" aria-label="More actions">
@@ -255,9 +258,11 @@ export function SubscriptionCard({ c, onDone }: { c: CentreBilling; onDone: () =
                     : `Next payment ${money(c.webAutoRenew.amount)}${c.webAutoRenew.nextChargeAt ? ` on ${dateOnly(c.webAutoRenew.nextChargeAt)}` : ''} by UPI Autopay or card.`}
               </span>
             </span>
-            <Button variant="outline" size="sm" onClick={() => void stopAuto()}>
-              <CircleStop /> Stop auto-renew
-            </Button>
+            {manage ? (
+              <Button variant="outline" size="sm" onClick={() => void stopAuto()}>
+                <CircleStop /> Stop auto-renew
+              </Button>
+            ) : null}
           </div>
         ) : null}
 
@@ -288,7 +293,7 @@ export function SubscriptionCard({ c, onDone }: { c: CentreBilling; onDone: () =
           <Meter label="Batches" used={c.batches} limit={c.batchLimit} />
         </div>
 
-        <div className="flex flex-wrap gap-2 border-t pt-4">
+        <div className={cn('flex flex-wrap gap-2 border-t pt-4', !manage && 'hidden')}>
           <Button onClick={() => setOpen('extend')}>
             <CalendarPlus /> Extend
           </Button>
@@ -362,7 +367,7 @@ function useRun(onDone: () => void, onClose: () => void) {
       onClose();
       onDone();
     } catch (e) {
-      setErr((e as ApiError).message);
+      setErr(errorText(e));
     } finally {
       setBusy(false);
     }

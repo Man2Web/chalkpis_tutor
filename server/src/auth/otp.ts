@@ -4,6 +4,7 @@ import { inTransaction, type Pool } from '../db.js';
 import { hashOtp, newId, newOtp } from '../lib/ids.js';
 import { withNamedLock } from '../lib/lock.js';
 import { normalizeIndianPhone } from '../lib/phone.js';
+import { meterLoginCode } from '../messaging/meter.js';
 import type { MessageProvider } from '../messaging/provider.js';
 
 export const OTP = { ttlMinutes: 5, cooldownSeconds: 60, maxPerHour: 5, maxAttempts: 5 } as const;
@@ -115,6 +116,7 @@ export async function requestOtp(deps: OtpDeps, rawPhone: unknown): Promise<OtpR
       await conn.query('DELETE FROM otp_codes WHERE id = ?', [id]); // a code nobody received must not count against the limits
       return { ok: false, error: 'unavailable' } as const;
     }
+    await meterLoginCode(deps.pool, now, phone);
     return { ok: true, resendInSeconds: OTP.cooldownSeconds, code } as const;
   });
 }

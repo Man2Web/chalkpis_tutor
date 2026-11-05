@@ -39,7 +39,7 @@ export function Signins() {
                 </TableRow>
               ))
             ) : (
-              <TableRow><TableCell colSpan={4}><Empty text="No login codes in the last day." /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={4}><Empty text="No login codes asked for yet." /></TableCell></TableRow>
             )}
           </TableBody>
         </Table>

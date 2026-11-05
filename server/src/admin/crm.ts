@@ -352,8 +352,9 @@ export async function cohorts(pool: Pool, weeks: number, now: Date) {
   ])) as unknown as [{ id: string; created_at: Date }[]];
   const [act] = (await pool.query(
     `SELECT institute_id, created_at at FROM attendance_days WHERE created_at >= ?
-     UNION ALL SELECT institute_id, paid_at at FROM payments WHERE paid_at >= ?`,
-    [since, since],
+     UNION ALL SELECT institute_id, paid_at at FROM payments WHERE paid_at >= ?
+     UNION ALL SELECT institute_id, created_at at FROM activity_log WHERE created_at >= ?`,
+    [since, since, since],
   )) as unknown as [{ institute_id: string; at: Date }[]];
   const activeWeeks = new Map<string, Set<string>>();
   for (const a of act) {

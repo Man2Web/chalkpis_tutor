@@ -20,9 +20,21 @@ const ERR: Record<string, string> = {
   rate_limited: 'Too many tries. Wait a few minutes.',
 };
 const COPY: Record<Mode, { title: string; sub: string; button: string; link: string; to: Mode }> = {
-  login: { title: 'Admin sign in', sub: 'Email and password, then a code we email you.', button: 'Continue', link: 'Forgot password?', to: 'forgot' },
+  login: {
+    title: 'Admin sign in',
+    sub: 'Email and password, then a code we email you.',
+    button: 'Continue',
+    link: 'First time? Set a password · Forgot password?',
+    to: 'forgot',
+  },
   code: { title: 'Check your email', sub: 'Enter the 6-digit code. It works for 10 minutes.', button: 'Sign in', link: 'Start again', to: 'login' },
-  forgot: { title: 'Reset password', sub: 'We email a code to your admin address.', button: 'Send code', link: 'Back to sign in', to: 'login' },
+  forgot: {
+    title: 'Set or reset your password',
+    sub: 'Enter the email the super admin added. We email you a code, then you choose a password.',
+    button: 'Send code',
+    link: 'Back to sign in',
+    to: 'login',
+  },
   reset: {
     title: 'Choose a new password',
     sub: 'At least 12 characters with upper and lower case, a number and a symbol.',
@@ -82,7 +94,7 @@ export function Login({ flash, onSignedIn }: { flash?: string; onSignedIn: () =>
       } else if (mode === 'forgot') {
         const r = await api<{ devCode?: string }>('POST', '/admin/auth/forgot', { email: email.trim() });
         switchTo('reset', {
-          text: r.devCode ? `Test mode code: ${r.devCode}` : `If ${email.trim()} is an admin, a code is on its way.`,
+          text: r.devCode ? `Test mode code: ${r.devCode}` : `If ${email.trim()} is on the admin team, a code is on its way.`,
           ok: true,
         });
       } else {
@@ -93,7 +105,7 @@ export function Login({ flash, onSignedIn }: { flash?: string; onSignedIn: () =>
         await api('POST', '/admin/auth/reset', { email: email.trim(), code: code.trim(), password: pw1 });
         setPassword('');
         switchTo('login', {
-          text: 'Password saved. Every admin session was signed out. Sign in with the new password.',
+          text: 'Password saved. Sign in with it now (any other open session was signed out).',
           ok: true,
         });
       }

@@ -21,13 +21,19 @@ At sign-up the owner picks what they teach, and the app speaks their language: a
 - **Fees:** monthly dues are created for every student; record cash, UPI or bank payments (part payments, discounts, advances), share receipts, and see who is pending or overdue.
 - **Parents stay in the loop on WhatsApp:** absent and late alerts, fee reminders carrying the owner's own UPI QR, and payment receipts, sent from the Chalkpis business number. Parents can also open a private, read-only page for their child.
 - **Reports and growth:** a monthly report (billed, collected, pending, attendance) with Excel, CSV and PDF export, and a poster maker for WhatsApp status and Instagram (toppers or champions, admissions, festivals).
+- **Tests and marks, homework, enquiries and admissions, timetable and calendar:** for the day-to-day of a class beyond attendance and fees.
+- **Brothers and sisters:** children of one family share one parent link; **yearly fees** can be paid in instalments.
 - **Helpers:** staff accounts that can take attendance for their assigned batches only.
 
 **How it works:**
 
 - **Sign up and sign in with WhatsApp:** a 6-digit code to the owner's mobile number. No passwords, no email.
 - **Fees go straight to the centre:** parents pay the owner's own UPI ID or payment link; Chalkpis never touches that money.
-- **Plans:** a free trial, then plans by the number of students and batches, paid on the website through Razorpay.
+- **Plans:** a free trial, then plans by the number of students and batches, paid on the website through Razorpay (with auto-renew) or in the App Store / Google Play.
+
+## The admin dashboard (for the Chalkpis team)
+
+`https://tutor.chalkpis.com/admin`, a React app in `server/admin-ui` built into `server/public/admin` (`npm run admin:build`). Email + password + a code emailed at every sign-in. Three roles: **Super admin** (the `ADMIN_EMAILS` setting: hello@man2web.com), **Admin** and **Customer support**, added on the Team page. It shows every centre, person, plan, payment and WhatsApp message; deleting test centres or people needs a code emailed to the super admin; and it tracks WhatsApp spend per centre with a recharge warning. How the team uses it: [docs/ADMIN-GUIDE.md](docs/ADMIN-GUIDE.md).
 
 Built and run by M2W Technologies Private Limited (Man2Web). Contact: hello@chalkpis.com.
 
@@ -77,6 +83,8 @@ The same app also ships in the browser at `https://tutor.chalkpis.com/app` (`npm
 | `npm run server`             | the server with auto-restart (reads `server/.env`)            |
 | `npm run web`                | the app in the browser                                        |
 | `npm run web:build`          | export the browser version into `server/public/app`           |
+| `npm run admin:build`        | build the admin dashboard into `server/public/admin`          |
+| `npm run admin:dev`          | the admin dashboard with live reload (talks to `npm run server`) |
 | `npm run lint` / `typecheck` | across both packages                                          |
 | `npm test`                   | app tests and server tests (starts the private test database) |
 | `npm run loadtest`           | 40 clients hammering a real server on a throwaway database    |
@@ -87,4 +95,4 @@ The same app also ships in the browser at `https://tutor.chalkpis.com/app` (`npm
 
 ## Not done yet
 
-Offline use with saved-for-later changes, push notifications, delivery reports for WhatsApp messages. (The staff role is done: helpers take attendance for assigned batches only. The Hindi audit is dropped: the owner uses English only, and Hindi texts stay as they are.) The container build and the real WhatsApp and Razorpay connections are untried until the server is deployed. See [docs/TASKS.md](docs/TASKS.md).
+Offline use with saved-for-later changes; WhatsApp delivery reports on the dashboard (the gateway's reports are received but the dashboard counts messages the gateway accepted); reading the WhatsApp wallet balance automatically (wa.adsme.in has no balance API, so it is typed in from the portal). The Hindi audit is dropped: the owner uses English only. See [docs/TASKS.md](docs/TASKS.md).

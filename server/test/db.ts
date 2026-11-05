@@ -33,7 +33,6 @@ export const testConfig = (over: Partial<Config> = {}): Config => ({
   WA_CLOUD_API_VERSION: 'v23.0',
   SMTP_PORT: 465,
   MAIL_FROM: 'Chalkpis <hello@chalkpis.com>',
-  ADMIN_PHONES: [],
   FILES_DIR: path.join(os.tmpdir(), 'tutordesk-test-files'),
   TRUST_PROXY: false,
   DB_HOST: ADMIN.host,

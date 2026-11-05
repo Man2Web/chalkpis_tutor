@@ -30,7 +30,7 @@ export async function messagesMonitor(pool: Pool, q: z.infer<typeof messagesQuer
   }
   const [rows] = (await pool.query(
     `SELECT m.id, m.type, m.status, m.reason, m.error, m.attempts, m.to_last4, m.manual, m.template_id, m.channel,
-            m.created_at, m.sent_at, i.name AS institute, st.name AS student
+            m.created_at, m.sent_at, i.name AS institute, st.name AS student, m.vars IS NOT NULL AS can_retry
        FROM messages m JOIN institutes i ON i.id = m.institute_id
        LEFT JOIN students st ON st.institute_id = m.institute_id AND st.id = m.student_id
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
@@ -52,6 +52,7 @@ export async function messagesMonitor(pool: Pool, q: z.infer<typeof messagesQuer
       sent_at: Date | null;
       institute: string;
       student: string | null;
+      can_retry: number;
     }[],
   ];
   const [summary] = (await pool.query(
@@ -78,6 +79,8 @@ export async function messagesMonitor(pool: Pool, q: z.infer<typeof messagesQuer
       student: r.student ?? '',
       createdAt: r.created_at.toISOString(),
       sentAt: r.sent_at?.toISOString() ?? null,
+      // a failed message keeps its values for 7 days; after that it cannot be sent again
+      canRetry: r.status === 'failed' && !!Number(r.can_retry),
     })),
     summary: summary.map((s) => ({ type: s.type, status: s.status, count: n(s.c) })),
     topErrors: errors.map((e) => ({ error: e.e, count: n(e.c) })),
@@ -299,9 +302,10 @@ export async function quickSearch(pool: Pool, q: string) {
     'SELECT id, name, phone FROM users WHERE name LIKE ? OR phone LIKE ? ORDER BY last_login_at DESC LIMIT 8',
     [like, like],
   )) as unknown as [{ id: string; name: string; phone: string }[]];
+  // a centre by its name, city or the owner's email (owner details, decision 156)
   const [insts] = (await pool.query(
-    'SELECT id, name FROM institutes WHERE name LIKE ? ORDER BY created_at DESC LIMIT 8',
-    [like],
+    'SELECT id, name FROM institutes WHERE name LIKE ? OR city LIKE ? OR contact_email LIKE ? ORDER BY created_at DESC LIMIT 8',
+    [like, like, like],
   )) as unknown as [{ id: string; name: string }[]];
   return { users, institutes: insts };
 }

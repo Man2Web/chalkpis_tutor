@@ -8,6 +8,7 @@ import { money, num } from '@/lib/format';
 import { useApi } from '@/lib/hooks';
 import { PLAN_COLOR } from '@/lib/names';
 import type { Analytics as A } from './types';
+import { can } from '@/lib/api';
 
 const RANGES = [
   ['7', '7 days'],
@@ -37,7 +38,11 @@ export function Analytics() {
         <Kpi label="Sign-ups" value={num(t('signups').now)} hint={hint('signups')} />
         <Kpi label="Sign-ins" value={num(t('signIns').now)} hint={hint('signIns')} />
         <Kpi label="Active centres" value={num(t('activeInstitutes').now)} hint={hint('activeInstitutes')} />
-        <Kpi label="Plan revenue" value={money(t('revenue').now)} hint={hint('revenue')} />
+        {can('money') ? (
+          <Kpi label="Plan revenue" value={money(t('revenue').now)} hint={hint('revenue')} />
+        ) : (
+          <Kpi label="WhatsApp sent" value={num(t('messagesSent').now)} hint={hint('messagesSent')} />
+        )}
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
@@ -70,7 +75,7 @@ export function Analytics() {
           <CardContent>
             <TrendChart
               dates={a.dates}
-              series={[{ key: 'messagesSent', name: 'Delivered', color: '#0d9488' }, { key: 'messagesFailed', name: 'Failed', color: C.rose }]}
+              series={[{ key: 'messagesSent', name: 'Sent', color: '#0d9488' }, { key: 'messagesFailed', name: 'Failed', color: C.rose }]}
               values={a.series}
             />
           </CardContent>
@@ -96,7 +101,7 @@ export function Analytics() {
             />
           </CardContent>
         </Card>
-        <Card>
+        <Card className={can('money') ? '' : 'hidden'}>
           <CardHeader>
             <CardTitle>Plan revenue by month</CardTitle>
             <CardDescription>What centres paid Chalkpis</CardDescription>
@@ -104,7 +109,7 @@ export function Analytics() {
           <CardContent>
             {a.revenueByMonth.length ? (
               <Bars
-                labels={a.revenueByMonth.map((r) => `${r.month.slice(5)}/${r.month.slice(2, 4)}`)}
+                labels={a.revenueByMonth.map((r) => new Date(`${r.month}-15`).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }))}
                 values={a.revenueByMonth.map((r) => r.amount)}
                 name="Revenue"
                 color={C.green}

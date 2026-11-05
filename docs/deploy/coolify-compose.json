@@ -35,7 +35,6 @@
         "WA_CLOUD_PHONE_NUMBER_ID=${WA_CLOUD_PHONE_NUMBER_ID}",
         "WA_CLOUD_TOKEN=${WA_CLOUD_TOKEN}",
         "ADMIN_EMAILS=${ADMIN_EMAILS:-hello@man2web.com}",
-        "ADMIN_PHONES=${ADMIN_PHONES}",
         "SMTP_HOST=${SMTP_HOST:-smtp.zoho.in}",
         "SMTP_PORT=${SMTP_PORT:-465}",
         "SMTP_USER=${SMTP_USER:-hello@chalkpis.com}",

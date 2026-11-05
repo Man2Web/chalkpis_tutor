@@ -79,11 +79,3 @@ export const requireOwner = async (req: FastifyRequest, reply: FastifyReply) => 
   if (req.auth?.role !== 'owner' || !req.auth.instituteId)
     return reply.code(403).send({ error: 'forbidden' });
 };
-
-/** After `authenticate`: the caller's number must be in ADMIN_PHONES (read from the database, never from the token). */
-export function requireAdmin(config: Pick<Config, 'ADMIN_PHONES'>) {
-  return async (req: FastifyRequest, reply: FastifyReply) => {
-    if (!req.auth?.phone || !config.ADMIN_PHONES.includes(req.auth.phone))
-      return reply.code(403).send({ error: 'forbidden' });
-  };
-}

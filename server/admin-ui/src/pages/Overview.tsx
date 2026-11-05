@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Area, AreaChart, ResponsiveContainer } from 'recharts';
-import { Building2, ChevronRight, IndianRupee, MessageCircle, UserPlus } from 'lucide-react';
+import { AlertTriangle, Building2, ChevronRight, IndianRupee, MessageCircle, UserPlus } from 'lucide-react';
 import { BillingKpis } from '@/components/app/billing';
 import { Delta, Empty, ErrorBox, Health, Kpi, Loading, PageHeader } from '@/components/app/bits';
 import { C, Donut, TrendChart } from '@/components/app/charts';
@@ -14,6 +14,8 @@ import { ago, dlong, money, num, plural } from '@/lib/format';
 import { go, useApi } from '@/lib/hooks';
 import { HEARD } from '@/lib/names';
 import { cn } from '@/lib/utils';
+import { can } from '@/lib/api';
+import { rupees } from './Centre';
 import type { Analytics, CentreRow } from './types';
 
 type Ov = {
@@ -83,6 +85,9 @@ export function Overview() {
   const an = useApi<Analytics>('/admin/api/analytics?days=30');
   const risk = useApi<{ institutes: CentreRow[] }>('/admin/api/institutes?filter=at-risk&sort=health');
   const ev = useApi<{ events: Ev[] }>('/admin/api/events?limit=12');
+  const wa = useApi<{ wallet: { status: string; balance: number | null; daysLeft: number | null; rechargeBy: string | null; perDay: number } }>(
+    '/admin/api/wa-spend?days=7',
+  );
   const [metric, setMetric] = useState<string>('activeInstitutes');
   const [watch, setWatch] = useState<'top' | 'quiet'>('top');
 
@@ -106,8 +111,37 @@ export function Overview() {
     <div className="grid gap-6">
       <PageHeader
         title={`${greeting()} 👋`}
-        description={`${dlong(new Date().toISOString())} · ${plural(o.signedIn, 'tutor')} signed in right now`}
+        description={`${dlong(new Date().toISOString())} · ${plural(o.signedIn, 'person', 'people')} signed in on a phone or browser`}
       />
+
+      {wa.data && wa.data.wallet.status !== 'ok' ? (
+        <Card
+          className={cn(
+            'cursor-pointer flex-row items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/40',
+            wa.data.wallet.status === 'unknown' ? 'border-amber-500/40 bg-amber-500/5' : 'border-rose-500/40 bg-rose-500/5',
+          )}
+          onClick={() => go('whatsapp?tab=spend')}
+        >
+          <AlertTriangle className={cn('size-5 shrink-0', wa.data.wallet.status === 'unknown' ? 'text-amber-600' : 'text-rose-600')} />
+          <div className="min-w-0 flex-1 text-sm">
+            <div className="font-medium">
+              {wa.data.wallet.status === 'unknown'
+                ? 'Enter the WhatsApp balance from wa.adsme.in'
+                : wa.data.wallet.status === 'empty'
+                  ? 'The WhatsApp balance has run out: login codes and parent messages stop until it is recharged'
+                  : `Recharge WhatsApp soon: about ${rupees(Math.max(0, wa.data.wallet.balance ?? 0))} left${
+                      wa.data.wallet.daysLeft !== null ? `, about ${plural(wa.data.wallet.daysLeft, 'day')}` : ''
+                    }`}
+            </div>
+            <div className="text-muted-foreground">
+              {wa.data.wallet.status === 'unknown'
+                ? 'Then the dashboard can tell you when to recharge.'
+                : `Chalkpis spends about ${rupees(wa.data.wallet.perDay)} a day on WhatsApp.`}
+            </div>
+          </div>
+          <ChevronRight className="size-4 text-muted-foreground" />
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi label="Active centres" value={num(t('activeInstitutes').now)} icon={<Building2 />} hint={<><Delta {...t('activeInstitutes')} /> vs previous 30 days</>} onClick={() => go('analytics')}>
@@ -119,20 +153,22 @@ export function Overview() {
         <Kpi label="Fees recorded" value={money(t('feesRecorded').now)} icon={<IndianRupee />} hint={<><Delta {...t('feesRecorded')} /> vs previous 30 days</>} onClick={() => go('analytics')}>
           <Spark values={a.series.feesRecorded} color={C.green} />
         </Kpi>
-        <Kpi label="WhatsApp delivered" value={num(t('messagesSent').now)} icon={<MessageCircle />} hint={<><Delta {...t('messagesSent')} /> vs previous 30 days</>} onClick={() => go('whatsapp')}>
+        <Kpi label="WhatsApp sent" value={num(t('messagesSent').now)} icon={<MessageCircle />} hint={<><Delta {...t('messagesSent')} /> vs previous 30 days</>} onClick={() => go('whatsapp')}>
           <Spark values={a.series.messagesSent} color="#0d9488" />
         </Kpi>
       </div>
 
-      <div className="grid gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-muted-foreground">Billing</h2>
-          <Button variant="ghost" size="sm" onClick={() => go('subscriptions')}>
-            Subscriptions <ChevronRight />
-          </Button>
+      {can('money') ? (
+        <div className="grid gap-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-muted-foreground">Billing</h2>
+            <Button variant="ghost" size="sm" onClick={() => go('subscriptions')}>
+              Subscriptions <ChevronRight />
+            </Button>
+          </div>
+          <BillingKpis onPick={(v) => go(`subscriptions?view=${v}`)} />
         </div>
-        <BillingKpis onPick={(v) => go(`subscriptions?view=${v}`)} />
-      </div>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2">
@@ -170,7 +206,7 @@ export function Overview() {
             </CardAction>
           </CardHeader>
           <CardContent className="grid gap-0.5 px-3">
-            {ev.data?.events.length ? ev.data.events.slice(0, 8).map((e, i) => <EventRow key={i} e={e} compact />) : <Empty text="Nothing yet today." />}
+            {ev.data?.events.length ? ev.data.events.slice(0, 8).map((e, i) => <EventRow key={i} e={e} compact />) : <Empty text="Nothing in the last 30 days." />}
           </CardContent>
         </Card>
       </div>

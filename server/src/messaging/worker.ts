@@ -5,6 +5,7 @@ import { planState } from '../institutes/limits.js';
 import { newId } from '../lib/ids.js';
 import { addDays, todayYmd } from '../lib/ist.js';
 import { processCentreQueue } from './centreMessages.js';
+import { meterSend } from './meter.js';
 import { getSettings } from './notify.js';
 import type { MessageProvider } from './provider.js';
 import { templateFor, type Lang, type MessageType, type TemplateMap } from './templates.js';
@@ -195,6 +196,7 @@ export async function processQueue(deps: WorkerDeps, limit = 25): Promise<Tally>
     });
     if (result.ok) {
       inst.sentToday++;
+      await meterSend(pool, now, r.type, r.institute_id);
       await settled(r, 'sent', {
         providerId: result.providerId,
         channel: deps.provider.name,

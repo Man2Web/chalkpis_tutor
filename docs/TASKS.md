@@ -38,7 +38,7 @@
 - [x] v2 UI: Home summary card, consistent list cards, keyboard-safe forms, responsive column (decisions 98-99)
 - [x] v2 group 1 (no outside accounts): today's tasks, 7-day attendance chart with streak, first-run card, student date of birth and gender, payment link, "No UPI id" warning, advance payment for several months, attendance register Excel export (7 days to 3 months), fees history chart (6/12 months) and sorting, poster maker; 309 server tests, 275 app tests
 - [ ] v2 group 2 (needs a Claude API key): AI question paper, homework, worksheet, progress note, Google profile/post/review reply, marketing kit, check a paper, register photo import
-- [ ] v2.1 SMS fallback and plans/message cap; v2.2 AI Assistant and Paper Checking; v2.3 Google/email login, website, iPhone
+- [ ] v2.1 SMS fallback and plans/message cap; v2.2 AI Assistant and Paper Checking (v2.3's website and iPhone app are done; Google and email login were dropped, decision 133)
 - [x] The app in the browser at tutor.chalkpis.com/app (decision 149): served by the server, Add to Home Screen, install hint, iPhone sign-ups sent there; 510 server tests, 366 app tests
 - [x] Laptop and desktop layout for the browser version (decision 150): sidebar, top bar with search, dashboard, Students and Fees tables, Attendance cards; 371 app tests
 - [x] Tests & marks (decision 151): tests per batch, marks entry with live rank and grade, WhatsApp results and toppers, report card PDF, parent page results; 9 server tests, 7 app tests
@@ -46,3 +46,7 @@
 - [x] Enquiries & admissions (decision 153): stages, follow-ups, notes, call / WhatsApp, admit as student, Home card, desktop pipeline board; 6 server tests, 4 app tests
 - [x] Timetable & calendar (decision 154): week and month views from the batches, clash check, holidays / exams / events / parent meetings, tests and homework due on the calendar, WhatsApp notice, parent page Coming up, desktop week board and month grid; 5 server tests, 10 app tests
 - [x] Brothers and sisters (decision 155): confirmed family link, same-number hint, Add a brother or sister, link existing, family fees due, one parent link with a switch; 7 server tests, 3 app tests
+- [x] Owner details at sign-up and the admin's payment link (decisions 156, 157)
+- [x] Admin team roles (Super admin, Admin, Customer support), Team page, deleting test centres and people with a code emailed to the super admin, "Test or empty" filter, team guide docs/ADMIN-GUIDE.md (decision 158)
+- [x] WhatsApp spend per day, kind and centre, wallet balance with recharge warning and daily email (decision 159)
+- [ ] Read the WhatsApp wallet balance automatically if wa.adsme.in offers an API for it (ask adsme)

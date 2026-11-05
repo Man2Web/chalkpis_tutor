@@ -5,10 +5,12 @@ import type { Pool } from '../db.js';
 import type { Mail, Mailer } from '../auth/mailer.js';
 import { hashOtp, newId, newOtp, sha256 } from '../lib/ids.js';
 import { withNamedLock } from '../lib/lock.js';
+import { roleOf, type AdminRole } from './team.js';
 
 /**
  * Admin dashboard sign-in, kept apart from the tutor app's: email + password, then a 6-digit code emailed for
- * that very attempt, then a short session. Who is an admin is only the ADMIN_EMAILS setting.
+ * that very attempt, then a short session. Super admins are the ADMIN_EMAILS setting; the rest of the team are the
+ * members the super admin added on the Team page (admin_accounts.role, see team.ts).
  *
  * - Passwords: scrypt (N=2^15, r=8, p=1) with a random salt, over an HMAC of the password keyed with a server
  *   secret (pepper), so a copy of the database alone cannot be attacked offline.
@@ -122,18 +124,22 @@ export async function ensureAdmins(pool: Pool, emails: string[]) {
 interface AccountRow {
   id: string;
   email: string;
+  role: string | null;
+  name: string;
   password_hash: string | null;
   failed_attempts: number;
   locked_until: Date | null;
+  removed_at: Date | null;
 }
+/** The account for an email, only while it may use the dashboard (a super admin, or a member not removed). */
 async function account(d: AdminAuthDeps, email: string): Promise<AccountRow | null> {
   const e = email.trim().toLowerCase();
-  if (!d.config.ADMIN_EMAILS.includes(e)) return null; // removed from the setting: no access at all
   const [rows] = (await d.pool.query(
-    'SELECT id, email, password_hash, failed_attempts, locked_until FROM admin_accounts WHERE email = ?',
+    'SELECT id, email, role, name, password_hash, failed_attempts, locked_until, removed_at FROM admin_accounts WHERE email = ?',
     [e],
   )) as unknown as [AccountRow[]];
-  return rows[0] ?? null;
+  const row = rows[0];
+  return row && roleOf(d.config.ADMIN_EMAILS, row) ? row : null;
 }
 
 async function audit(
@@ -344,6 +350,8 @@ export async function adminVerify(
 export interface AdminIdentity {
   adminId: string;
   email: string;
+  name: string;
+  role: AdminRole;
 }
 /** The admin behind a session token, or null (unknown, revoked, expired, idle too long, or no longer an admin). */
 export async function adminSession(
@@ -353,22 +361,32 @@ export async function adminSession(
   if (typeof token !== 'string' || token.length !== 43) return null;
   const t = now(d);
   const [rows] = (await d.pool.query(
-    `SELECT s.id, s.admin_id, s.expires_at, s.last_seen_at, a.email FROM admin_sessions s
+    `SELECT s.id, s.admin_id, s.expires_at, s.last_seen_at, a.email, a.role, a.name, a.removed_at FROM admin_sessions s
        JOIN admin_accounts a ON a.id = s.admin_id
       WHERE s.token_hash = ? AND s.revoked_at IS NULL`,
     [sha256(token)],
   )) as unknown as [
-    { id: string; admin_id: string; expires_at: Date; last_seen_at: Date; email: string }[],
+    {
+      id: string;
+      admin_id: string;
+      expires_at: Date;
+      last_seen_at: Date;
+      email: string;
+      role: string | null;
+      name: string;
+      removed_at: Date | null;
+    }[],
   ];
   const s = rows[0];
-  if (!s || !d.config.ADMIN_EMAILS.includes(s.email)) return null;
+  const role = s ? roleOf(d.config.ADMIN_EMAILS, s) : null;
+  if (!s || !role) return null;
   const idle = t.getTime() - s.last_seen_at.getTime() > ADMIN_LIMITS.idleMinutes * 60_000;
   if (s.expires_at <= t || idle) {
     await d.pool.query('UPDATE admin_sessions SET revoked_at = ? WHERE id = ?', [t, s.id]);
     return null;
   }
   await d.pool.query('UPDATE admin_sessions SET last_seen_at = ? WHERE id = ?', [t, s.id]);
-  return { adminId: s.admin_id, email: s.email };
+  return { adminId: s.admin_id, email: s.email, name: s.name, role };
 }
 
 export async function adminLogout(d: AdminAuthDeps, token: unknown) {
