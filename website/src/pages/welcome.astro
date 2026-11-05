@@ -2,7 +2,7 @@
 /**
  * Where a web sign-up lands (server/src/routes/pay.ts WELCOME_URL, with ?os=android or ?os=ios from the
  * "Which phone will you use" question). It shows the store for that phone first. Not for search engines.
- * Tracking: this is the page that should count the sign-up (GA4 "sign_up", Meta Pixel "CompleteRegistration").
+ * It counts the sign-up once per visit: GA4 "sign_up" (with os) and Meta Pixel "CompleteRegistration".
  */
 import Base from '../layouts/Base.astro';
 import { APP_STORE_URL, PLAY_STORE_URL, SIGN_IN_URL, WHATSAPP_URL } from '../config';
@@ -30,7 +30,17 @@ import { APP_STORE_URL, PLAY_STORE_URL, SIGN_IN_URL, WHATSAPP_URL } from '../con
 
 <script is:inline>
   // The store for the phone they chose comes first; the other stays for a second phone.
-  if (new URLSearchParams(location.search).get('os') === 'ios') document.getElementById('stores')?.classList.add('ios-first');
+  (function () {
+    var os = new URLSearchParams(location.search).get('os');
+    if (os === 'ios') document.getElementById('stores').classList.add('ios-first');
+    // the server sends every finished web sign-up here with ?os=; count it once per visit
+    if (os !== 'android' && os !== 'ios') return;
+    try {
+      if (sessionStorage.getItem('cp_signed_up')) return;
+      sessionStorage.setItem('cp_signed_up', '1');
+    } catch (e) {}
+    window.cpTrack('sign_up', { os: os }, 'CompleteRegistration', true);
+  })();
 </script>
 
 <style>

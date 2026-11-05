@@ -28,8 +28,18 @@ Run from this folder (`website/`). Node 22.12 or newer.
 
 - Set `SUPPORT_WHATSAPP` in `src/config.ts`. Until then, "Chat on WhatsApp" links fall back to email.
 - Add more real testimonials in `src/pages/index.astro` (`QUOTES`). With three or more, the section becomes a scrolling row.
-- Analytics and ad tracking are not added yet: GA4 (`G-FG0YJS71R6`) and the Meta Pixel (`1863203504670970`), plus passing
-  `fbclid` and UTM values through to `/start`. `/welcome` is the page that counts a sign-up. There is no Google Ads account, so no Google Ads tag or `gclid` handling.
+
+## Tracking
+
+`src/components/Analytics.astro` (IDs in `src/config.ts`), with the cookie banner in `CookieBanner.astro` and the policy at
+`/cookies`. The full spec is TRACKING-GUIDE.md. There is no Google Ads account, so no Google Ads tag or `gclid` handling.
+
+- **GA4** `G-FG0YJS71R6` in Consent Mode: always loads, cookieless until "Accept all". Ad storage stays denied.
+- **Meta Pixel** `1863203504670970`: loads only after "Accept all".
+- Events: `start_signup_click` / `StartSignUp`, `play_store_click` / `PlayStoreClick` (with `placement`), `app_store_click`
+  (GA only), and on `/welcome?os=…` once per visit `sign_up` / `CompleteRegistration`.
+- The visit's `utm_*` are added to every `/start` link (the server saves them with the new centre) and to Google Play
+  links as the install `referrer`. `fbclid` and the GA client ID are not passed on: the server keeps `utm_*` only.
 
 ## Hosting
 

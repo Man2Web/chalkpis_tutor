@@ -7,6 +7,8 @@ import '@fontsource/inter-tight/700.css';
 import '../styles/global.css';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
+import Analytics from '../components/Analytics.astro';
+import CookieBanner from '../components/CookieBanner.astro';
 import { SITE_NAME, SITE_URL } from '../config';
 
 interface Props {
@@ -38,11 +40,13 @@ const canonical = new URL(Astro.url.pathname, SITE_URL).href;
     <meta property="og:locale" content="en_IN" />
     <meta name="twitter:card" content="summary_large_image" />
     {schema && <script type="application/ld+json" set:html={JSON.stringify(schema)} />}
+    <Analytics />
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
     <Nav />
     <main id="main"><slot /></main>
     <Footer />
+    <CookieBanner />
   </body>
 </html>

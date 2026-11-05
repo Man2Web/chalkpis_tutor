@@ -26,5 +26,10 @@ export const WHATSAPP_URL = SUPPORT_WHATSAPP
   : `mailto:${SUPPORT_EMAIL}`;
 
 export const TRIAL_DAYS = 7;
+
+/** Google Analytics 4 property 562600019 "ChalkPis Tutor (chalkpistutor.com)". Runs in Consent Mode. */
+export const GA_ID = 'G-FG0YJS71R6';
+/** Meta Pixel (dataset) for the tutor ads. Loads only after "Accept all". */
+export const META_PIXEL_ID = '1863203504670970';
 export const COMPANY = 'M2W Technologies Private Limited';
 export const SCHOOL_ERP_URL = 'https://chalkpis.com';

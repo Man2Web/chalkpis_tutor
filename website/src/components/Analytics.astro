@@ -1,0 +1,104 @@
+---
+/**
+ * Google Analytics 4 in Consent Mode (advanced) and the Meta Pixel, per TRACKING-GUIDE.md.
+ * - GA always loads with storage denied (cookieless pings); "Accept all" grants analytics storage. Ad storage stays
+ *   denied: there is no Google Ads account.
+ * - The Pixel loads only after "Accept all". Pixel events from before the choice wait on the page and are sent if the
+ *   visitor accepts.
+ * - window.cpTrack(gaEvent, params, metaEvent, metaStandard) sends one event to both.
+ * - The visit's utm_* values are kept for the visit and added to "Start free trial" links (the server stores them with
+ *   the new centre) and to Google Play links as the install referrer.
+ * Never put names, phone numbers or emails in an event.
+ */
+import { GA_ID, META_PIXEL_ID, START_URL } from '../config';
+---
+<script is:inline define:vars={{ GA_ID, META_PIXEL_ID, START_URL }}>
+  var KEY = 'cp_consent';
+  var choice = null;
+  try { choice = localStorage.getItem(KEY); } catch (e) {}
+
+  window.dataLayer = window.dataLayer || [];
+  function gtag() { window.dataLayer.push(arguments); }
+  window.gtag = gtag;
+  gtag('consent', 'default', {
+    analytics_storage: choice === 'granted' ? 'granted' : 'denied',
+    ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied',
+  });
+  gtag('js', new Date());
+  gtag('config', GA_ID);
+  var ga = document.createElement('script');
+  ga.async = true;
+  ga.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
+  document.head.appendChild(ga);
+
+  var pixelOn = false;
+  var waiting = [];
+  function loadPixel() {
+    if (pixelOn) return;
+    pixelOn = true;
+    !function (f, b, e, v, n, t, s) { if (f.fbq) return; n = f.fbq = function () { n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments); }; if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0'; n.queue = []; t = b.createElement(e); t.async = !0; t.src = v; s = b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t, s); }(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
+    window.fbq('init', META_PIXEL_ID);
+    window.fbq('track', 'PageView');
+    waiting.forEach(function (w) { window.fbq(w[0], w[1], w[2]); });
+    waiting = [];
+  }
+  if (choice === 'granted') loadPixel();
+
+  window.cpTrack = function (gaEvent, params, metaEvent, metaStandard) {
+    gtag('event', gaEvent, params || {});
+    if (!metaEvent) return;
+    var call = [metaStandard ? 'track' : 'trackCustom', metaEvent, params || {}];
+    if (pixelOn) window.fbq(call[0], call[1], call[2]);
+    else if (choice !== 'denied') waiting.push(call);
+  };
+  window.cpConsentChoice = function () { return choice; };
+  window.cpConsent = function (value) {
+    choice = value;
+    try { localStorage.setItem(KEY, value); } catch (e) {}
+    gtag('consent', 'update', { analytics_storage: value === 'granted' ? 'granted' : 'denied' });
+    if (value === 'granted') loadPixel();
+    else waiting = [];
+  };
+
+  // the visit's campaign, kept while the visit lasts
+  var UTM = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+  var here = new URLSearchParams(location.search);
+  var utm = new URLSearchParams();
+  UTM.forEach(function (k) { var v = here.get(k); if (v) utm.set(k, v.slice(0, 80)); });
+  try {
+    if (utm.toString()) sessionStorage.setItem('cp_utm', utm.toString());
+    else utm = new URLSearchParams(sessionStorage.getItem('cp_utm') || '');
+  } catch (e) {}
+
+  var PLAY = 'https://play.google.com/store/apps/details';
+  document.addEventListener('DOMContentLoaded', function () {
+    var referrer = utm.toString() || 'utm_source=chalkpistutor.com&utm_medium=website';
+    document.querySelectorAll('a[href]').forEach(function (a) {
+      if (a.href.indexOf(START_URL) === 0 && utm.toString()) {
+        var u = new URL(a.href);
+        utm.forEach(function (v, k) { u.searchParams.set(k, v); });
+        a.href = u.href;
+      } else if (a.href.indexOf(PLAY) === 0) {
+        var p = new URL(a.href);
+        if (!p.searchParams.get('referrer')) p.searchParams.set('referrer', referrer);
+        a.href = p.href;
+      }
+    });
+  });
+
+  // which part of the page a store link sits in
+  function placement(a) {
+    if (a.dataset.placement) return a.dataset.placement;
+    var box = a.closest('[id]');
+    if (box && box.id !== 'main') return box.id;
+    var part = a.closest('header, footer, nav');
+    return part ? part.tagName.toLowerCase() : location.pathname;
+  }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a) return;
+    if (a.href.indexOf(START_URL) === 0) window.cpTrack('start_signup_click', { placement: placement(a) }, 'StartSignUp');
+    else if (a.href.indexOf(PLAY) === 0) window.cpTrack('play_store_click', { placement: placement(a) }, 'PlayStoreClick');
+    else if (a.href.indexOf('https://apps.apple.com/') === 0) window.cpTrack('app_store_click', { placement: placement(a) });
+  });
+</script>
