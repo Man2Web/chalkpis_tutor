@@ -21,7 +21,26 @@ Run from this folder (`website/`). Node 22.12 or newer.
   change both together.
 - `src/styles/global.css`: the design system (colours, type scale, cards, buttons, spacing).
 - `src/components/`: `Logo` (the C mark + "tutor", drawn as paths), `Icon`, `Nav`, `Footer`.
-- `src/pages/`: `index` (home), `pricing`, `welcome` (where web sign-ups land, `?os=android|ios`; not indexed), `404`.
+- `src/pages/`: `index` (home), `pricing`, `for/[slug]` (the 7 class pages, content in `src/data/classes.ts`), `cookies`,
+  `welcome` (where web sign-ups land, `?os=android|ios`; not indexed), `404`.
+- `scripts/`: `npm run images` remakes `public/og.png` (the link preview, from `scripts/og.html`) and the icons.
+
+## Class pages and their Meta ads
+
+Each Meta ad points at the page for its kind of class. Website URL, then in the ad's **URL parameters** box
+`utm_source={{site_source_name}}&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}`:
+
+| Class | Website URL |
+| --- | --- |
+| Tuition | https://chalkpistutor.com/for/tuition-classes |
+| Coaching | https://chalkpistutor.com/for/coaching-institutes |
+| Abacus | https://chalkpistutor.com/for/abacus-classes |
+| Karate and martial arts | https://chalkpistutor.com/for/karate-classes |
+| Dance and music | https://chalkpistutor.com/for/dance-classes |
+| Yoga and fitness | https://chalkpistutor.com/for/yoga-classes |
+| Sports | https://chalkpistutor.com/for/sports-academies |
+
+The site carries those `utm_*` values on to sign-up (`/start`), so each new centre records which ad brought it.
 - `public/`: favicon, official App Store and Google Play badges, `robots.txt`.
 
 ## Before going live
