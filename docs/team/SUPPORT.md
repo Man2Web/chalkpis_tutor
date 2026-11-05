@@ -1,0 +1,115 @@
+# Chalkpis Customer Support guide
+
+For: Sanjay Kumar (sanjaykumar@man2web.com), role **Customer support**.
+Dashboard: https://tutor.chalkpis.com/admin
+
+## 1. What Chalkpis is, in two minutes
+
+Chalkpis is an app for tuition centres, coaching institutes, abacus, karate, dance, yoga and sports classes.
+
+- The **owner** (the tutor) signs up with their mobile number. Every sign-in is a 6-digit code sent on WhatsApp. There are no passwords.
+- The owner adds **students and batches**, marks **attendance**, records **fees**, and can add **helpers** (staff who take attendance for their batches).
+- **Parents** get WhatsApp messages automatically: absent and late alerts, fee reminders with the owner's UPI QR, receipts. Parents never install anything.
+- It runs on Android, iPhone and in the browser at https://tutor.chalkpis.com/app.
+- **Plans:** a 14-day free trial, then Starter (₹199 a month, up to 50 students, 3 batches), Standard (₹299 a month, 100 students, 5 batches) or Pro (₹499 a month, unlimited). Yearly costs about ten months (₹1,999 / ₹2,999 / ₹4,999). They pay on the website, in the App Store or in Google Play. When a plan ends, the app becomes read-only until they pay. Nothing is deleted.
+- Fees that parents pay go straight to the centre's own UPI. Chalkpis never touches that money.
+
+## 2. Your role
+
+You **can**:
+- Look up any centre or person, their plan, activity, login codes and WhatsApp messages
+- Sign a person out of every phone
+- Retry a failed WhatsApp message, and send the welcome message again
+- Write notes and add tags on a centre
+- See WhatsApp spend and the live activity feed
+
+You **cannot** (the buttons are hidden from you): change a plan or record a payment, block someone, send announcements, see company revenue, export data, or delete anything. For those, ask **Vignesh** (Admin). For deletions and anything about the team, ask the **owner** (hello@man2web.com).
+
+## 3. First sign-in (do this today)
+
+1. Open https://tutor.chalkpis.com/admin on your laptop.
+2. Click **First time? Set a password**.
+3. Enter sanjaykumar@man2web.com and click **Send code**.
+4. Type the 6-digit code from your email, choose a password (at least 12 characters with capital and small letters, a number and a symbol), and save.
+5. Sign in with your email and password. Every sign-in also asks for a fresh code sent to your email.
+
+Good to know: the sign-in lasts only in that browser tab. A new tab asks again, and you are signed out after 30 minutes of no use. Keep one tab open while you work.
+
+## 4. Finding things fast
+
+- Press **Ctrl+K** (⌘K on a Mac) and type a phone number, a name, a centre name, a city or an owner's email.
+- **Centres**: every centre with plan, students, last activity and health (green is good, red needs attention).
+- Click a centre to see its tabs: **Overview**, **Billing**, **People**, **Activity log**, **WhatsApp**, **Notes**.
+- **People**: every owner and helper. Click a person for their phones (devices), recent login codes and actions.
+- **Login codes**: the latest WhatsApp login codes and what happened to each.
+- **WhatsApp**: Spend & balance, messages to **Parents**, and messages to **Owners & helpers**.
+
+## 5. Your daily routine
+
+Morning (10 minutes):
+1. **Overview**: is there a red banner (for example the WhatsApp balance)? If yes, tell Vignesh at once.
+2. **WhatsApp → Parents → Failed**: anything failed since yesterday? Retry recent ones (see 6.3). If many fail with the same reason, tell Vignesh.
+3. **Login codes**: anyone with many tries or codes not used? They may be stuck. Call or WhatsApp them and help.
+4. **Centres → filter "At risk"**: pick two or three, call the owner, ask if they need help. Write a note.
+5. **Notes / tag "follow-up"**: call back everyone you promised to.
+
+During the day: answer calls and WhatsApp from tutors using the playbooks below. Write a note on the centre after every useful call.
+
+## 6. Playbooks (what to do when a tutor says…)
+
+**6.1 "The login code does not come"**
+1. Ctrl+K their number, or open **Login codes** and look for it.
+2. Code **sent** but never used: the number may be wrong, or WhatsApp is not on that phone, or they are looking in the wrong WhatsApp (WhatsApp Business vs normal WhatsApp). Ask them to check the number they type and the WhatsApp on that phone.
+3. **Nothing** there: they never asked for a code. Ask them to tap Send code again and check the number they typed.
+4. Many tries in a short time: they are paused for up to an hour. Ask them to wait and try again.
+5. Never ask a tutor to tell you their code. You never need it.
+
+**6.2 "I lost my phone" or "someone else is using my login"**
+Open the person → **Sign out everywhere**. Every phone is signed out at once; they sign in again with a new code on their own phone. If it looks like abuse, tell Vignesh (he can block).
+
+**6.3 "Parents did not get the absent / fee message"**
+1. **WhatsApp → Parents**, filter **Failed**, find the centre and student.
+2. Failed in the last 7 days: click **Retry**. Older ones say "Too old to retry" and cannot be sent again.
+3. **Skipped** messages mean the owner switched messages off, the parent opted out, or there is no parent number. On the centre page → Overview → **Setup**, check "Parent WhatsApp messages" is Yes. The owner switches it on in the app under Account → Parent messages.
+4. The parent's number must be right in the student's profile (the owner can edit it).
+
+**6.4 "I never got the welcome message"**
+**WhatsApp → Owners & helpers** (or the centre's WhatsApp tab) → **Send welcome again**.
+
+**6.5 "When does my plan end?" / "Why can't I add students?"**
+Open the centre → **Billing**. You will see the plan, the end date and the student and batch limits. If the plan has ended, the app is read-only until they pay; they tap Account → Plans & billing in the app. If they hit a limit (for example 50 students on Starter), they need a bigger plan.
+
+**6.6 "I paid but my plan is not active"**
+Ask for the payment details: date, amount, UPI reference or the email from Razorpay / App Store / Google Play. Check the centre's **Billing → Payment history**. If it is not there, write a note with the details and pass it to **Vignesh**. Do not promise a date; say "our team will check and confirm today".
+
+**6.7 "How do I…?" questions about the app**
+Walk them through it on the phone. The app has tabs at the bottom: Home, Students, Attendance, Fees and the last tab, Account (called More in older versions). Common ones: add students (Students tab, or Import from phone contacts / Import from Excel), mark attendance (everyone starts present, tap only the absent or late ones), record a fee (Fees → the student → Record payment), add a helper (Account → Staff), switch parent WhatsApp messages on (Account → Parent messages), set their UPI id for the fee QR (Account → Payments and UPI), buy a plan (Account → Plans & billing).
+
+**6.8 Bugs, crashes, "the app is not working"**
+Collect: the centre name, phone model, Android / iPhone / browser, what they tapped, what they saw (ask for a screenshot on WhatsApp), and the time. Write it as a note on the centre with the tag **follow-up** and send it to Vignesh. Check **Admin → System health** (if all green, the server is fine and it is probably the phone or the internet).
+
+**6.9 "Delete my account"**
+The owner can do it themselves in the app: Account → **Delete my account** (at the bottom). If they cannot, or it is a test or dummy account, pass it to Vignesh. You cannot delete.
+
+**6.10 Test or dummy sign-ups you notice**
+Tag the centre **test** and tell Vignesh. Deleting needs a code from the owner.
+
+## 7. Notes and tags (so the team knows what happened)
+
+- Write a short note after every useful call: what they asked, what you did, what you promised. Example: "Called 5 Nov. Could not add 51st student. Explained Starter limit. Will call back Friday about Standard."
+- Tags: **follow-up** (you must call back), **churn-risk** (unhappy or thinking of leaving), **onboarding** (new, needs help setting up), **vip** (important centre), **partner**, **test** (dummy account).
+
+## 8. When to pass it on
+
+- To **Vignesh** (Admin): payments, plan changes, refunds, blocking someone, deleting test accounts, anything about money, bugs, a red banner on the Overview.
+- To the **owner** (hello@man2web.com): anything legal, a complaint you cannot solve, anything about security (someone asking for data, a suspicious login), or when Vignesh is not reachable for something urgent.
+
+## 9. Rules
+
+- Use only your own login. Never share your password or the email codes. Nobody from Chalkpis will ever ask for them.
+- Never ask a tutor for their login code.
+- Phone numbers of owners and parents are for Chalkpis support only. Do not save them in your personal phone or share them.
+- Be polite and patient. Many tutors are new to apps. Speak in the language they are comfortable with.
+- If you are not sure, write a note and ask. It is better to ask than to guess.
+
+The full team handbook (all roles) is docs/ADMIN-GUIDE.md in the Chalkpis code, and the owner can send it to you.
