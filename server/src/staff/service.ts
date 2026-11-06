@@ -8,6 +8,8 @@ import { queueHelperInvite } from '../messaging/centreMessages.js';
 
 type Db = Pool | PoolConnection;
 export const MAX_STAFF = 10;
+/** New helper invites (WhatsApp from Chalkpis's number) one centre may send in 24 hours. */
+export const MAX_INVITES_PER_DAY = 10;
 
 /**
  * Which batches the caller may work with: null = all (the owner), otherwise the assigned batch ids (staff).
@@ -73,6 +75,14 @@ export async function addStaff(
       )) as unknown as [{ n: number }[]];
       if (Number(count[0]?.n) >= MAX_STAFF)
         throw new AppError(402, 'staff_limit', { limit: MAX_STAFF });
+      // Each new helper gets a WhatsApp invite from Chalkpis's own number, outside the parent-message daily cap, so
+      // adding and removing helpers must not become a way to message any number in bulk.
+      const [invites] = (await c.query(
+        "SELECT COUNT(*) AS n FROM centre_messages WHERE institute_id = ? AND type = 'helper_invite' AND created_at > ?",
+        [instituteId, new Date(now.getTime() - 86_400_000)],
+      )) as unknown as [{ n: number }[]];
+      if (Number(invites[0]?.n) >= MAX_INVITES_PER_DAY)
+        throw new AppError(429, 'too_many_invites', { limit: MAX_INVITES_PER_DAY });
       const [users] = (await c.query('SELECT id FROM users WHERE phone = ? FOR UPDATE', [
         input.phone,
       ])) as unknown as [{ id: string }[]];

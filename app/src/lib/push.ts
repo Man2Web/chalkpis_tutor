@@ -55,10 +55,13 @@ export async function unregisterPush(): Promise<void> {
   if (Platform.OS === 'web') return;
   const token = await saved.get();
   if (!token) return;
-  await saved.clear();
   try {
     await api('POST', '/me/push-token/remove', { token });
   } catch {
-    /* the server drops it anyway when Expo reports the device gone */
+    // The server could not be told (offline, or the session had already ended). Unregister this device from push
+    // altogether, so nothing for the signed-out person reaches it; the server drops the token once Expo reports the
+    // device gone, and the next sign-in registers a fresh one.
+    await Notifications.unregisterForNotificationsAsync().catch(() => undefined);
   }
+  await saved.clear();
 }

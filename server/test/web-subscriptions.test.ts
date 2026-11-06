@@ -153,6 +153,22 @@ describe('website auto-renew (Razorpay Subscriptions)', () => {
     expect(await queuePlanReminders(h.db.pool, h.clock.now, links)).toBe(0);
   });
 
+  it('deleting the owner account stops the Razorpay mandate first, so nothing is charged after the centre is gone', async () => {
+    const id = (await start(A, 'standard', 'month')).body.id;
+    await approveAndCharge(id, 'pay_del', 29900);
+    const del = await A.call('DELETE', '/account', { confirm: true });
+    expect(del.status).toBe(200);
+    expect(h.billing.cancelled).toEqual([{ id, atCycleEnd: false }]);
+    const [rows] = (await h.db.pool.query('SELECT id FROM institutes WHERE id = ?', [
+      A.instituteId,
+    ])) as unknown as [unknown[]];
+    expect(rows).toEqual([]);
+    // another centre's mandate is untouched
+    const other = (await start(B, 'starter', 'month')).body.id;
+    await hook(subEvent('authenticated', other, 'authenticated'));
+    expect(h.billing.cancelled).toEqual([{ id, atCycleEnd: false }]);
+  });
+
   it('turning it off: before any charge it stops at once, after one at the end of the paid cycle', async () => {
     const first = (await start(A, 'starter', 'month')).body.id;
     await hook(subEvent('authenticated', first, 'authenticated'));
@@ -189,6 +205,18 @@ describe('website auto-renew (Razorpay Subscriptions)', () => {
     expect([s.plan, s.cycle, s.autoRenew.plan]).toEqual(['pro', 'year', 'pro']);
     // the Standard month left was credited on top of the year
     expect(Date.parse(s.expiresAt)).toBeGreaterThan(addMonths(h.clock.now, 12).getTime());
+  });
+
+  it('a late event about the replaced subscription cannot cancel the one that replaced it', async () => {
+    const std = (await start(A, 'standard', 'month')).body.id;
+    await approveAndCharge(std, 'pay_s2', 29900);
+    const up = (await start(A, 'pro', 'year')).body.id;
+    await approveAndCharge(up, 'pay_p2', 499900);
+    expect(h.billing.cancelled).toEqual([{ id: std, atCycleEnd: false }]);
+    // Razorpay re-sends an old "active" event for the Standard subscription
+    await hook(subEvent('activated', std, 'active'));
+    expect(h.billing.cancelled).toEqual([{ id: std, atCycleEnd: false }]);
+    expect((await plan(A)).autoRenew).toMatchObject({ plan: 'pro', cycle: 'year' });
   });
 
   it('a payment that finally fails (halted) stops renewing; a store subscription blocks the website', async () => {

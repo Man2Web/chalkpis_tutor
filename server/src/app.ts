@@ -142,7 +142,7 @@ export async function buildApp({
   messageRoutes(app, { config, pool, clock });
   fileRoutes(app, { config, pool, clock });
   parentRoutes(app, { config, pool, clock });
-  accountRoutes(app, { config, pool, clock });
+  accountRoutes(app, { config, pool, billing, clock });
   staffRoutes(app, { config, pool, clock });
   taskRoutes(app, { config, pool, clock });
   examRoutes(app, { config, pool, clock });

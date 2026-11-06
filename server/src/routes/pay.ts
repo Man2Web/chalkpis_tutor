@@ -586,8 +586,14 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
           userId,
         ])) as unknown as [Centre[]]
       )[0];
-    /** A cross-site form must not act for a signed-in owner (the cookie is SameSite=Lax as well). */
+    /**
+     * A cross-site form must not act for a signed-in owner (the cookie is SameSite=Lax as well), and must not sign a
+     * browser in either: without this on /plan/code and /plan/verify, another site could post its own number and code
+     * and leave the visitor signed in to the other site's account (login CSRF). Browsers that send neither header
+     * (old ones) still work.
+     */
     const sameOrigin = (req: FastifyRequest) => {
+      if (req.headers['sec-fetch-site'] === 'cross-site') return false;
       const origin = req.headers.origin;
       if (!origin || origin === 'null') return true;
       const base = deps.config.PUBLIC_BASE_URL;
@@ -756,6 +762,7 @@ ${selling ? METHODS : ''}${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}${FAQ}
       async (req, reply) => {
         const f = formBody(req.body);
         const flow = flowOf(f);
+        if (!sameOrigin(req)) return reply.redirect(flow.next === 'start' ? '/start' : '/plan', 303);
         const raw = f.get('phone') ?? '';
         const phone = normalizeIndianPhone(raw);
         if (!phone)
@@ -769,7 +776,7 @@ ${selling ? METHODS : ''}${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}${FAQ}
             ),
           );
         // Any number gets a code: a new one is signing up, the same as in the app (which has the same limits).
-        const r = await requestOtp(otpDeps, phone);
+        const r = await requestOtp(otpDeps, phone, req.ip);
         if (r.ok || r.error === 'too_soon') return send(reply, 200, codePage(phone, '', flow)); // the last code still works
         const why =
           r.error === 'too_many'
@@ -790,7 +797,7 @@ ${selling ? METHODS : ''}${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}${FAQ}
         const f = formBody(req.body);
         const flow = flowOf(f);
         const phone = normalizeIndianPhone(f.get('phone') ?? '');
-        if (!phone) return reply.redirect(flow.next === 'start' ? '/start' : '/plan', 303);
+        if (!phone || !sameOrigin(req)) return reply.redirect(flow.next === 'start' ? '/start' : '/plan', 303);
         // a new number gets its account here, as in the app
         const r = await verifyOtp(otpDeps, phone, (f.get('code') ?? '').trim());
         if (!r.ok)

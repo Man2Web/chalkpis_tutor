@@ -281,9 +281,12 @@ export async function updateWebStatus(
   if (!res.affectedRows) return false;
   if (sub.status !== 'authenticated' && sub.status !== 'active') return true;
   const [mine] = (await pool.query(
-    'SELECT institute_id, plan_id FROM web_subscriptions WHERE id = ?',
+    'SELECT institute_id, plan_id, cancel_at_cycle_end FROM web_subscriptions WHERE id = ?',
     [sub.id],
-  )) as unknown as [{ institute_id: string; plan_id: PlanId }[]];
+  )) as unknown as [{ institute_id: string; plan_id: PlanId; cancel_at_cycle_end: number }[]];
+  // A late or repeated event (or the hourly re-read) about a subscription we already stopped, because the owner turned
+  // auto-renew off or switched to another one, must never cancel the subscription that replaced it.
+  if (Number(mine[0]!.cancel_at_cycle_end)) return true;
   const [others] = (await pool.query(
     `SELECT id, plan_id, status FROM web_subscriptions
       WHERE institute_id = ? AND id <> ? AND status IN ('authenticated','active','pending') AND cancel_at_cycle_end = 0`,

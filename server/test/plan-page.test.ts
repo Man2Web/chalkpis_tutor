@@ -291,6 +291,25 @@ describe('billing page (/plan)', () => {
     expect((await get('/plan', tampered)).body).toContain('action="/plan/code"');
   });
 
+  it('a form from another site cannot ask for a code or sign a browser in (login CSRF)', async () => {
+    await h.tenant('+919800000001');
+    for (const headers of [{ origin: 'https://evil.example' }, { 'sec-fetch-site': 'cross-site' }]) {
+      const code = await form('/plan/code', { phone: '9800000001' }, headers);
+      expect([code.statusCode, code.headers.location]).toEqual([303, '/plan']);
+    }
+    expect((await form('/plan/code', { phone: '9800000001' })).statusCode).toBe(200);
+    const v = await form(
+      '/plan/verify',
+      { phone: '9800000001', code: lastCode() },
+      { origin: 'https://evil.example' },
+    );
+    expect([v.statusCode, v.headers.location]).toEqual([303, '/plan']);
+    expect(v.headers['set-cookie']).toBeUndefined();
+    // the same code still signs in from our own page
+    const ok = await form('/plan/verify', { phone: '9800000001', code: lastCode() });
+    expect(String(ok.headers['set-cookie'])).toMatch(/^cp_plan=/);
+  });
+
   it('paying opens the gateway for the signed-in owner’s centre only', async () => {
     const t = await h.tenant('+919800000001');
     const other = await h.tenant('+919800000002');

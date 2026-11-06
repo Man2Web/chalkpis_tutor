@@ -109,7 +109,7 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
     async (req, reply) => {
       const body = phoneBody.safeParse(req.body);
       if (!body.success) return reply.code(400).send({ error: 'bad_request' });
-      const r = await requestOtp(otpDeps, body.data.phone);
+      const r = await requestOtp(otpDeps, body.data.phone, req.ip);
       if (r.ok) {
         const echo = deps.config.OTP_DEV_ECHO && deps.config.NODE_ENV !== 'production';
         return {
@@ -195,7 +195,7 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
       if (req.auth!.phone) return reply.code(409).send({ error: 'phone_already_set' });
       const body = phoneBody.safeParse(req.body);
       if (!body.success) return reply.code(400).send({ error: 'bad_request' });
-      const r = await requestOtp(otpDeps, body.data.phone);
+      const r = await requestOtp(otpDeps, body.data.phone, req.ip);
       if (r.ok) {
         const echo = deps.config.OTP_DEV_ECHO && deps.config.NODE_ENV !== 'production';
         return {

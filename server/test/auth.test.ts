@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { MockProvider } from '../src/messaging/provider.js';
 import { REUSE_GRACE_SECONDS } from '../src/auth/sessions.js';
+import { requestOtp, resetNewNumberSlots } from '../src/auth/otp.js';
 import { signToken } from '../src/lib/jwt.js';
 import { runMigrations } from '../src/migrate.js';
 import path from 'node:path';
@@ -39,6 +40,7 @@ beforeEach(async () => {
   ])
     await db.pool.query(`TRUNCATE ${t}`);
   await db.pool.query('SET FOREIGN_KEY_CHECKS=1');
+  resetNewNumberSlots();
   now = new Date('2026-10-08T06:00:00Z');
   provider = new MockProvider();
   app = await buildApp({ config: config(), pool: db.pool, provider, clock: () => now });
@@ -135,6 +137,24 @@ describe('requesting a login code', () => {
     expect((await post('/auth/otp/request', { phone: '9123456782' })).statusCode).toBe(200);
     expect((await post('/auth/otp/request', { phone: '9123456783' })).statusCode).toBe(429);
     expect((await post('/auth/otp/request', { phone: PHONE })).statusCode).toBe(200);
+  });
+
+  it('one address cannot use up the new-number cap for everyone (10 new numbers an hour each)', async () => {
+    const deps = { pool: db.pool, provider, config: config(), clock: () => now };
+    const ask = (phone: string, ip = '203.0.113.9') => requestOtp(deps, phone, ip);
+    for (let i = 0; i < 10; i++) expect((await ask(`91234567${10 + i}`)).ok).toBe(true);
+    expect(await ask('9123456799')).toMatchObject({ ok: false, error: 'too_many' });
+    // another address is not affected; IPv6 counts per /64
+    expect((await ask('9123456799', '198.51.100.4')).ok).toBe(true);
+    for (let i = 0; i < 10; i++) expect((await ask(`91234568${10 + i}`, `2001:db8:1:2::${i + 1}`)).ok).toBe(true);
+    expect(await ask('9123456898', '2001:db8:1:2::ff')).toMatchObject({ ok: false, error: 'too_many' });
+    // a number with an account still gets its code from the busy address
+    await login();
+    advance(61_000);
+    expect((await ask(PHONE)).ok).toBe(true);
+    // an hour later the address may ask for new numbers again
+    advance(3_600_000);
+    expect((await ask('9123456797')).ok).toBe(true);
   });
 
   it('if WhatsApp fails: 503, and the unsent code does not count against the limits', async () => {

@@ -344,6 +344,11 @@ export async function reconcileOrder(
   return { orderId: order.id, state: result === 'invalid' ? 'failed' : 'paid', result };
 }
 
+const CENTRE_CHECK_GAP_MS = 30_000;
+const lastCentreCheck = new Map<string, number>();
+/** Tests: forget the per-centre check times. */
+export const resetReconcileThrottle = () => lastCentreCheck.clear();
+
 /**
  * Asks the provider about recent orders that were neither applied nor refused yet (one centre's, or everyone's), so a
  * plan switches on even when the payer closed the browser before Razorpay sent them back and the webhook was missed.
@@ -356,12 +361,21 @@ export async function reconcilePending(
   now: Date,
 ): Promise<number> {
   if (!provider?.checkStatus) return 0;
+  // A page load (one centre) asks about at most its 5 newest open orders, and at most every 30 s per centre, so
+  // reloading /plan, /pay or /billing cannot turn into a stream of Razorpay calls on the shared merchant key. The
+  // hourly job (no centre) still sweeps everything.
+  if (where.instituteId) {
+    const last = lastCentreCheck.get(where.instituteId);
+    if (last !== undefined && now.getTime() - last < CENTRE_CHECK_GAP_MS && now.getTime() >= last) return 0;
+    lastCentreCheck.set(where.instituteId, now.getTime());
+    if (lastCentreCheck.size > 5000) lastCentreCheck.clear();
+  }
   try {
     const [rows] = (await pool.query(
       `SELECT o.id FROM billing_orders o
         WHERE o.provider = ? AND o.created_at > ?${where.instituteId ? ' AND o.institute_id = ?' : ''}
           AND NOT EXISTS (SELECT 1 FROM billing_events e WHERE e.provider = o.provider AND e.order_id = o.id)
-        ORDER BY o.created_at DESC LIMIT 20`,
+        ORDER BY o.created_at DESC LIMIT ${where.instituteId ? 5 : 20}`,
       [
         provider.name,
         new Date(now.getTime() - where.sinceMinutes * 60_000),

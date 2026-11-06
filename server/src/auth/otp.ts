@@ -40,11 +40,36 @@ const isReview = (deps: OtpDeps, phone: string) =>
 const sameCode = (a: string, b: string) =>
   a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
+/** SQL on `users u`: someone who has signed in, or anyone who is not just a helper an owner added (never signed in). */
+const KNOWN_USER = `(u.last_login_at IS NOT NULL OR NOT EXISTS (
+  SELECT 1 FROM memberships m WHERE m.user_id = u.id AND m.role = 'staff'))`;
+
+/** New-number codes one address may ask for per hour (IPv6 counted per /64, the usual size of one customer's block). */
+const NEW_NUMBERS_PER_IP_HOUR = 10;
+const newNumberSlots = new Map<string, number[]>();
+const ipKey = (ip: string) => (ip.includes(':') ? ip.split(':').slice(0, 4).join(':') : ip);
+function takeNewNumberSlot(ip: string, now: Date) {
+  const key = ipKey(ip);
+  const since = now.getTime() - 3_600_000;
+  const times = (newNumberSlots.get(key) ?? []).filter((t) => t > since && t <= now.getTime());
+  if (times.length >= NEW_NUMBERS_PER_IP_HOUR) return false;
+  times.push(now.getTime());
+  newNumberSlots.set(key, times);
+  if (newNumberSlots.size > 20_000) newNumberSlots.clear();
+  return true;
+}
+/** Tests: forget the per-address counts. */
+export const resetNewNumberSlots = () => newNumberSlots.clear();
+
 /**
  * Sends a login code. The answer is the same whether or not the number already has an account, so nobody can
  * use this to find out who is registered. At most one code per minute and five per hour per number.
  */
-export async function requestOtp(deps: OtpDeps, rawPhone: unknown): Promise<OtpRequestResult> {
+export async function requestOtp(
+  deps: OtpDeps,
+  rawPhone: unknown,
+  ip?: string,
+): Promise<OtpRequestResult> {
   const phone = normalizeIndianPhone(rawPhone);
   if (!phone) return { ok: false, error: 'invalid_phone' };
   if (isReview(deps, phone))
@@ -73,13 +98,18 @@ export async function requestOtp(deps: OtpDeps, rawPhone: unknown): Promise<OtpR
     }
 
     // The hourly cap across everyone stops code-pumping to random numbers. People who already have an account are
-    // not counted against it, so a flood of strangers' numbers can never stop real users from signing in.
-    const [known] = (await conn.query('SELECT 1 FROM users WHERE phone = ? LIMIT 1', [
+    // not counted against it, so a flood of strangers' numbers can never stop real users from signing in. A helper an
+    // owner added who has never signed in is not "known" yet: otherwise adding numbers as helpers would lift them out
+    // of the cap. And one address may ask for only a few new numbers an hour, so it cannot use up the cap for
+    // everyone else on its own.
+    const [known] = (await conn.query(`SELECT 1 FROM users u WHERE u.phone = ? AND ${KNOWN_USER} LIMIT 1`, [
       phone,
     ])) as unknown as [unknown[]];
     if (!known.length) {
+      if (ip && !takeNewNumberSlot(ip, now)) return { ok: false, error: 'too_many', retryAfter: 600 } as const;
       const [[all]] = (await conn.query(
-        'SELECT COUNT(*) AS n FROM otp_codes WHERE created_at > ? AND phone NOT IN (SELECT phone FROM users WHERE phone IS NOT NULL)',
+        `SELECT COUNT(*) AS n FROM otp_codes o WHERE o.created_at > ?
+           AND NOT EXISTS (SELECT 1 FROM users u WHERE u.phone = o.phone AND ${KNOWN_USER})`,
         [iso(new Date(now.getTime() - 3_600_000))],
       )) as unknown as [[{ n: number }]];
       if (Number(all?.n ?? 0) >= (deps.config.OTP_GLOBAL_PER_HOUR ?? 300))

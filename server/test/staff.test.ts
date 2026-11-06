@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { MAX_STAFF } from '../src/staff/service.js';
+import { MAX_INVITES_PER_DAY, MAX_STAFF } from '../src/staff/service.js';
 import { startHarness, type Harness, type Tenant } from './helpers.js';
 
 let h: Harness;
@@ -149,6 +149,20 @@ describe('inviting and managing staff', () => {
     expect(rs.filter((r) => r.status === 402).every((r) => r.body.error === 'staff_limit')).toBe(
       true,
     );
+  });
+
+  it(`adding and removing helpers cannot send more than ${MAX_INVITES_PER_DAY} invites a day`, async () => {
+    for (let i = 0; i < MAX_INVITES_PER_DAY; i++) {
+      const r = await A.call('POST', '/staff', { phone: `98765${40000 + i}`, name: `Helper ${i}` });
+      expect(r.status, JSON.stringify(r.body)).toBe(201);
+      expect((await A.call('DELETE', `/staff/${r.body.id}`)).status).toBe(200);
+    }
+    const r = await A.call('POST', '/staff', { phone: '9876549999', name: 'One more' });
+    expect([r.status, r.body.error]).toEqual([429, 'too_many_invites']);
+    // another centre is not affected, and the next day it works again
+    expect((await B.call('POST', '/staff', { phone: '9876549998', name: 'Other' })).status).toBe(201);
+    h.clock.now = new Date(h.clock.now.getTime() + 86_400_000 + 1000);
+    expect((await A.call('POST', '/staff', { phone: '9876549999', name: 'One more' })).status).toBe(201);
   });
 
   it('assigned batches can be replaced, and the database refuses a batch of another institute', async () => {

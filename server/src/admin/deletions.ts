@@ -212,6 +212,15 @@ function describe(p: Awaited<ReturnType<typeof previewDeletion>>) {
     )
     .join('; ');
 }
+/** One line per target, numbered, with its warnings: the approval email shows all of them, never a cut list. */
+function targetLines(p: Awaited<ReturnType<typeof previewDeletion>>) {
+  const one = { ...p } as typeof p;
+  return p.items.map((item, i) => {
+    const text = describe({ ...one, items: [item] } as typeof p);
+    const warnings = (item as { warnings?: string[] }).warnings ?? [];
+    return `${i + 1}. ${text}${warnings.length ? ` — ${warnings.join(' ')}` : ''}`;
+  });
+}
 const count = (kind: 'centre' | 'person', k: number) =>
   kind === 'centre' ? `${k} centre${k === 1 ? '' : 's'}` : `${k} ${k === 1 ? 'person' : 'people'}`;
 
@@ -255,8 +264,11 @@ export async function requestDeletion(
   if (blocked) throw new AppError(409, 'cannot_delete', { message: blocked.blocker });
   const id = newId();
   const code = newOtp();
+  // The stored summary is short; the email lists every target with its warnings, because the code it carries
+  // approves all of them (it must never approve something the super admin was not shown).
   const summary = describe(preview).slice(0, 1000);
   const what = count(preview.kind, preview.items.length);
+  const everyTarget = targetLines(preview);
   // one open request per admin: an older one stops working
   await d.pool.query(
     "UPDATE admin_deletions SET status = 'cancelled' WHERE requested_by = ? AND status = 'pending'",
@@ -288,7 +300,8 @@ export async function requestDeletion(
           to,
           `${code} is the code to delete ${what} from Chalkpis`,
           [
-            `${asker} asked to delete ${what}: ${summary}.`,
+            `${asker} asked to delete ${what}:`,
+            ...everyTarget,
             `Reason: ${input.reason || 'none given'}.`,
             'Everything in them goes for good: students, batches, attendance, fees, messages and their logins. Plan payment records are kept.',
             self

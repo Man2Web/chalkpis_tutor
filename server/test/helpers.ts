@@ -6,6 +6,8 @@ import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { createInstitute } from '../src/institutes/service.js';
+import { resetNewNumberSlots } from '../src/auth/otp.js';
+import { resetReconcileThrottle } from '../src/billing/service.js';
 import { newId, sha256 } from '../src/lib/ids.js';
 import { signToken } from '../src/lib/jwt.js';
 import { runMigrations } from '../src/migrate.js';
@@ -150,6 +152,8 @@ export async function startHarness(
     for (const t of TABLES) await db.pool.query(`TRUNCATE ${t}`);
     await db.pool.query('SET FOREIGN_KEY_CHECKS=1');
     clock.now = new Date(NOW);
+    resetNewNumberSlots();
+    resetReconcileThrottle();
     await fs.rm(filesDir, { recursive: true, force: true });
     await fs.mkdir(filesDir, { recursive: true });
   };
