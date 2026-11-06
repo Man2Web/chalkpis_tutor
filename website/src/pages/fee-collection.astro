@@ -1,0 +1,199 @@
+---
+/**
+ * Fee collection: the product's main job on one page (the user's choice, 6 Nov 2026: show ChalkPis Tutor as a fee
+ * collection and management app, like CoFee does). Every fact is checked against docs/DECISIONS.md and
+ * docs/WHATSAPP-TEMPLATES.md: reminders before the due date and while overdue (cp_fee_due_soon, cp_fee_overdue),
+ * UPI QR or payment link (#95, #102), "I've paid" (#138), receipts (#22, #67), payment modes cash/UPI/bank/other,
+ * discounts and waivers (#24), advance up to 12 months (#101), yearly fees in 1-4 parts (#148), the 6 am owner report
+ * (#167), staff never see fees (#140).
+ */
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import QaRow from '../components/QaRow.astro';
+import FaqColumns from '../components/FaqColumns.astro';
+import CtaBand from '../components/CtaBand.astro';
+import { START_URL, SITE_URL, TRIAL_DAYS } from '../config';
+
+const STEPS = [
+  { icon: 'rupee', title: 'Set each student’s fee', sub: 'Monthly, or a yearly fee in up to four parts' },
+  { icon: 'bell', title: 'Reminders go out on WhatsApp', sub: 'Before the due date, and again while it’s overdue' },
+  { icon: 'qr', title: 'Parents pay you directly', sub: 'With your own UPI QR or payment link' },
+  { icon: 'paid', title: 'You confirm, the receipt goes out', sub: 'Numbered, with any balance still due' },
+] as const;
+
+const TOOLS = [
+  { icon: 'bell', title: 'Automatic reminders', desc: 'Sent from your centre’s name before each due date and while a fee is overdue. Or send one yourself with a tap.' },
+  { icon: 'qr', title: 'Your UPI QR or payment link', desc: 'On every reminder, so parents pay in a tap. The money goes straight to you.' },
+  { icon: 'check', title: '“I’ve paid” from the reminder', desc: 'Parents tell you they’ve paid. You confirm in one tap or mark it not received.' },
+  { icon: 'page', title: 'Numbered receipts', desc: 'Sent on WhatsApp when you record a payment, and ready as a PDF to share or print.' },
+  { icon: 'wallet', title: 'Part payments and balances', desc: 'Record what came in by cash, UPI or bank. The balance carries on to the next reminder.' },
+  { icon: 'cal', title: 'Yearly fees in parts', desc: 'Split a year’s fee into up to four parts, each with its own due date and reminder.' },
+  { icon: 'plus', title: 'Advance payments', desc: 'A parent can pay this month and up to 12 months ahead, with one receipt per month.' },
+  { icon: 'rupee', title: 'Discounts and waivers', desc: 'Give a discount on a fee, or waive what is left, and the totals stay right.' },
+  { icon: 'trend', title: 'Who has paid, at a glance', desc: 'Collected this month, pending and overdue on your Home screen, and every student’s dues on Fees.' },
+  { icon: 'clock', title: 'A report every morning', desc: 'At 6 am on WhatsApp: yesterday’s collections and what is pending and overdue today.' },
+  { icon: 'tests', title: 'Fee reports to Excel and PDF', desc: 'Take your fee records out whenever you or your accountant need them.' },
+  { icon: 'user', title: 'Staff never see fees', desc: 'Helpers take attendance for their batches. Fees and phone numbers stay with you.' },
+] as const;
+
+const FAQS = [
+  { q: 'Does ChalkPis take a cut of my fees?', a: 'No. Parents pay your own UPI ID or payment link, so the money goes straight to your account. ChalkPis never handles your fee money and charges no commission.' },
+  { q: 'When do the reminders go out?', a: 'A reminder goes out a few days before each due date, and again while the fee is overdue, until it is paid. You can also send a reminder yourself at any time, or turn the automatic ones off.' },
+  { q: 'How do I know a parent has paid?', a: 'The parent taps “I’ve paid” on the reminder and you see it on your Home screen. Check your UPI app, tap Confirm, and the receipt goes to the parent on WhatsApp.' },
+  { q: 'What if a parent pays in cash?', a: 'Record it as cash, UPI, bank or other. The parent gets the same numbered receipt on WhatsApp, with any balance still due.' },
+  { q: 'Can I collect a yearly fee in parts?', a: 'Yes. Split it into up to four parts, for one student or a whole batch. Each part has its own due date and reminder.' },
+];
+
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  url: new URL('/fee-collection', SITE_URL).href,
+  mainEntity: FAQS.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+};
+---
+<Base
+  title="Fee collection app for classes and academies · ChalkPis Tutor"
+  description="Collect fees on time: automatic WhatsApp reminders with your own UPI QR, “I've paid” from parents, numbered receipts, part payments and yearly fees in parts. No commission."
+  schema={schema}
+>
+  <section class="wrap top">
+    <div class="head">
+      <p class="eyebrow">Fee collection and management</p>
+      <h1 class="h1" style="margin-top: 10px">Get paid on time, <span class="hl">without chasing</span></h1>
+      <p class="lead" style="margin-top: 20px">ChalkPis Tutor reminds parents on WhatsApp, puts your UPI QR in every reminder and sends the receipt when they pay. You see who has paid at a glance, and the money goes straight to you.</p>
+      <div class="cta">
+        <a class="btn btn-dark" href={START_URL}>Start {TRIAL_DAYS}-day free trial<Icon name="arrow" size={18} /></a>
+        <button type="button" class="btn btn-soft" data-demo>Book a demo</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- how a fee gets collected, start to end -->
+  <section class="sec">
+    <div class="wrap">
+      <div class="head"><h2 class="h2">How a fee gets collected</h2></div>
+      <ol class="steps">
+        {STEPS.map((s, i) => (
+          <li class="card step">
+            <span class="step-n">{i + 1}</span>
+            <span class="tile tile-lg"><Icon name={s.icon} size={22} /></span>
+            <h3 class="h4">{s.title}</h3>
+            <p class="small" style="margin-top: 6px">{s.sub}</p>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap qa-list">
+      <QaRow q="Reminders that ask for you" a="Every reminder carries your UPI QR and your centre’s name. These are the messages parents get, word for word.">
+        <div class="chat">
+          <span class="chat-day">Today</span>
+          <div class="bubble">Hello, a gentle reminder that the fee for Riya Shah is due: ₹1,500 for Nov 2026, due on 10 Nov 2026. Kindly pay on time. Regards, Sharma Tuitions. Already paid? Tap here to let the centre know.<span class="time">9:00 am</span></div>
+          <div class="bubble">Hello, we have received the fee payment for Riya Shah: ₹1,500 (receipt 0142, balance due ₹0). Please keep this message as your receipt. Regards, Sharma Tuitions. Thank you.<span class="time">6:40 pm</span></div>
+        </div>
+      </QaRow>
+      <QaRow flip q="Know exactly who has paid" a="Collected, pending and overdue for the month, right on your Home screen. Part payments show what is still owed.">
+        <div class="panel qa-panel">
+          <div class="visual-head"><span class="h4">November 2026</span><span class="small">54 of 64 paid</span></div>
+          <div class="bar"><div style="width: 84%"></div></div>
+          <div style="margin-top: 10px">
+            <div class="row"><span style="flex: 1">Riya Shah</span><strong>₹1,500</strong><span class="pill due">Due</span></div>
+            <div class="row"><span style="flex: 1; min-width: 0">Kabir Mehta<span class="small" style="display: block; font-size: 12px">Paid ₹800 of ₹1,500</span></span><strong>₹700</strong><span class="pill due">Part paid</span></div>
+            <div class="row" style="padding-bottom: 0"><span style="flex: 1">Diya Sen</span><strong>₹1,200</strong><span class="pill ok">Paid</span></div>
+          </div>
+        </div>
+      </QaRow>
+    </div>
+  </section>
+
+  <!-- every fee tool -->
+  <section class="sec">
+    <div class="wrap">
+      <div class="head">
+        <h2 class="h2">Every fee tool, in every plan</h2>
+        <p class="lead" style="margin-top: 16px">Monthly fees, yearly fees, part payments and advances, with WhatsApp messages included.</p>
+      </div>
+      <div class="tools">
+        {TOOLS.map((t) => (
+          <div class="card tool">
+            <span class="tile tile-lg"><Icon name={t.icon} size={22} /></span>
+            <h3 class="h4">{t.title}</h3>
+            <p class="body" style="margin-top: 8px; font-size: 15px">{t.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- the money promise -->
+  <section class="sec">
+    <div class="wrap">
+      <div class="promise">
+        <div>
+          <h2 class="h2">Your fees go to you, in full</h2>
+          <p class="lead" style="margin-top: 16px">Parents pay your own UPI ID or payment link. ChalkPis never touches your fee money and takes no commission, whatever you collect.</p>
+        </div>
+        <div class="promise-num"><span class="num">₹0</span><span>commission on your fees</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap">
+      <FaqColumns title="Questions about fee collection" items={FAQS}>
+        <p class="body" style="margin-top: 16px">More on <a href="/features">every feature</a> and <a href="/pricing">pricing</a>.</p>
+      </FaqColumns>
+    </div>
+  </section>
+
+  <section class="sec end">
+    <div class="wrap"><CtaBand title="Ready to collect fees on time?" from="fees_band" /></div>
+  </section>
+</Base>
+
+<style>
+  .top { padding-top: 72px; }
+  .cta { margin-top: 32px; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+  .hl { color: var(--blue); }
+
+  .steps { list-style: none; padding: 0; margin-top: 40px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; counter-reset: s; }
+  .step { position: relative; padding: 28px 24px; }
+  .step-n { position: absolute; top: 24px; right: 24px; font-size: 13px; font-weight: 600; color: var(--faint); }
+
+  .qa-list { display: flex; flex-direction: column; gap: 96px; }
+  .qa-panel { padding: 20px; width: 100%; max-width: 400px; }
+  .visual-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+  .bar { margin-top: 12px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+  .bar div { height: 100%; background: var(--blue); }
+  .chat { width: 100%; max-width: 400px; background: #ece5dd; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .chat-day { align-self: center; background: #fff; border-radius: 6px; padding: 3px 8px; font-size: 11px; color: var(--muted); }
+  .bubble { align-self: flex-start; background: #fff; border-radius: 2px 10px 10px 10px; padding: 8px 10px 6px; font-size: 13px; line-height: 1.45; max-width: 94%; box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08); }
+  .time { display: block; text-align: right; font-size: 10px; color: #6b7c85; margin-top: 2px; }
+
+  .tools { margin-top: 40px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .tool { padding: 28px 24px; }
+
+  .promise { border-radius: 28px; padding: 56px 64px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 32px; background: radial-gradient(110% 130% at 100% 100%, rgba(14, 119, 190, 0.55) 0%, rgba(14, 119, 190, 0) 62%), var(--navy); color: var(--chalk); }
+  .promise > div:first-child { flex: 1 1 420px; max-width: 640px; }
+  .promise .h2 { color: var(--chalk); }
+  .promise .lead { color: var(--chalk-soft); }
+  .promise-num { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+  .promise-num .num { font-size: 72px; line-height: 1; color: var(--yellow); }
+  .promise-num span:last-child { font-size: 15px; color: var(--chalk-soft); }
+
+  @media (max-width: 1000px) {
+    .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tools { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 600px) {
+    .top { padding-top: 40px; }
+    .cta { flex-direction: column; align-items: stretch; }
+    .cta .btn { width: 100%; }
+    .steps, .tools { grid-template-columns: minmax(0, 1fr); }
+    .qa-list { gap: 64px; }
+    .promise { padding: 28px 20px; border-radius: 20px; }
+    .promise-num .num { font-size: 56px; }
+  }
+</style>

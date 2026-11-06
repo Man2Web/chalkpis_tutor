@@ -5,6 +5,7 @@ import { START_URL, SIGN_IN_URL } from '../config';
 // build.format 'file' gives /pricing.html here; compare without it
 const path = Astro.url.pathname.replace(/\.html$/, '').replace(/\/$/, '') || '/';
 const links = [
+  { href: '/fee-collection', label: 'Fee collection' },
   { href: '/features', label: 'Features' },
   { href: '/#roles', label: 'Who it’s for' },
   { href: '/pricing', label: 'Pricing' },

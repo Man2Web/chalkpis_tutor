@@ -74,24 +74,26 @@ const schema = {
   name: SITE_NAME,
   url: SITE_URL,
   applicationCategory: 'BusinessApplication',
+  applicationSubCategory: 'Fee collection and management',
   operatingSystem: 'Android, iOS, Web',
-  description: 'Attendance, fees and WhatsApp updates for tuition centres, coaching classes and academies in India.',
+  description: 'Fee collection and management app for classes and academies in India: WhatsApp fee reminders with your own UPI QR, receipts, attendance and parent updates.',
   installUrl: [PLAY_STORE_URL, APP_STORE_URL],
   offers: PLANS.map((p) => ({ '@type': 'Offer', name: p.name, price: p.month, priceCurrency: 'INR' })),
   publisher: { '@type': 'Organization', name: 'M2W Technologies Private Limited' },
 };
 ---
 <Base
-  title="ChalkPis Tutor: Fee management for tuition centres"
-  description="Collect fees on time with WhatsApp reminders and your own UPI QR. Take attendance in seconds and keep parents updated, all from one app. Free for 7 days."
+  title="ChalkPis Tutor: Fee collection and management app"
+  description="Fee collection app for classes and academies. Automatic WhatsApp reminders with your own UPI QR, instant receipts and attendance in one app. Free for 7 days."
   schema={schema}
 >
   <!-- hero -->
   <section class="wrap hero">
     <div class="hero-copy">
       <a href="#features" class="chip"><span class="chip-new">New</span>Parents can confirm payment from the fee reminder</a>
+      <p class="eyebrow">Fee collection app for classes and academies</p>
       <h1 class="h1 hero-h1">Collect every fee <span class="hl">on time</span></h1>
-      <p class="lead hero-lead">ChalkPis Tutor sends fee reminders on WhatsApp with your UPI QR, records attendance in seconds and issues receipts automatically, so you can focus on teaching.</p>
+      <p class="lead hero-lead">ChalkPis Tutor sends fee reminders on WhatsApp with your UPI QR, issues receipts automatically and shows who has paid at a glance. Attendance and parent updates are in the same app.</p>
       <div class="hero-cta">
         <a class="btn btn-dark" href={START_URL}>Start 7-day free trial<Icon name="arrow" size={18} /></a>
         <button type="button" class="btn btn-soft" data-demo>Book a demo</button>
@@ -104,7 +106,7 @@ const schema = {
 
   <!-- cities -->
   <section style="padding-top: 64px" aria-label="Where tutors use ChalkPis Tutor">
-    <p class="small" style="text-align: center; padding: 0 24px">Used by tuition centres and academies in</p>
+    <p class="small" style="text-align: center; padding: 0 24px">Used by classes and academies in</p>
     <div class="marquee wrap" style="margin-top: 18px">
       <ul class="marquee-track">
         {cityLoop.map((c) => <li class="city" aria-hidden={c.copy ? 'true' : undefined}>{c.name}</li>)}
@@ -394,7 +396,8 @@ const schema = {
   /* hero: the question on the left, the real app's Home screen on the right */
   .hero { padding-top: 72px; display: flex; flex-wrap: wrap; align-items: center; gap: 56px; }
   .hero-copy { flex: 1 1 480px; min-width: 0; }
-  .hero-h1 { margin-top: 24px; }
+  .hero-copy .eyebrow { margin-top: 24px; }
+  .hero-h1 { margin-top: 10px; }
   .hero-lead { margin-top: 20px; max-width: 520px; }
   .hero-shot { flex: 0 1 480px; min-width: 0; margin-left: auto; border-radius: 28px; overflow: hidden; background: var(--blue); box-shadow: 0 40px 60px -40px rgba(11, 40, 70, 0.5); }
   .hero-shot img { display: block; width: 100%; height: auto; }

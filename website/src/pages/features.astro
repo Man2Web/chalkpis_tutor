@@ -6,22 +6,24 @@ import { START_URL, TRIAL_DAYS } from '../config';
 
 const AREAS = [
   {
+    id: 'fees', name: 'Fee collection', lead: 'See who has paid this month, and let reminders do the asking.',
+    items: [
+      ['Automatic WhatsApp reminders', 'Before the due date and again while a fee is overdue, from your centre’s name.'],
+      ['Monthly dues and part payments', 'Record what came in; the balance carries on.'],
+      ['Yearly fees in up to four parts', 'Each part gets its own due date and reminder.'],
+      ['Your own UPI QR on every reminder', 'Parents pay you straight away. ChalkPis never handles your fee money.'],
+      ['Parents tap “I’ve paid”', 'You confirm in one tap and the receipt goes out.'],
+      ['Advance payments', 'A parent can pay for up to 12 months at once.'],
+      ['Numbered receipts on WhatsApp', 'Sent when you record a payment, with any balance still due.'],
+    ],
+  },
+  {
     id: 'attendance', name: 'Attendance', lead: 'A batch’s attendance takes a few seconds, and the register keeps itself.',
     items: [
       ['Tap only who’s absent', 'Everyone else is marked present when you save.'],
       ['Late marks and holidays', 'Mark a child late, or the whole day a holiday.'],
       ['The monthly register', 'Every batch’s month on one sheet, ready for Excel.'],
       ['Helpers take attendance', 'For the batches you give them. They never see fees or parents’ numbers.'],
-    ],
-  },
-  {
-    id: 'fees', name: 'Fees', lead: 'See who has paid this month, and let reminders do the asking.',
-    items: [
-      ['Monthly dues and part payments', 'Record what came in; the balance carries on.'],
-      ['Yearly fees in up to four parts', 'Each part gets its own due date and reminder.'],
-      ['Your own UPI QR on every reminder', 'Parents pay you straight away. ChalkPis never handles your fee money.'],
-      ['Parents tap “I’ve paid”', 'You confirm in one tap and the receipt goes out.'],
-      ['Advance payments', 'A parent can pay for several months at once.'],
     ],
   },
   {
@@ -54,16 +56,25 @@ const AREAS = [
   },
 ] as const;
 ---
-<Base title="Features · ChalkPis Tutor" description="Fees, attendance, tests, homework and parent updates on WhatsApp, in one app for your centre.">
+<Base title="Features · ChalkPis Tutor" description="Fee reminders with your UPI QR, receipts and part payments, plus attendance, tests, homework and parent updates on WhatsApp. Every feature in every plan.">
   <section class="wrap top">
     <div class="head">
       <h1 class="h1">Everything ChalkPis Tutor does</h1>
-      <p class="lead" style="margin-top: 20px">Every feature is in every plan, so nothing here costs extra. Here it is, one area at a time.</p>
+      <p class="lead" style="margin-top: 20px">Built around collecting your fees, with attendance, parent updates and the rest of your centre in the same app. Every feature is in every plan, so nothing here costs extra.</p>
     </div>
     <nav class="jump" aria-label="Areas">{AREAS.map((a) => <a href={`#${a.id}`}>{a.name}</a>)}</nav>
   </section>
 
   {AREAS.map((a, i) => (
+    <>
+    {i === 1 && (
+      <section class="sec">
+        <div class="wrap head also-head">
+          <h2 class="h2">Also in the app</h2>
+          <p class="lead" style="margin-top: 16px">The rest of running your classes, included in every plan.</p>
+        </div>
+      </section>
+    )}
     <section id={a.id} class="sec">
       <div class={`wrap area ${i % 2 ? 'flip' : ''}`}>
         <div class="area-copy">
@@ -74,6 +85,7 @@ const AREAS = [
               <li><Icon name="check" size={18} stroke={2.4} /><span><strong>{t}</strong>{d}</span></li>
             ))}
           </ul>
+          {a.id === 'fees' && <a class="link-blue more-link" href="/fee-collection">How fee collection works<Icon name="arrow" size={16} /></a>}
         </div>
         <div class="card area-art" aria-hidden="true">
           {a.id === 'attendance' && (
@@ -128,6 +140,7 @@ const AREAS = [
         </div>
       </div>
     </section>
+    </>
   ))}
 
   <section class="sec end">
@@ -152,6 +165,8 @@ const AREAS = [
   .items :global(svg) { flex: none; margin-top: 3px; color: var(--blue); }
   .items strong { display: block; font-size: 16px; font-weight: 600; }
   .items span { font-size: 15px; line-height: 1.55; color: var(--muted); }
+  .also-head { padding-top: 32px; border-top: 1px solid var(--border); max-width: 1152px; }
+  .more-link { margin-top: 28px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--blue-ink); text-decoration: none; }
   .pad { padding: 20px; }
   .vh { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
   .bar { margin-top: 12px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
