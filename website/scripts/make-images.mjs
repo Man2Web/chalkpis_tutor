@@ -5,7 +5,7 @@
 //   favicon.ico           the 32 px and 48 px PNGs in one .ico
 // Run from website/: `npm run images` (needs Chrome or Edge for og.png; set CHROME to its path if it is elsewhere).
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdtempSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -60,13 +60,22 @@ const browser = browsers.find((b) => existsSync(b));
 if (!browser) {
   console.log('Icons done. No Chrome or Edge found, so og.png was not remade (set CHROME to its path).');
 } else {
-  const shot = join(mkdtempSync(join(tmpdir(), 'og-')), 'og.png');
-  execFileSync(browser, [
-    '--headless=new', '--disable-gpu', '--hide-scrollbars', '--force-device-scale-factor=1',
-    '--window-size=1200,630', `--screenshot=${shot}`, '--virtual-time-budget=3000',
-    pathToFileURL(join(root, 'scripts', 'og.html')).href,
-  ], { stdio: 'ignore' });
-  // the window can come out a few pixels off; make it exactly 1200×630
-  await sharp(shot).resize(1200, 630, { fit: 'cover', position: 'left top' }).png({ compressionLevel: 9 }).toFile(join(pub, 'og.png'));
-  console.log('Made og.png, apple-touch-icon.png, favicon-32.png and favicon.ico in public/.');
+  const tmp = mkdtempSync(join(tmpdir(), 'og-'));
+  /** Photographs scripts/og.html (with an optional query) at width×height into `out`. */
+  const shoot = async (query, width, height, out) => {
+    const shot = join(tmp, `${width}x${height}.png`);
+    const url = pathToFileURL(join(root, 'scripts', 'og.html')).href + query;
+    execFileSync(browser, [
+      '--headless=new', '--disable-gpu', '--hide-scrollbars', '--force-device-scale-factor=1',
+      `--window-size=${width},${height}`, `--screenshot=${shot}`, '--virtual-time-budget=3000', url,
+    ], { stdio: 'ignore' });
+    // the window can come out a few pixels off; make it exact
+    await sharp(shot).resize(width, height, { fit: 'cover', position: 'left top' }).png({ compressionLevel: 9 }).toFile(out);
+  };
+  await shoot('', 1200, 630, join(pub, 'og.png'));
+  // the Facebook Page cover lives with the marketing files, not on the site
+  const social = resolve(root, '..', 'marketing', 'social');
+  mkdirSync(social, { recursive: true });
+  await shoot('?cover', 1640, 624, join(social, 'facebook-cover-1640x624.png'));
+  console.log('Made og.png, the icons and marketing/social/facebook-cover-1640x624.png.');
 }
