@@ -60,7 +60,10 @@ export async function events(pool: Pool, q: z.infer<typeof eventsQuery>, now: Da
   const before = q.before
     ? new Date(q.before)
     : new Date(Math.max(now.getTime(), Date.now()) + DAY);
-  const since = new Date(before.getTime() - 30 * DAY);
+  // 30 days back from the app clock (rows like payments use it) as well as the database one; in production they agree
+  const since = q.before
+    ? new Date(before.getTime() - 30 * DAY)
+    : new Date(Math.min(now.getTime(), Date.now()) - 30 * DAY);
   const all: Record<EventKind, string> = {
     signup: `SELECT 'signup' kind, u.created_at at, COALESCE(NULLIF(u.name,''), u.phone) actor, 'joined Chalkpis' text, NULL amount, u.id user_id, NULL institute_id, NULL institute
                FROM users u WHERE u.created_at >= ? AND u.created_at < ?`,

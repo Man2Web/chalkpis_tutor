@@ -293,16 +293,25 @@ describe('billing page (/plan)', () => {
 
   it('a form from another site cannot ask for a code or sign a browser in (login CSRF)', async () => {
     await h.tenant('+919800000001');
+    // its own address, so these requests do not use up the per-address limits the other tests share
+    const post = (url: string, body: Record<string, string>, headers: Record<string, string> = {}) =>
+      h.app.inject({
+        method: 'POST',
+        url,
+        remoteAddress: '203.0.113.50',
+        headers: { 'content-type': 'application/x-www-form-urlencoded', ...headers },
+        payload: new URLSearchParams(body).toString(),
+      });
     const crossSite: Record<string, string>[] = [
       { origin: 'https://evil.example' },
       { 'sec-fetch-site': 'cross-site' },
     ];
     for (const headers of crossSite) {
-      const code = await form('/plan/code', { phone: '9800000001' }, headers);
+      const code = await post('/plan/code', { phone: '9800000001' }, headers);
       expect([code.statusCode, code.headers.location]).toEqual([303, '/plan']);
     }
-    expect((await form('/plan/code', { phone: '9800000001' })).statusCode).toBe(200);
-    const v = await form(
+    expect((await post('/plan/code', { phone: '9800000001' })).statusCode).toBe(200);
+    const v = await post(
       '/plan/verify',
       { phone: '9800000001', code: lastCode() },
       { origin: 'https://evil.example' },
@@ -310,7 +319,7 @@ describe('billing page (/plan)', () => {
     expect([v.statusCode, v.headers.location]).toEqual([303, '/plan']);
     expect(v.headers['set-cookie']).toBeUndefined();
     // the same code still signs in from our own page
-    const ok = await form('/plan/verify', { phone: '9800000001', code: lastCode() });
+    const ok = await post('/plan/verify', { phone: '9800000001', code: lastCode() });
     expect(String(ok.headers['set-cookie'])).toMatch(/^cp_plan=/);
   });
 

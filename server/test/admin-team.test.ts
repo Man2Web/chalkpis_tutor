@@ -227,9 +227,9 @@ describe('deleting test centres and people needs the code emailed to the super a
     expect(mailer.sent.map((m) => m.to)).toEqual([TEST_ADMIN_EMAIL]);
     const mail = mailer.sent[0]!;
     expect(mail.subject).toBe(`${ask.body.devCode} is the code to delete 1 centre from Chalkpis`);
-    expect(mail.text).toContain(
-      'Vignesh (Admin, vignesh@chalkpis.test) asked to delete 1 centre: Demo Classes',
-    );
+    expect(mail.text).toContain('Vignesh (Admin, vignesh@chalkpis.test) asked to delete 1 centre:');
+    // every target is listed in full, numbered, with its warnings
+    expect(mail.text).toMatch(/\n1\. Demo Classes \(owner .*; 1 students, 1 helpers\)/);
     expect(mail.text).toContain('Reason: Test sign-up.');
 
     // someone else cannot use the request, and a wrong code counts a try

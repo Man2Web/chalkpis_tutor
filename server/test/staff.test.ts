@@ -162,7 +162,8 @@ describe('inviting and managing staff', () => {
     // another centre is not affected, and the next day it works again
     expect((await B.call('POST', '/staff', { phone: '9876549998', name: 'Other' })).status).toBe(201);
     h.clock.now = new Date(h.clock.now.getTime() + 86_400_000 + 1000);
-    expect((await A.call('POST', '/staff', { phone: '9876549999', name: 'One more' })).status).toBe(201);
+    const later = h.login(A.userId, A.instituteId); // a fresh sign-in: yesterday's access token has expired
+    expect((await later.call('POST', '/staff', { phone: '9876549999', name: 'One more' })).status).toBe(201);
   });
 
   it('assigned batches can be replaced, and the database refuses a batch of another institute', async () => {
