@@ -25,6 +25,15 @@ async function icon(size, share) {
     .toBuffer();
 }
 
+// The hero picture: the real app's Home screen, cropped (not redrawn) from the App Store screenshot, at 2x for a
+// 480 px wide slot. The phone rises from the bottom edge of the store's blue background.
+mkdirSync(join(pub, 'app'), { recursive: true });
+await sharp(resolve(root, '..', 'marketing', 'store', 'appstore', '6.9', 'phone-02.png'))
+  .extract({ left: 0, top: 420, width: 1320, height: 1760 })
+  .resize(960)
+  .webp({ quality: 88 })
+  .toFile(join(pub, 'app', 'home-dashboard.webp'));
+
 writeFileSync(join(pub, 'apple-touch-icon.png'), await icon(180, 0.62));
 const png32 = await icon(32, 0.84);
 const png48 = await icon(48, 0.84);

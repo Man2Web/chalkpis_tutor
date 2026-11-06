@@ -20,7 +20,8 @@ h1{margin-top:48px;font-family:'Inter Tight',sans-serif;font-weight:700;font-siz
 .lead{margin-top:24px;font-size:22px;line-height:1.5;color:#3F3F46;max-width:520px}
 .foot{margin-top:auto;display:flex;align-items:center;gap:14px;font-size:20px;font-weight:600}
 .foot .pill{background:#EAF4FB;color:#0A5F99;border-radius:999px;padding:8px 16px;font-size:18px}
-.art{width:440px;flex:none;background:#EAF4FB;border-radius:28px;position:relative}
+.art{width:440px;flex:none;border-radius:28px;overflow:hidden;background:#0E77BE}
+.art img{display:block;width:100%;height:100%;object-fit:cover;object-position:center top}
 .phone{position:absolute;left:50%;top:36px;transform:translateX(-50%);width:262px;height:372px;background:#FFFFFF;border:10px solid #0B0B0F;border-radius:42px;padding:24px 18px 18px;display:flex;flex-direction:column;gap:9px;box-shadow:0 40px 60px -30px rgba(11,40,70,0.45)}
 .when{font-size:12px;color:#71717A}
 .batch{font-family:'Inter Tight',sans-serif;font-weight:700;font-size:19px;letter-spacing:-0.01em}
@@ -43,8 +44,6 @@ html.cover .lead{max-width:560px}
 /* the Page's profile picture covers the bottom-left corner on desktop */
 html.cover .foot{margin-top:32px}
 html.cover .art{width:420px}
-html.cover .toast{display:none}
-html.cover .phone{top:44px}
 </style>
 <script>if (location.search.indexOf('cover') >= 0) document.documentElement.classList.add('cover');</script>
 </head>
@@ -55,17 +54,6 @@ html.cover .phone{top:44px}
 <p class="lead">Fee reminders with your own UPI QR, attendance in seconds and receipts on WhatsApp, for tuition centres, coaching classes and academies.</p>
 <div class="foot"><span class="pill">Free for 7 days</span><span>chalkpistutor.com</span></div>
 </div>
-<div class="art">
-<div class="phone">
-<p class="when">Today, 5:00 pm</p>
-<p class="batch">Kids Bharatanatyam</p>
-<p class="count">17 present · 1 absent</p>
-<div class="r"><span class="av">AK</span><span class="n">Aarohi K.</span><span class="pl no">Absent</span></div>
-<div class="r"><span class="av">KM</span><span class="n">Kabir M.</span><span class="pl ok">Present</span></div>
-<div class="r"><span class="av">DS</span><span class="n">Diya S.</span><span class="pl ok">Present</span></div>
-<div class="save">Save attendance</div>
-</div>
-<div class="toast"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#25D366" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg></span><span><strong>Aarohi's parent alerted</strong><span class="s">On WhatsApp, 5:02 pm</span></span></div>
-</div>
+<div class="art"><img src="../public/app/home-dashboard.webp" alt=""></div>
 </body>
 </html>

@@ -27,12 +27,6 @@ const HOME_FAQS = [
   { q: 'Can I bring in my existing student list?', a: 'Yes. Import it from Excel, or add students straight from your phone contacts.' },
 ];
 
-const heroRows = [
-  { initials: 'AK', name: 'Aarohi K.', status: 'Absent', cls: 'no' },
-  { initials: 'KM', name: 'Kabir M.', status: 'Present', cls: 'ok' },
-  { initials: 'DS', name: 'Diya S.', status: 'Present', cls: 'ok' },
-  { initials: 'MP', name: 'Meera P.', status: 'Present', cls: 'ok' },
-];
 
 // Cities where tutors use ChalkPis Tutor today. Repeated 4 times so the short list fills the row and loops without a gap.
 const CITIES = ['Mumbai', 'Mysore', 'Kochi', 'Chennai'];
@@ -95,32 +89,16 @@ const schema = {
   <!-- hero -->
   <section class="wrap hero">
     <div class="hero-copy">
-      <a href="#more" class="chip"><span class="chip-new">New</span>Parents can now tap “I've paid” on fee reminders</a>
-      <h1 class="h1" style="margin-top: 24px">Still chasing fees <span class="hl">every month?</span></h1>
-      <p class="lead" style="margin-top: 20px; max-width: 520px">ChalkPis Tutor reminds parents on WhatsApp with your own UPI QR, takes attendance in seconds and sends receipts for you, so your evenings go back to teaching.</p>
+      <a href="#features" class="chip"><span class="chip-new">New</span>Parents can now tap “I've paid” on fee reminders</a>
+      <h1 class="h1 hero-h1">Still chasing fees <span class="hl">every month?</span></h1>
+      <p class="lead hero-lead">ChalkPis Tutor reminds parents on WhatsApp with your own UPI QR, takes attendance in seconds and sends receipts for you, so your evenings go back to teaching.</p>
       <div class="hero-cta">
         <a class="btn btn-dark" href={START_URL}>Start 7-day free trial<Icon name="arrow" size={18} /></a>
         <button type="button" class="btn btn-soft" data-demo>Book a demo</button>
       </div>
     </div>
-    <div class="hero-art" aria-hidden="true">
-      <div class="phone">
-        <p class="small" style="font-size: 12px; color: var(--faint)">Today, 5:00 pm</p>
-        <p class="num" style="font-size: 19px">Kids Bharatanatyam</p>
-        <p class="small" style="font-size: 12px; margin-bottom: 4px">17 present · 1 absent</p>
-        {heroRows.map((r) => (
-          <div class="phone-row">
-            <span class="avatar">{r.initials}</span>
-            <span style="flex: 1; font-size: 13px; font-weight: 500">{r.name}</span>
-            <span class={`pill ${r.cls}`}>{r.status}</span>
-          </div>
-        ))}
-        <div class="phone-btn">Save attendance</div>
-      </div>
-      <div class="toast panel hide-sm">
-        <span class="tile tile-wa" style="width: 32px; height: 32px; border-radius: 10px"><Icon name="whatsapp" size={16} /></span>
-        <span style="font-size: 13px; line-height: 1.4"><strong style="display: block; font-weight: 600">Aarohi's parent alerted</strong><span style="color: var(--muted)">On WhatsApp, 5:02 pm</span></span>
-      </div>
+    <div class="hero-shot">
+      <img src="/app/home-dashboard.webp" width="480" height="640" fetchpriority="high" alt="The ChalkPis Tutor Home screen: fees collected this month, pending and overdue fees, and today's attendance" />
     </div>
   </section>
 
@@ -413,17 +391,16 @@ const schema = {
 </script>
 
 <style>
+  /* hero: the question on the left, the real app's Home screen on the right */
   .hero { padding-top: 72px; display: flex; flex-wrap: wrap; align-items: center; gap: 56px; }
   .hero-copy { flex: 1 1 480px; min-width: 0; }
+  .hero-h1 { margin-top: 24px; }
+  .hero-lead { margin-top: 20px; max-width: 520px; }
+  .hero-shot { flex: 0 1 480px; min-width: 0; margin-left: auto; border-radius: 28px; overflow: hidden; background: #0e77be; box-shadow: 0 40px 60px -40px rgba(11, 40, 70, 0.5); }
+  .hero-shot img { display: block; width: 100%; height: auto; }
   .chip { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; background: var(--blue-50); border-radius: 999px; padding: 4px 14px 4px 4px; font-size: 13px; color: var(--blue-ink); }
   .chip-new { background: var(--blue); color: #fff; border-radius: 999px; padding: 3px 10px; font-weight: 600; }
   .hero-cta { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 12px; }
-  .hero-art { flex: 1 1 440px; min-width: 0; height: 560px; position: relative; background: var(--blue-50); border-radius: 28px; }
-  .phone { position: absolute; left: 50%; top: 32px; transform: translateX(-50%); width: 272px; height: 430px; background: #fff; border: 10px solid var(--ink); border-radius: 44px; padding: 26px 18px 18px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 40px 60px -30px rgba(11, 40, 70, 0.45); }
-  .phone-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--surface); }
-  .avatar { width: 30px; height: 30px; flex: none; border-radius: 50%; background: var(--blue-50); color: var(--blue-ink); font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
-  .phone-btn { margin-top: auto; height: 44px; border-radius: 12px; background: var(--ink); color: #fff; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
-  .toast { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); width: 252px; padding: 14px; display: flex; gap: 10px; box-shadow: 0 20px 40px -20px rgba(11, 11, 15, 0.3), 0 0 0 1px rgba(11, 11, 15, 0.06); }
 
   .city { flex: none; font-family: var(--display); font-size: 20px; font-weight: 600; color: #a1a1aa; letter-spacing: -0.01em; }
 
@@ -516,11 +493,10 @@ const schema = {
     .sw-art { padding: 24px 14px; min-height: 0; }
   }
   @media (max-width: 600px) {
-    .hero { padding-top: 32px; gap: 28px; }
+    .hero { padding-top: 32px; gap: 32px; }
     .hero-cta { flex-direction: column; align-items: stretch; }
     .hero-cta .btn { width: 100%; }
-    .hero-art { height: 420px; }
-    .phone { transform: translateX(-50%) scale(0.82); transform-origin: top center; }
+    .hero-shot { margin-left: 0; border-radius: 20px; }
     .stmt { padding: 36px 12px 0; border-radius: 20px; }
     .quote { width: 272px; }
     .featured-quote { padding: 24px; }
