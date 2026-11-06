@@ -31,6 +31,11 @@ import {
   setWaived,
 } from '../fees/service.js';
 import { currentPeriod } from '../lib/ist.js';
+import { AppError } from '../errors.js';
+
+/** Whole months from `from` to `to` (both YYYY-MM): positive when `to` is later. */
+const monthsBetween = (from: string, to: string) =>
+  (Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 + Number(to.slice(5, 7)) - Number(from.slice(5, 7));
 import { idParam, parse } from '../lib/params.js';
 import { z } from 'zod';
 import { dashboard, feesHistory, feesReport } from '../reports/service.js';
@@ -69,8 +74,13 @@ export function feeRoutes(app: FastifyInstance, deps: Deps) {
 
   app.post('/fees/generate', write, async (req) => {
     const { period } = parse(generateInput, req.body ?? {});
+    // A month far from today makes no sense for fees, and generating month after month would multiply a centre's
+    // open dues (which reminders and the overview load in full): 24 months back to 12 ahead.
+    const cur = currentPeriod(now());
+    if (period && Math.abs(monthsBetween(cur, period) + 6) > 18)
+      throw new AppError(400, 'bad_request', { field: 'period' });
     await requireActivePlan(deps.pool, inst(req), now());
-    return { created: await generateDues(deps.pool, inst(req), period ?? currentPeriod(now())) };
+    return { created: await generateDues(deps.pool, inst(req), period ?? cur) };
   });
   app.post('/fees/dues/:id/payments', write, async (req, reply) =>
     reply

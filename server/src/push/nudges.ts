@@ -35,7 +35,12 @@ export async function attendanceNudges(
     [now, weekday, hhmm(now), day],
   )) as unknown as [{ institute_id: string; id: string; name: string; owner_user_id: string }[]];
   const byCentre = new Map<string, typeof rows>();
-  for (const r of rows) byCentre.set(r.institute_id, [...(byCentre.get(r.institute_id) ?? []), r]);
+  for (const r of rows) {
+    // append in place: copying the list for every row was quadratic in a centre's batch count
+    const list = byCentre.get(r.institute_id);
+    if (list) list.push(r);
+    else byCentre.set(r.institute_id, [r]);
+  }
   let n = 0;
   for (const [instituteId, all] of byCentre) {
     const batches: typeof rows = [];

@@ -692,6 +692,13 @@ describe('tenant isolation: B can never touch A', () => {
     );
   });
 
+  it('dues can be generated only for months near today (24 back, 12 ahead)', async () => {
+    for (const far of ['2024-09', '2027-11', '1999-01', '2999-12'])
+      expect((await gen(B, far)).status, far).toBe(400);
+    expect((await gen(B, '2027-10')).status).toBe(200);
+    expect((await gen(B, '2024-10')).status).toBe(200);
+  });
+
   it('B generating dues touches only B', async () => {
     expect((await gen(B, '2026-11')).body.created).toBe(1);
     expect((await A.call('GET', '/fees/dues?status=all')).body.dues).toHaveLength(1);
