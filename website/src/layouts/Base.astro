@@ -11,6 +11,9 @@ import Analytics from '../components/Analytics.astro';
 import CookieBanner from '../components/CookieBanner.astro';
 import DemoDialog from '../components/DemoDialog.astro';
 import GetAppCard from '../components/GetAppCard.astro';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { SITE_NAME, SITE_URL } from '../config';
 
 interface Props {
@@ -26,7 +29,10 @@ const { title, description, schema, noindex } = Astro.props;
 // sitemap without it (/, /pricing), so the canonical address drops it.
 const path = Astro.url.pathname.replace(/\.html$/, '').replace(/(^|\/)index$/, '/') || '/';
 const canonical = new URL(path, SITE_URL).href;
-const ogImage = new URL('/og.png', SITE_URL).href;
+// Facebook (and Cloudflare) keep their own copy of a share image per URL, so the URL carries a hash of the file:
+// a new og.png gets a new URL by itself and is fetched fresh.
+const ogHash = createHash('sha1').update(readFileSync(join(process.cwd(), 'public', 'og.png'))).digest('hex').slice(0, 10);
+const ogImage = new URL(`/og.png?v=${ogHash}`, SITE_URL).href;
 ---
 <!doctype html>
 <html lang="en-IN">
