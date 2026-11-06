@@ -1,0 +1,62 @@
+---
+/** Contact (canvas board "Contact"): WhatsApp and email only, plus links for the common needs. */
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import {
+  WHATSAPP_URL, SUPPORT_EMAIL, SIGN_IN_URL, START_URL, DELETE_ACCOUNT_URL, PRIVACY_URL, TERMS_URL,
+} from '../config';
+
+const links = [
+  { label: 'Sign in to your account', href: SIGN_IN_URL },
+  { label: 'Start a free trial', href: START_URL },
+  { label: 'Plans and prices', href: '/pricing' },
+  { label: 'Delete your account', href: DELETE_ACCOUNT_URL },
+  { label: 'Privacy Policy', href: PRIVACY_URL },
+  { label: 'Terms and Conditions', href: TERMS_URL },
+  { label: 'Cookie policy', href: '/cookies' },
+];
+---
+<Base title="Contact · ChalkPis Tutor" description="Questions about ChalkPis Tutor, your plan or your account? Chat with us on WhatsApp at +91 70104 73833 or write to hello@chalkpistutor.com.">
+  <section class="wrap top">
+    <div class="head">
+      <h1 class="h1">Talk to us</h1>
+      <p class="lead" style="margin-top: 20px">Questions about the app, your plan or your account? Message us and we’ll help.</p>
+    </div>
+    <div class="ways">
+      <div class="card">
+        <span class="tile tile-lg tile-wa" style="margin-bottom: 0"><Icon name="whatsapp" /></span>
+        <h2 class="h3" style="margin-top: 18px">WhatsApp</h2>
+        <p class="body" style="margin-top: 8px">+91 70104 73833</p>
+        <a class="btn btn-dark way-btn" href={WHATSAPP_URL}>Chat on WhatsApp</a>
+      </div>
+      <div class="card">
+        <span class="tile tile-lg" style="margin-bottom: 0"><Icon name="mail" /></span>
+        <h2 class="h3" style="margin-top: 18px">Email</h2>
+        <p class="body" style="margin-top: 8px">{SUPPORT_EMAIL}</p>
+        <a class="btn btn-soft way-btn" href={`mailto:${SUPPORT_EMAIL}`}>Write an email</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec end">
+    <div class="wrap narrow">
+      <h2 class="h3">Looking for something else?</h2>
+      <div class="links">
+        {links.map((l) => <a href={l.href}>{l.label}<Icon name="arrow" size={18} /></a>)}
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .top { padding-top: 72px; }
+  .narrow { max-width: 868px; }
+  .ways { margin: 48px auto 0; max-width: 868px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 20px; }
+  .way-btn { margin-top: 24px; width: 100%; }
+  .links { margin-top: 16px; border-bottom: 1px solid #e4e4e7; }
+  .links a { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; border-top: 1px solid #e4e4e7; text-decoration: none; font-size: 16px; font-weight: 500; }
+  .links a:hover { color: var(--blue-ink); }
+  @media (max-width: 600px) {
+    .top { padding-top: 40px; }
+  }
+</style>

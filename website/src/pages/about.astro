@@ -1,0 +1,72 @@
+---
+/** About (canvas board "About"): the company only, no invented facts (user, 5 Nov 2026). */
+import Base from '../layouts/Base.astro';
+import { COMPANY, SCHOOL_ERP_URL, START_URL, SUPPORT_EMAIL, TRIAL_DAYS, PRIVACY_URL } from '../config';
+
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: COMPANY,
+  alternateName: 'Man2Web',
+  email: SUPPORT_EMAIL,
+  telephone: '+91 70104 73833',
+  url: 'https://chalkpistutor.com/',
+  areaServed: 'IN',
+};
+---
+<Base title="About · ChalkPis Tutor" description={`ChalkPis Tutor is built and run by ${COMPANY} (Man2Web) in India, the team that also makes ChalkPis School ERP.`} schema={schema}>
+  <section class="wrap top">
+    <h1 class="h1">Made for the people who teach</h1>
+    <p class="lead" style="margin-top: 24px">ChalkPis Tutor is for tuition teachers, coaches and academy owners who run their own classes. Most of them keep attendance in a notebook and chase fees on WhatsApp late in the evening. The app does those jobs for them, so the evenings go back to teaching.</p>
+    <p class="lead" style="margin-top: 18px">It is built and run by {COMPANY} (Man2Web) in India, the team that also makes <a href={SCHOOL_ERP_URL} class="link-blue">ChalkPis School ERP</a> for schools.</p>
+  </section>
+
+  <section class="sec">
+    <div class="wrap">
+      <div class="head"><h2 class="h2">What you can count on</h2></div>
+      <div class="promises">
+        <div class="card"><h3 class="h3">Fees go to you</h3><p class="body" style="margin-top: 12px">Parents pay your own UPI. ChalkPis never handles your fee money.</p></div>
+        <div class="card"><h3 class="h3">Messages are included</h3><p class="body" style="margin-top: 12px">WhatsApp alerts, reminders and receipts to parents are part of every plan.</p></div>
+        <div class="card"><h3 class="h3">Your data stays yours</h3><p class="body" style="margin-top: 12px">Take your reports to Excel or PDF any time, and delete your account whenever you want.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap narrow">
+      <div class="card company">
+        <div>
+          <h2 class="h4">The company</h2>
+          <p class="body" style="margin-top: 10px">{COMPANY} (Man2Web), India</p>
+          <p class="body">{SUPPORT_EMAIL} · +91 70104 73833</p>
+        </div>
+        <div class="company-links"><a class="btn btn-soft" href="/contact">Contact us</a><a class="btn btn-soft" href={PRIVACY_URL}>Privacy Policy</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec end">
+    <div class="wrap">
+      <div class="card banner">
+        <h2 class="h2" style="flex: 1 1 420px; max-width: 640px">Try it with your own batches this week</h2>
+        <a class="btn btn-dark" href={START_URL}>Start {TRIAL_DAYS}-day free trial</a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .top { padding-top: 72px; max-width: 868px; }
+  .narrow { max-width: 868px; }
+  .link-blue { color: var(--blue-ink); font-weight: 600; text-decoration: none; }
+  .link-blue:hover { text-decoration: underline; }
+  .promises { margin-top: 48px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 20px; }
+  .company { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 24px; }
+  .company-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .banner { background: var(--blue-50); padding: 48px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px; }
+  @media (max-width: 600px) {
+    .top { padding-top: 40px; }
+    .banner { padding: 24px; }
+    .banner .btn, .company-links .btn { width: 100%; }
+  }
+</style>

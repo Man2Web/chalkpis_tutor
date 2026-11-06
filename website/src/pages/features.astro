@@ -1,0 +1,180 @@
+---
+/** Every feature, area by area (canvas board "Features"). Facts as on the home and pricing pages. */
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import { START_URL, TRIAL_DAYS } from '../config';
+
+const AREAS = [
+  {
+    id: 'attendance', name: 'Attendance', lead: 'A batch’s attendance takes a few seconds, and the register keeps itself.',
+    items: [
+      ['Tap only who’s absent', 'Everyone else is marked present when you save.'],
+      ['Late marks and holidays', 'Mark a child late, or the whole day a holiday.'],
+      ['The monthly register', 'Every batch’s month on one sheet, ready for Excel.'],
+      ['Helpers take attendance', 'For the batches you give them. They never see fees or parents’ numbers.'],
+    ],
+  },
+  {
+    id: 'fees', name: 'Fees', lead: 'See who has paid this month, and let reminders do the asking.',
+    items: [
+      ['Monthly dues and part payments', 'Record what came in; the balance carries on.'],
+      ['Yearly fees in up to four parts', 'Each part gets its own due date and reminder.'],
+      ['Your own UPI QR on every reminder', 'Parents pay you straight away. ChalkPis never handles your fee money.'],
+      ['Parents tap “I’ve paid”', 'You confirm in one tap and the receipt goes out.'],
+      ['Advance payments', 'A parent can pay for several months at once.'],
+    ],
+  },
+  {
+    id: 'parents', name: 'Parents', lead: 'Parents hear from your centre on WhatsApp the same day. They don’t install anything.',
+    items: [
+      ['Absent and late alerts', 'Sent when you save attendance.'],
+      ['Fee reminders and receipts', 'From your centre’s name, with your UPI QR.'],
+      ['A private page for each child', 'Parents open it from a link; no app, no password.'],
+      ['One link for brothers and sisters', 'A family with two children gets one page, not two.'],
+    ],
+  },
+  {
+    id: 'teaching', name: 'Teaching', lead: 'The work around the lesson: tests, homework, the timetable and new admissions.',
+    items: [
+      ['Tests, marks and report cards', 'Marks for a whole batch on one screen, with ranks and grades.'],
+      ['Homework', 'Set it for a batch and tick who has done it.'],
+      ['Timetable and calendar', 'Built from your batches, with clashes flagged.'],
+      ['Enquiries and admissions', 'New, follow-up, trial class, joined, with reminders to call back.'],
+    ],
+  },
+  {
+    id: 'centre', name: 'Your centre', lead: 'The rest of running a centre, on your phone or your laptop.',
+    items: [
+      ['Your class, your words', 'Batches and students carry a belt, level, class or age group, whatever you teach.'],
+      ['Poster maker', 'Toppers, champions and admissions posters for your WhatsApp status.'],
+      ['Import students from Excel', 'Bring your whole list in at once.'],
+      ['Reports to Excel and PDF', 'Attendance, fees and marks, whenever you need them.'],
+      ['Android, iPhone and your laptop', 'On a laptop the browser version gets a full desktop layout.'],
+    ],
+  },
+] as const;
+---
+<Base title="Features · ChalkPis Tutor" description="Everything ChalkPis Tutor does: attendance, fees with your own UPI QR, WhatsApp alerts and receipts to parents, tests and report cards, homework, timetable, enquiries and posters. Every feature in every plan.">
+  <section class="wrap top">
+    <div class="head">
+      <h1 class="h1">Everything ChalkPis Tutor does</h1>
+      <p class="lead" style="margin-top: 20px">Every feature is in every plan, so nothing here costs extra. Here it is, one area at a time.</p>
+    </div>
+    <nav class="jump" aria-label="Areas">{AREAS.map((a) => <a href={`#${a.id}`}>{a.name}</a>)}</nav>
+  </section>
+
+  {AREAS.map((a, i) => (
+    <section id={a.id} class="sec">
+      <div class={`wrap area ${i % 2 ? 'flip' : ''}`}>
+        <div class="area-copy">
+          <h2 class="h2">{a.name}</h2>
+          <p class="lead" style="margin-top: 16px">{a.lead}</p>
+          <ul class="items">
+            {a.items.map(([t, d]) => (
+              <li><Icon name="check" size={18} stroke={2.4} /><span><strong>{t}</strong>{d}</span></li>
+            ))}
+          </ul>
+        </div>
+        <div class="card area-art" aria-hidden="true">
+          {a.id === 'attendance' && (
+            <div class="panel pad">
+              <div class="vh"><span class="h4">Class 9 Science</span><span class="small">Today, 4:00 pm</span></div>
+              <div style="margin-top: 14px">
+                <div class="row"><span>Ananya Rao</span><span class="pill ok">Present</span></div>
+                <div class="row"><span>Riya Shah</span><span class="pill no">Absent</span></div>
+                <div class="row"><span>Sai Kumar</span><span class="pill due">Late</span></div>
+                <div class="row"><span>Meera Pillai</span><span class="pill ok">Present</span></div>
+              </div>
+              <div style="margin-top: 12px; display: flex; gap: 8px"><span class="btn btn-sm btn-dark" style="flex: 1">Save attendance</span><span class="btn btn-sm btn-soft">Holiday</span></div>
+            </div>
+          )}
+          {a.id === 'fees' && (
+            <div class="panel pad">
+              <div class="vh"><span class="h4">November 2026</span><span class="small">54 of 64 paid</span></div>
+              <div class="bar"><div style="width: 84%"></div></div>
+              <div style="margin-top: 10px">
+                <div class="row"><span style="flex: 1">Riya Shah</span><strong>₹1,500</strong><span class="pill due">Due</span></div>
+                <div class="row"><span style="flex: 1">Kabir Mehta</span><strong>₹700</strong><span class="pill due">Part paid</span></div>
+                <div class="row"><span style="flex: 1">Diya Sen</span><strong>₹1,200</strong><span class="pill ok">Paid</span></div>
+              </div>
+            </div>
+          )}
+          {a.id === 'parents' && (
+            <div class="chat">
+              <p class="bubble">Hello, Riya Shah was marked <strong>absent</strong> for the Class 9 Science class on 4 Nov 2026. If this is not correct, please contact Sharma Tuitions directly. Thank you.<span class="time">4:12 pm</span></p>
+              <p class="bubble">Hello, we have received the fee payment for Riya Shah: ₹1,500 (receipt 0142, balance due ₹0). Please keep this message as your receipt. Regards, Sharma Tuitions. Thank you.<span class="time">6:40 pm</span></p>
+            </div>
+          )}
+          {a.id === 'teaching' && (
+            <div class="panel pad">
+              <p style="font-size: 14px; font-weight: 600">Unit test 3 · Maths · out of 50</p>
+              <div style="margin-top: 8px">
+                <div class="row"><span class="rank">1</span><span style="flex: 1">Ananya Rao</span><span>48</span><strong class="grade">A1</strong></div>
+                <div class="row"><span class="rank">2</span><span style="flex: 1">Ishaan Reddy</span><span>45</span><strong class="grade">A1</strong></div>
+                <div class="row"><span class="rank">3</span><span style="flex: 1">Meera Pillai</span><span>41</span><strong class="grade b">A2</strong></div>
+              </div>
+            </div>
+          )}
+          {a.id === 'centre' && (
+            <div class="panel pad">
+              <p class="h4">Good evening, Priya</p>
+              <div class="stats">
+                <div class="stat"><p class="small" style="font-size: 12px">Students</p><p class="num">64</p></div>
+                <div class="stat"><p class="small" style="font-size: 12px">Pending</p><p class="num">₹8,200</p></div>
+                <div class="stat blue"><p style="font-size: 12px; opacity: 0.85">Collected</p><p class="num">₹42,500</p></div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  ))}
+
+  <section class="sec end">
+    <div class="wrap">
+      <div class="card banner">
+        <h2 class="h2" style="flex: 1 1 420px; max-width: 640px">Try every feature free for {TRIAL_DAYS} days</h2>
+        <a class="btn btn-dark" href={START_URL}>Start {TRIAL_DAYS}-day free trial</a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .top { padding-top: 72px; }
+  .jump { margin-top: 32px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .jump a { height: 40px; padding: 0 16px; border-radius: 999px; background: #f1f2f4; display: inline-flex; align-items: center; font-size: 14px; font-weight: 600; text-decoration: none; }
+  .jump a:hover { background: #e4e4e7; }
+  .area { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; align-items: center; }
+  .area.flip .area-copy { order: 2; }
+  .items { list-style: none; padding: 0; margin-top: 28px; display: grid; gap: 18px; }
+  .items li { display: flex; gap: 12px; }
+  .items :global(svg) { flex: none; margin-top: 3px; color: var(--blue); }
+  .items strong { display: block; font-size: 16px; font-weight: 600; }
+  .items span { font-size: 15px; line-height: 1.55; color: var(--muted); }
+  .pad { padding: 20px; }
+  .vh { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+  .bar { margin-top: 12px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+  .bar div { height: 100%; background: var(--blue); }
+  .chat { background: #efeae2; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .bubble { max-width: 360px; background: #fff; border-radius: 4px 14px 14px 14px; padding: 12px 14px; font-size: 14px; line-height: 1.5; }
+  .time { display: block; margin-top: 6px; text-align: right; font-size: 11px; color: var(--faint); }
+  .rank { width: 14px; color: var(--faint); }
+  .grade { width: 28px; color: #047857; }
+  .grade.b { color: var(--blue-ink); }
+  .stats { margin-top: 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .stat { background: var(--surface); border-radius: 12px; padding: 12px; }
+  .stat .num { font-size: 22px; }
+  .stat.blue { background: var(--blue); color: #fff; }
+  .banner { background: var(--blue-50); padding: 48px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px; }
+  @media (max-width: 860px) {
+    .area { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+    .area.flip .area-copy { order: 0; }
+  }
+  @media (max-width: 600px) {
+    .top { padding-top: 40px; }
+    .jump { justify-content: flex-start; }
+    .banner { padding: 24px; }
+    .banner .btn { width: 100%; }
+  }
+</style>

@@ -2,9 +2,10 @@
 import Logo from './Logo.astro';
 import { START_URL, SIGN_IN_URL } from '../config';
 
-const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+// build.format 'file' gives /pricing.html here; compare without it
+const path = Astro.url.pathname.replace(/\.html$/, '').replace(/\/$/, '') || '/';
 const links = [
-  { href: '/#features', label: 'Features' },
+  { href: '/features', label: 'Features' },
   { href: '/#roles', label: 'Who it’s for' },
   { href: '/pricing', label: 'Pricing' },
 ];
