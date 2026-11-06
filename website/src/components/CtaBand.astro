@@ -33,17 +33,17 @@ const { title, from } = Astro.props;
 </div>
 
 <style>
-  .cta-dark { border-radius: 28px; padding: 64px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 48px; background: linear-gradient(120deg, #0b1620 0%, #0b2a44 55%, #0d5d93 100%); }
+  .cta-dark { border-radius: 28px; padding: 64px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 48px; background: radial-gradient(110% 130% at 100% 100%, rgba(14, 119, 190, 0.55) 0%, rgba(14, 119, 190, 0) 62%), var(--navy); }
   .cta-copy { flex: 1 1 420px; max-width: 600px; }
-  .cta-copy .h2 { color: #fff; }
-  .cta-copy .lead { margin-top: 16px; color: #c9d6e2; }
+  .cta-copy .h2 { color: var(--chalk); }
+  .cta-copy .lead { margin-top: 16px; color: var(--chalk-soft); }
   .cta-btns { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px; }
   .btn-ghost { background: transparent; color: #fff; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.5); }
   .btn-ghost:hover { background: rgba(255, 255, 255, 0.08); }
   .cta-app { display: flex; align-items: center; gap: 20px; }
   .cta-qr { background: #fff; border-radius: 16px; padding: 12px; }
-  .cta-app-title { font-weight: 600; color: #fff; }
-  .cta-app-note { margin-top: 4px; color: #c9d6e2; }
+  .cta-app-title { font-weight: 600; color: var(--chalk); }
+  .cta-app-note { margin-top: 4px; color: var(--chalk-soft); }
   .cta-badges { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
   .cta-badges .play { margin: -10px; }
   @media (max-width: 860px) { .cta-qr { display: none; } }

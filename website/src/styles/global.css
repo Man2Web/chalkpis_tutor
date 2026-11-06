@@ -1,18 +1,26 @@
-/* ChalkPis Tutor website: one design system for every page (matches the approved canvas). */
+/* ChalkPis Tutor website: one design system for every page. Colours and type follow the Tutor brand kit (brand/README.md). */
 :root {
-  --blue: #0e77be;
-  --blue-ink: #0a5f99;
-  --blue-50: #eaf4fb;
+  /* brand */
+  --blue: #0e77be;       /* brand blue: the mark, highlights, focus rings, big blue text */
+  --blue-ink: #0b64a0;   /* links and small blue text on white */
+  --blue-50: #eaf4fb;    /* light tints of the brand blue */
   --blue-100: #d5e9f7;
-  --ink: #0b0b0f;
-  --text: #3f3f46;
-  --muted: #52525b;
-  --faint: #71717a;
-  --line: #f1f2f4;
-  --surface: #f6f7f9;
-  --yellow: #fce38a;
-  --wa-green: #25d366;
-  --display: 'Inter Tight', Inter, system-ui, sans-serif;
+  --navy: #0f2d40;       /* blackboard navy: main buttons, dark bands */
+  --navy-2: #173d55;     /* hover and raised surfaces on the navy */
+  --chalk: #f4f1ea;      /* text and logo on the navy */
+  --chalk-soft: rgba(244, 241, 234, 0.72);
+  --yellow: #f2d06b;     /* chalk yellow: underlines and highlights */
+  /* neutral */
+  --ink: #111111;        /* headings */
+  --text: #262626;       /* body text */
+  --muted: #686868;      /* secondary text */
+  --faint: #767676;      /* smallest labels (the kit's #A3A3A3 is for placeholders only; this one stays readable) */
+  --border: rgba(0, 0, 0, 0.08);
+  --line: #efefef;       /* row dividers */
+  --soft: #f0f0f0;       /* soft buttons, switches */
+  --surface: #f7f7f7;    /* shell grey: panels around cards */
+  --wa-green: #1da851;   /* WhatsApp buttons (white text) */
+  --display: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --sans: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
@@ -37,33 +45,35 @@ button { font: inherit; }
 .head { max-width: 760px; margin: 0 auto; text-align: center; }
 
 /* type */
-.h1 { font-family: var(--display); font-weight: 700; font-size: clamp(40px, 5.2vw, 66px); line-height: 1.03; letter-spacing: -0.03em; }
-.h2 { font-family: var(--display); font-weight: 700; font-size: clamp(30px, 3.4vw, 44px); line-height: 1.1; letter-spacing: -0.025em; }
-.h3 { font-family: var(--display); font-weight: 700; font-size: clamp(22px, 2vw, 26px); line-height: 1.2; letter-spacing: -0.015em; }
+/* Inter only: ExtraBold 800 headlines, Bold 700 titles, SemiBold 600 labels and buttons, Regular 400 body */
+.h1 { font-family: var(--display); font-weight: 800; font-size: clamp(40px, 5.2vw, 66px); line-height: 1.04; letter-spacing: -0.035em; }
+.h2 { font-family: var(--display); font-weight: 800; font-size: clamp(30px, 3.4vw, 44px); line-height: 1.1; letter-spacing: -0.03em; }
+.h3 { font-family: var(--display); font-weight: 700; font-size: clamp(22px, 2vw, 26px); line-height: 1.2; letter-spacing: -0.02em; }
 .h4 { font-size: 17px; font-weight: 600; line-height: 1.35; }
 .lead { font-size: 18px; line-height: 1.6; color: var(--text); }
 .body { font-size: 16px; line-height: 1.6; color: var(--muted); }
 .small { font-size: 14px; line-height: 1.5; color: var(--muted); }
-.num { font-family: var(--display); font-weight: 700; letter-spacing: -0.02em; }
+.num { font-family: var(--display); font-weight: 800; letter-spacing: -0.025em; }
+.tagline { font-size: 12px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; }
 
 /* buttons */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; padding: 0 20px; border: 0; border-radius: 12px; font-size: 15px; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; transition: background-color 0.15s ease; }
-.btn-dark { background: var(--ink); color: #fff; }
-.btn-dark:hover { background: #27272a; }
-.btn-light { background: #fff; color: var(--ink); }
-.btn-soft { background: #f1f2f4; color: var(--ink); }
-.btn-soft:hover { background: #e4e4e7; }
+.btn-dark { background: var(--navy); color: #fff; }
+.btn-dark:hover { background: var(--navy-2); }
+.btn-light { background: #fff; color: var(--navy); }
+.btn-soft { background: var(--soft); color: var(--ink); }
+.btn-soft:hover { background: #e6e6e6; }
 .btn-sm { height: 40px; padding: 0 16px; font-size: 14px; border-radius: 10px; }
 .btn-xs { height: 32px; padding: 0 12px; font-size: 13px; border-radius: 10px; }
 
 /* surfaces */
 .card { background: var(--surface); border-radius: 24px; padding: 32px; }
-.panel { background: #fff; border-radius: 16px; box-shadow: 0 0 0 1px rgba(11, 11, 15, 0.06), 0 1px 2px rgba(11, 11, 15, 0.04); }
+.panel { background: #fff; border-radius: 16px; box-shadow: 0 0 0 1px rgba(17, 17, 17, 0.06), 0 1px 2px rgba(17, 17, 17, 0.04); }
 .pill { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .ok { background: #e7f6ef; color: #047857; }
 .no { background: #fdecec; color: #b91c1c; }
 .due { background: #fef3e2; color: #b45309; }
-.mute { background: #f1f2f4; color: var(--muted); }
+.mute { background: var(--soft); color: var(--muted); }
 .tile { display: inline-flex; align-items: center; justify-content: center; flex: none; background: var(--blue-50); color: var(--blue-ink); }
 .tile-lg { width: 44px; height: 44px; border-radius: 12px; margin-bottom: 18px; }
 .tile-sm { width: 32px; height: 32px; border-radius: 10px; }
@@ -71,7 +81,7 @@ button { font: inherit; }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line); font-size: 14px; }
 
 /* nav */
-.nav { position: sticky; top: 0; z-index: 20; background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid rgba(11, 11, 15, 0.06); }
+.nav { position: sticky; top: 0; z-index: 20; background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid rgba(17, 17, 17, 0.06); }
 .nav-in { height: 72px; display: flex; align-items: center; gap: 32px; }
 .nav-links { display: flex; align-items: center; gap: 28px; }
 .nav-links a { color: var(--text); text-decoration: none; font-size: 14px; font-weight: 500; }
@@ -92,7 +102,7 @@ button { font: inherit; }
 }
 
 /* footer */
-.foot { background: var(--surface); border-top: 1px solid rgba(11, 11, 15, 0.06); }
+.foot { background: var(--surface); border-top: 1px solid rgba(17, 17, 17, 0.06); }
 .foot a { color: var(--muted); text-decoration: none; }
 .foot a:hover { color: var(--ink); }
 

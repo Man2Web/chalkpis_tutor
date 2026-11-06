@@ -2,43 +2,31 @@
 <!--
   The link preview image (public/og.png, 1200×630) for WhatsApp, Facebook, Meta ads and X, and with ?cover the
   Facebook Page cover (1640×624, everything kept in the middle 1100 px that phones and the profile picture leave).
-  Photographed by scripts/make-images.mjs with headless Chrome. Same look and headline as the home page hero.-->
+  Photographed by scripts/make-images.mjs with headless Chrome. Same headline as the home page hero; brand kit colours
+  and type (brand/README.md), and the kit's own logo file.-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <style>
-@font-face{font-family:'Inter Tight';font-weight:700;src:url('../node_modules/@fontsource/inter-tight/files/inter-tight-latin-700-normal.woff2') format('woff2')}
 @font-face{font-family:Inter;font-weight:400;src:url('../node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2') format('woff2')}
-@font-face{font-family:Inter;font-weight:500;src:url('../node_modules/@fontsource/inter/files/inter-latin-500-normal.woff2') format('woff2')}
 @font-face{font-family:Inter;font-weight:600;src:url('../node_modules/@fontsource/inter/files/inter-latin-600-normal.woff2') format('woff2')}
+@font-face{font-family:Inter;font-weight:800;src:url('../node_modules/@fontsource/inter/files/inter-latin-800-normal.woff2') format('woff2')}
 *{box-sizing:border-box;margin:0}
 html,body{width:1200px;height:630px;overflow:hidden}
-body{background:#FFFFFF;color:#0B0B0F;font-family:Inter,sans-serif;-webkit-font-smoothing:antialiased;display:flex;padding:56px 56px 56px 72px;gap:48px}
+body{background:#FFFFFF;color:#111111;font-family:Inter,sans-serif;-webkit-font-smoothing:antialiased;display:flex;padding:56px 56px 56px 72px;gap:48px}
 .text{flex:1;display:flex;flex-direction:column}
-h1{margin-top:48px;font-family:'Inter Tight',sans-serif;font-weight:700;font-size:68px;line-height:1.02;letter-spacing:-0.03em;text-wrap:balance}
-.lead{margin-top:24px;font-size:22px;line-height:1.5;color:#3F3F46;max-width:520px}
+.logo{display:block;align-self:flex-start;height:50px;width:auto}
+h1{margin-top:48px;font-weight:800;font-size:72px;line-height:1.02;letter-spacing:-0.035em;text-wrap:balance}
+.lead{margin-top:24px;font-size:22px;line-height:1.5;color:#262626;max-width:520px}
 .foot{margin-top:auto;display:flex;align-items:center;gap:14px;font-size:20px;font-weight:600}
-.foot .pill{background:#EAF4FB;color:#0A5F99;border-radius:999px;padding:8px 16px;font-size:18px}
+.foot .pill{background:#EAF4FB;color:#0B64A0;border-radius:999px;padding:8px 16px;font-size:18px}
 .art{width:440px;flex:none;border-radius:28px;overflow:hidden;background:#0E77BE}
 .art img{display:block;width:100%;height:100%;object-fit:cover;object-position:center top}
-.phone{position:absolute;left:50%;top:36px;transform:translateX(-50%);width:262px;height:372px;background:#FFFFFF;border:10px solid #0B0B0F;border-radius:42px;padding:24px 18px 18px;display:flex;flex-direction:column;gap:9px;box-shadow:0 40px 60px -30px rgba(11,40,70,0.45)}
-.when{font-size:12px;color:#71717A}
-.batch{font-family:'Inter Tight',sans-serif;font-weight:700;font-size:19px;letter-spacing:-0.01em}
-.count{font-size:12px;color:#52525B;margin-bottom:4px}
-.r{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:#F6F7F9;font-size:13px;font-weight:500}
-.av{width:30px;height:30px;border-radius:50%;background:#EAF4FB;color:#0A5F99;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center}
-.n{flex:1}
-.pl{height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;display:flex;align-items:center}
-.ok{background:#E7F6EF;color:#047857}.no{background:#FDECEC;color:#B91C1C}
-.save{margin-top:auto;height:42px;border-radius:12px;background:#0B0B0F;color:#FFFFFF;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center}
-.toast{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);width:262px;background:#FFFFFF;border-radius:16px;padding:14px;display:flex;gap:10px;box-shadow:0 20px 40px -20px rgba(11,11,15,0.3),0 0 0 1px rgba(11,11,15,0.06);font-size:13px;line-height:1.4}
-.toast .ic{width:32px;height:32px;flex:none;border-radius:10px;background:#E7F6EF;display:flex;align-items:center;justify-content:center}
-.toast strong{display:block;font-weight:600}.toast span.s{color:#52525B}
 .hl{color:#0E77BE}
 /* Facebook cover: wider, shorter, content in the middle */
 html.cover,html.cover body{width:1640px;height:624px}
 html.cover body{padding:64px 270px;gap:64px}
-html.cover h1{margin-top:36px;font-size:66px}
+html.cover h1{margin-top:36px;font-size:68px}
 html.cover .lead{max-width:560px}
 /* the Page's profile picture covers the bottom-left corner on desktop */
 html.cover .foot{margin-top:32px}
@@ -48,9 +36,9 @@ html.cover .art{width:420px}
 </head>
 <body>
 <div class="text">
-<svg viewBox="0 0 2942 1001" width="147" height="50" aria-label="ChalkPis Tutor"><g fill="#0E77BE"><path d="M37.3399 224.58C23.0399 238.35 23.1199 261.23 37.3299 275.98L216.18 461.67L691.6 3.77L270.51 0L37.3399 224.58Z"/><path d="M995.16 284.07L763.93 44.0001C749.76 29.2901 727.01 28.4601 712.65 42.2901L532.89 215.43L789.81 482.18"/><path d="M967.45 776.33C981.56 762.74 981.8 739.56 967.66 724.88L788.81 539.19L313.33 997.15L734.19 1000.94L967.46 776.33H967.45Z"/><path d="M241.7 957.72C255.74 972.3 278.75 972.95 292.89 959.33L472.81 786.04L0 295.15L9.91 716.69L241.7 957.72Z"/></g><g transform="translate(1197 0)" fill="#111111"><path d="M85 170H155C163.3 170 170 176.7 170 185V285.2H235C243.3 285.2 250 292 250 300.2V350C250 358.3 243.3 365 235 365H170V696.6C170 704.9 163.3 711.6 155 711.6H85C76.7 711.6 70 704.9 70 696.6V365H15C6.7 365 0 358.3 0 350V300.2C0 292 6.7 285.2 15 285.2H70V185C70 176.7 76.7 170 85 170Z"/><path transform="translate(320 0) rotate(180 174.64 498.4) translate(-1544.77 0)" d="M1878.92 711.59H1809.37C1801.05 711.59 1794.25 704.03 1794.25 695.71V446.99C1794.25 381.22 1782.91 364.59 1732.26 364.59C1706.56 364.59 1676.32 373.66 1644.56 390.29V695.71C1644.56 704.03 1637.76 711.59 1629.44 711.59H1559.89C1551.57 711.59 1544.77 704.03 1544.77 695.71V300.32C1544.77 292 1551.57 285.2 1559.89 285.2H1629.44C1637.76 285.2 1644.56 292 1644.56 300.32V307.88C1673.29 290.49 1705.04 279.91 1758.72 279.91C1863.05 279.91 1894.04 354 1894.04 446.99V695.71C1894.04 704.03 1887.24 711.59 1878.92 711.59Z"/><path transform="translate(739 0)" d="M85 170H155C163.3 170 170 176.7 170 185V285.2H235C243.3 285.2 250 292 250 300.2V350C250 358.3 243.3 365 235 365H170V696.6C170 704.9 163.3 711.6 155 711.6H85C76.7 711.6 70 704.9 70 696.6V365H15C6.7 365 0 358.3 0 350V300.2C0 292 6.7 285.2 15 285.2H70V185C70 176.7 76.7 170 85 170Z"/><path transform="translate(-1875.27 0)" fill-rule="evenodd" d="M3114.95 279.91C3236.67 279.91 3295.63 351.73 3295.63 469.67V527.88C3295.63 645.82 3236.66 717.63 3114.95 717.63C2993.24 717.63 2934.27 645.82 2934.27 527.88V469.67C2934.27 351.73 2993.23 279.91 3114.95 279.91ZM3114.95 361.56C3049.940 361.56 3034.06 407.68 3034.06 469.67V527.87C3034.06 589.86 3049.93 635.98 3114.95 635.98C3179.97 635.98 3195.84 589.86 3195.84 527.87V469.67C3195.84 407.68 3179.96 361.56 3114.95 361.56Z"/><path transform="translate(-54.77 0)" d="M1644.56 307.88C1673.29 290.49 1705.04 279.91 1758.72 279.91H1786C1794 279.91 1800 286 1800 294V350.59C1800 358.59 1794 364.59 1786 364.59H1732.26C1706.56 364.59 1676.32 373.66 1644.56 390.29V695.71C1644.56 704.03 1637.76 711.59 1629.44 711.59H1559.89C1551.57 711.59 1544.77 704.03 1544.77 695.71V300.32C1544.77 292 1551.57 285.2 1559.89 285.2H1629.44C1637.76 285.2 1644.56 292 1644.56 300.32V307.88Z"/></g></svg>
-<h1>Still chasing fees <span class="hl">every month?</span></h1>
-<p class="lead">Fee reminders with your own UPI QR, attendance in seconds and receipts on WhatsApp, for tuition centres, coaching classes and academies.</p>
+<img class="logo" src="../brand/tutor-logo-color.svg" alt="ChalkPis Tutor">
+<h1>Collect every fee <span class="hl">on time</span></h1>
+<p class="lead">Fee reminders on WhatsApp with your own UPI QR, attendance in seconds and automatic receipts, for tuition centres, coaching classes and academies.</p>
 <div class="foot"><span class="pill">Free for 7 days</span><span>chalkpistutor.com</span></div>
 </div>
 <div class="art"><img src="../public/app/home-dashboard.webp" alt=""></div>

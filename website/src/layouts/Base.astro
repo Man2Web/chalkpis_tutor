@@ -2,8 +2,8 @@
 import '@fontsource/inter/400.css';
 import '@fontsource/inter/500.css';
 import '@fontsource/inter/600.css';
-import '@fontsource/inter-tight/600.css';
-import '@fontsource/inter-tight/700.css';
+import '@fontsource/inter/700.css';
+import '@fontsource/inter/800.css';
 import '../styles/global.css';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
@@ -43,8 +43,9 @@ const ogImage = new URL(`/og.png?v=${ogHash}`, SITE_URL).href;
     <title>{title}</title>
     <meta name="description" content={description} />
     {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
-    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="theme-color" content="#ffffff" />
     <!-- Bing Webmaster Tools site verification -->
@@ -59,7 +60,7 @@ const ogImage = new URL(`/og.png?v=${ogHash}`, SITE_URL).href;
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="ChalkPis Tutor: still chasing fees every month? The app's Home screen with fees collected and pending." />
+    <meta property="og:image:alt" content="ChalkPis Tutor: collect every fee on time. The app's Home screen with fees collected and pending." />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content={ogImage} />
     {schema && <script type="application/ld+json" set:html={JSON.stringify(schema)} />}

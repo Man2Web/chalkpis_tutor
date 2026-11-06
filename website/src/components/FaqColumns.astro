@@ -28,8 +28,8 @@ const { title, items } = Astro.props;
   .faq-side { position: sticky; top: 112px; }
   .faq-side :global(a) { font-weight: 600; color: var(--blue-ink); text-decoration: none; }
   .faq-side :global(a:hover) { text-decoration: underline; }
-  .faq { border-top: 1px solid #e4e4e7; }
-  .faq details { border-bottom: 1px solid #e4e4e7; }
+  .faq { border-top: 1px solid var(--border); }
+  .faq details { border-bottom: 1px solid var(--border); }
   .faq summary { list-style: none; cursor: pointer; min-height: 44px; padding: 22px 0; display: flex; align-items: center; gap: 16px; font-size: 17px; font-weight: 600; line-height: 1.4; }
   .faq summary::-webkit-details-marker { display: none; }
   .faq summary span { flex: 1; }

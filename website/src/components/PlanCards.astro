@@ -57,9 +57,9 @@ import { PLANS, rupees } from '../data/plans';
 
 <style>
   .switch-row { text-align: center; }
-  .switch { margin-top: 36px; display: inline-flex; align-items: center; gap: 4px; background: #f1f2f4; border-radius: 14px; padding: 4px; }
+  .switch { margin-top: 36px; display: inline-flex; align-items: center; gap: 4px; background: var(--soft); border-radius: 14px; padding: 4px; }
   .switch button { border: 0; cursor: pointer; background: transparent; border-radius: 11px; padding: 0 18px; height: 44px; font-size: 15px; font-weight: 600; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
-  .switch button[aria-pressed='true'] { background: #fff; box-shadow: 0 1px 3px rgba(11, 11, 15, 0.12); }
+  .switch button[aria-pressed='true'] { background: #fff; box-shadow: 0 1px 3px rgba(17, 17, 17, 0.12); }
   .save { background: var(--yellow); border-radius: 999px; padding: 3px 8px; font-size: 12px; font-weight: 600; }
 
   .plans { margin-top: 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 20px; }
@@ -77,10 +77,10 @@ import { PLANS, rupees } from '../data/plans';
   .ticks svg { color: var(--blue); }
   .plan-cta { margin-top: auto; }
   .ticks { margin-bottom: 32px; }
-  .plan-dark { background: var(--ink); color: #fff; }
-  .plan-dark .per, .plan-dark .note { color: #d4d4d8; }
-  .plan-dark .ticks li { color: #fff; }
-  .plan-dark .ticks svg { color: #7dd3fc; }
+  .plan-dark { background: var(--navy); color: var(--chalk); }
+  .plan-dark .per, .plan-dark .note { color: var(--chalk-soft); }
+  .plan-dark .ticks li { color: var(--chalk); }
+  .plan-dark .ticks svg { color: var(--yellow); }
   [data-cycle-value='month'] .y, [data-cycle-value='year'] .m { display: none; }
   .foot-note { margin-top: 22px; text-align: center; }
 

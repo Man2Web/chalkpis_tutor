@@ -12,7 +12,7 @@ interface Props {
 }
 const { size = 112, from } = Astro.props;
 const url = `${SITE_URL}/get-app?utm_source=website&utm_medium=qr&utm_campaign=${encodeURIComponent(from)}`;
-const svg = await QRCode.toString(url, { type: 'svg', margin: 0, errorCorrectionLevel: 'M', color: { dark: '#0b0b0f', light: '#ffffff' } });
+const svg = await QRCode.toString(url, { type: 'svg', margin: 0, errorCorrectionLevel: 'M', color: { dark: '#111111', light: '#ffffff' } });
 ---
 <span class="qr" style={`width: ${size}px; height: ${size}px`} role="img" aria-label="QR code to get the ChalkPis Tutor app" set:html={svg} />
 

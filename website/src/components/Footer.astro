@@ -21,6 +21,7 @@ const cols = [
   <div class="wrap foot-top">
     <div class="foot-brand">
       <a href="/" aria-label="ChalkPis Tutor home"><Logo height={34} /></a>
+      <p class="tagline foot-tag">Manage • Teach • Grow</p>
       <p class="small foot-about">Attendance, fees and WhatsApp updates for tuition centres, coaching classes and academies across India.</p>
       <div class="badges">
         <a href={APP_STORE_URL}><img src="/badges/app-store.svg" alt="Download on the App Store" width="120" height="40" style="height: 40px; width: auto" /></a>
@@ -59,7 +60,8 @@ const cols = [
     .foot-top { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px 32px; }
     .foot-brand { grid-column: 1 / -1; }
   }
-  .foot-about { margin-top: 16px; max-width: 340px; line-height: 1.6; }
+  .foot-tag { margin-top: 14px; color: var(--blue-ink); }
+  .foot-about { margin-top: 12px; max-width: 340px; line-height: 1.6; }
   .badges { margin-top: 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
   /* the Google Play badge file carries its own clear space */
   .badges .play { margin: -10px; }
@@ -72,7 +74,7 @@ const cols = [
     .foot-top { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px 24px; padding-top: 48px; }
     .foot-brand, .foot-contact { grid-column: 1 / -1; }
   }
-  .foot-bottom { border-top: 1px solid rgba(11, 11, 15, 0.06); }
+  .foot-bottom { border-top: 1px solid rgba(17, 17, 17, 0.06); }
   .foot-bottom-in { padding-top: 20px; padding-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--muted); }
   .erp { font-weight: 600; color: var(--ink) !important; }
   .legal { display: flex; gap: 16px; }

@@ -19,7 +19,7 @@ const { q, a, flip = false } = Astro.props;
   .qa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: center; }
   .qa.flip .qa-copy { order: 2; }
   .qa-copy .lead { margin-top: 18px; }
-  .qa-art { border-radius: 28px; padding: 48px 40px; min-height: 340px; display: flex; align-items: center; justify-content: center; background: #0b2540 radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.1) 1px, transparent 0) 0 0 / 18px 18px; }
+  .qa-art { border-radius: 28px; padding: 48px 40px; min-height: 340px; display: flex; align-items: center; justify-content: center; background: var(--navy) radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.1) 1px, transparent 0) 0 0 / 18px 18px; }
   .qa-art > :global(*) { width: 100%; max-width: 400px; }
   @media (max-width: 860px) {
     .qa { grid-template-columns: minmax(0, 1fr); gap: 28px; }

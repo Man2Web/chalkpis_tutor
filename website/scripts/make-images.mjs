@@ -1,8 +1,7 @@
 // Makes the images that sit beside the site's pages in public/:
 //   og.png                1200×630 link preview (WhatsApp, Facebook, Meta ads, X), photographed from scripts/og.html
-//   apple-touch-icon.png  180×180 home-screen icon: the blue C on white, like the app icon
-//   favicon-32.png        32×32 for browsers and crawlers that skip favicon.svg
-//   favicon.ico           the 32 px and 48 px PNGs in one .ico
+//   favicon.svg, apple-touch-icon.png (180×180), favicon-32.png   the brand kit's own files from brand/, copied
+//   favicon.ico           the kit's 16, 32 and 48 px favicons in one .ico
 // Run from website/: `npm run images` (needs Chrome or Edge for og.png; set CHROME to its path if it is elsewhere).
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdtempSync, mkdirSync } from 'node:fs';
@@ -13,17 +12,8 @@ import sharp from 'sharp';
 
 const root = resolve(import.meta.dirname, '..');
 const pub = join(root, 'public');
-const mark = readFileSync(join(pub, 'favicon.svg'), 'utf8');
-
-/** The C mark centred on a white square, the mark taking `share` of the side. */
-async function icon(size, share) {
-  const inner = Math.round(size * share);
-  const c = await sharp(Buffer.from(mark), { density: 600 }).resize(inner, inner).png().toBuffer();
-  return sharp({ create: { width: size, height: size, channels: 4, background: '#FFFFFF' } })
-    .composite([{ input: c, gravity: 'centre' }])
-    .png()
-    .toBuffer();
-}
+const brand = join(root, 'brand');
+const kit = (name) => readFileSync(join(brand, name));
 
 // The hero picture: the real app's Home screen, cropped (not redrawn) from the App Store screenshot, at 2x for a
 // 480 px wide slot. The phone rises from the bottom edge of the store's blue background.
@@ -34,13 +24,13 @@ await sharp(resolve(root, '..', 'marketing', 'store', 'appstore', '6.9', 'phone-
   .webp({ quality: 88 })
   .toFile(join(pub, 'app', 'home-dashboard.webp'));
 
-writeFileSync(join(pub, 'apple-touch-icon.png'), await icon(180, 0.62));
-const png32 = await icon(32, 0.84);
-const png48 = await icon(48, 0.84);
-writeFileSync(join(pub, 'favicon-32.png'), png32);
+// The icons are the brand kit's own files (brand/), copied as they are.
+writeFileSync(join(pub, 'favicon.svg'), kit('favicon.svg'));
+writeFileSync(join(pub, 'apple-touch-icon.png'), kit('apple-touch-icon-180.png'));
+writeFileSync(join(pub, 'favicon-32.png'), kit('favicon-32.png'));
 
 // An .ico is a small header plus a directory of images; PNG images can be stored as they are.
-const images = [[32, png32], [48, png48]];
+const images = [[16, kit('favicon-16.png')], [32, kit('favicon-32.png')], [48, kit('favicon-48.png')]];
 const head = Buffer.alloc(6 + 16 * images.length);
 head.writeUInt16LE(0, 0);
 head.writeUInt16LE(1, 2);
