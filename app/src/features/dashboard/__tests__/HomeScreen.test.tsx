@@ -73,7 +73,7 @@ it('greets the tutor and shows zeroed numbers for a new institute', async () => 
   await render(<HomeScreen />);
   expect(screen.getByText(/^Good (morning|afternoon|evening), Asha$/)).toBeTruthy();
   expect(screen.getByText('No classes scheduled today')).toBeTruthy();
-  expect(screen.getByLabelText('Chalkpis')).toBeTruthy(); // logo, top left
+  expect(screen.getByLabelText('ChalkPis Tutor')).toBeTruthy(); // logo, top left
 });
 
 it('has no shortcuts that repeat a tab or the menu', async () => {

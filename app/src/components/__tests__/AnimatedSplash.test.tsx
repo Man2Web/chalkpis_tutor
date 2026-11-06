@@ -21,7 +21,7 @@ it('launches on the blue brand screen alone, with no logo drawing before it', as
     </AnimatedSplash>,
   );
   expect(screen.getByText(tagline)).toBeTruthy();
-  expect(screen.getByLabelText('Chalkpis')).toBeTruthy();
+  expect(screen.getByLabelText('ChalkPis Tutor')).toBeTruthy();
   // the white logo-drawing animation that used to come first is gone
   expect(mockLottie).not.toHaveBeenCalled();
   // the native white splash hands over once the overlay is on screen
