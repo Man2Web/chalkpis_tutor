@@ -1,0 +1,62 @@
+---
+/**
+ * Scroll reveal: sections and cards fade and lift into place the first time they scroll into view.
+ * - Nothing is hidden without this script, so the page reads fine without JavaScript.
+ * - The hero and anything already on screen at load are left alone (no flash, no slower first paint).
+ * - Off for visitors who prefer reduced motion.
+ * - Uses the separate `translate` property, so it never fights a card's own `transform` (the tilted why-cards), and
+ *   steps aside once played so hover effects work as before. `translate` doesn't count towards layout shift (CLS).
+ */
+---
+<script>
+  // Groups whose items come in one after another (a short stagger) are listed with the items themselves.
+  const SELECTOR = [
+    '.head', '.why-band .h2', '.why-card', '.qa-copy', '.qa-art', '.switcher', '.stmt', '.roles', '.featured-quote',
+    '.plans > *', '.faq-2 > *', '.cta-dark', 'main .card', 'main .panel.pad', '.others',
+  ].join(', ');
+  const SKIP = '.hero, .marquee, dialog, [data-no-reveal]';
+
+  if ('IntersectionObserver' in window && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.documentElement.classList.add('reveal-ready');
+    const all = [...document.querySelectorAll<HTMLElement>(`main :is(${SELECTOR})`)];
+    // skip the hero and running rows, and anything inside another reveal (it moves with its parent)
+    const items = all.filter((el) => !el.closest(SKIP) && !all.some((p) => p !== el && p.contains(el)));
+    const fold = window.innerHeight;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          const el = e.target as HTMLElement;
+          el.classList.add('is-in');
+          io.unobserve(el);
+          // once played, hand the element back its own transitions (hover lifts, tilts)
+          window.setTimeout(() => el.removeAttribute('data-reveal'), 1200);
+        }
+      },
+      { rootMargin: '0px 0px -8% 0px', threshold: 0.12 },
+    );
+
+    for (const el of items) {
+      if (el.getBoundingClientRect().top < fold) continue; // already visible at load: leave it be
+      // stagger siblings of the same kind (cards in a row), at most 3 steps
+      const sibs = el.parentElement ? [...el.parentElement.children].filter((c) => items.includes(c as HTMLElement)) : [];
+      const step = Math.min(Math.max(sibs.indexOf(el), 0), 3);
+      el.style.setProperty('--reveal-delay', `${step * 90}ms`);
+      el.setAttribute('data-reveal', '');
+      io.observe(el);
+    }
+  }
+</script>
+
+<style is:global>
+  /* html.reveal-ready + attribute outranks a component's own scoped rule, so its transition can't cancel the fade */
+  html.reveal-ready [data-reveal] {
+    opacity: 0;
+    translate: 0 24px;
+    transition:
+      opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms),
+      translate 0.7s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms);
+  }
+  html.reveal-ready [data-reveal].is-in { opacity: 1; translate: 0 0; }
+</style>
