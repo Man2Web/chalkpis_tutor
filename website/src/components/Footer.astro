@@ -2,7 +2,7 @@
 import Logo from './Logo.astro';
 import Icon from './Icon.astro';
 import {
-  APP_STORE_URL, PLAY_STORE_URL, WHATSAPP_URL, SUPPORT_EMAIL, COMPANY, SCHOOL_ERP_URL,
+  APP_STORE_URL, PLAY_STORE_URL, WHATSAPP_URL, SUPPORT_EMAIL, COMPANY, SCHOOL_ERP_URL, TERMS_URL, PRIVACY_URL,
 } from '../config';
 
 import { CLASSES, classUrl } from '../data/classes';
@@ -46,6 +46,7 @@ const cols = [
   <div class="foot-bottom">
     <div class="wrap foot-bottom-in">
       <span>© {new Date().getFullYear()} {COMPANY}</span>
+      <nav aria-label="Legal" class="legal"><a href={TERMS_URL}>Terms</a><a href={PRIVACY_URL}>Privacy</a><a href="/cookies">Cookies</a></nav>
       <span>From the makers of <a href={SCHOOL_ERP_URL} class="erp">ChalkPis School ERP</a></span>
     </div>
   </div>
@@ -74,4 +75,5 @@ const cols = [
   .foot-bottom { border-top: 1px solid rgba(11, 11, 15, 0.06); }
   .foot-bottom-in { padding-top: 20px; padding-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--muted); }
   .erp { font-weight: 600; color: var(--ink) !important; }
+  .legal { display: flex; gap: 16px; }
 </style>

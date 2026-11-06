@@ -1,0 +1,38 @@
+---
+/**
+ * Where the site's QR codes lead: an Android phone goes to Google Play (with the scan's campaign as the install
+ * referrer), an iPhone to the App Store; anything else sees both badges. Not for search engines.
+ */
+import Base from '../layouts/Base.astro';
+import { APP_STORE_URL, PLAY_STORE_URL, SIGN_IN_URL } from '../config';
+---
+<Base title="Get the app · ChalkPis Tutor" description="Download ChalkPis Tutor for Android or iPhone." noindex>
+  <section class="wrap sec end" style="text-align: center">
+    <h1 class="h1">Get the ChalkPis Tutor app</h1>
+    <p class="lead" style="margin: 16px auto 0; max-width: 520px">Opening your phone’s app store. If nothing happens, choose your store below.</p>
+    <div class="stores">
+      <a href={APP_STORE_URL}><img src="/badges/app-store.svg" alt="Download on the App Store" width="144" height="48" style="height: 48px; width: auto" /></a>
+      <a href={PLAY_STORE_URL} class="play"><img src="/badges/google-play.png" alt="Get it on Google Play" width="186" height="72" style="height: 72px; width: auto" /></a>
+    </div>
+    <p class="small" style="margin-top: 28px">On a laptop? <a href={SIGN_IN_URL} style="color: var(--blue)">Use ChalkPis in your browser</a>.</p>
+  </section>
+</Base>
+
+<script is:inline define:vars={{ PLAY_STORE_URL, APP_STORE_URL }}>
+  var ua = navigator.userAgent || '';
+  var q = new URLSearchParams(location.search);
+  var tag = new URLSearchParams();
+  ['utm_source', 'utm_medium', 'utm_campaign'].forEach(function (k) { if (q.get(k)) tag.set(k, q.get(k)); });
+  if (/android/i.test(ua)) {
+    var p = new URL(PLAY_STORE_URL);
+    if (tag.toString()) p.searchParams.set('referrer', tag.toString());
+    location.replace(p.href);
+  } else if (/iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+    location.replace(APP_STORE_URL);
+  }
+</script>
+
+<style>
+  .stores { margin-top: 32px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; }
+  .stores .play { margin: -12px; }
+</style>

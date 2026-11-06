@@ -9,6 +9,8 @@ import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
 import Analytics from '../components/Analytics.astro';
 import CookieBanner from '../components/CookieBanner.astro';
+import DemoDialog from '../components/DemoDialog.astro';
+import GetAppCard from '../components/GetAppCard.astro';
 import { SITE_NAME, SITE_URL } from '../config';
 
 interface Props {
@@ -61,6 +63,8 @@ const ogImage = new URL('/og.png', SITE_URL).href;
     <Nav />
     <main id="main"><slot /></main>
     <Footer />
+    <DemoDialog />
+    {!noindex && <GetAppCard />}
     <CookieBanner />
   </body>
 </html>

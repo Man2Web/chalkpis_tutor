@@ -7,6 +7,6 @@ export default defineConfig({
   site: 'https://chalkpistutor.com',
   trailingSlash: 'never',
   build: { format: 'file' },
-  // /welcome is where sign-ups land; it is not for search engines
-  integrations: [sitemap({ filter: (page) => !page.endsWith('/welcome') })],
+  // /welcome (where sign-ups land) and /get-app (where QR codes lead) are not for search engines
+  integrations: [sitemap({ filter: (page) => !/\/(welcome|get-app)$/.test(page) })],
 });
