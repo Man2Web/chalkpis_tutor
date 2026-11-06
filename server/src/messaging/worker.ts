@@ -117,6 +117,7 @@ export async function processQueue(deps: WorkerDeps, limit = 25): Promise<Tally>
     tally[status === 'sent' ? 'sent' : status]++;
   };
   const today = todayYmd(now);
+  const deferred = new Set<string>();
   const planCache = new Map<
     string,
     { active: boolean; enabled: boolean; limit: number; sentToday: number }
@@ -173,10 +174,20 @@ export async function processQueue(deps: WorkerDeps, limit = 25): Promise<Tally>
     }
     if (inst.sentToday >= inst.limit) {
       // over today's limit: back in the queue for tomorrow morning, without using up an attempt
+      const tomorrow = istAt(addDays(today, 1), 8);
       await pool.query(
         "UPDATE messages SET status = 'queued', claim = NULL, attempts = attempts - 1, next_attempt_at = ? WHERE id = ?",
-        [istAt(addDays(today, 1), 8), r.id],
+        [tomorrow, r.id],
       );
+      // ...and so is everything else this centre has waiting, in one go. Moving it 25 rows per pass would let one
+      // centre's backlog hold the shared queue for hours while other centres' messages wait behind it.
+      if (!deferred.has(r.institute_id)) {
+        deferred.add(r.institute_id);
+        await pool.query(
+          "UPDATE messages SET next_attempt_at = ? WHERE institute_id = ? AND status = 'queued' AND next_attempt_at < ?",
+          [tomorrow, r.institute_id, tomorrow],
+        );
+      }
       tally.retry++;
       continue;
     }

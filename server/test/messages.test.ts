@@ -430,6 +430,40 @@ describe('the worker', () => {
     expect(await run()).toMatchObject({ sent: 1 });
   });
 
+  it('one centre over its limit does not hold up other centres: its whole backlog moves to tomorrow at once', async () => {
+    const { s } = await queueOne();
+    const row = (i: number, status: string) => [
+      `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+      A.instituteId,
+      s,
+      'absent',
+      `bulk_${i}`,
+      'en',
+      '0001',
+      status,
+      status === 'sent' ? h.clock.now : null,
+      new Date(h.clock.now.getTime() - 60_000),
+    ];
+    await h.db.pool.query(
+      `INSERT INTO messages (id, institute_id, student_id, type, dedupe_key, lang, to_last4, status, sent_at, next_attempt_at)
+       VALUES ?`,
+      [[...Array.from({ length: 150 }, (_, i) => row(i, 'sent')), ...Array.from({ length: 100 }, (_, i) => row(1000 + i, 'queued'))]],
+    );
+    // another centre has one absent alert waiting, queued after all of A's backlog
+    await on(B);
+    const bb = await mk(B, '/batches', batch());
+    const bs = await mk(B, '/students', student({ batchIds: [bb], parentPhone: '9876500077' }));
+    await mark(B, bb, TODAY, { [bs]: 'A' });
+    await run(); // the first pass meets A over its limit and moves all of A's waiting messages to 8 am tomorrow
+    await run();
+    expect(h.provider.sent.map((m) => m.to)).toContain('+919876500077');
+    const [[left]] = (await h.db.pool.query(
+      "SELECT COUNT(*) AS n FROM messages WHERE institute_id = ? AND status = 'queued' AND next_attempt_at <= ?",
+      [A.instituteId, h.clock.now],
+    )) as unknown as [[{ n: number }]];
+    expect(Number(left!.n)).toBe(0);
+  });
+
   it('skips if the parent was switched off, the student left, messages were turned off, or the plan ended after queueing', async () => {
     const { s } = await queueOne();
     await A.call('PATCH', `/students/${s}`, { notifyParent: false });
