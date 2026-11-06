@@ -3,17 +3,12 @@ import Base from '../layouts/Base.astro';
 import Icon from '../components/Icon.astro';
 import Logo from '../components/Logo.astro';
 import PlanCards from '../components/PlanCards.astro';
-import AppQR from '../components/AppQR.astro';
+import WhyBand from '../components/WhyBand.astro';
+import QaRow from '../components/QaRow.astro';
+import FaqColumns from '../components/FaqColumns.astro';
+import CtaBand from '../components/CtaBand.astro';
 import { START_URL, SITE_URL, SITE_NAME, PLAY_STORE_URL, APP_STORE_URL, TRIAL_DAYS } from '../config';
 import { PLANS } from '../data/plans';
-
-// "Why tutors switch": facts about the product only, never invented results.
-const WHY = [
-  { num: '₹0', label: 'extra for WhatsApp messages to parents', icon: 'chat', tilt: -3 },
-  { num: '1 tap', label: 'to confirm a parent’s payment', icon: 'paid', tilt: 2 },
-  { num: '4 parts', label: 'for a yearly fee, each with its own reminder', icon: 'wallet', tilt: -1.5 },
-  { num: `${TRIAL_DAYS} days`, label: 'free with every feature, no card needed', icon: 'check', tilt: 3 },
-] as const;
 
 const MORE = [
   { id: 'tests', icon: 'tests', title: 'Tests and report cards', desc: 'Marks for a whole batch on one screen, with ranks and grades.' },
@@ -140,88 +135,48 @@ const schema = {
   </section>
 
   <!-- why tutors switch: plain facts, no invented numbers -->
-  <section class="why-band" aria-labelledby="why-h">
-    <div class="wrap">
-      <h2 class="h2" id="why-h" style="text-align: center; color: #fff">Why tutors switch to ChalkPis Tutor</h2>
-      <div class="why-cards">
-        {WHY.map((w) => (
-          <div class="why-card" style={`--tilt: ${w.tilt}deg`}>
-            <p class="num why-num">{w.num}</p>
-            <p class="why-label">{w.label}</p>
-            <span class="tile why-icon" aria-hidden="true"><Icon name={w.icon} size={26} /></span>
-          </div>
-        ))}
-      </div>
-    </div>
-  </section>
+  <WhyBand />
 
   <!-- the problems, each answered with the screen that solves it -->
   <section id="features" class="sec">
     <div class="wrap qa-list">
-      <div class="qa">
-        <div class="qa-copy">
-          <h2 class="h2">Still reminding parents about fees one by one?</h2>
-          <p class="lead">Every reminder goes out on WhatsApp with your own UPI QR, so parents can pay you straight away. You see who still owes this month at a glance.</p>
-        </div>
-        <div class="qa-art" aria-hidden="true">
-          <div class="panel qa-panel">
-            <div class="visual-head"><span class="h4">November 2026</span><span class="small">54 of 64 paid</span></div>
-            <div class="bar"><div style="width: 84%"></div></div>
-            <div style="margin-top: 10px">
-              <div class="row"><span style="flex: 1">Riya Shah</span><strong>₹1,500</strong><span class="btn btn-xs btn-soft">Remind</span></div>
-              <div class="row"><span style="flex: 1; min-width: 0">Kabir Mehta<span class="small" style="display: block; font-size: 12px">Paid ₹800 of ₹1,500</span></span><strong>₹700</strong><span class="btn btn-xs btn-soft">Remind</span></div>
-              <div class="row" style="padding-bottom: 0"><span style="flex: 1">Diya Sen</span><strong>₹1,200</strong><span class="btn btn-xs btn-soft">Remind</span></div>
-            </div>
+      <QaRow q="Still reminding parents about fees one by one?" a="Every reminder goes out on WhatsApp with your own UPI QR, so parents can pay you straight away. You see who still owes this month at a glance.">
+        <div class="panel qa-panel">
+          <div class="visual-head"><span class="h4">November 2026</span><span class="small">54 of 64 paid</span></div>
+          <div class="bar"><div style="width: 84%"></div></div>
+          <div style="margin-top: 10px">
+            <div class="row"><span style="flex: 1">Riya Shah</span><strong>₹1,500</strong><span class="btn btn-xs btn-soft">Remind</span></div>
+            <div class="row"><span style="flex: 1; min-width: 0">Kabir Mehta<span class="small" style="display: block; font-size: 12px">Paid ₹800 of ₹1,500</span></span><strong>₹700</strong><span class="btn btn-xs btn-soft">Remind</span></div>
+            <div class="row" style="padding-bottom: 0"><span style="flex: 1">Diya Sen</span><strong>₹1,200</strong><span class="btn btn-xs btn-soft">Remind</span></div>
           </div>
         </div>
-      </div>
-
-      <div class="qa flip">
-        <div class="qa-copy">
-          <h2 class="h2">Not sure who has actually paid?</h2>
-          <p class="lead">Parents tap “I've paid” on the reminder. You confirm it in one tap, and the receipt reaches them on WhatsApp.</p>
+      </QaRow>
+      <QaRow flip q="Not sure who has actually paid?" a="Parents tap “I've paid” on the reminder. You confirm it in one tap, and the receipt reaches them on WhatsApp.">
+        <div class="panel qa-panel">
+          <p class="small" style="font-size: 12px">Riya Shah's parent says</p>
+          <p class="num" style="margin-top: 4px; font-size: 26px">₹1,500 paid by UPI</p>
+          <p class="small" style="font-size: 12px; margin-top: 2px">Ref 4521 · 9:41 am</p>
+          <div style="margin-top: 20px; display: flex; gap: 8px"><span class="btn btn-sm btn-dark" style="flex: 1">Confirm</span><span class="btn btn-sm btn-soft" style="flex: 1">Not received</span></div>
         </div>
-        <div class="qa-art" aria-hidden="true">
-          <div class="panel qa-panel paid">
-            <p class="small" style="font-size: 12px">Riya Shah's parent says</p>
-            <p class="num" style="margin-top: 4px; font-size: 26px">₹1,500 paid by UPI</p>
-            <p class="small" style="font-size: 12px; margin-top: 2px">Ref 4521 · 9:41 am</p>
-            <div style="margin-top: 20px; display: flex; gap: 8px"><span class="btn btn-sm btn-dark" style="flex: 1">Confirm</span><span class="btn btn-sm btn-soft" style="flex: 1">Not received</span></div>
+      </QaRow>
+      <QaRow q="Parents asking whether their child came today?" a="When you save attendance, the parents of absent children get an alert on WhatsApp. These are the real messages, word for word.">
+        <div class="chat">
+          <span class="chat-day">Today</span>
+          <div class="bubble">Hello, Riya Shah was marked <strong>absent</strong> for the Class 9 Science class on 4 Nov 2026. If this is not correct, please contact Sharma Tuitions directly. Thank you.<span class="time">4:12 pm</span></div>
+          <div class="bubble">Hello, we have received the fee payment for Riya Shah: ₹1,500 (receipt 0142, balance due ₹0). Please keep this message as your receipt. Regards, Sharma Tuitions. Thank you.<span class="time">6:40 pm</span></div>
+        </div>
+      </QaRow>
+      <QaRow flip q="Still marking attendance in a notebook?" a="Tap only the children who didn't come, then save. Late marks, holidays and the monthly register are kept for you.">
+        <div class="panel qa-panel">
+          <div class="visual-head"><span class="h4">Class 9 Science</span><span class="small">Today, 4:00 pm</span></div>
+          <div style="margin-top: 14px">
+            <div class="row"><span>Ananya Rao</span><span class="pill ok">Present</span></div>
+            <div class="row"><span>Riya Shah</span><span class="pill no">Absent</span></div>
+            <div class="row"><span>Sai Kumar</span><span class="pill due">Late</span></div>
           </div>
+          <div style="margin-top: 12px; display: flex; gap: 8px"><span class="btn btn-sm btn-dark" style="flex: 1">Save attendance</span><span class="btn btn-sm btn-soft">Holiday</span></div>
         </div>
-      </div>
-
-      <div class="qa">
-        <div class="qa-copy">
-          <h2 class="h2">Parents asking whether their child came today?</h2>
-          <p class="lead">When you save attendance, the parents of absent children get an alert on WhatsApp. These are the real messages, word for word.</p>
-        </div>
-        <div class="qa-art" aria-hidden="true">
-          <div class="chat">
-            <span class="chat-day">Today</span>
-            <div class="bubble">Hello, Riya Shah was marked <strong>absent</strong> for the Class 9 Science class on 4 Nov 2026. If this is not correct, please contact Sharma Tuitions directly. Thank you.<span class="time">4:12 pm</span></div>
-            <div class="bubble">Hello, we have received the fee payment for Riya Shah: ₹1,500 (receipt 0142, balance due ₹0). Please keep this message as your receipt. Regards, Sharma Tuitions. Thank you.<span class="time">6:40 pm</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="qa flip">
-        <div class="qa-copy">
-          <h2 class="h2">Still marking attendance in a notebook?</h2>
-          <p class="lead">Tap only the children who didn't come, then save. Late marks, holidays and the monthly register are kept for you.</p>
-        </div>
-        <div class="qa-art" aria-hidden="true">
-          <div class="panel qa-panel">
-            <div class="visual-head"><span class="h4">Class 9 Science</span><span class="small">Today, 4:00 pm</span></div>
-            <div style="margin-top: 14px">
-              <div class="row"><span>Ananya Rao</span><span class="pill ok">Present</span></div>
-              <div class="row"><span>Riya Shah</span><span class="pill no">Absent</span></div>
-              <div class="row"><span>Sai Kumar</span><span class="pill due">Late</span></div>
-            </div>
-            <div style="margin-top: 12px; display: flex; gap: 8px"><span class="btn btn-sm btn-dark" style="flex: 1">Save attendance</span><span class="btn btn-sm btn-soft">Holiday</span></div>
-          </div>
-        </div>
-      </div>
+      </QaRow>
     </div>
   </section>
 
@@ -380,47 +335,16 @@ const schema = {
 
   <!-- day-to-day questions (the plan and billing ones are on /pricing) -->
   <section id="faq" class="sec">
-    <div class="wrap faq-2">
-      <div class="faq-side">
-        <h2 class="h2">Questions about running your centre</h2>
-        <p class="body" style="margin-top: 14px">Questions about plans and billing are on the <a href="/pricing#faq" class="link-blue">pricing page</a>.</p>
-      </div>
-      <div class="faq">
-        {HOME_FAQS.map((f, i) => (
-          <details open={i === 0}>
-            <summary><span>{f.q}</span><Icon name="plus" size={20} class="faq-icon" /></summary>
-            <p>{f.a}</p>
-          </details>
-        ))}
-      </div>
+    <div class="wrap">
+      <FaqColumns title="Questions about running your centre" items={HOME_FAQS}>
+        <p class="body" style="margin-top: 14px">Questions about plans and billing are on the <a href="/pricing#faq">pricing page</a>.</p>
+      </FaqColumns>
     </div>
   </section>
 
   <!-- closing band -->
   <section class="sec end">
-    <div class="wrap">
-      <div class="cta-dark">
-        <div class="cta-copy">
-          <h2 class="h2" style="color: #fff">Your attendance notebook did its job. Let it rest.</h2>
-          <p class="lead" style="margin-top: 16px; color: #c9d6e2">Try every feature free for {TRIAL_DAYS} days, with your own batches.</p>
-          <div class="cta-btns">
-            <a class="btn btn-light" href={START_URL}>Start {TRIAL_DAYS}-day free trial</a>
-            <button type="button" class="btn btn-ghost" data-demo>Book a demo</button>
-          </div>
-        </div>
-        <div class="cta-app">
-          <div class="cta-qr"><AppQR size={132} from="home_band" /></div>
-          <div>
-            <p style="font-weight: 600; color: #fff">Get the app</p>
-            <p class="small" style="margin-top: 4px; color: #c9d6e2">Scan with your phone camera, or tap your store.</p>
-            <div class="cta-badges">
-              <a href={APP_STORE_URL}><img src="/badges/app-store.svg" alt="Download on the App Store" width="120" height="40" style="height: 40px; width: auto" /></a>
-              <a href={PLAY_STORE_URL} class="play"><img src="/badges/google-play.png" alt="Get it on Google Play" width="155" height="60" style="height: 60px; width: auto" /></a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div class="wrap"><CtaBand title="Your attendance notebook did its job. Let it rest." from="home_band" /></div>
   </section>
 </Base>
 
@@ -505,23 +429,9 @@ const schema = {
 
   .hl { color: var(--blue); }
 
-  /* why tutors switch: a dark band of tilted white cards */
-  .why-band { margin-top: 96px; padding: 96px 0 104px; background: linear-gradient(120deg, #0b1620 0%, #0b2a44 55%, #0d5d93 100%); }
-  .why-cards { margin-top: 48px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
-  .why-card { background: #fff; border-radius: 28px; padding: 28px 24px; min-height: 240px; display: flex; flex-direction: column; transform: rotate(var(--tilt)); transition: transform 0.25s ease; box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.5); }
-  .why-card:hover { transform: rotate(0deg) translateY(-4px); }
-  .why-num { font-size: 40px; line-height: 1; }
-  .why-label { margin-top: 10px; font-size: 16px; line-height: 1.4; color: var(--text); }
-  .why-icon { margin-top: auto; align-self: flex-end; width: 56px; height: 56px; border-radius: 16px; }
-
   /* problem, then answer, alternating sides */
   .qa-list { display: flex; flex-direction: column; gap: 96px; }
-  .qa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: center; }
-  .qa.flip .qa-copy { order: 2; }
-  .qa-copy .lead { margin-top: 18px; }
-  .qa-art { border-radius: 28px; padding: 48px 40px; min-height: 340px; display: flex; align-items: center; justify-content: center; background: #0b2540 radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.1) 1px, transparent 0) 0 0 / 18px 18px; }
   .qa-panel { width: 100%; max-width: 380px; padding: 20px; }
-  .qa-art .chat { width: 100%; max-width: 400px; }
   .visual-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
   .visual-head > * { white-space: nowrap; }
   .bar { margin-top: 12px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
@@ -597,53 +507,13 @@ const schema = {
   .featured-who { margin-top: 28px; display: flex; align-items: center; gap: 14px; font-size: 15px; }
 
 
-  /* day-to-day questions: heading on the left, answers on the right */
-  .faq-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 56px; align-items: start; }
-  .faq-side { position: sticky; top: 112px; }
-  .faq { border-top: 1px solid #e4e4e7; }
-  .faq details { border-bottom: 1px solid #e4e4e7; }
-  .faq summary { list-style: none; cursor: pointer; min-height: 44px; padding: 22px 0; display: flex; align-items: center; gap: 16px; font-size: 17px; font-weight: 600; line-height: 1.4; }
-  .faq summary::-webkit-details-marker { display: none; }
-  .faq summary span { flex: 1; }
-  .faq summary:hover span { color: var(--blue-ink); }
-  .faq :global(.faq-icon) { flex: none; transition: transform 0.2s ease; }
-  .faq details[open] :global(.faq-icon) { transform: rotate(45deg); }
-  .faq details p { padding: 0 40px 22px 0; font-size: 15px; line-height: 1.65; color: var(--text); }
-
-  /* closing band */
-  .cta-dark { border-radius: 28px; padding: 64px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 48px; background: linear-gradient(120deg, #0b1620 0%, #0b2a44 55%, #0d5d93 100%); }
-  .cta-copy { flex: 1 1 420px; max-width: 600px; }
-  .cta-btns { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px; }
-  .btn-ghost { background: transparent; color: #fff; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.5); }
-  .btn-ghost:hover { background: rgba(255, 255, 255, 0.08); }
-  .cta-app { display: flex; align-items: center; gap: 20px; }
-  .cta-qr { background: #fff; border-radius: 16px; padding: 12px; }
-  .cta-badges { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-  .cta-badges .play { margin: -10px; }
-
-  @media (max-width: 1000px) {
-    .why-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  }
   @media (max-width: 860px) {
-    .qa, .switcher, .faq-2 { grid-template-columns: minmax(0, 1fr); gap: 28px; }
-    .qa.flip .qa-copy { order: 0; }
-    .faq-side { position: static; }
-    .cta-qr { display: none; }
+    .switcher { grid-template-columns: minmax(0, 1fr); gap: 28px; }
   }
   @media (max-width: 600px) {
-    .why-band { margin-top: 64px; padding: 64px 0 72px; }
-    .why-cards { gap: 12px; }
-    .why-card { transform: none; min-height: 0; padding: 20px 18px; border-radius: 20px; }
-    .why-num { font-size: 30px; }
-    .why-label { font-size: 14px; }
-    .why-icon { display: none; }
     .qa-list { gap: 64px; }
-    .qa-art { padding: 28px 16px; min-height: 0; border-radius: 20px; }
     .switcher { padding: 18px; }
     .sw-art { padding: 24px 14px; min-height: 0; }
-    .faq details p { padding-right: 0; }
-    .cta-dark { padding: 28px 20px; border-radius: 20px; }
-    .cta-btns .btn { width: 100%; }
   }
   @media (max-width: 600px) {
     .hero { padding-top: 32px; gap: 28px; }

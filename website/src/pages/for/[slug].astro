@@ -1,12 +1,16 @@
 ---
 /**
  * One page per kind of class (/for/tuition-classes, /for/dance-classes …), also the Meta ad landing pages.
- * The design is the canvas board "Class page"; the content is src/data/classes.ts.
+ * Same problem-first style as the home page (WhyBand, QaRow, FaqColumns, CtaBand); content in src/data/classes.ts.
  */
 import Base from '../../layouts/Base.astro';
 import Icon from '../../components/Icon.astro';
 import PlanCards from '../../components/PlanCards.astro';
-import { START_URL, WHATSAPP_URL, TRIAL_DAYS, SITE_URL, SITE_NAME } from '../../config';
+import WhyBand from '../../components/WhyBand.astro';
+import QaRow from '../../components/QaRow.astro';
+import FaqColumns from '../../components/FaqColumns.astro';
+import CtaBand from '../../components/CtaBand.astro';
+import { START_URL, TRIAL_DAYS, SITE_URL, SITE_NAME } from '../../config';
 import { CLASSES, CLASS_FAQ, classUrl, initials, type ClassKind } from '../../data/classes';
 
 export function getStaticPaths() {
@@ -36,15 +40,15 @@ const schema = {
 };
 ---
 <Base title={k.title} description={k.description} schema={schema}>
-  <!-- hero: the class's own words, and its own batch on the phone -->
+  <!-- hero: the class's own question, and its own batch on the phone -->
   <section class="wrap hero">
     <div class="hero-copy">
       <p class="small kicker">ChalkPis Tutor for {k.label}</p>
-      <h1 class="h1" style="margin-top: 16px">{k.h1}</h1>
+      <h1 class="h1" style="margin-top: 16px">{k.heroQ[0]}<span class="hl">{k.heroQ[1]}</span></h1>
       <p class="lead" style="margin-top: 20px; max-width: 520px">{k.lead}</p>
       <div class="hero-cta">
         <a class="btn btn-dark" href={START_URL}>Start {TRIAL_DAYS}-day free trial<Icon name="arrow" size={18} /></a>
-        <a class="btn btn-soft" href={WHATSAPP_URL}><Icon name="whatsapp" size={18} />Chat on WhatsApp</a>
+        <button type="button" class="btn btn-soft" data-demo>Book a demo</button>
       </div>
     </div>
     <div class="hero-art" aria-hidden="true">
@@ -68,70 +72,50 @@ const schema = {
     </div>
   </section>
 
-  <!-- how it fits this kind of class -->
+  <WhyBand title={`Why ${k.askers} switch to ChalkPis Tutor`} />
+
+  <!-- the problems of this kind of class, each answered with its screen -->
   <section id="features" class="sec">
-    <div class="wrap">
-      <div class="head"><h2 class="h2">{k.fitTitle}</h2></div>
-      <div class="fits">
-        <div class="card fit">
-          <div>
-            <h3 class="h3">{k.batchTitle}</h3>
-            <p class="body" style="margin-top: 12px">{k.batchBody}</p>
-          </div>
-          <div class="panel fit-visual" aria-hidden="true">
-            <div class="visual-head"><span class="h4">Batches</span><span class="small">{k.levelLabel}</span></div>
-            <div style="margin-top: 10px">
-              {k.batches.map(([name, level, size]) => (
-                <div class="row"><span style="flex: 1; font-weight: 500">{name}</span><span class="pill mute">{level}</span><span class="small size">{size}</span></div>
-              ))}
-            </div>
+    <div class="wrap qa-list">
+      <QaRow q={k.batchQ} a={k.batchBody}>
+        <div class="panel qa-panel">
+          <div class="visual-head"><span class="h4">Batches</span><span class="small">{k.levelLabel}</span></div>
+          <div style="margin-top: 10px">
+            {k.batches.map(([name, level, size]) => (
+              <div class="row"><span style="flex: 1; font-weight: 500">{name}</span><span class="pill mute">{level}</span><span class="small size">{size}</span></div>
+            ))}
           </div>
         </div>
-
-        <div class="card fit">
-          <div>
-            <h3 class="h3">Know who has paid this month</h3>
-            <p class="body" style="margin-top: 12px">Fee reminders go to parents on WhatsApp with your own UPI QR. Parents tap “I've paid”, and you confirm it in one tap.</p>
-          </div>
-          <div class="panel fit-visual" aria-hidden="true">
-            <div class="visual-head"><span class="h4">November 2026</span><span class="small">{k.paid}</span></div>
-            <div class="bar"><div style="width: 82%"></div></div>
-            <div style="margin-top: 10px">
-              {k.fees.map(([name, amount, paid]) => (
-                <div class="row"><span style="flex: 1">{name}</span><span style="font-weight: 600">{amount}</span><span class={`pill ${paid ? 'ok' : 'due'}`}>{paid ? 'Paid' : 'Due'}</span></div>
-              ))}
-            </div>
+      </QaRow>
+      <QaRow flip q="Still reminding parents about fees one by one?" a="Fee reminders go to parents on WhatsApp with your own UPI QR. Parents tap “I've paid”, and you confirm it in one tap.">
+        <div class="panel qa-panel">
+          <div class="visual-head"><span class="h4">November 2026</span><span class="small">{k.paid}</span></div>
+          <div class="bar"><div style="width: 82%"></div></div>
+          <div style="margin-top: 10px">
+            {k.fees.map(([name, amount, paid]) => (
+              <div class="row"><span style="flex: 1">{name}</span><span style="font-weight: 600">{amount}</span><span class={`pill ${paid ? 'ok' : 'due'}`}>{paid ? 'Paid' : 'Due'}</span></div>
+            ))}
           </div>
         </div>
-
-        <div class="card fit">
-          <div>
-            <h3 class="h3">Parents hear about an absence the same evening</h3>
-            <p class="body" style="margin-top: 12px">Absent alerts, fee reminders and receipts go out on WhatsApp from your centre's name. Parents don't need to install anything.</p>
-          </div>
-          <div class="chat" aria-hidden="true">
-            <p class="bubble">Hello, {k.absentFull} was marked <strong>absent</strong> for the {k.batch} class on 5 Nov 2026. If this is not correct, please contact {k.centre} directly. Thank you.<span class="time">5:02 pm</span></p>
+      </QaRow>
+      <QaRow q="Parents asking whether their child came today?" a="Absent alerts, fee reminders and receipts go out on WhatsApp from your centre’s name, the same evening. Parents don’t need to install anything.">
+        <div class="chat">
+          <p class="bubble">Hello, {k.absentFull} was marked <strong>absent</strong> for the {k.batch} class on 5 Nov 2026. If this is not correct, please contact {k.centre} directly. Thank you.<span class="time">5:02 pm</span></p>
+        </div>
+      </QaRow>
+      <QaRow flip q="Results day, and nothing to post on WhatsApp?" a={`Make a poster for your WhatsApp status in a minute: “${k.winnersHeadline}” after results, or an admissions poster when new batches start.`}>
+        <div class="poster">
+          <p class="poster-centre">{k.centre}</p>
+          <p class="num poster-head">{k.winnersHeadline}</p>
+          <p class="poster-sub">{k.winnersSubline}</p>
+          <div class="winners">
+            {k.winners.map(([name, detail]) => (
+              <div class="winner"><span class="ring">{initials(name)}</span><span><strong>{name}</strong><span>{detail}</span></span></div>
+            ))}
           </div>
         </div>
-
-        <div class="card fit">
-          <div>
-            <h3 class="h3">{k.posterTitle}</h3>
-            <p class="body" style="margin-top: 12px">Make a poster for your WhatsApp status in a minute: “{k.winnersHeadline}” after results, or an admissions poster when new batches start.</p>
-          </div>
-          <div class="poster" aria-hidden="true">
-            <p class="poster-centre">{k.centre}</p>
-            <p class="num poster-head">{k.winnersHeadline}</p>
-            <p class="poster-sub">{k.winnersSubline}</p>
-            <div class="winners">
-              {k.winners.map(([name, detail]) => (
-                <div class="winner"><span class="ring">{initials(name)}</span><span><strong>{name}</strong><span>{detail}</span></span></div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-      <p class="small also">Also in the app: tests, marks and report cards, homework, a timetable, enquiries and admissions, and yearly fees in up to four parts.</p>
+      </QaRow>
+      <p class="small also">Also in the app: tests, marks and report cards, homework, a timetable, enquiries and admissions, and yearly fees in up to four parts. <a href="/features">See every feature</a></p>
     </div>
   </section>
 
@@ -148,23 +132,17 @@ const schema = {
 
   <!-- questions for this kind of class -->
   <section id="faq" class="sec">
-    <div class="wrap" style="max-width: 868px">
-      <div class="head"><h2 class="h2">Questions {k.askers} ask</h2></div>
-      <div class="qs">
-        {faq.map((f) => (
-          <div class="q"><h3 class="h4">{f.q}</h3><p class="body">{f.a}</p></div>
-        ))}
-      </div>
+    <div class="wrap">
+      <FaqColumns title={`Questions ${k.askers} ask`} items={faq}>
+        <p class="body" style="margin-top: 14px">Something else? <button type="button" class="link-btn" data-demo>Book a demo</button> and we’ll show you the app.</p>
+      </FaqColumns>
     </div>
   </section>
 
-  <!-- closing banner, then the other class pages -->
+  <!-- closing band, then the other class pages -->
   <section class="sec end">
     <div class="wrap">
-      <div class="card banner">
-        <h2 class="h2" style="flex: 1 1 420px; max-width: 640px">Try it with your own batches this week</h2>
-        <a class="btn btn-dark" href={START_URL}>Start {TRIAL_DAYS}-day free trial</a>
-      </div>
+      <CtaBand title="Try it with your own batches this week" from={k.slug} />
       <p class="small others">ChalkPis Tutor also runs {others.map((o, i) => (
         <>{i > 0 && (i === others.length - 1 ? ' and ' : ', ')}<a href={classUrl(o)}>{o.label}</a></>
       ))}.</p>
@@ -176,6 +154,7 @@ const schema = {
   .hero { padding-top: 72px; display: flex; flex-wrap: wrap; align-items: center; gap: 56px; }
   .hero-copy { flex: 1 1 480px; min-width: 0; }
   .kicker { font-weight: 600; color: var(--blue-ink); }
+  .hl { color: var(--blue); }
   .hero-cta { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 12px; }
   .hero-art { flex: 1 1 440px; min-width: 0; height: 560px; position: relative; background: var(--blue-50); border-radius: 28px; }
   .phone { position: absolute; left: 50%; top: 32px; transform: translateX(-50%); width: 272px; height: 430px; background: #fff; border: 10px solid var(--ink); border-radius: 44px; padding: 26px 18px 18px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 40px 60px -30px rgba(11, 40, 70, 0.45); }
@@ -184,35 +163,30 @@ const schema = {
   .phone-btn { margin-top: auto; height: 44px; border-radius: 12px; background: var(--ink); color: #fff; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
   .toast { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); width: 252px; padding: 14px; display: flex; gap: 10px; box-shadow: 0 20px 40px -20px rgba(11, 11, 15, 0.3), 0 0 0 1px rgba(11, 11, 15, 0.06); }
 
-  .fits { margin-top: 48px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 20px; }
-  .fit { display: flex; flex-direction: column; gap: 24px; }
-  .fit-visual { margin-top: auto; padding: 20px; }
+  .qa-list { display: flex; flex-direction: column; gap: 96px; }
+  .qa-panel { padding: 20px; }
   .visual-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
   .size { width: 92px; text-align: right; }
   .bar { margin-top: 12px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
   .bar div { height: 100%; background: var(--blue); }
-  .chat { margin-top: auto; background: #ece5dd; border-radius: 16px; padding: 20px; }
-  .bubble { max-width: 340px; background: #fff; border-radius: 4px 14px 14px 14px; padding: 12px 14px; font-size: 14px; line-height: 1.5; box-shadow: 0 1px 1px rgba(11, 11, 15, 0.08); }
+  .chat { background: #ece5dd; border-radius: 16px; padding: 20px; }
+  .bubble { background: #fff; border-radius: 4px 14px 14px 14px; padding: 12px 14px; font-size: 14px; line-height: 1.5; box-shadow: 0 1px 1px rgba(11, 11, 15, 0.08); }
   .time { display: block; margin-top: 6px; text-align: right; font-size: 11px; color: var(--faint); }
-  .poster { margin-top: auto; background: #0b1f33; border-radius: 16px; padding: 24px; color: #fff; }
+  .poster { background: #0f3355; border-radius: 16px; padding: 24px; color: #fff; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08); }
   .poster-centre { font-size: 12px; font-weight: 600; color: #9cc9ea; }
-  .poster-head { margin-top: 6px; font-size: 26px; color: var(--yellow); }
+  .poster-head { margin-top: 6px; font-size: 28px; color: var(--yellow); }
   .poster-sub { margin-top: 4px; font-size: 13px; color: #d4d4d8; }
   .winners { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 20px; }
   .winner { display: flex; align-items: center; gap: 10px; font-size: 13px; line-height: 1.35; }
   .winner strong { display: block; }
   .winner span span { color: #d4d4d8; }
   .ring { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 2px solid var(--yellow); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
-  .also { margin: 28px auto 0; max-width: 680px; text-align: center; }
-
-  .qs { margin-top: 40px; border-top: 1px solid #e4e4e7; }
-  .q { border-bottom: 1px solid #e4e4e7; padding: 22px 0; }
-  .q .body { margin-top: 10px; font-size: 15px; }
-
-  .banner { background: var(--blue-50); padding: 48px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px; }
+  .also { margin: -40px auto 0; max-width: 680px; text-align: center; }
+  .also a, .others a { color: var(--blue-ink); font-weight: 600; text-decoration: none; }
+  .also a:hover, .others a:hover { text-decoration: underline; }
+  .link-btn { border: 0; padding: 0; background: none; font: inherit; font-weight: 600; color: var(--blue-ink); cursor: pointer; }
+  .link-btn:hover { text-decoration: underline; }
   .others { margin-top: 28px; text-align: center; line-height: 1.9; }
-  .others a { color: var(--blue-ink); font-weight: 600; text-decoration: none; }
-  .others a:hover { text-decoration: underline; }
 
   @media (max-width: 600px) {
     .hero { padding-top: 32px; gap: 28px; }
@@ -220,8 +194,8 @@ const schema = {
     .hero-cta .btn { width: 100%; }
     .hero-art { height: 420px; }
     .phone { transform: translateX(-50%) scale(0.82); transform-origin: top center; }
-    .banner { padding: 24px; }
-    .banner .btn { width: 100%; }
+    .qa-list { gap: 64px; }
+    .also { margin-top: -24px; }
     .others { text-align: left; }
   }
 </style>

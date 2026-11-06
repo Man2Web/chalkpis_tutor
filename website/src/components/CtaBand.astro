@@ -1,0 +1,54 @@
+---
+/** The dark closing band: trial and demo buttons, plus the app QR code and store badges. */
+import AppQR from './AppQR.astro';
+import { START_URL, TRIAL_DAYS, APP_STORE_URL, PLAY_STORE_URL } from '../config';
+
+interface Props {
+  title: string;
+  /** Campaign tag for the QR code, e.g. "home_band". */
+  from: string;
+}
+const { title, from } = Astro.props;
+---
+<div class="cta-dark">
+  <div class="cta-copy">
+    <h2 class="h2">{title}</h2>
+    <p class="lead">Try every feature free for {TRIAL_DAYS} days, with your own batches.</p>
+    <div class="cta-btns">
+      <a class="btn btn-light" href={START_URL}>Start {TRIAL_DAYS}-day free trial</a>
+      <button type="button" class="btn btn-ghost" data-demo>Book a demo</button>
+    </div>
+  </div>
+  <div class="cta-app">
+    <div class="cta-qr"><AppQR size={132} from={from} /></div>
+    <div>
+      <p class="cta-app-title">Get the app</p>
+      <p class="small cta-app-note">Scan with your phone camera, or tap your store.</p>
+      <div class="cta-badges">
+        <a href={APP_STORE_URL}><img src="/badges/app-store.svg" alt="Download on the App Store" width="120" height="40" style="height: 40px; width: auto" /></a>
+        <a href={PLAY_STORE_URL} class="play"><img src="/badges/google-play.png" alt="Get it on Google Play" width="155" height="60" style="height: 60px; width: auto" /></a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .cta-dark { border-radius: 28px; padding: 64px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 48px; background: linear-gradient(120deg, #0b1620 0%, #0b2a44 55%, #0d5d93 100%); }
+  .cta-copy { flex: 1 1 420px; max-width: 600px; }
+  .cta-copy .h2 { color: #fff; }
+  .cta-copy .lead { margin-top: 16px; color: #c9d6e2; }
+  .cta-btns { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px; }
+  .btn-ghost { background: transparent; color: #fff; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.5); }
+  .btn-ghost:hover { background: rgba(255, 255, 255, 0.08); }
+  .cta-app { display: flex; align-items: center; gap: 20px; }
+  .cta-qr { background: #fff; border-radius: 16px; padding: 12px; }
+  .cta-app-title { font-weight: 600; color: #fff; }
+  .cta-app-note { margin-top: 4px; color: #c9d6e2; }
+  .cta-badges { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .cta-badges .play { margin: -10px; }
+  @media (max-width: 860px) { .cta-qr { display: none; } }
+  @media (max-width: 600px) {
+    .cta-dark { padding: 28px 20px; border-radius: 20px; }
+    .cta-btns .btn { width: 100%; }
+  }
+</style>

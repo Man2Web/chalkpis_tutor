@@ -13,7 +13,10 @@ export interface ClassKind {
   description: string;
   askers: string;
   centre: string;
-  h1: string;
+  /** The hero question; the second part is shown in blue. */
+  heroQ: [string, string];
+  /** The question above the batches row. */
+  batchQ: string;
   lead: string;
   batch: string;
   count: string;
@@ -40,7 +43,7 @@ export const CLASSES: ClassKind[] = [
     title: 'App for tuition classes: attendance, fees and marks · ChalkPis Tutor',
     description: 'Run your tuition centre from your phone: attendance by class and subject, fee reminders with your own UPI QR, test marks and report cards, and WhatsApp updates to parents. Free for 7 days.',
     askers: 'tuition teachers', centre: 'Vidya Tuition Centre',
-    h1: 'Attendance, fees and marks for your tuition classes',
+    heroQ: ['Still collecting tuition fees ', 'one parent at a time?'], batchQ: 'Batches for every class and subject getting mixed up?',
     lead: 'Take attendance for Class 10 Maths in seconds, remind parents about fees with your own UPI QR, and keep every test mark in one place.',
     batch: 'Class 10 Maths', count: '23 present · 1 absent',
     students: [['Ananya R.', false], ['Riya S.', true], ['Sai K.', false], ['Meera P.', false]], absentFull: 'Riya Shah',
@@ -58,7 +61,7 @@ export const CLASSES: ClassKind[] = [
     title: 'App for coaching institutes: JEE, NEET and board batches · ChalkPis Tutor',
     description: 'Attendance for every JEE, NEET and boards batch, fee reminders with your own UPI QR, yearly fees in parts, test marks and WhatsApp updates to parents. Free for 7 days.',
     askers: 'coaching institutes', centre: 'Pinnacle Coaching',
-    h1: 'Run your coaching institute without the registers',
+    heroQ: ['Still running JEE and NEET batches ', 'from registers?'], batchQ: 'Juggling batches for every course and exam?',
     lead: 'Attendance for every JEE and NEET batch, fee reminders with your own UPI QR, and test marks for each student, all from your phone.',
     batch: 'JEE 2027 evening', count: '31 present · 1 absent',
     students: [['Arjun M.', false], ['Kavya N.', true], ['Rohit V.', false], ['Sneha D.', false]], absentFull: 'Kavya Nair',
@@ -76,7 +79,7 @@ export const CLASSES: ClassKind[] = [
     title: 'App for abacus classes: levels, fees and attendance · ChalkPis Tutor',
     description: 'Group children by abacus level, take attendance in seconds, and let fee reminders and absent alerts reach parents on WhatsApp. Free for 7 days.',
     askers: 'abacus teachers', centre: 'Bright Minds Abacus',
-    h1: 'Track every abacus level, fee and absence',
+    heroQ: ['Still keeping abacus levels and fees ', 'in a notebook?'], batchQ: 'Losing track of which child is on which level?',
     lead: 'Group children by level, take attendance in seconds, and let fee reminders and absent alerts reach parents on WhatsApp.',
     batch: 'Level 3 weekend', count: '15 present · 1 absent',
     students: [['Aditi K.', false], ['Ishaan P.', true], ['Tara M.', false], ['Vivaan R.', false]], absentFull: 'Ishaan Patil',
@@ -94,7 +97,7 @@ export const CLASSES: ClassKind[] = [
     title: 'App for karate and martial arts classes: belts, fees, attendance · ChalkPis Tutor',
     description: 'Group students by belt, take attendance in seconds, and let fee reminders and absent alerts reach parents on WhatsApp. Posters for new belts and medals. Free for 7 days.',
     askers: 'martial arts coaches', centre: 'Shoto Karate Academy',
-    h1: 'Belts, fees and attendance for your karate classes',
+    heroQ: ['Still tracking belts and fees ', 'on paper?'], batchQ: 'Losing track of who is on which belt?',
     lead: 'Group students by belt, take attendance in seconds, and let fee reminders and absent alerts reach parents on WhatsApp.',
     batch: 'Kids beginners', count: '19 present · 1 absent',
     students: [['Aarav S.', false], ['Diya K.', true], ['Kabir M.', false], ['Nisha T.', false]], absentFull: 'Diya Kumar',
@@ -112,7 +115,7 @@ export const CLASSES: ClassKind[] = [
     title: 'App for dance and music classes: batches, fees and attendance · ChalkPis Tutor',
     description: 'Take attendance for each dance batch in seconds, remind parents about fees with your own UPI QR, and share your students’ wins on WhatsApp. Free for 7 days.',
     askers: 'dance teachers', centre: 'Nritya Dance Academy',
-    h1: 'Spend your evenings on dance, not on fee follow-ups',
+    heroQ: ['Still chasing dance class fees ', 'every month?'], batchQ: 'Batches for every style and level getting mixed up?',
     lead: 'Take attendance for each batch in seconds, remind parents about fees with your own UPI QR, and share your students’ wins on WhatsApp.',
     batch: 'Kids Bharatanatyam', count: '17 present · 1 absent',
     students: [['Aarohi K.', true], ['Kabir M.', false], ['Diya S.', false], ['Meera P.', false]], absentFull: 'Aarohi Kulkarni',
@@ -130,7 +133,7 @@ export const CLASSES: ClassKind[] = [
     title: 'App for yoga and fitness classes: batches, fees and receipts · ChalkPis Tutor',
     description: 'Mark who came to each morning and evening yoga batch, remind members about fees with your own UPI QR, and send receipts on WhatsApp. Free for 7 days.',
     askers: 'yoga teachers', centre: 'Prana Yoga Studio',
-    h1: 'Morning and evening yoga batches, managed from your phone',
+    heroQ: ['Still collecting yoga fees ', 'batch by batch?'], batchQ: 'Morning, evening and weekend batches to keep straight?',
     lead: 'Mark who came to each batch, remind members about fees with your own UPI QR, and send receipts on WhatsApp without typing them.',
     batch: 'Morning batch', count: '21 present · 1 absent',
     students: [['Lakshmi R.', false], ['Vikram J.', true], ['Anjali S.', false], ['Farah A.', false]], absentFull: 'Vikram Joshi',
@@ -148,7 +151,7 @@ export const CLASSES: ClassKind[] = [
     title: 'App for sports academies: players, fees and attendance · ChalkPis Tutor',
     description: 'Group players by sport and age, mark attendance at the ground in seconds, and let fee reminders and absent alerts reach parents on WhatsApp. Free for 7 days.',
     askers: 'coaches', centre: 'Champions Cricket Academy',
-    h1: 'Every batch, fee and missed session in one app for your academy',
+    heroQ: ['Still chasing academy fees ', 'after every session?'], batchQ: 'Players across sports and age groups to keep straight?',
     lead: 'Group players by age, mark attendance at the ground in seconds, and let fee reminders and absent alerts reach parents on WhatsApp.',
     batch: 'Under-14 cricket', count: '23 present · 1 absent',
     students: [['Rahul D.', false], ['Yash P.', true], ['Aman G.', false], ['Joel F.', false]], absentFull: 'Yash Pandey',
