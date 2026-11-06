@@ -148,9 +148,15 @@ export async function startHarness(
   });
 
   const reset = async () => {
-    await db.pool.query('SET FOREIGN_KEY_CHECKS=0');
-    for (const t of TABLES) await db.pool.query(`TRUNCATE ${t}`);
-    await db.pool.query('SET FOREIGN_KEY_CHECKS=1');
+    // FOREIGN_KEY_CHECKS is per connection, so the truncates must run on the same one (a pool may hand out another)
+    const conn = await db.pool.getConnection();
+    try {
+      await conn.query('SET FOREIGN_KEY_CHECKS=0');
+      for (const t of TABLES) await conn.query(`TRUNCATE ${t}`);
+      await conn.query('SET FOREIGN_KEY_CHECKS=1');
+    } finally {
+      conn.release();
+    }
     clock.now = new Date(NOW);
     resetNewNumberSlots();
     resetReconcileThrottle();

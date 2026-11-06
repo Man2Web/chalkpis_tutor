@@ -132,12 +132,16 @@ async function eligibleStudents(
   instituteId: string,
   ids: string[],
 ): Promise<Map<string, Target>> {
-  if (!ids.length) return new Map();
-  const [rows] = (await db.query(
-    "SELECT id, name, parent_name, parent_phone FROM students WHERE institute_id = ? AND status = 'active' AND notify_parent = 1 AND id IN (?)",
-    [instituteId, ids],
-  )) as unknown as [Target[]];
-  return new Map(rows.map((r) => [r.id, r]));
+  const out = new Map<string, Target>();
+  // in chunks: one centre's long list must never become a single statement too big for the database
+  for (let i = 0; i < ids.length; i += 1000) {
+    const [rows] = (await db.query(
+      "SELECT id, name, parent_name, parent_phone FROM students WHERE institute_id = ? AND status = 'active' AND notify_parent = 1 AND id IN (?)",
+      [instituteId, ids.slice(i, i + 1000)],
+    )) as unknown as [Target[]];
+    for (const r of rows) out.set(r.id, r);
+  }
+  return out;
 }
 
 async function instituteName(db: Db, instituteId: string): Promise<string> {
@@ -476,6 +480,22 @@ export async function enqueueAllFeeReminders(
     [now],
   )) as unknown as [{ institute_id: string }[]];
   let total = 0;
-  for (const r of rows) total += await enqueueFeeReminders(pool, r.institute_id, now, paidLinks);
+  // One centre that fails must not stop the reminders of every centre after it. The run still fails afterwards (so
+  // the job is logged and retried; the dedupe keys keep the retry from queueing anything twice).
+  const failed: string[] = [];
+  let firstError: unknown;
+  for (const r of rows) {
+    try {
+      total += await enqueueFeeReminders(pool, r.institute_id, now, paidLinks);
+    } catch (e) {
+      failed.push(r.institute_id);
+      firstError ??= e;
+    }
+  }
+  if (failed.length)
+    throw Object.assign(
+      new Error(`fee reminders failed for ${failed.length} centre(s): ${failed.slice(0, 5).join(', ')}`),
+      { cause: firstError },
+    );
   return total;
 }
