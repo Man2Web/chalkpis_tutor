@@ -38,12 +38,7 @@ const schema = {
   ],
 };
 ---
-<Base
-  title={k.title}
-  description={k.description}
-  schema={schema}
-  og={{ file: `og/${k.slug}.png`, alt: `ChalkPis Tutor for ${k.label}: ${k.heroQ.join('')} The app's Home screen with fees collected and pending.` }}
->
+<Base title={k.title} description={k.description} schema={schema}>
   <!-- hero: the class's own question, and the real app's Home screen -->
   <section class="wrap hero">
     <div class="hero-copy">
