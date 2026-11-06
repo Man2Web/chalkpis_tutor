@@ -1,10 +1,9 @@
 ---
 /**
  * Google Analytics 4 in Consent Mode (advanced) and the Meta Pixel, per TRACKING-GUIDE.md.
- * - GA always loads with storage denied (cookieless pings); "Accept all" grants analytics storage. Ad storage stays
- *   denied: there is no Google Ads account.
- * - The Pixel loads only after "Accept all". Pixel events from before the choice wait on the page and are sent if the
- *   visitor accepts.
+ * - The cookie banner is a notice ("Got it"), the user's choice on 6 Nov 2026: GA (with analytics storage) and the
+ *   Pixel run from the first visit. Ad storage stays denied: there is no Google Ads account.
+ * - A visitor who turns tracking off on /cookies (or rejected under the old banner) is kept off: no GA cookies, no Pixel.
  * - window.cpTrack(gaEvent, params, metaEvent, metaStandard) sends one event to both.
  * - The visit's utm_* values are kept for the visit and added to "Start free trial" links (the server stores them with
  *   the new centre) and to Google Play links as the install referrer.
@@ -21,7 +20,7 @@ import { GA_ID, META_PIXEL_ID, START_URL } from '../config';
   function gtag() { window.dataLayer.push(arguments); }
   window.gtag = gtag;
   gtag('consent', 'default', {
-    analytics_storage: choice === 'granted' ? 'granted' : 'denied',
+    analytics_storage: choice === 'denied' ? 'denied' : 'granted',
     ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied',
   });
   gtag('js', new Date());
@@ -42,7 +41,7 @@ import { GA_ID, META_PIXEL_ID, START_URL } from '../config';
     waiting.forEach(function (w) { window.fbq(w[0], w[1], w[2]); });
     waiting = [];
   }
-  if (choice === 'granted') loadPixel();
+  if (choice !== 'denied') loadPixel();
 
   window.cpTrack = function (gaEvent, params, metaEvent, metaStandard) {
     gtag('event', gaEvent, params || {});

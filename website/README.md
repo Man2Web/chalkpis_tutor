@@ -53,8 +53,8 @@ The site carries those `utm_*` values on to sign-up (`/start`), so each new cent
 `src/components/Analytics.astro` (IDs in `src/config.ts`), with the cookie banner in `CookieBanner.astro` and the policy at
 `/cookies`. The full spec is TRACKING-GUIDE.md. There is no Google Ads account, so no Google Ads tag or `gclid` handling.
 
-- **GA4** `G-FG0YJS71R6` in Consent Mode: always loads, cookieless until "Accept all". Ad storage stays denied.
-- **Meta Pixel** `1863203504670970`: loads only after "Accept all".
+- **GA4** `G-FG0YJS71R6`: runs with cookies from the first visit (the cookie banner is a notice with "Got it", the user's choice on 6 Nov 2026). Cookieless only for a visitor who turns tracking off on /cookies. Ad storage stays denied.
+- **Meta Pixel** `1863203504670970`: loads on the first visit, unless the visitor turned tracking off on /cookies.
 - Events: `start_signup_click` / `StartSignUp`, `play_store_click` / `PlayStoreClick` (with `placement`), `app_store_click`
   (GA only), and on `/welcome?os=…` once per visit `sign_up` / `CompleteRegistration`.
 - The visit's `utm_*` are added to every `/start` link (the server saves them with the new centre) and to Google Play

@@ -1,31 +1,26 @@
 ---
-/** Asks once; the choice is kept in this browser. Any element with data-cookie-settings opens it again. */
+/**
+ * A cookie notice (the user's choice on 6 Nov 2026): tracking runs from the first visit, and "Got it" only hides the
+ * notice for good in this browser. Turning tracking off is on /cookies.
+ */
 ---
 <div class="consent panel" id="consent" role="region" aria-label="Cookies" hidden>
   <p class="small">
-    We use cookies to see which pages help and which ads bring people here. <a href="/cookies">Cookie policy</a>
+    We use cookies to understand how our site is used and to improve our marketing. <a href="/cookies">Cookie policy</a>
   </p>
   <div class="consent-actions">
-    <button type="button" class="btn btn-sm btn-soft" data-choice="denied">Reject</button>
-    <button type="button" class="btn btn-sm btn-dark" data-choice="granted">Accept all</button>
+    <button type="button" class="btn btn-sm btn-dark" data-got-it>Got it</button>
   </div>
 </div>
 
 <script is:inline>
   (function () {
     var box = document.getElementById('consent');
+    // shown until "Got it" (or an earlier Accept / Reject) is saved
     if (!window.cpConsentChoice || !window.cpConsentChoice()) box.hidden = false;
-    box.addEventListener('click', function (e) {
-      var b = e.target.closest('[data-choice]');
-      if (!b) return;
-      window.cpConsent(b.getAttribute('data-choice'));
+    box.querySelector('[data-got-it]').addEventListener('click', function () {
+      window.cpConsent('granted');
       box.hidden = true;
-    });
-    document.addEventListener('click', function (e) {
-      if (!e.target.closest('[data-cookie-settings]')) return;
-      e.preventDefault();
-      box.hidden = false;
-      box.querySelector('[data-choice="granted"]').focus();
     });
   })();
 </script>
@@ -38,7 +33,7 @@
   .consent[hidden] { display: none; }
   .consent p { margin: 0; color: var(--ink); }
   .consent a { color: var(--blue); }
-  .consent-actions { margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end; }
+  .consent-actions { margin-top: 16px; display: flex; justify-content: flex-end; }
   @media (max-width: 640px) {
     .consent { left: 16px; bottom: 16px; }
     .consent-actions .btn { flex: 1; }

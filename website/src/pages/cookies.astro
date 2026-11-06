@@ -2,7 +2,7 @@
 import Base from '../layouts/Base.astro';
 import { COMPANY, PRIVACY_URL, SUPPORT_EMAIL } from '../config';
 ---
-<Base title="Cookie policy · ChalkPis Tutor" description="Which cookies chalkpistutor.com uses and how to change your choice.">
+<Base title="Cookie policy · ChalkPis Tutor" description="Which cookies chalkpistutor.com uses and how to turn tracking off.">
   <article class="wrap sec end legal">
     <h1 class="h2">Cookie policy</h1>
     <p class="body">
@@ -14,17 +14,18 @@ import { COMPANY, PRIVACY_URL, SUPPORT_EMAIL } from '../config';
     <h2 class="h4">What we use</h2>
     <ul class="body">
       <li>
-        <strong>Your cookie choice.</strong> Saved in your browser so we don't ask on every page. Always on.
+        <strong>The cookie notice.</strong> Once you tap "Got it", that is saved in your browser so the notice doesn't
+        come back. Your choice to turn tracking off (below) is saved the same way.
       </li>
       <li>
-        <strong>Google Analytics.</strong> Counts visits, pages viewed and steps such as tapping "Start free trial". Before
-        you choose, or if you reject, it sends visit counts without cookies. If you accept, it sets its own cookies
-        (<code>_ga</code>, <code>_ga_*</code>), kept for up to 14 months.
+        <strong>Google Analytics.</strong> Counts visits, pages viewed and steps such as tapping "Start free trial". It
+        sets its own cookies (<code>_ga</code>, <code>_ga_*</code>), kept for up to 14 months. If you turn tracking off,
+        it only sends visit counts without cookies.
       </li>
       <li>
         <strong>Meta Pixel.</strong> Tells Meta (Facebook and Instagram) when a visit from one of our ads leads to a
-        sign-up, so we can see which ads work. It runs only if you choose "Accept all", and sets the <code>_fbp</code>
-        cookie, kept for up to 90 days.
+        sign-up, so we can see which ads work. It sets the <code>_fbp</code> cookie, kept for up to 90 days. If you turn
+        tracking off, it doesn't run.
       </li>
     </ul>
     <p class="body">
@@ -32,14 +33,42 @@ import { COMPANY, PRIVACY_URL, SUPPORT_EMAIL } from '../config';
       up is in our <a href={PRIVACY_URL}>Privacy Policy</a>.
     </p>
 
-    <h2 class="h4">Changing your choice</h2>
+    <h2 class="h4">Turning tracking off</h2>
+    <p class="body" id="track-state">Google Analytics cookies and the Meta Pixel are on for this browser.</p>
     <p class="body">
-      <a href="#" data-cookie-settings>Change your cookie choice</a> at any time, or clear this site's data in your
-      browser. Questions: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
+      <button type="button" class="btn btn-sm btn-soft" id="track-toggle">Turn off tracking</button>
     </p>
-    <p class="small">Last updated 5 November 2026.</p>
+    <p class="body">
+      You can also clear this site's data in your browser. Questions:
+      <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
+    </p>
+    <p class="small">Last updated 6 November 2026.</p>
   </article>
 </Base>
+
+<script is:inline>
+  // Off: saved as 'denied' (GA without cookies, no Pixel). A page that already loaded the Pixel keeps it until the
+  // next page, so turning off reloads.
+  (function () {
+    var state = document.getElementById('track-state');
+    var btn = document.getElementById('track-toggle');
+    function show() {
+      var off = window.cpConsentChoice && window.cpConsentChoice() === 'denied';
+      state.textContent = off
+        ? 'Tracking is off for this browser: no Google Analytics cookies and no Meta Pixel.'
+        : 'Google Analytics cookies and the Meta Pixel are on for this browser.';
+      btn.textContent = off ? 'Turn tracking back on' : 'Turn off tracking';
+      return off;
+    }
+    show();
+    btn.addEventListener('click', function () {
+      var off = window.cpConsentChoice() === 'denied';
+      window.cpConsent(off ? 'granted' : 'denied');
+      if (off) show();
+      else location.reload();
+    });
+  })();
+</script>
 
 <style>
   .legal { max-width: 720px; }
