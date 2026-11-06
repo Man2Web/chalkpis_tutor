@@ -40,8 +40,8 @@ const ROLES = [
     { icon: 'bell', title: 'Turn on automatic messages', sub: 'Alerts and reminders go out on their own' },
     { icon: 'check', title: 'See who has paid this month', sub: 'Collected and pending, at a glance' },
   ] },
-  { id: 'helper', title: 'Helpers and staff', desc: 'Take attendance for their own batches. They never see fees or phone numbers.', steps: [
-    { icon: 'chat', title: 'Invited as a helper', sub: 'The invite arrives on WhatsApp' },
+  { id: 'helper', title: 'Staff', desc: 'Take attendance for their own batches. They never see fees or phone numbers.', steps: [
+    { icon: 'chat', title: 'Invited to your centre', sub: 'The invite arrives on WhatsApp' },
     { icon: 'user', title: 'Signs in with WhatsApp', sub: 'A 6-digit code, no password' },
     { icon: 'cal', title: 'Sees only their batches', sub: 'Kids Bharatanatyam · Juniors' },
     { icon: 'check', title: 'Attendance marked', sub: 'The owner sees it at once' },
@@ -89,9 +89,9 @@ const schema = {
   <!-- hero -->
   <section class="wrap hero">
     <div class="hero-copy">
-      <a href="#features" class="chip"><span class="chip-new">New</span>Parents can now tap “I've paid” on fee reminders</a>
-      <h1 class="h1 hero-h1">Still chasing fees <span class="hl">every month?</span></h1>
-      <p class="lead hero-lead">ChalkPis Tutor reminds parents on WhatsApp with your own UPI QR, takes attendance in seconds and sends receipts for you, so your evenings go back to teaching.</p>
+      <a href="#features" class="chip"><span class="chip-new">New</span>Parents can confirm payment from the fee reminder</a>
+      <h1 class="h1 hero-h1">Collect every fee <span class="hl">on time</span></h1>
+      <p class="lead hero-lead">ChalkPis Tutor sends fee reminders on WhatsApp with your UPI QR, records attendance in seconds and issues receipts automatically, so you can focus on teaching.</p>
       <div class="hero-cta">
         <a class="btn btn-dark" href={START_URL}>Start 7-day free trial<Icon name="arrow" size={18} /></a>
         <button type="button" class="btn btn-soft" data-demo>Book a demo</button>
@@ -104,7 +104,7 @@ const schema = {
 
   <!-- cities -->
   <section style="padding-top: 64px" aria-label="Where tutors use ChalkPis Tutor">
-    <p class="small" style="text-align: center; padding: 0 24px">Tutors in these cities already run their classes on ChalkPis Tutor</p>
+    <p class="small" style="text-align: center; padding: 0 24px">Used by tuition centres and academies in</p>
     <div class="marquee wrap" style="margin-top: 18px">
       <ul class="marquee-track">
         {cityLoop.map((c) => <li class="city" aria-hidden={c.copy ? 'true' : undefined}>{c.name}</li>)}
@@ -118,7 +118,7 @@ const schema = {
   <!-- the problems, each answered with the screen that solves it -->
   <section id="features" class="sec">
     <div class="wrap qa-list">
-      <QaRow q="Still reminding parents about fees one by one?" a="Every reminder goes out on WhatsApp with your own UPI QR, so parents can pay you straight away. You see who still owes this month at a glance.">
+      <QaRow q="Fee reminders that send themselves" a="Reminders go out on WhatsApp with your UPI QR, so parents can pay in a tap. See who has paid at a glance.">
         <div class="panel qa-panel">
           <div class="visual-head"><span class="h4">November 2026</span><span class="small">54 of 64 paid</span></div>
           <div class="bar"><div style="width: 84%"></div></div>
@@ -129,7 +129,7 @@ const schema = {
           </div>
         </div>
       </QaRow>
-      <QaRow flip q="Not sure who has actually paid?" a="Parents tap “I've paid” on the reminder. You confirm it in one tap, and the receipt reaches them on WhatsApp.">
+      <QaRow flip q="Know exactly who has paid" a="Parents tap “I've paid” on the reminder. You confirm in one tap, and the receipt is sent on WhatsApp.">
         <div class="panel qa-panel">
           <p class="small" style="font-size: 12px">Riya Shah's parent says</p>
           <p class="num" style="margin-top: 4px; font-size: 26px">₹1,500 paid by UPI</p>
@@ -137,14 +137,14 @@ const schema = {
           <div style="margin-top: 20px; display: flex; gap: 8px"><span class="btn btn-sm btn-dark" style="flex: 1">Confirm</span><span class="btn btn-sm btn-soft" style="flex: 1">Not received</span></div>
         </div>
       </QaRow>
-      <QaRow q="Parents asking whether their child came today?" a="When you save attendance, the parents of absent children get an alert on WhatsApp. These are the real messages, word for word.">
+      <QaRow q="Parents informed the same day" a="When you save attendance, parents of absent students get a WhatsApp alert. These are the messages the app sends, word for word.">
         <div class="chat">
           <span class="chat-day">Today</span>
           <div class="bubble">Hello, Riya Shah was marked <strong>absent</strong> for the Class 9 Science class on 4 Nov 2026. If this is not correct, please contact Sharma Tuitions directly. Thank you.<span class="time">4:12 pm</span></div>
           <div class="bubble">Hello, we have received the fee payment for Riya Shah: ₹1,500 (receipt 0142, balance due ₹0). Please keep this message as your receipt. Regards, Sharma Tuitions. Thank you.<span class="time">6:40 pm</span></div>
         </div>
       </QaRow>
-      <QaRow flip q="Still marking attendance in a notebook?" a="Tap only the children who didn't come, then save. Late marks, holidays and the monthly register are kept for you.">
+      <QaRow flip q="Attendance in seconds" a="Mark only the absentees and save. Late arrivals, holidays and the monthly register are kept for you.">
         <div class="panel qa-panel">
           <div class="visual-head"><span class="h4">Class 9 Science</span><span class="small">Today, 4:00 pm</span></div>
           <div style="margin-top: 14px">
@@ -161,7 +161,7 @@ const schema = {
   <!-- more in the app: pick a feature, see its screen -->
   <section id="more" class="sec">
     <div class="wrap">
-      <div class="head"><h2 class="h2">There's more in the app when you're ready for it</h2></div>
+      <div class="head"><h2 class="h2">Everything else your centre needs</h2></div>
       <div class="card switcher" data-switcher>
         <div class="sw-list" role="tablist" aria-label="More in the app">
           {MORE.map((m, i) => (
@@ -214,7 +214,7 @@ const schema = {
   <section class="sec">
     <div class="wrap">
       <div class="stmt">
-        <h2 class="h2" style="max-width: 720px; margin: 0 auto">We built the boring parts, so you can teach.</h2>
+        <h2 class="h2" style="max-width: 720px; margin: 0 auto">Less paperwork. More time to teach.</h2>
         <div class="laptop" role="img" aria-label="The ChalkPis Tutor dashboard on a laptop">
           <div class="side hide-sm">
             <Logo height={26} />
@@ -241,7 +241,7 @@ const schema = {
   <!-- roles -->
   <section id="roles" class="sec">
     <div class="wrap">
-      <div class="head"><h2 class="h2">Your helpers and parents use it too</h2></div>
+      <div class="head"><h2 class="h2">Built for your whole centre</h2></div>
       <div class="roles" data-roles>
         <div role="tablist" aria-label="Who uses ChalkPis Tutor" class="role-tabs">
           {ROLES.map((r, i) => (
@@ -304,8 +304,8 @@ const schema = {
   <section id="pricing" class="sec">
     <div class="wrap">
       <div class="head">
-        <h2 class="h2">Pick a plan by how many students you teach</h2>
-        <p class="body" style="margin-top: 14px">Try everything free for {TRIAL_DAYS} days. Every feature is in every plan, so you only choose a size.</p>
+        <h2 class="h2">Simple pricing based on your students</h2>
+        <p class="body" style="margin-top: 14px">Every plan includes every feature. Try it free for {TRIAL_DAYS} days.</p>
       </div>
       <PlanCards />
     </div>
@@ -314,7 +314,7 @@ const schema = {
   <!-- day-to-day questions (the plan and billing ones are on /pricing) -->
   <section id="faq" class="sec">
     <div class="wrap">
-      <FaqColumns title="Questions about running your centre" items={HOME_FAQS}>
+      <FaqColumns title="Frequently asked questions" items={HOME_FAQS}>
         <p class="body" style="margin-top: 14px">Questions about plans and billing are on the <a href="/pricing#faq">pricing page</a>.</p>
       </FaqColumns>
     </div>
@@ -322,7 +322,7 @@ const schema = {
 
   <!-- closing band -->
   <section class="sec end">
-    <div class="wrap"><CtaBand title="Your attendance notebook did its job. Let it rest." from="home_band" /></div>
+    <div class="wrap"><CtaBand title="Ready to collect fees on time?" from="home_band" /></div>
   </section>
 </Base>
 

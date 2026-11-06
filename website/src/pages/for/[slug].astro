@@ -39,10 +39,9 @@ const schema = {
 };
 ---
 <Base title={k.title} description={k.description} schema={schema}>
-  <!-- hero: the class's own question, and the real app's Home screen -->
+  <!-- hero: what the app does for this kind of class, and the real app's Home screen -->
   <section class="wrap hero">
     <div class="hero-copy">
-      <p class="small kicker">ChalkPis Tutor for {k.label}</p>
       <h1 class="h1 hero-h1">{k.heroQ[0]}<span class="hl">{k.heroQ[1]}</span></h1>
       <p class="lead hero-lead">{k.lead}</p>
       <div class="hero-cta">
@@ -55,7 +54,7 @@ const schema = {
     </div>
   </section>
 
-  <WhyBand title={`Why ${k.askers} switch to ChalkPis Tutor`} />
+  <WhyBand title={`Why ${k.askers} choose ChalkPis Tutor`} />
 
   <!-- the problems of this kind of class, each answered with its screen -->
   <section id="features" class="sec">
@@ -70,7 +69,7 @@ const schema = {
           </div>
         </div>
       </QaRow>
-      <QaRow flip q="Still reminding parents about fees one by one?" a="Fee reminders go to parents on WhatsApp with your own UPI QR. Parents tap “I've paid”, and you confirm it in one tap.">
+      <QaRow flip q="Fee reminders that send themselves" a="Reminders go to parents on WhatsApp with your own UPI QR. Parents tap “I've paid”, and you confirm it in one tap.">
         <div class="panel qa-panel">
           <div class="visual-head"><span class="h4">November 2026</span><span class="small">{k.paid}</span></div>
           <div class="bar"><div style="width: 82%"></div></div>
@@ -81,12 +80,12 @@ const schema = {
           </div>
         </div>
       </QaRow>
-      <QaRow q="Parents asking whether their child came today?" a="Absent alerts, fee reminders and receipts go out on WhatsApp from your centre’s name, the same evening. Parents don’t need to install anything.">
+      <QaRow q="Parents informed the same day" a="Absent alerts, fee reminders and receipts go out on WhatsApp in your centre’s name, the same evening. Parents don’t need to install anything.">
         <div class="chat">
           <p class="bubble">Hello, {k.absentFull} was marked <strong>absent</strong> for the {k.batch} class on 5 Nov 2026. If this is not correct, please contact {k.centre} directly. Thank you.<span class="time">5:02 pm</span></p>
         </div>
       </QaRow>
-      <QaRow flip q="Results day, and nothing to post on WhatsApp?" a={`Make a poster for your WhatsApp status in a minute: “${k.winnersHeadline}” after results, or an admissions poster when new batches start.`}>
+      <QaRow flip q="Posters for results and admissions" a={`Make a poster for your WhatsApp status in a minute: “${k.winnersHeadline}” after results, or an admissions poster when new batches start.`}>
         <div class="poster">
           <p class="poster-centre">{k.centre}</p>
           <p class="num poster-head">{k.winnersHeadline}</p>
@@ -106,8 +105,8 @@ const schema = {
   <section id="pricing" class="sec">
     <div class="wrap">
       <div class="head">
-        <h2 class="h2">Pick a plan by how many students you teach</h2>
-        <p class="body" style="margin-top: 14px">Try everything free for {TRIAL_DAYS} days. Every feature is in every plan, so you only choose a size.</p>
+        <h2 class="h2">Simple pricing based on your students</h2>
+        <p class="body" style="margin-top: 14px">Every plan includes every feature. Try it free for {TRIAL_DAYS} days.</p>
       </div>
       <PlanCards />
     </div>
@@ -116,7 +115,7 @@ const schema = {
   <!-- questions for this kind of class -->
   <section id="faq" class="sec">
     <div class="wrap">
-      <FaqColumns title={`Questions ${k.askers} ask`} items={faq}>
+      <FaqColumns title="Frequently asked questions" items={faq}>
         <p class="body" style="margin-top: 14px">Something else? <button type="button" class="link-btn" data-demo>Book a demo</button> and we’ll show you the app.</p>
       </FaqColumns>
     </div>
@@ -125,7 +124,7 @@ const schema = {
   <!-- closing band, then the other class pages -->
   <section class="sec end">
     <div class="wrap">
-      <CtaBand title="Try it with your own batches this week" from={k.slug} />
+      <CtaBand title="Ready to collect fees on time?" from={k.slug} />
       <p class="small others">ChalkPis Tutor also runs {others.map((o, i) => (
         <>{i > 0 && (i === others.length - 1 ? ' and ' : ', ')}<a href={classUrl(o)}>{o.label}</a></>
       ))}.</p>
@@ -137,8 +136,7 @@ const schema = {
   /* hero: the question on the left, the real app's Home screen on the right (same as the home page) */
   .hero { padding-top: 72px; display: flex; flex-wrap: wrap; align-items: center; gap: 56px; }
   .hero-copy { flex: 1 1 480px; min-width: 0; }
-  .kicker { font-weight: 600; color: var(--blue-ink); }
-  .hero-h1 { margin-top: 16px; }
+  .hero-h1 { margin-top: 0; }
   .hero-lead { margin-top: 20px; max-width: 520px; }
   .hl { color: var(--blue); }
   .hero-cta { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 12px; }
