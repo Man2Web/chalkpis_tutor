@@ -54,7 +54,8 @@ button { font: inherit; }
 .body { font-size: 16px; line-height: 1.6; color: var(--muted); }
 .small { font-size: 14px; line-height: 1.5; color: var(--muted); }
 .num { font-family: var(--display); font-weight: 800; letter-spacing: -0.025em; }
-.tagline { font-size: 12px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; }
+/* the brand tagline, in normal case: the user wants no all-caps words anywhere */
+.tagline { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; }
 
 /* buttons */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; padding: 0 20px; border: 0; border-radius: 12px; font-size: 15px; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; transition: background-color 0.15s ease; }

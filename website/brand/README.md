@@ -11,4 +11,4 @@ Copied unchanged from the Tutor brand kit (November 2026). Only the files the si
 | `apple-touch-icon-180.png` | `public/apple-touch-icon.png` |
 
 The kit's colours and type (Inter; ExtraBold 800 headlines, Bold 700 titles, SemiBold 600 labels) are the tokens at
-the top of `src/styles/global.css`. Don't redraw or retype the "tutor" letters: they are custom drawn.
+the top of `src/styles/global.css`. The kit's tagline is used as "Manage • Teach • Grow", never in capitals (the user's rule). Don't redraw or retype the "tutor" letters: they are custom drawn.
