@@ -63,7 +63,7 @@
       "tooMany": "Too many attempts. Please wait a while and try again.",
       "network": "No internet. Please check your connection.",
       "generic": "Could not sign in. Please try again.",
-      "blocked": "This account has been blocked. Contact hello@chalkpis.com.",
+      "blocked": "This account has been blocked. Contact hello@chalkpistutor.com.",
       "unavailable": "WhatsApp codes cannot be sent right now. Please try again in a while.",
       "phoneInUse": "This number already has its own Chalkpis account. To use it, sign out and continue with WhatsApp.",
       "phoneAlreadySet": "This account already has a mobile number."

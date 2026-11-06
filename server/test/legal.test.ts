@@ -22,7 +22,7 @@ describe('public legal pages', () => {
       expect(r.headers['content-security-policy']).toContain("default-src 'none'");
       expect(r.body).toContain(`<h1>${title}</h1>`);
       expect(r.body).toContain('M2W Technologies Private Limited');
-      expect(r.body).toContain('hello@chalkpis.com');
+      expect(r.body).toContain('hello@chalkpistutor.com');
       expect(r.body).not.toContain('<script');
     }
     expect((await h.app.inject({ url: '/legal.css' })).statusCode).toBe(200);
@@ -31,7 +31,7 @@ describe('public legal pages', () => {
   it('explain how to delete an account with or without the app (Google Play needs this page)', async () => {
     const r = await h.app.inject({ url: '/delete-account' });
     expect(r.body).toContain('Account</strong>, tap <strong>Delete account');
-    expect(r.body).toContain('mailto:hello@chalkpis.com?subject=Delete%20my%20Chalkpis%20account');
+    expect(r.body).toContain('mailto:hello@chalkpistutor.com?subject=Delete%20my%20Chalkpis%20account');
     expect(r.body).toContain('What is kept');
   });
 });

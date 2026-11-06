@@ -173,7 +173,7 @@ function page(
   }<title>${esc(title)} · Chalkpis</title><link rel="stylesheet" href="${PAY_CSS_HREF}"></head><body>
 <header class="top"><div class="bar"><img src="/admin-logo/logo-dark.svg" alt="Chalkpis" width="132" height="32">${opts.nav ?? secure}</div></header><main>
 ${body}
-<footer>${opts.gateway && GATEWAY[opts.gateway] ? `Payments are processed securely by ${GATEWAY[opts.gateway]}. ` : ''}<a href="/terms">Terms</a> · <a href="/privacy">Privacy</a><br>© 2026 M2W Technologies Private Limited · <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a></footer>
+<footer>${opts.gateway && GATEWAY[opts.gateway] ? `Payments are processed securely by ${GATEWAY[opts.gateway]}. ` : ''}<a href="/terms">Terms</a> · <a href="/privacy">Privacy</a><br>© 2026 M2W Technologies Private Limited · <a href="mailto:hello@chalkpistutor.com">hello@chalkpistutor.com</a></footer>
 </main></body></html>`;
 }
 
@@ -323,7 +323,7 @@ ${(() => {
 }
 
 const PAYMENTS_OFF =
-  '<p class="note">Online payment is not switched on yet. Write to <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a> and we will help you renew.</p>';
+  '<p class="note">Online payment is not switched on yet. Write to <a href="mailto:hello@chalkpistutor.com">hello@chalkpistutor.com</a> and we will help you renew.</p>';
 const STORE_MANAGED =
   '<p class="note">This plan renews automatically in the Chalkpis app, so there is nothing to pay here. To change it, open Plans &amp; billing in the app.</p>';
 const AUTO_RENEW_NOTE =
@@ -338,7 +338,7 @@ const SUBSCRIBE_REFUSED: Record<string, string> = {
     'Auto-renew is on, so there is nothing to pay now. Turn it off first to pay once instead.',
 };
 const PAY_FAILED =
-  '<p class="note error">We could not open the payment page just now. Please try again in a minute, or write to <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a>.</p>';
+  '<p class="note error">We could not open the payment page just now. Please try again in a minute, or write to <a href="mailto:hello@chalkpistutor.com">hello@chalkpistutor.com</a>.</p>';
 
 /**
  * Where centres pay for their plan on the web (inside the iPhone and Android apps they subscribe through the store
@@ -514,7 +514,7 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         404,
         page(
           'Link not found',
-          '<h1>This payment link does not work</h1><p>Sign in on <a href="/plan">tutor.chalkpis.com/plan</a> with your mobile number to see your plan and pay, or write to <a href="mailto:hello@chalkpis.com">hello@chalkpis.com</a>.</p>',
+          '<h1>This payment link does not work</h1><p>Sign in on <a href="/plan">tutor.chalkpis.com/plan</a> with your mobile number to see your plan and pay, or write to <a href="mailto:hello@chalkpistutor.com">hello@chalkpistutor.com</a>.</p>',
         ),
       );
     const tokenView = async (token: string, c: Centre, note = '') => {
@@ -975,7 +975,7 @@ ${selling ? METHODS : ''}${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}${FAQ}
 <dt>Paid on</dt><dd>${day(new Date(h.paidAt))}</dd>
 <dt>Payment ID</dt><dd class="mono">${esc(h.paymentId)}</dd>
 <dt>Paid through</dt><dd>${esc(GATEWAY[h.provider] ?? h.provider)}</dd></dl>
-<p class="small">${h.provider === 'apple' || h.provider === 'google' ? `This payment was taken by ${GATEWAY[h.provider]}, which also sends its own receipt. ` : ''}Issued by M2W Technologies Private Limited, the company behind Chalkpis · hello@chalkpis.com. To save a copy, use your browser's Print or Share.</p>
+<p class="small">${h.provider === 'apple' || h.provider === 'google' ? `This payment was taken by ${GATEWAY[h.provider]}, which also sends its own receipt. ` : ''}Issued by M2W Technologies Private Limited, the company behind Chalkpis · hello@chalkpistutor.com. To save a copy, use your browser's Print or Share.</p>
 <p class="noprint"><a href="/plan?centre=${c.id}">Back to your plan</a></p></article>`,
           ),
         );
