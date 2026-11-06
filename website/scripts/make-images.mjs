@@ -1,5 +1,6 @@
 // Makes the images that sit beside the site's pages in public/:
 //   og.png                1200×630 link preview (WhatsApp, Facebook, Meta ads, X), photographed from scripts/og.html
+//   og/<slug>.png         the same for each class page (/for/<slug>), with that page's own question
 //   apple-touch-icon.png  180×180 home-screen icon: the blue C on white, like the app icon
 //   favicon-32.png        32×32 for browsers and crawlers that skip favicon.svg
 //   favicon.ico           the 32 px and 48 px PNGs in one .ico
@@ -82,9 +83,16 @@ if (!browser) {
     await sharp(shot).resize(width, height, { fit: 'cover', position: 'left top' }).png({ compressionLevel: 9 }).toFile(out);
   };
   await shoot('', 1200, 630, join(pub, 'og.png'));
+  // each class page's own preview, with the question its hero asks (Node 22.18+ reads the .ts file as it is)
+  const { CLASSES } = await import('../src/data/classes.ts');
+  mkdirSync(join(pub, 'og'), { recursive: true });
+  for (const k of CLASSES) {
+    const q = new URLSearchParams({ kind: k.label, q0: k.heroQ[0], q1: k.heroQ[1], lead: k.lead });
+    await shoot(`?${q}`, 1200, 630, join(pub, 'og', `${k.slug}.png`));
+  }
   // the Facebook Page cover lives with the marketing files, not on the site
   const social = resolve(root, '..', 'marketing', 'social');
   mkdirSync(social, { recursive: true });
   await shoot('?cover', 1640, 624, join(social, 'facebook-cover-1640x624.png'));
-  console.log('Made og.png, the icons and marketing/social/facebook-cover-1640x624.png.');
+  console.log('Made og.png, og/<slug>.png for each class, the icons and marketing/social/facebook-cover-1640x624.png.');
 }
