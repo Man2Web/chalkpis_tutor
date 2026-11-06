@@ -293,7 +293,11 @@ describe('billing page (/plan)', () => {
 
   it('a form from another site cannot ask for a code or sign a browser in (login CSRF)', async () => {
     await h.tenant('+919800000001');
-    for (const headers of [{ origin: 'https://evil.example' }, { 'sec-fetch-site': 'cross-site' }]) {
+    const crossSite: Record<string, string>[] = [
+      { origin: 'https://evil.example' },
+      { 'sec-fetch-site': 'cross-site' },
+    ];
+    for (const headers of crossSite) {
       const code = await form('/plan/code', { phone: '9800000001' }, headers);
       expect([code.statusCode, code.headers.location]).toEqual([303, '/plan']);
     }
