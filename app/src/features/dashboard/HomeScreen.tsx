@@ -25,6 +25,7 @@ import { InstallHint } from '../onboarding/InstallHint';
 import { EnquiriesDueCard } from '../enquiries/EnquiriesDueCard';
 import { WelcomeTour } from '../onboarding/WelcomeTour';
 import { AnnouncementBanner } from '../announcements/AnnouncementBanner';
+import { DiwaliCard } from '../diwali/DiwaliCard';
 import { UpdatesBell } from '../announcements/UpdatesScreen';
 import { AttendanceRing } from './AttendanceRing';
 import { HomeHero } from './HomeHero';
@@ -120,6 +121,7 @@ export function HomeScreen() {
           </Text>
         </View>
 
+        <DiwaliCard />
         <AnnouncementBanner />
         <PlanBanner />
         <PaymentReportsCard />

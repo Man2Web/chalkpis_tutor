@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import type Svg from 'react-native-svg';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +9,7 @@ import { Button, Card, Chip, Input, Screen, toast } from '../../components';
 import { useInstitute } from '../../data/hooks';
 import { reportError } from '../../lib/analytics';
 import { useCategory } from '../../lib/category';
+import type { MainStackParams } from '../../navigation/types';
 import { colors, MAX_CONTENT, spacing, type } from '../../theme';
 import { exportPoster } from './exportPoster';
 import { SIZES, type PosterKind, type PosterSize } from './layout';
@@ -32,13 +34,15 @@ async function pickPhoto(): Promise<string | undefined> {
  * Posters for WhatsApp status and Instagram: toppers (champions, stars... by what the centre teaches), admissions,
  * festival greetings. Free, made on the phone.
  */
-export function PosterScreen() {
+export function PosterScreen({
+  route,
+}: Partial<NativeStackScreenProps<MainStackParams, 'Poster'>> = {}) {
   const { t } = useTranslation();
   const { ct } = useCategory();
   const inst = useInstitute();
   const { width } = useWindowDimensions();
   const ref = useRef<Svg>(null);
-  const [kind, setKind] = useState<PosterKind>('toppers');
+  const [kind, setKind] = useState<PosterKind>(route?.params?.kind ?? 'toppers');
   const [size, setSize] = useState<PosterSize>('square');
   const [headline, setHeadline] = useState<string>();
   const [subline, setSubline] = useState<string>();

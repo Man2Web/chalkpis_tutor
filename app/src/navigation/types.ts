@@ -1,3 +1,5 @@
+import type { PosterKind } from '../features/poster/layout';
+
 export type AuthStackParams = {
   Legal: { doc: 'privacy' | 'terms' };
   Language: undefined;
@@ -31,7 +33,8 @@ export type MainStackParams = {
   FeePlan: { studentId: string };
   Reminder: { studentId: string };
   AdvancePayment: { studentId: string };
-  Poster: undefined;
+  /** `kind` opens the maker on that poster (Home's Diwali card opens the festival one). */
+  Poster: { kind?: PosterKind } | undefined;
   /** Tests & marks (decision 151). */
   Exams: undefined;
   ExamForm: { id?: string; batchId?: string } | undefined;

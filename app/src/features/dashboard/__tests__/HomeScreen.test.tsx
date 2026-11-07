@@ -23,6 +23,7 @@ jest.mock('../../announcements/UpdatesScreen', () => ({ UpdatesBell: () => null 
 jest.mock('../../fees/PaymentReportsCard', () => ({ PaymentReportsCard: () => null }));
 jest.mock('../../onboarding/GettingStartedCard', () => ({ GettingStartedCard: () => null }));
 jest.mock('../../onboarding/WelcomeTour', () => ({ WelcomeTour: () => null }));
+jest.mock('../../diwali/DiwaliCard', () => ({ DiwaliCard: () => null }));
 jest.mock('../../enquiries/EnquiriesDueCard', () => ({ EnquiriesDueCard: () => null }));
 jest.mock('../../tasks/api', () => ({
   useTasks: () => ({ data: [], isLoading: false }),
@@ -71,7 +72,7 @@ beforeEach(() => jest.clearAllMocks());
 it('greets the tutor and shows zeroed numbers for a new institute', async () => {
   setup();
   await render(<HomeScreen />);
-  expect(screen.getByText(/^Good (morning|afternoon|evening), Asha$/)).toBeTruthy();
+  expect(screen.getByText(/^(Good (morning|afternoon|evening)|Happy Diwali), Asha$/)).toBeTruthy();
   expect(screen.getByText('No classes scheduled today')).toBeTruthy();
   expect(screen.getByLabelText('ChalkPis Tutor')).toBeTruthy(); // logo, top left
 });

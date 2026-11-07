@@ -19,6 +19,7 @@ import type { MainStackParams } from '../navigation/types';
 import { colors, spacing, type } from '../theme';
 import { useSession } from '../features/auth/session';
 import { AnnouncementBanner } from '../features/announcements/AnnouncementBanner';
+import { DiwaliCard } from '../features/diwali/DiwaliCard';
 import { timeRange } from '../features/batches/format';
 import { PlanBanner } from '../features/billing/PlanBanner';
 import { AttendanceRing } from '../features/dashboard/AttendanceRing';
@@ -114,6 +115,7 @@ export function DesktopHome() {
       subtitle={t('desktop.home.subtitle')}
     >
       <WelcomeTour />
+      <DiwaliCard />
       <AnnouncementBanner />
       <PlanBanner />
       <PaymentReportsCard />

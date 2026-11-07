@@ -767,7 +767,8 @@
     "greeting": {
       "morning": "Good morning, {{name}}",
       "afternoon": "Good afternoon, {{name}}",
-      "evening": "Good evening, {{name}}"
+      "evening": "Good evening, {{name}}",
+      "diwali": "Happy Diwali, {{name}}"
     },
     "collectedShare": "{{percent}}% of fees collected",
     "today": "Today",
@@ -1106,6 +1107,14 @@
       "sat": "Sa"
     },
     "last7": "Last 7 days"
+  },
+  "diwali": {
+    "title": "Light the diya",
+    "tap": "Tap it to welcome Diwali",
+    "light": "Light the diya",
+    "wish": "May your Diwali shine bright",
+    "from": "To every teacher who lights up young minds. Warm wishes from all of us.",
+    "poster": "Make a Diwali poster"
   },
   "poster": {
     "title": "Poster maker",
