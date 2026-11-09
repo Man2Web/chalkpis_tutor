@@ -31,6 +31,14 @@ jest.mock('../../../data/hooks', () => ({
         addedAt: '2026-10-08T00:00:00Z',
         batchIds: [],
       },
+      {
+        id: 'u3',
+        name: 'Kavya',
+        phone: '+919876533333',
+        addedAt: '2026-10-08T00:00:00Z',
+        status: 'invited',
+        batchIds: ['b2'],
+      },
     ],
   }),
   useBatches: () => ({
@@ -51,6 +59,16 @@ it('lists helpers with their phone and assigned batches', async () => {
   expect(screen.getByText('Meena')).toBeTruthy();
   expect(screen.getByText('+91 98765 11111 • Maths 10')).toBeTruthy();
   expect(screen.getByText('+91 98765 22222 • No batches assigned')).toBeTruthy();
+});
+
+it('shows who has not accepted yet, and offers to cancel their invite', async () => {
+  await render(<StaffScreen />);
+  expect(screen.getByText('Invited, not joined yet • +91 98765 33333 • Science 10')).toBeTruthy();
+  await fireEvent.press(screen.getByText('Kavya'));
+  await fireEvent.press(screen.getByRole('button', { name: 'Cancel invite' }));
+  expect(screen.getByText('Cancel the invite to Kavya?')).toBeTruthy();
+  await fireEvent.press(screen.getByRole('button', { name: 'Yes, cancel it' }));
+  await waitFor(() => expect(removeStaff).toHaveBeenCalledWith('u3'));
 });
 
 it('adds a helper with the chosen batches and refreshes the lists', async () => {
@@ -93,7 +111,9 @@ it('explains a number that is already in use', async () => {
   await fireEvent.changeText(screen.getByLabelText('Mobile number (WhatsApp)'), '9876543210');
   await fireEvent.press(screen.getByRole('button', { name: 'Add helper' }));
   await waitFor(() =>
-    expect(screen.getByText('This number is already used in an institute.')).toBeTruthy(),
+    expect(
+      screen.getByText('This number is already a helper here, or already invited.'),
+    ).toBeTruthy(),
   );
 });
 

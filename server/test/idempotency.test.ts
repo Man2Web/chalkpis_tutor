@@ -215,17 +215,15 @@ describe('idempotency of mutating endpoints', () => {
     ).toBe(1);
   });
 
-  it('POST /staff twice (concurrent): one membership, second 409', async () => {
+  it('POST /staff twice (concurrent): one invite, second 409', async () => {
     const r = await together(() =>
       A.call('POST', '/staff', { phone: '9000011111', name: 'Helper' }),
     );
     expect(r.map((x) => x.status).sort()).toEqual([201, 409]);
     expect(
-      await count(
-        h,
-        "SELECT COUNT(*) n FROM memberships WHERE institute_id = ? AND role = 'staff'",
-        [A.instituteId],
-      ),
+      await count(h, 'SELECT COUNT(*) n FROM staff_invites WHERE institute_id = ?', [
+        A.instituteId,
+      ]),
     ).toBe(1);
   });
 

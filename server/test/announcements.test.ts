@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { dispatchDuePushes, pushTime } from '../src/announcements/service.js';
 import { MockPushSender } from '../src/push/expo.js';
-import { NOW, startHarness, type Harness, type Tenant } from './helpers.js';
+import { addHelper, NOW, startHarness, type Harness, type Tenant } from './helpers.js';
 
 const push = new MockPushSender();
 let h: Harness;
@@ -28,8 +28,7 @@ async function people() {
     "UPDATE subscriptions SET plan = 'pro', status = 'active', expires_at = DATE_ADD(?, INTERVAL 300 DAY) WHERE institute_id = ?",
     [h.clock.now, B.instituteId],
   );
-  const r = await A.call('POST', '/staff', { phone: '9876511111', name: 'Helper One' });
-  helper = h.login(r.body.id as string, A.instituteId);
+  helper = await addHelper(h, A, { phone: '9876511111', name: 'Helper One' });
   await A.call('POST', '/me/push-token', { token: OWNER_A, platform: 'android' });
   await B.call('POST', '/me/push-token', { token: OWNER_B, platform: 'ios' });
   await helper.call('POST', '/me/push-token', { token: HELPER, platform: 'android' });

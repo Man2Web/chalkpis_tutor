@@ -126,6 +126,25 @@
       "nowLabel": "{{step}}, this step"
     }
   },
+  "invite": {
+    "boardTitle": "You are invited",
+    "title": "Join {{centre}}?",
+    "titleMany": "Centres that invited you",
+    "subtitle": "As a helper you take attendance for the batches the owner gives you. You do not see fees or parents' numbers.",
+    "from": "Invited by {{owner}}",
+    "join": "Join",
+    "decline": "No thanks",
+    "declineTitle": "Say no to {{centre}}?",
+    "declineText": "The invite goes away. The owner can invite you again later.",
+    "joined": "You joined {{centre}}",
+    "ownCentreHint": "Running your own classes instead?",
+    "ownCentre": "Set up my own centre",
+    "errors": {
+      "gone": "This invite was cancelled by the centre.",
+      "planExpired": "This centre's plan has ended. Ask the owner to renew it, then try again.",
+      "full": "This centre already has 10 helpers. Ask the owner to make room."
+    }
+  },
   "ownerDetails": {
     "title": "How we reach you",
     "subtitle": "Your email and where your centre is. We never share these.",
@@ -297,6 +316,11 @@
     "logoutTitle": "Log out of Chalkpis?",
     "logoutText": "Your students, fees and records stay safe. To come back, sign in with the same number and a WhatsApp code.",
     "staffNote": "You can take attendance for the batches the owner has given you.",
+    "leaveCentre": "Leave this centre",
+    "leaveFooter": "You stop helping here. Your login stays, so you can join another centre or set up your own.",
+    "leaveTitle": "Leave {{centre}}?",
+    "leaveText": "You will no longer see its batches or take attendance there. The owner can invite you again.",
+    "leftCentre": "You left the centre",
     "business": "Business",
     "parents": "Parents",
     "tools": "Tools",
@@ -1066,11 +1090,18 @@
     "removeNote": "Removing a helper ends their access straight away.",
     "removeTitle": "Remove {{name}}?",
     "removeConfirm": "Yes, remove",
-    "added": "Helper added. They can sign in with their number.",
+    "added": "Invite sent on WhatsApp. They join once they accept it in the app.",
     "saved": "Saved",
     "removed": "Helper removed",
+    "invitedNotJoined": "Invited, not joined yet",
+    "invitedNote": "They have not accepted yet. Once they sign in with this number and tap Join, they can take attendance for these batches.",
+    "cancelInvite": "Cancel invite",
+    "cancelTitle": "Cancel the invite to {{name}}?",
+    "cancelNote": "They will no longer see your invite in the app.",
+    "cancelConfirm": "Yes, cancel it",
+    "cancelled": "Invite cancelled",
     "errors": {
-      "alreadyMember": "This number is already used in an institute.",
+      "alreadyMember": "This number is already a helper here, or already invited.",
       "staffLimit": "You can add up to 10 helpers.",
       "planExpired": "Your plan has ended. Renew it to add helpers.",
       "invalid": "Check the name and the 10-digit mobile number."

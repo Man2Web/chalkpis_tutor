@@ -56,6 +56,23 @@ export interface Tenant {
   ) => Promise<{ status: number; body: any }>; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
+/**
+ * The owner invites a helper and the helper accepts in the app (decision 174: an invite alone joins nothing).
+ * Returns a caller acting as the helper, now in the owner's centre.
+ */
+export async function addHelper(
+  h: Harness,
+  owner: Tenant,
+  body: { phone: string; name: string; batchIds?: string[] },
+): Promise<Tenant> {
+  const r = await owner.call('POST', '/staff', body);
+  if (r.status !== 201) throw new Error(`invite failed: ${r.status} ${JSON.stringify(r.body)}`);
+  const id = r.body.id as string;
+  const a = await h.login(id, '').call('POST', `/me/invites/${owner.instituteId}/accept`);
+  if (a.status !== 200) throw new Error(`accept failed: ${a.status} ${JSON.stringify(a.body)}`);
+  return h.login(id, owner.instituteId);
+}
+
 const TABLES = [
   'used_trials',
   'admin_deletions',
@@ -86,6 +103,7 @@ const TABLES = [
   'enquiries',
   'calendar_events',
   'job_runs',
+  'staff_invites',
   'staff_batches',
   'parent_links',
   'messages',

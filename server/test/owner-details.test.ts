@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { startHarness, type Harness, type Tenant } from './helpers.js';
+import { addHelper, startHarness, type Harness, type Tenant } from './helpers.js';
 
 // The owner's basic details (decision 156): email, city, state, PIN code and how they heard about Chalkpis.
 let h: Harness;
@@ -60,8 +60,7 @@ describe('owner details', () => {
     expect(await me(A)).toMatchObject({ detailsDone: false, detailsRequired: true });
     expect(await me(B)).toMatchObject({ detailsDone: false, detailsRequired: false });
 
-    const r = await A.call('POST', '/staff', { phone: '9876511111', name: 'Helper One' });
-    const helper = h.login(r.body.id as string, A.instituteId);
+    const helper = await addHelper(h, A, { phone: '9876511111', name: 'Helper One' });
     expect(await me(helper)).toMatchObject({ detailsDone: true, detailsRequired: false });
 
     await A.call('PUT', '/institute/details', DETAILS);
@@ -109,9 +108,7 @@ describe('owner details', () => {
   });
 
   it('a helper is never asked and cannot change them', async () => {
-    const r = await A.call('POST', '/staff', { phone: '9876511111', name: 'Helper One' });
-    expect(r.status).toBe(201);
-    const helper = h.login(r.body.id as string, A.instituteId);
+    const helper = await addHelper(h, A, { phone: '9876511111', name: 'Helper One' });
     expect((await me(helper)).detailsDone).toBe(true);
     expect((await helper.call('PUT', '/institute/details', DETAILS)).status).toBe(403);
   });

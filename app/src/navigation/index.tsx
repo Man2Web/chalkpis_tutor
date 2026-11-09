@@ -17,6 +17,7 @@ import { AccountScreen } from '../features/account/AccountScreen';
 import { AddPhoneScreen } from '../features/account/AddPhoneScreen';
 import { BatchScreen } from '../features/onboarding/BatchScreen';
 import { DetailsScreen } from '../features/onboarding/DetailsScreen';
+import { InviteScreen } from '../features/onboarding/InviteScreen';
 import { useAskOwnerDetails } from '../features/onboarding/OwnerDetailsCard';
 import { OwnerDetailsScreen } from '../features/onboarding/OwnerDetailsScreen';
 import { ProfileScreen } from '../features/onboarding/ProfileScreen';
@@ -115,10 +116,14 @@ function AuthStack() {
   );
 }
 
-/** `resume`: where someone who left part-way picks up (the centre is set up; the details may be missing). */
-function OnboardingStack({ resume }: { resume: 'Profile' | 'Details' | 'Batch' }) {
+/**
+ * `resume`: where someone who left part-way picks up (the centre is set up; the details may be missing). Someone with
+ * no centre who was invited as a helper starts on the invite (decision 174).
+ */
+function OnboardingStack({ resume }: { resume: 'Invite' | 'Profile' | 'Details' | 'Batch' }) {
   return (
     <Onboarding.Navigator screenOptions={{ headerShown: false }} initialRouteName={resume}>
+      <Onboarding.Screen name="Invite" component={InviteScreen} />
       <Onboarding.Screen name="Profile" component={ProfileScreen} />
       <Onboarding.Screen name="Details" component={DetailsScreen} />
       <Onboarding.Screen name="Batch" component={BatchScreen} />
@@ -494,7 +499,13 @@ function RestoringSession() {
 export function RootNavigator() {
   const status = useSession((s) => s.status);
   const resume = useSession((s) =>
-    !s.profile?.instituteId ? 'Profile' : s.profile.detailsDone === false ? 'Details' : 'Batch',
+    !s.profile?.instituteId
+      ? s.profile?.invites?.length
+        ? 'Invite'
+        : 'Profile'
+      : s.profile.detailsDone === false
+        ? 'Details'
+        : 'Batch',
   );
 
   if (status === 'loading') return <RestoringSession />;

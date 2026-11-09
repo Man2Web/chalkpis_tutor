@@ -14,13 +14,17 @@ import {
   Screen,
   Section,
   TopBar,
+  toast,
 } from '../../components';
+import { reportError } from '../../lib/analytics';
+import { queryClient } from '../../lib/queryClient';
+import { leaveCentre } from '../staff/api';
 import { formatIndianPhone } from '../../lib/phone';
 import { useInstitute, useLimits } from '../../data/hooks';
 import { open as openUrl } from '../../lib/contact';
 import type { MainStackParams } from '../../navigation/types';
 import { colors, spacing, type } from '../../theme';
-import { logout, useIsStaff, useSession } from '../auth/session';
+import { logout, refreshProfile, useIsStaff, useSession } from '../auth/session';
 import { subscriptionState } from '../billing/logic';
 import { mailto, SUPPORT_EMAIL } from '../legal/LegalScreen';
 import { DeleteAccountSheet } from '../settings/DeleteAccountSheet';
@@ -109,10 +113,12 @@ function AccountContent({
   go,
   onDelete,
   onLogout,
+  onLeave,
 }: {
   go: Nav['navigate'];
   onDelete: () => void;
   onLogout: () => void;
+  onLeave: () => void;
 }) {
   const { t } = useTranslation();
   const staff = useIsStaff();
@@ -161,6 +167,9 @@ function AccountContent({
         {about}
         <Section>
           <Row title={t('more.logout')} onPress={onLogout} destructive />
+        </Section>
+        <Section footer={t('more.leaveFooter')}>
+          <Row title={t('more.leaveCentre')} onPress={onLeave} destructive />
         </Section>
         {footer}
       </>
@@ -309,6 +318,25 @@ export function AccountScreen() {
   const [deleting, setDeleting] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  // a helper stepping out of the centre (decision 174); the app goes back to "set up your centre"
+  const [quitting, setQuitting] = useState(false);
+  const [quitBusy, setQuitBusy] = useState(false);
+  const inst = useInstitute();
+  const quit = async () => {
+    setQuitBusy(true);
+    try {
+      await leaveCentre();
+      setQuitting(false);
+      toast(t('more.leftCentre'), 'success');
+      await refreshProfile();
+      queryClient.clear(); // nothing of the centre stays on this phone
+    } catch (e) {
+      reportError(e);
+      toast(t('common.error'), 'error');
+    } finally {
+      setQuitBusy(false);
+    }
+  };
   return (
     <Screen>
       <TopBar title={t('tabs.account')} />
@@ -317,6 +345,17 @@ export function AccountScreen() {
         go={nav.navigate}
         onDelete={() => setDeleting(true)}
         onLogout={() => setLeaving(true)}
+        onLeave={() => setQuitting(true)}
+      />
+      <ConfirmSheet
+        visible={quitting}
+        onClose={() => setQuitting(false)}
+        title={t('more.leaveTitle', { centre: inst.data?.name ?? '' })}
+        message={t('more.leaveText')}
+        confirmLabel={t('more.leaveCentre')}
+        destructive
+        loading={quitBusy}
+        onConfirm={() => void quit()}
       />
       <DeleteAccountSheet visible={deleting} onClose={() => setDeleting(false)} />
       {/* signing back in needs a WhatsApp code, so ask first */}

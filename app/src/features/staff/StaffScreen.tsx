@@ -112,7 +112,7 @@ export function StaffScreen() {
       await removeStaff(removing.id);
       await refresh();
       setRemoving(null);
-      toast(t('staff.removed'), 'success');
+      toast(t(removing.status === 'invited' ? 'staff.cancelled' : 'staff.removed'), 'success');
     } catch (e) {
       // the edit sheet is closed by now, so the reason goes in a toast
       reportError(e);
@@ -187,7 +187,15 @@ export function StaffScreen() {
               {i > 0 ? <InsetSeparator /> : null}
               <ListItem
                 title={m.name}
-                subtitle={`${formatIndianPhone(m.phone)} • ${m.batchIds.length ? m.batchIds.map(nameOfBatch).join(', ') : t('staff.noneAssigned')}`}
+                subtitle={[
+                  m.status === 'invited' ? t('staff.invitedNotJoined') : undefined,
+                  formatIndianPhone(m.phone),
+                  m.batchIds.length
+                    ? m.batchIds.map(nameOfBatch).join(', ')
+                    : t('staff.noneAssigned'),
+                ]
+                  .filter(Boolean)
+                  .join(' • ')}
                 left={<Avatar name={m.name} />}
                 onPress={() => openEdit(m)}
               />
@@ -224,9 +232,12 @@ export function StaffScreen() {
           {batchChips}
           {!!error && <Text style={[type.caption, { color: colors.danger }]}>{error}</Text>}
           <Button title={t('common.save')} onPress={submitEdit} loading={busy} />
+          {editing?.status === 'invited' ? (
+            <Text style={type.caption}>{t('staff.invitedNote')}</Text>
+          ) : null}
           <Button
             variant="danger"
-            title={t('staff.remove')}
+            title={t(editing?.status === 'invited' ? 'staff.cancelInvite' : 'staff.remove')}
             onPress={() => {
               setRemoving(editing);
               setEditing(null);
@@ -239,9 +250,13 @@ export function StaffScreen() {
       <ConfirmSheet
         visible={!!removing}
         onClose={() => setRemoving(null)}
-        title={t('staff.removeTitle', { name: removing?.name ?? '' })}
-        message={t('staff.removeNote')}
-        confirmLabel={t('staff.removeConfirm')}
+        title={t(removing?.status === 'invited' ? 'staff.cancelTitle' : 'staff.removeTitle', {
+          name: removing?.name ?? '',
+        })}
+        message={t(removing?.status === 'invited' ? 'staff.cancelNote' : 'staff.removeNote')}
+        confirmLabel={t(
+          removing?.status === 'invited' ? 'staff.cancelConfirm' : 'staff.removeConfirm',
+        )}
         onConfirm={remove}
         loading={busy}
         destructive

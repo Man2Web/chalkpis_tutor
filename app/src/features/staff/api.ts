@@ -6,6 +6,8 @@ export interface StaffMember {
   phone: string;
   name: string;
   addedAt: string;
+  /** 'invited': asked by WhatsApp, has not accepted in the app yet (decision 174); missing from older servers */
+  status?: 'active' | 'invited';
   batchIds: string[];
 }
 
@@ -52,4 +54,19 @@ export async function setStaffBatches(userId: string, batchIds: string[]) {
 
 export async function removeStaff(userId: string) {
   await api('DELETE', `/staff/${userId}`);
+}
+
+/** The invited person's side (decision 174): join the centre that asked... */
+export async function acceptInvite(instituteId: string) {
+  await api('POST', `/me/invites/${instituteId}/accept`);
+}
+
+/** ...or say no to it. */
+export async function declineInvite(instituteId: string) {
+  await api('DELETE', `/me/invites/${instituteId}`);
+}
+
+/** A helper stops helping at their centre; their login stays. */
+export async function leaveCentre() {
+  await api('POST', '/me/leave');
 }

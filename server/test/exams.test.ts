@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { average, percentOf, ranks } from '../src/exams/logic.js';
-import { startHarness, type Harness, type Tenant } from './helpers.js';
+import { addHelper, startHarness, type Harness, type Tenant } from './helpers.js';
 
 let h: Harness;
 let A: Tenant;
@@ -211,9 +211,7 @@ describe('tests and marks', () => {
   });
 
   it('is for the owner only: a helper cannot see or change tests', async () => {
-    const helper = await A.call('POST', '/staff', { name: 'Helper', phone: '9811111111' });
-    expect(helper.status, JSON.stringify(helper.body)).toBeLessThan(300);
-    const staff = h.login(helper.body.userId ?? helper.body.id, A.instituteId);
+    const staff = await addHelper(h, A, { name: 'Helper', phone: '9811111111' });
     expect((await staff.call('GET', '/exams')).status).toBe(403);
   });
 

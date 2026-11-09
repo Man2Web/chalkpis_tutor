@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { startHarness, type Harness, type Tenant } from './helpers.js';
+import { addHelper, startHarness, type Harness, type Tenant } from './helpers.js';
 
 let h: Harness;
 let A: Tenant;
@@ -167,13 +167,11 @@ describe('brothers and sisters', () => {
       defaultFee: 150000,
     });
     await A.call('PATCH', `/students/${asha}`, { batchIds: [batch] });
-    const r = await A.call('POST', '/staff', {
+    const helper = await addHelper(h, A, {
       phone: '9876511111',
       name: 'Helper',
       batchIds: [batch],
     });
-    expect(r.status, JSON.stringify(r.body)).toBe(201);
-    const helper = h.login(r.body.id as string, A.instituteId);
     expect((await A.call('GET', `/students/${asha}`)).body.familyId).toBeTruthy();
     expect((await helper.call('GET', `/students/${asha}`)).body.familyId).toBeNull();
     expect((await helper.call('GET', `/students/${asha}/family`)).status).toBe(403);

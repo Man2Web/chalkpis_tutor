@@ -3,7 +3,7 @@ import { healthScore } from '../src/admin/analytics.js';
 import { toCsv } from '../src/admin/ops.js';
 import { parseTemplates } from '../src/messaging/templates.js';
 import { processQueue } from '../src/messaging/worker.js';
-import { startHarness, type Harness, type Tenant } from './helpers.js';
+import { addHelper, startHarness, type Harness, type Tenant } from './helpers.js';
 
 const ADMIN = '+919000000001';
 let h: Harness;
@@ -159,8 +159,7 @@ describe('next-level admin', () => {
   });
 
   it('announcements go live for the chosen audience and can be taken down', async () => {
-    const helper = (await A.call('POST', '/staff', { phone: '9876511111', name: 'Helper' })).body;
-    const staff = h.login(helper.id ?? helper.userId, A.instituteId);
+    const staff = await addHelper(h, A, { phone: '9876511111', name: 'Helper' });
     const r = await admin.call('POST', '/admin/api/announcements', {
       title: 'New: poster maker',
       body: 'Make topper posters in seconds.',

@@ -9,6 +9,8 @@ export type AuthStackParams = {
 };
 
 export type OnboardingStackParams = {
+  /** "Join <centre>?" for someone a centre invited as a helper, before any sign-up step (decision 174). */
+  Invite: undefined;
   Profile: undefined;
   /** The owner's email, city, state, PIN code and how they heard about Chalkpis (decision 156). */
   Details: undefined;

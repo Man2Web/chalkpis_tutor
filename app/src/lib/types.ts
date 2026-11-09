@@ -15,6 +15,16 @@ export interface UserProfile {
   detailsDone?: boolean;
   /** ...and must be before the app can be used: a centre made since sign-up asked for them (decision 162). */
   detailsRequired?: boolean;
+  /** Helper invites waiting for a yes or no; only while the person belongs to no centre (decision 174). */
+  invites?: CentreInvite[];
+}
+
+/** "Kiran invited you to help at Kiran Karate Academy": the person joins only if they accept (decision 174). */
+export interface CentreInvite {
+  instituteId: string;
+  centreName: string;
+  ownerName: string;
+  invitedAt: string;
 }
 
 export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';

@@ -4,7 +4,15 @@ import type { AppDeps } from '../app.js';
 import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
 import { idParam, parse } from '../lib/params.js';
 import { normalizeIndianPhone } from '../lib/phone.js';
-import { addStaff, listStaff, removeStaff, setStaffBatches } from '../staff/service.js';
+import {
+  acceptInvite,
+  addStaff,
+  declineInvite,
+  leaveCentre,
+  listStaff,
+  removeStaff,
+  setStaffBatches,
+} from '../staff/service.js';
 
 type Deps = Pick<AppDeps, 'config' | 'pool'> & { clock?: () => Date };
 
@@ -48,6 +56,24 @@ export function staffRoutes(app: FastifyInstance, deps: Deps) {
   });
   app.delete('/staff/:id', owner, async (req) => {
     await removeStaff(deps.pool, inst(req), uid(req));
+    return { ok: true };
+  });
+
+  // The invited person's side (decided 9 Nov 2026): their invites are in GET /me; they accept or decline one by the
+  // centre's id, and a helper can leave the centre. Only ever about the caller's own login.
+  const signedIn = { preHandler: [authenticate(deps)] };
+  const centreParam = (req: { params: unknown }) =>
+    idParam((req.params as { instituteId: string }).instituteId);
+  app.post('/me/invites/:instituteId/accept', signedIn, async (req) => {
+    await acceptInvite(deps.pool, req.auth!.userId, centreParam(req), now());
+    return { ok: true };
+  });
+  app.delete('/me/invites/:instituteId', signedIn, async (req) => {
+    await declineInvite(deps.pool, req.auth!.userId, centreParam(req));
+    return { ok: true };
+  });
+  app.post('/me/leave', signedIn, async (req) => {
+    await leaveCentre(deps.pool, req.auth!.userId);
     return { ok: true };
   });
 }

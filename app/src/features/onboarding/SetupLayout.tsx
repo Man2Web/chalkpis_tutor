@@ -17,16 +17,19 @@ export type SetupStep = (typeof SETUP_STEPS)[number];
  * A sign-up step. On a phone: the board on top with "Step n of 4", the title and a line on why it is asked, and the
  * form on the paper below, kept above the keyboard. On a laptop the board on the left lists the four steps, ticked
  * off as they are done, and the form stands on the right. `finishing`: the centre is already set up and only this step
- * was skipped (decision 162), so there is no step count and every other step is ticked.
+ * was skipped (decision 162), so there is no step count and every other step is ticked. No `step`: a screen before
+ * the steps (a helper invite, decision 174), shown with `boardTitle` on the laptop board and no step count.
  */
 export function SetupLayout({
   step,
+  boardTitle,
   title,
   subtitle,
   finishing = false,
   children,
 }: {
-  step: SetupStep;
+  step?: SetupStep;
+  boardTitle?: string;
   title: string;
   subtitle?: string;
   finishing?: boolean;
@@ -34,11 +37,19 @@ export function SetupLayout({
 }) {
   const insets = useSafeAreaInsets();
   const desktop = useDesktop();
-  const n = SETUP_STEPS.indexOf(step) + 1;
+  const n = step ? SETUP_STEPS.indexOf(step) + 1 : 0;
 
   if (desktop)
     return (
-      <AuthSplit board={<SetupBoard step={step} finishing={finishing} />}>
+      <AuthSplit
+        board={
+          step ? (
+            <SetupBoard step={step} finishing={finishing} />
+          ) : (
+            <PlainBoard title={boardTitle ?? title} />
+          )
+        }
+      >
         <Text style={[type.largeTitle, { ...font('800') }]} accessibilityRole="header">
           {title}
         </Text>
@@ -60,13 +71,27 @@ export function SetupLayout({
         <BoardHeader
           title={title}
           subtitle={subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : undefined}
-          step={finishing ? undefined : [n, SETUP_STEPS.length]}
+          step={finishing || !n ? undefined : [n, SETUP_STEPS.length]}
           topInset={insets.top}
         />
         <View style={[styles.paper, { paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={[SIGNIN_INNER, { gap: spacing.sm }]}>{children}</View>
         </View>
       </KeyboardScroll>
+    </View>
+  );
+}
+
+/** The laptop board with only a title in chalk, for a screen that is not one of the sign-up steps. */
+function PlainBoard({ title }: { title: string }) {
+  return (
+    <View>
+      <Text style={styles.boardTitle} accessibilityRole="header">
+        {title}
+      </Text>
+      <View style={{ marginTop: 14 }}>
+        <ChalkUnderline width={200} delay={150} />
+      </View>
     </View>
   );
 }

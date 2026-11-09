@@ -8,6 +8,7 @@ import { endSession, refreshSession, startSession } from '../auth/sessions.js';
 import { detailsRequired } from '../institutes/details.js';
 import { noteAppSignIn } from '../institutes/service.js';
 import type { MessageProvider } from '../messaging/provider.js';
+import { invitesFor } from '../staff/service.js';
 
 const phoneBody = z.object({ phone: z.string().max(32) });
 const verifyBody = z.object({ phone: z.string().max(32), code: z.string().max(10) });
@@ -55,6 +56,8 @@ async function profile(deps: Deps, userId: string) {
   if (!r) return null;
   return {
     user: { id: r.id, phone: r.phone, name: r.name, language: r.language },
+    // helper invites waiting for an answer, shown while the person belongs to no centre (decided 9 Nov 2026)
+    invites: r.institute_id ? [] : await invitesFor(deps.pool, userId),
     membership: r.institute_id
       ? {
           instituteId: r.institute_id,

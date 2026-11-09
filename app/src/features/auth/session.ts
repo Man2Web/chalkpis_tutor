@@ -6,7 +6,7 @@ import { api, ApiError, setSignedOutHandler } from '../../api/client';
 import { tokens } from '../../api/tokens';
 import { reportError } from '../../lib/analytics';
 import { queryClient } from '../../lib/queryClient';
-import type { UserProfile } from '../../lib/types';
+import type { CentreInvite, UserProfile } from '../../lib/types';
 import { statusFor, type SessionStatus } from './status';
 
 interface SessionState {
@@ -44,6 +44,8 @@ export interface MeResponse {
     /** the owner must give them before using the app (decision 162); missing from older servers */
     detailsRequired?: boolean;
   } | null;
+  /** helper invites waiting for an answer (decision 174); missing from older servers */
+  invites?: CentreInvite[];
 }
 
 /** Puts the signed-in person into the app state; which part of the app shows follows from it. */
@@ -53,6 +55,7 @@ export function applyMe(me: MeResponse) {
     phone: me.user.phone ?? null,
     language: me.user.language,
     role: me.membership?.role ?? 'owner',
+    invites: me.membership ? [] : (me.invites ?? []),
     ...(me.membership
       ? {
           instituteId: me.membership.instituteId,

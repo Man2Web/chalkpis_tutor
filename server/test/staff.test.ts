@@ -41,8 +41,8 @@ const mk = async (t: Tenant, path: string, body: unknown) => {
   expect(r.status, JSON.stringify(r.body)).toBe(201);
   return r.body.id as string;
 };
-/** Owner invites a helper; returns a caller acting as that helper. */
-const invite = async (
+/** Owner invites a person; returns a caller acting as them (not in the centre until they accept). */
+const invited = async (
   owner: Tenant,
   phone: string,
   batchIds: string[] = [],
@@ -50,7 +50,14 @@ const invite = async (
 ) => {
   const r = await owner.call('POST', '/staff', { phone, name, batchIds });
   expect(r.status, JSON.stringify(r.body)).toBe(201);
-  return h.login(r.body.id as string, owner.instituteId);
+  return h.login(r.body.id as string, '');
+};
+/** Owner invites a helper and they accept; returns a caller acting as that helper. */
+const invite = async (owner: Tenant, phone: string, batchIds: string[] = [], name?: string) => {
+  const person = await invited(owner, phone, batchIds, name);
+  const r = await person.call('POST', `/me/invites/${owner.instituteId}/accept`);
+  expect(r.status, JSON.stringify(r.body)).toBe(200);
+  return h.login(person.userId, owner.instituteId);
 };
 
 describe('inviting and managing staff', () => {
@@ -60,14 +67,134 @@ describe('inviting and managing staff', () => {
     const staff = await invite(A, '98765 11111', [b1, b2]);
     const list = (await A.call('GET', '/staff')).body.staff;
     expect(list).toHaveLength(1);
-    expect(list[0]).toMatchObject({ id: staff.userId, phone: '+919876511111', name: 'Helper One' });
+    expect(list[0]).toMatchObject({
+      id: staff.userId,
+      phone: '+919876511111',
+      name: 'Helper One',
+      status: 'active',
+    });
     expect(list[0].batchIds.sort()).toEqual([b1, b2].sort());
     expect((await staff.call('GET', '/me')).body).toMatchObject({
+      invites: [],
       membership: { instituteId: A.instituteId, role: 'staff', onboardingDone: true },
     });
   });
 
-  it('the helper signs in with the usual WhatsApp code and lands straight in the institute', async () => {
+  it('an invite joins nothing: the person sees "Join Alpha?" and is in only after accepting', async () => {
+    const b1 = await mk(A, '/batches', batch());
+    const person = await invited(A, '9876511111', [b1]);
+    expect((await A.call('GET', '/staff')).body.staff).toEqual([
+      expect.objectContaining({ id: person.userId, status: 'invited', batchIds: [b1] }),
+    ]);
+    const me = (await person.call('GET', '/me')).body;
+    expect(me.membership).toBeNull();
+    expect(me.invites).toEqual([
+      {
+        instituteId: A.instituteId,
+        centreName: 'Alpha',
+        ownerName: expect.any(String),
+        invitedAt: expect.any(String),
+      },
+    ]);
+    expect((await person.call('GET', '/batches')).status).toBe(403); // not in the centre yet
+    expect((await person.call('POST', `/me/invites/${A.instituteId}/accept`)).status).toBe(200);
+    expect((await person.call('GET', '/me')).body).toMatchObject({
+      invites: [],
+      membership: { instituteId: A.instituteId, role: 'staff', onboardingDone: true },
+    });
+    expect(
+      (await person.call('GET', '/batches')).body.batches.map((x: { id: string }) => x.id),
+    ).toEqual([b1]);
+    expect((await A.call('GET', '/staff')).body.staff[0]).toMatchObject({
+      status: 'active',
+      batchIds: [b1],
+    });
+    // accepting twice: the invite is gone
+    expect((await person.call('POST', `/me/invites/${A.instituteId}/accept`)).status).toBe(404);
+  });
+
+  it('declining drops the invite, and the person can still set up a centre of their own', async () => {
+    const person = await invited(A, '9876511111');
+    expect((await person.call('DELETE', `/me/invites/${A.instituteId}`)).status).toBe(200);
+    expect((await person.call('GET', '/me')).body).toMatchObject({ invites: [], membership: null });
+    expect((await A.call('GET', '/staff')).body.staff).toEqual([]);
+    expect((await person.call('POST', `/me/invites/${A.instituteId}/accept`)).status).toBe(404);
+    expect(
+      (
+        await person.call('POST', '/institutes', {
+          tutorName: 'Helper One',
+          instituteName: 'Own Classes',
+          category: 'tuition',
+          language: 'en',
+        })
+      ).status,
+    ).toBe(201);
+  });
+
+  it('someone who already has a centre must leave it before accepting', async () => {
+    await invited(B, '9876543210'); // A's owner, invited to Beta
+    expect((await A.call('GET', '/me')).body.invites).toEqual([]); // not shown inside a centre
+    const r = await A.call('POST', `/me/invites/${B.instituteId}/accept`);
+    expect([r.status, r.body.error]).toEqual([409, 'has_centre']);
+    expect((await A.call('GET', '/me')).body.membership).toMatchObject({
+      instituteId: A.instituteId,
+      role: 'owner',
+    });
+  });
+
+  it('an invite can be accepted only by the invited person, and only for a real invite', async () => {
+    await invited(A, '9876511111');
+    const stranger = await invited(B, '9876522222');
+    expect((await stranger.call('POST', `/me/invites/${A.instituteId}/accept`)).status).toBe(404);
+    expect((await stranger.call('POST', '/me/invites/not-an-id/accept')).status).toBe(400);
+    expect(
+      (await h.app.inject({ method: 'POST', url: `/me/invites/${A.instituteId}/accept` }))
+        .statusCode,
+    ).toBe(401);
+    expect((await A.call('GET', '/staff')).body.staff[0].status).toBe('invited');
+  });
+
+  it('batches changed or deleted before the person accepts: they get what is left', async () => {
+    const b1 = await mk(A, '/batches', batch());
+    const b2 = await mk(A, '/batches', batch({ name: 'Science 10' }));
+    const person = await invited(A, '9876511111', [b1]);
+    expect(
+      (await A.call('PUT', `/staff/${person.userId}/batches`, { batchIds: [b1, b2] })).status,
+    ).toBe(200);
+    expect((await A.call('GET', '/staff')).body.staff[0].batchIds.sort()).toEqual([b1, b2].sort());
+    await h.db.pool.query('DELETE FROM batches WHERE id = ?', [b2]);
+    await person.call('POST', `/me/invites/${A.instituteId}/accept`);
+    expect((await A.call('GET', '/staff')).body.staff[0].batchIds).toEqual([b1]);
+  });
+
+  it('the owner can cancel an invite before it is answered', async () => {
+    const person = await invited(A, '9876511111');
+    expect((await A.call('DELETE', `/staff/${person.userId}`)).status).toBe(200);
+    expect((await person.call('GET', '/me')).body.invites).toEqual([]);
+    expect((await person.call('POST', `/me/invites/${A.instituteId}/accept`)).status).toBe(404);
+  });
+
+  it('an expired plan cannot be joined', async () => {
+    const person = await invited(A, '9876511111');
+    h.clock.now = new Date(h.clock.now.getTime() + 8 * 86_400_000);
+    const late = h.login(person.userId, '');
+    const r = await late.call('POST', `/me/invites/${A.instituteId}/accept`);
+    expect([r.status, r.body.error]).toEqual([402, 'plan_expired']);
+  });
+
+  it('a helper can leave the centre; an owner cannot leave their own', async () => {
+    const b = await mk(A, '/batches', batch());
+    const staff = await invite(A, '9876511111', [b]);
+    expect((await staff.call('POST', '/me/leave')).status).toBe(200);
+    expect((await staff.call('GET', '/me')).body.membership).toBeNull();
+    expect((await staff.call('GET', '/batches')).status).toBe(403);
+    expect((await A.call('GET', '/staff')).body.staff).toEqual([]);
+    expect((await staff.call('POST', '/me/leave')).status).toBe(404);
+    const r = await A.call('POST', '/me/leave');
+    expect([r.status, r.body.error]).toEqual([400, 'owner_cannot_leave']);
+  });
+
+  it('the person signs in with the usual WhatsApp code and is asked to join', async () => {
     await A.call('POST', '/staff', { phone: '9876511111', name: 'Helper One' });
     expect(
       (
@@ -87,7 +214,8 @@ describe('inviting and managing staff', () => {
     expect(v.statusCode).toBe(200);
     expect(v.json()).toMatchObject({
       user: { name: 'Helper One', phone: '+919876511111' },
-      membership: { instituteId: A.instituteId, role: 'staff', onboardingDone: true },
+      invites: [{ instituteId: A.instituteId, centreName: 'Alpha' }],
+      membership: null,
     });
   });
 
@@ -114,29 +242,53 @@ describe('inviting and managing staff', () => {
     ).toBe(0);
   });
 
-  it('a number that already belongs to an institute gets the same refusal, whichever institute', async () => {
+  it("only this centre's own people are refused; another centre's look like anyone else", async () => {
     expect(
       (await A.call('POST', '/staff', { phone: '9876543210', name: 'The Owner' })).body.error,
     ).toBe('already_member'); // the owner's own number
-    expect(
-      (await A.call('POST', '/staff', { phone: '9123456789', name: 'Other Owner' })).body.error,
-    ).toBe('already_member'); // B's owner
     await invite(A, '9876511111');
     expect(
-      (await B.call('POST', '/staff', { phone: '9876511111', name: 'Taken' })).body.error,
-    ).toBe('already_member');
+      (await A.call('POST', '/staff', { phone: '9876511111', name: 'Again' })).body.error,
+    ).toBe('already_member'); // already a helper here
+    await invited(A, '9876522222');
+    expect(
+      (await A.call('POST', '/staff', { phone: '9876522222', name: 'Again' })).body.error,
+    ).toBe('already_member'); // already invited here
+    // B's owner, A's helper and a number nobody uses all get the same answer from B: nothing tells B who uses the app
+    const answers = [];
+    for (const phone of ['9876543210', '9876511111', '9876533333']) {
+      const r = await B.call('POST', '/staff', { phone, name: 'Someone' });
+      answers.push([r.status, Object.keys(r.body)]);
+    }
+    expect(answers).toEqual(Array(3).fill([201, ['id']]));
+    expect(
+      (await B.call('GET', '/staff')).body.staff.map((s: { status: string; name: string }) => [
+        s.status,
+        s.name,
+      ]),
+    ).toEqual(Array(3).fill(['invited', 'Someone']));
+    // ...and nothing changed for them in A
+    expect((await A.call('GET', '/me')).body.membership.role).toBe('owner');
+    expect(
+      (await A.call('GET', '/staff')).body.staff.map((s: { status: string }) => s.status).sort(),
+    ).toEqual(['active', 'invited']);
   });
 
-  it('a person who signed up but has no institute yet can be invited', async () => {
+  it("a person who already signed up is shown by the owner's name for them, not their own", async () => {
     await h.db.pool.query(
       "INSERT INTO users (id, phone, name) VALUES (UUID(), '+919876522222', 'Existing Person')",
     );
-    const r = await A.call('POST', '/staff', { phone: '9876522222', name: 'Ignored Name' });
+    const r = await A.call('POST', '/staff', { phone: '9876522222', name: 'Typed Name' });
     expect(r.status).toBe(201);
     expect((await A.call('GET', '/staff')).body.staff[0]).toMatchObject({
       phone: '+919876522222',
-      name: 'Existing Person',
-    }); // their own name is kept
+      name: 'Typed Name',
+      status: 'invited',
+    }); // their own name would tell the owner the number already uses the app
+    const [[u]] = (await h.db.pool.query(
+      "SELECT name FROM users WHERE phone = '+919876522222'",
+    )) as unknown as [[{ name: string }]];
+    expect(u.name).toBe('Existing Person'); // and their own name is kept
   });
 
   it(`allows at most ${MAX_STAFF} helpers, even when invited at the same moment`, async () => {
@@ -160,10 +312,14 @@ describe('inviting and managing staff', () => {
     const r = await A.call('POST', '/staff', { phone: '9876549999', name: 'One more' });
     expect([r.status, r.body.error]).toEqual([429, 'too_many_invites']);
     // another centre is not affected, and the next day it works again
-    expect((await B.call('POST', '/staff', { phone: '9876549998', name: 'Other' })).status).toBe(201);
+    expect((await B.call('POST', '/staff', { phone: '9876549998', name: 'Other' })).status).toBe(
+      201,
+    );
     h.clock.now = new Date(h.clock.now.getTime() + 86_400_000 + 1000);
     const later = h.login(A.userId, A.instituteId); // a fresh sign-in: yesterday's access token has expired
-    expect((await later.call('POST', '/staff', { phone: '9876549999', name: 'One more' })).status).toBe(201);
+    expect(
+      (await later.call('POST', '/staff', { phone: '9876549999', name: 'One more' })).status,
+    ).toBe(201);
   });
 
   it('assigned batches can be replaced, and the database refuses a batch of another institute', async () => {
