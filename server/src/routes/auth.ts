@@ -134,7 +134,7 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
       const body = verifyBody.safeParse(req.body);
       if (!body.success) return reply.code(400).send({ error: 'bad_request' });
       // a new number gets its account here: signing up and signing in are the same step
-      const v = await verifyOtp(otpDeps, body.data.phone, body.data.code);
+      const v = await verifyOtp(otpDeps, body.data.phone, body.data.code, req.ip);
       if (!v.ok) return reply.code(401).send({ error: 'invalid_code' });
       // a centre set up on the website: its free trial may be waiting for this first sign-in in the app
       if (!v.isNew) await noteAppSignIn(deps.pool, v.userId, now(), deps.config.TRIAL_DAYS);
@@ -223,7 +223,7 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
       if (me.phone) return reply.code(409).send({ error: 'phone_already_set' });
       const body = addPhoneBody.safeParse(req.body);
       if (!body.success) return reply.code(400).send({ error: 'bad_request' });
-      const v = await confirmPhoneOwnership(otpDeps, body.data.phone, body.data.code);
+      const v = await confirmPhoneOwnership(otpDeps, body.data.phone, body.data.code, req.ip);
       if (!v.ok) return reply.code(401).send({ error: 'invalid_code' });
       // a number that already has its own Chalkpis account is not moved (that would be two people's data)
       if (v.userId && v.userId !== me.userId)

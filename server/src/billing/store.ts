@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { withTransaction, type Pool } from '../db.js';
+import { normalizeIndianPhone } from '../lib/phone.js';
 import { queuePlanActive } from '../messaging/centreMessages.js';
 import { PLANS, PLAN_RANK, storeProduct, type Cycle, type PlanId } from './plans.js';
 import { leaveStore, SUB_COLUMNS, type SubRow } from './service.js';
@@ -30,12 +31,18 @@ export interface RcSubscriber {
 
 export interface StoreClient {
   getSubscriber(appUserId: string): Promise<RcSubscriber>;
+  /**
+   * The one mobile number whose store test purchases (App Store / Play sandbox) switch a plan on: the store-review
+   * account (REVIEW_PHONE), so Apple and Google reviewers can try buying. Anyone else's test purchase is ignored.
+   */
+  readonly sandboxPhone?: string | null;
 }
 
 export class RevenueCatClient implements StoreClient {
   constructor(
     private readonly secretKey: string,
     private readonly fetchFn: typeof fetch = fetch,
+    readonly sandboxPhone: string | null = null,
   ) {}
 
   async getSubscriber(appUserId: string): Promise<RcSubscriber> {
@@ -71,10 +78,16 @@ const productKey = (key: string, plan?: string | null) =>
  * The store subscription that decides a centre's plan now: ours (a known product), not refunded, not ended (a billing
  * grace period counts). With more than one (an upgrade in progress), the higher plan wins.
  */
-export function activeStoreSub(sub: RcSubscriber, now: Date): StoreState | null {
+export function activeStoreSub(
+  sub: RcSubscriber,
+  now: Date,
+  allowSandbox = true,
+): StoreState | null {
   let best: StoreState | null = null;
   for (const [key, s] of Object.entries(sub.subscriptions ?? {})) {
     if (s.store !== 'app_store' && s.store !== 'play_store') continue;
+    // a store test purchase (TestFlight, a Play test track) is not a real payment
+    if (s.is_sandbox && !allowSandbox) continue;
     const product = productKey(key, s.product_plan_identifier);
     const p = storeProduct(product);
     if (!p || s.refunded_at) continue;
@@ -122,11 +135,15 @@ export async function syncStore(
   now: Date,
 ): Promise<{ state: 'store' | 'left' | 'none' | 'missing'; plan?: string; expiresAt?: Date }> {
   if (!UUID.test(instituteId)) return { state: 'missing' };
-  const [inst] = (await pool.query('SELECT id FROM institutes WHERE id = ?', [
-    instituteId,
-  ])) as unknown as [{ id: string }[]];
+  const [inst] = (await pool.query(
+    'SELECT i.id, u.phone FROM institutes i LEFT JOIN users u ON u.id = i.owner_user_id WHERE i.id = ?',
+    [instituteId],
+  )) as unknown as [{ id: string; phone: string | null }[]];
   if (!inst[0]) return { state: 'missing' };
-  const store = activeStoreSub(await client.getSubscriber(instituteId), now);
+  // store test purchases count only for the store-review account (decided 9 Nov 2026, security audit)
+  const review = client.sandboxPhone ? normalizeIndianPhone(client.sandboxPhone) : null;
+  const allowSandbox = !!review && inst[0].phone === review;
+  const store = activeStoreSub(await client.getSubscriber(instituteId), now, allowSandbox);
   return withTransaction(pool, async (c) => {
     const [rows] = (await c.query(
       `SELECT ${SUB_COLUMNS}, store_product, store_issue FROM subscriptions WHERE institute_id = ? FOR UPDATE`,

@@ -6,7 +6,7 @@ import { queuePlanActive } from '../messaging/centreMessages.js';
 import {
   PLANS,
   computeSubscription,
-  isPlanId,
+  limitsOf,
   planChange,
   priceOf,
   type Cycle,
@@ -439,7 +439,7 @@ export async function leaveStore(
   const banked = Number(row.banked_ms ?? 0);
   if (banked > 0 && row.banked_plan) {
     const plan = row.banked_plan;
-    const limits = isPlanId(plan) ? PLANS[plan] : { studentLimit: null, batchLimit: null };
+    const limits = limitsOf(plan);
     const expiresAt = new Date(now.getTime() + banked);
     await c.query(
       `UPDATE subscriptions SET plan = ?, cycle = ?, status = 'active', starts_at = ?, expires_at = ?,

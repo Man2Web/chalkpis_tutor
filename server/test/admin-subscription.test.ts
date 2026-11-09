@@ -71,7 +71,7 @@ describe('admin: full control of a subscription', () => {
     ).toBe(400);
   });
 
-  it('extending as Trial clears the paid limits (a trial has none)', async () => {
+  it("extending as Trial gives the trial's limits (100 students, batches unlimited)", async () => {
     await h.db.pool.query(
       "UPDATE subscriptions SET plan = 'starter', student_limit = 50, batch_limit = 3 WHERE institute_id = ?",
       [T.instituteId],
@@ -80,7 +80,7 @@ describe('admin: full control of a subscription', () => {
       plan: 'trial',
       days: 30,
     });
-    expect(await sub()).toMatchObject({ plan: 'trial', student_limit: null, batch_limit: null });
+    expect(await sub()).toMatchObject({ plan: 'trial', student_limit: 100, batch_limit: null });
   });
 
   it('records an offline plan payment, with or without applying the plan', async () => {

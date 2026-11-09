@@ -71,7 +71,7 @@ async function main() {
     );
   // in-app subscriptions: read from RevenueCat with the secret key; without it the apps cannot sell
   const store = config.REVENUECAT_SECRET_KEY
-    ? new RevenueCatClient(config.REVENUECAT_SECRET_KEY)
+    ? new RevenueCatClient(config.REVENUECAT_SECRET_KEY, fetch, config.REVIEW_PHONE ?? null)
     : null;
   // Admin dashboard emails: SMTP when set up; locally a stand-in that keeps the mail (use OTP_DEV_ECHO to see codes).
   let mailer: Mailer | null = null;
@@ -122,6 +122,7 @@ async function main() {
       billing,
       store,
       { mailer, emails: config.ADMIN_EMAILS, dashboardUrl: config.PUBLIC_BASE_URL },
+      config.FILES_DIR,
     ),
   );
 

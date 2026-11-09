@@ -1,13 +1,23 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { Config } from '../config.js';
-import { inTransaction, type Pool } from '../db.js';
+import { inTransaction, type Pool, type PoolConnection } from '../db.js';
 import { hashOtp, newId, newOtp } from '../lib/ids.js';
 import { withNamedLock } from '../lib/lock.js';
 import { normalizeIndianPhone } from '../lib/phone.js';
 import { meterLoginCode } from '../messaging/meter.js';
 import type { MessageProvider } from '../messaging/provider.js';
 
-export const OTP = { ttlMinutes: 5, cooldownSeconds: 60, maxPerHour: 5, maxAttempts: 5 } as const;
+/**
+ * maxFailedPerDay: wrong codes one number may get in 24 hours, across all its codes. The hourly rules alone allow
+ * about 25 guesses an hour (600 a day); this keeps a patient guesser on a registered number to 1 in 50,000 a day.
+ */
+export const OTP = {
+  ttlMinutes: 5,
+  cooldownSeconds: 60,
+  maxPerHour: 5,
+  maxAttempts: 5,
+  maxFailedPerDay: 20,
+} as const;
 
 export interface OtpDeps {
   pool: Pool;
@@ -58,8 +68,41 @@ function takeNewNumberSlot(ip: string, now: Date) {
   if (newNumberSlots.size > 20_000) newNumberSlots.clear();
   return true;
 }
+/**
+ * Wrong store-review codes one address may try per hour. The review number itself is never locked (reviewers share
+ * it and must always get in), so guessing its code is limited per address instead.
+ */
+const REVIEW_MISSES_PER_IP_HOUR = 10;
+const reviewMisses = new Map<string, number[]>();
+const recentReviewMisses = (ip: string, now: Date) =>
+  (reviewMisses.get(ipKey(ip)) ?? []).filter(
+    (t) => t > now.getTime() - 3_600_000 && t <= now.getTime(),
+  );
+function noteReviewMiss(ip: string, now: Date) {
+  const times = recentReviewMisses(ip, now);
+  times.push(now.getTime());
+  reviewMisses.set(ipKey(ip), times);
+  if (reviewMisses.size > 20_000) reviewMisses.clear();
+}
+
 /** Tests: forget the per-address counts. */
-export const resetNewNumberSlots = () => newNumberSlots.clear();
+export const resetNewNumberSlots = () => {
+  newNumberSlots.clear();
+  reviewMisses.clear();
+};
+
+/** Wrong codes this number got in the last 24 hours (all its codes; rows live a day past expiry, see the cleanup job). */
+async function failedToday(
+  db: Pool | PoolConnection,
+  phone: string,
+  now: Date,
+): Promise<number> {
+  const [[r]] = (await db.query(
+    'SELECT COALESCE(SUM(attempts), 0) AS n FROM otp_codes WHERE phone = ? AND created_at > ?',
+    [phone, new Date(now.getTime() - 86_400_000)],
+  )) as unknown as [[{ n: number | string }]];
+  return Number(r?.n ?? 0);
+}
 
 /**
  * Sends a login code. The answer is the same whether or not the number already has an account, so nobody can
@@ -96,6 +139,9 @@ export async function requestOtp(
         retryAfter: Math.max(1, 3600 - Math.floor((now.getTime() - oldest.getTime()) / 1000)),
       } as const;
     }
+    // too many wrong codes today: no new code until tomorrow (a code that could not be used would only mislead)
+    if ((await failedToday(conn, phone, now)) >= OTP.maxFailedPerDay)
+      return { ok: false, error: 'too_many', retryAfter: 6 * 3600 } as const;
 
     // The hourly cap across everyone stops code-pumping to random numbers. People who already have an account are
     // not counted against it, so a flood of strangers' numbers can never stop real users from signing in. A helper an
@@ -161,8 +207,9 @@ export async function verifyOtp(
   deps: OtpDeps,
   rawPhone: unknown,
   rawCode: unknown,
+  ip?: string,
 ): Promise<OtpVerifyResult> {
-  const r = await checkOtp(deps, rawPhone, rawCode, true);
+  const r = await checkOtp(deps, rawPhone, rawCode, true, ip);
   return r.ok ? { ok: true, userId: r.userId!, isNew: r.isNew } : { ok: false };
 }
 
@@ -174,8 +221,9 @@ export async function confirmPhoneOwnership(
   deps: OtpDeps,
   rawPhone: unknown,
   rawCode: unknown,
+  ip?: string,
 ): Promise<{ ok: true; phone: string; userId: string | null } | { ok: false }> {
-  const r = await checkOtp(deps, rawPhone, rawCode, false);
+  const r = await checkOtp(deps, rawPhone, rawCode, false, ip);
   return r.ok ? { ok: true, phone: r.phone, userId: r.userId } : { ok: false };
 }
 
@@ -184,6 +232,7 @@ async function checkOtp(
   rawPhone: unknown,
   rawCode: unknown,
   createUser: boolean,
+  ip?: string,
 ): Promise<{ ok: true; phone: string; userId: string | null; isNew: boolean } | { ok: false }> {
   const phone = normalizeIndianPhone(rawPhone);
   if (!phone || typeof rawCode !== 'string' || !/^\d{6}$/.test(rawCode)) return { ok: false };
@@ -192,20 +241,17 @@ async function checkOtp(
   return withNamedLock(deps.pool, `otp:${phone}`, (conn) =>
     inTransaction(conn, async (c) => {
       if (isReview(deps, phone)) {
-        // the fixed review code gets the same kind of guard as a real code: 10 wrong tries an hour lock it
-        const [[failed]] = (await c.query(
-          "SELECT COUNT(*) AS n FROM otp_codes WHERE phone = ? AND code_hash = 'review-miss' AND created_at > ?",
-          [phone, iso(new Date(now.getTime() - 3_600_000))],
-        )) as unknown as [[{ n: number }]];
-        if (Number(failed?.n ?? 0) >= 10) return { ok: false } as const;
+        // The review number is never locked (decided 9 Nov 2026): wrong guesses from one address could otherwise
+        // shut the store reviewers out. Instead one address gets 10 wrong tries an hour; a reviewer elsewhere is
+        // not affected.
+        if (ip && recentReviewMisses(ip, now).length >= REVIEW_MISSES_PER_IP_HOUR)
+          return { ok: false } as const;
         if (!sameCode(rawCode, deps.config.REVIEW_CODE!)) {
-          await c.query(
-            "INSERT INTO otp_codes (id, phone, code_hash, expires_at, created_at, consumed_at) VALUES (?, ?, 'review-miss', ?, ?, ?)",
-            [newId(), phone, iso(now), iso(now), iso(now)],
-          );
+          if (ip) noteReviewMiss(ip, now);
           return { ok: false } as const;
         }
       } else {
+        if ((await failedToday(c, phone, now)) >= OTP.maxFailedPerDay) return { ok: false } as const;
         const [rows] = (await c.query(
           'SELECT id, code_hash, attempts FROM otp_codes WHERE phone = ? AND consumed_at IS NULL AND expires_at > ? ORDER BY created_at DESC LIMIT 1 FOR UPDATE',
           [phone, iso(now)],

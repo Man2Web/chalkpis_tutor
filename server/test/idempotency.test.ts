@@ -424,17 +424,20 @@ describe('sign-in edge cases', () => {
       });
       expect(later.statusCode).toBe(200);
       expect(R.provider.sent).toHaveLength(0);
-      // but guessing is capped: 10 wrong codes within an hour lock the review number for that hour
-      const verify = async (code: string) =>
+      // guessing is capped per address: 10 wrong codes within an hour stop that address for the hour, but the review
+      // number itself is never locked, so a reviewer elsewhere still gets in
+      const verify = async (code: string, remoteAddress = '127.0.0.1') =>
         (
           await R.app.inject({
             method: 'POST',
             url: '/auth/otp/verify',
             payload: { phone: '9999900001', code },
+            remoteAddress,
           })
         ).statusCode;
       for (let i = 0; i < 4; i++) await verify('222222');
       expect(await verify('424242')).toBe(401);
+      expect(await verify('424242', '203.0.113.77')).toBe(200);
       R.clock.now = new Date(R.clock.now.getTime() + 3_600_001);
       expect(await verify('424242')).toBe(200);
       // any other number still gets a real, random code by WhatsApp

@@ -20,6 +20,8 @@ class FakeStore implements StoreClient {
   subs = new Map<string, RcSubscriber>();
   calls: string[] = [];
   down = false;
+  /** A (below) plays the store-review account. */
+  sandboxPhone: string | null = '+919876543210';
   async getSubscriber(id: string) {
     this.calls.push(id);
     if (this.down) throw new Error('revenuecat_503');
@@ -301,7 +303,27 @@ describe('in-app subscriptions (App Store / Google Play through RevenueCat)', ()
     expect((await plan(B)).plan).toBe('pro');
   });
 
-  it('sandbox purchases (App Review, testers) switch the plan on but are not revenue', async () => {
+  it('a store test purchase by anyone but the review account is ignored', async () => {
+    has(B, sub('chalkpis.pro.monthly', 30, { is_sandbox: true }));
+    await hook(
+      event(B, 'INITIAL_PURCHASE', {
+        environment: 'SANDBOX',
+        product_id: 'chalkpis.pro.monthly',
+        transaction_id: 'sb2',
+        price_in_purchased_currency: 499,
+      }),
+    );
+    expect((await plan(B)).plan).toBe('trial');
+    expect((await B.call('POST', '/billing/store/sync')).body.state).toBe('none');
+    // a real purchase next to the test one still counts
+    has(B, {
+      ...sub('chalkpis.pro.monthly', 30, { is_sandbox: true }),
+      ...sub('chalkpis.starter.monthly', 30),
+    });
+    expect((await B.call('POST', '/billing/store/sync')).body.plan).toBe('starter');
+  });
+
+  it('sandbox purchases by the review account (App Review) switch the plan on but are not revenue', async () => {
     has(A, sub('chalkpis.standard.monthly', 30, { is_sandbox: true }));
     await hook(
       event(A, 'INITIAL_PURCHASE', {

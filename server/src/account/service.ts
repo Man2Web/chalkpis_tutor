@@ -1,6 +1,7 @@
 import { AppError } from '../errors.js';
 import { withTransaction, type Pool } from '../db.js';
 import { removeImage } from '../files/store.js';
+import { hashTrialPhone } from '../lib/ids.js';
 
 /**
  * Deletes the caller's account.
@@ -14,6 +15,8 @@ export async function deleteAccount(
   pool: Pool,
   filesDir: string,
   userId: string,
+  /** The server's OTP_PEPPER: an owner's number is kept in used_trials (keyed hash only), so it gets no second trial. */
+  trialPepper?: string,
 ): Promise<{ deletedInstitute: boolean }> {
   const files = { logos: [] as string[], photos: [] as string[] };
   let deletedInstitute = false;
@@ -27,6 +30,11 @@ export async function deleteAccount(
     ])) as unknown as [{ institute_id: string; role: string }[]];
     const m = ms[0];
     if (m?.role === 'owner') {
+      // centres made before used_trials existed are noted here (newer ones were noted when their trial started)
+      if (trialPepper && users[0].phone)
+        await c.query('INSERT IGNORE INTO used_trials (phone_hash) VALUES (?)', [
+          hashTrialPhone(trialPepper, users[0].phone),
+        ]);
       await dropInstitute(c, m.institute_id, files);
       deletedInstitute = true;
     }

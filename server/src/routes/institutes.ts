@@ -63,6 +63,8 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
       body.data,
       now(),
       deps.config.TRIAL_DAYS,
+      undefined,
+      deps.config.OTP_PEPPER,
     );
     return reply.code(r.created ? 201 : 200).send(r);
   });
@@ -90,6 +92,19 @@ export function instituteRoutes(app: FastifyInstance, deps: Deps) {
       })[],
     ];
     const r = rows[0]!;
+    // A helper gets only what their screens need (decided 9 Nov 2026, security audit): the centre's name, logo and
+    // city, plus the settings the app works with. The owner's contact details, address and phone, payment settings
+    // and sign-up answers stay with the owner.
+    if (req.auth!.role !== 'owner')
+      return {
+        name: r.name,
+        category: r.category,
+        timezone: r.timezone,
+        currency: r.currency,
+        logoUrl: logoUrl(deps.config.PUBLIC_BASE_URL, r.logo_path),
+        city: r.city ?? null,
+        createdAt: r.created_at.toISOString(),
+      };
     return {
       name: r.name,
       category: r.category,

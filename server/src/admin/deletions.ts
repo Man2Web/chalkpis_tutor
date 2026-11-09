@@ -403,7 +403,7 @@ export async function confirmDeletion(
       });
     } else {
       const u = item as PersonPreview;
-      await deleteAccount(d.pool, d.filesDir, id);
+      await deleteAccount(d.pool, d.filesDir, id, d.pepper);
       await audit('delete-person', {
         userId: id,
         phone: u.phone ?? '',

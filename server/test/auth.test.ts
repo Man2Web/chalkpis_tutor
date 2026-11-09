@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { MockProvider } from '../src/messaging/provider.js';
 import { REUSE_GRACE_SECONDS } from '../src/auth/sessions.js';
-import { requestOtp, resetNewNumberSlots } from '../src/auth/otp.js';
+import { requestOtp, resetNewNumberSlots, verifyOtp } from '../src/auth/otp.js';
 import { signToken } from '../src/lib/jwt.js';
 import { runMigrations } from '../src/migrate.js';
 import path from 'node:path';
@@ -33,6 +33,7 @@ beforeEach(async () => {
   for (const t of [
     'refresh_tokens',
     'otp_codes',
+    'used_trials',
     'subscriptions',
     'memberships',
     'institutes',
@@ -267,6 +268,23 @@ describe('checking a login code', () => {
     );
   });
 
+  it('twenty wrong codes in a day stop the number until the next day', async () => {
+    const deps = { pool: db.pool, provider, config: config(), clock: () => now };
+    for (let n = 0; n < 4; n++) {
+      const r = await requestOtp(deps, PHONE);
+      if (!r.ok) throw new Error(`request ${n}: ${r.error}`);
+      const wrong = r.code === '000000' ? '111111' : '000000';
+      for (let i = 0; i < 5; i++) expect((await verifyOtp(deps, PHONE, wrong)).ok).toBe(false);
+      advance(61_000);
+    }
+    // 20 wrong today (well inside the hourly rules): no new code is sent
+    expect(await requestOtp(deps, PHONE)).toMatchObject({ ok: false, error: 'too_many' });
+    advance(24 * 60 * minute);
+    const fresh = await requestOtp(deps, PHONE);
+    if (!fresh.ok) throw new Error(fresh.error);
+    expect((await verifyOtp(deps, PHONE, fresh.code)).ok).toBe(true);
+  });
+
   it('parallel guesses cannot beat the attempt limit', async () => {
     await post('/auth/otp/request', { phone: PHONE });
     const right = lastCode();
@@ -426,7 +444,7 @@ describe('institutes and tenant isolation', () => {
       plan: 'trial',
       status: 'active',
       active: true,
-      studentLimit: null,
+      studentLimit: 100,
       batchLimit: null,
     });
     expect(new Date(sub.expiresAt).getTime() - now.getTime()).toBe(7 * 86_400_000);
@@ -440,7 +458,10 @@ describe('institutes and tenant isolation', () => {
       tutorName: 'Someone Else',
       instituteName: 'Other Name',
     });
-    expect([again.statusCode, again.json()]).toEqual([200, { instituteId, created: false }]);
+    expect([again.statusCode, again.json()]).toEqual([
+      200,
+      { instituteId, created: false, trialUsed: false },
+    ]);
     expect(
       (await app.inject({ url: '/institute', headers: authed(s.accessToken) })).json().name,
     ).toBe('Bright Tuition');

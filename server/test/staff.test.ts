@@ -270,6 +270,24 @@ describe('what a helper can do', () => {
     staff = await invite(A, '9876511111', [b]);
   });
 
+  it("sees the centre's name, logo and city only, not the owner's details or payment settings", async () => {
+    await A.call('PATCH', '/institute', { upiId: 'alpha@oksbi', address: '12 Main Road' });
+    await A.call('PUT', '/institute/details', {
+      email: 'owner@example.com',
+      city: 'Mysore',
+      state: 'Karnataka',
+      pincode: '570001',
+      heardFrom: 'google',
+    });
+    const mine = (await A.call('GET', '/institute')).body;
+    expect(mine).toMatchObject({ upiId: 'alpha@oksbi', details: { email: 'owner@example.com' } });
+    const seen = (await staff.call('GET', '/institute')).body;
+    expect(Object.keys(seen).sort()).toEqual(
+      ['category', 'city', 'createdAt', 'currency', 'logoUrl', 'name', 'timezone'].sort(),
+    );
+    expect(seen).toMatchObject({ name: mine.name, city: 'Mysore' });
+  });
+
   it("sees names and photos, never the family's phone numbers, notes or fees", async () => {
     const list = (await staff.call('GET', '/students?status=all')).body.students as Record<
       string,

@@ -799,7 +799,7 @@ ${selling ? METHODS : ''}${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}${FAQ}
         const phone = normalizeIndianPhone(f.get('phone') ?? '');
         if (!phone || !sameOrigin(req)) return reply.redirect(flow.next === 'start' ? '/start' : '/plan', 303);
         // a new number gets its account here, as in the app
-        const r = await verifyOtp(otpDeps, phone, (f.get('code') ?? '').trim());
+        const r = await verifyOtp(otpDeps, phone, (f.get('code') ?? '').trim(), req.ip);
         if (!r.ok)
           return send(
             reply,
@@ -903,8 +903,10 @@ ${selling ? METHODS : ''}${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}${FAQ}
           now(),
           deps.config.TRIAL_DAYS,
           { phone: os, source: flow.src, trialOnFirstAppUse: os === 'ios' },
+          deps.config.OTP_PEPPER,
         );
-        if (!r.created) return reply.redirect('/plan', 303);
+        // a number that already had its free trial goes straight to the plans to subscribe
+        if (!r.created || r.trialUsed) return reply.redirect('/plan', 303);
         return reply.redirect(
           flow.next === 'start' ? `${WELCOME_URL}?os=${os}` : '/plan?welcome=1',
           303,

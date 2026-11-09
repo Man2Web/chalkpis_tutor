@@ -4,7 +4,7 @@
   "email": "hello@chalkpistutor.com",
   "privacy": {
     "title": "Privacy Policy",
-    "updated": "5 November 2026",
+    "updated": "9 November 2026",
     "intro": "Chalkpis (\"we\", \"us\") is built and run by M2W Technologies Private Limited (Man2Web), India. This policy explains what information the Chalkpis app and website handle, why, and the choices you have. If anything here is unclear, write to hello@chalkpistutor.com.",
     "sections": [
       {
@@ -46,7 +46,8 @@
         "h": "How long we keep it",
         "p": [
           "We keep your data while your account is open. When you delete your account (Account > Delete my account), your institute, students, attendance, fees, messages and pictures are removed from our live systems straight away.",
-          "Encrypted backups are kept for up to 14 days and then deleted. Plan payment records may be kept longer where tax law requires it."
+          "Encrypted backups are kept for up to 14 days and then deleted. Plan payment records may be kept longer where tax law requires it.",
+          "One thing stays after you delete your account: a scrambled, one-way code made from your mobile number (not the number itself, and it cannot be turned back into it). It only lets us see that the number has already had its free trial, so the same number does not get a second one."
         ]
       },
       {

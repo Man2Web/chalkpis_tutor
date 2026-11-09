@@ -47,7 +47,7 @@ export function accountRoutes(app: FastifyInstance, deps: Deps) {
       }
       return {
         ok: true,
-        ...(await deleteAccount(deps.pool, deps.config.FILES_DIR, userId)),
+        ...(await deleteAccount(deps.pool, deps.config.FILES_DIR, userId, deps.config.OTP_PEPPER)),
       };
     },
   );

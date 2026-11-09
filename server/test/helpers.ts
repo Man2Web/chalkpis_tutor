@@ -57,6 +57,7 @@ export interface Tenant {
 }
 
 const TABLES = [
+  'used_trials',
   'admin_deletions',
   'wa_usage',
   'wa_wallet',

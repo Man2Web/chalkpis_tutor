@@ -57,7 +57,7 @@ export function deleteAccountHtml(l: Legal): string {
 <h2>What is deleted</h2>
 <p>If you own a centre: your login and the whole centre with everything in it: students, batches, attendance, fees and payments you recorded, parent messages, parent links, helpers' access, your activity log, logo and student photos. If you are a helper: only your own login (the centre stays with its owner). Sign-in methods linked to your account (Google, Apple, email) are deleted too.</p>
 <h2>What is kept, and for how long</h2>
-<p>Records of plans you bought from Chalkpis (amount, date, order number) are kept, no longer linked to your centre, because accounting and tax law require them. Daily backups are deleted on a rolling basis within 14 days. A short record that an administrator acted on your account may be kept for security.</p>
+<p>Records of plans you bought from Chalkpis (amount, date, order number) are kept, no longer linked to your centre, because accounting and tax law require them. Daily backups are deleted on a rolling basis within 14 days. A short record that an administrator acted on your account may be kept for security. If you owned a centre, a scrambled, one-way code made from your mobile number (not the number itself) is kept so the same number does not get a second free trial.</p>
 <footer>© 2026 ${esc(l.company)} (${esc(l.brand)}) · <a href="mailto:${mail}">${mail}</a></footer>
 </main></body></html>`;
 }

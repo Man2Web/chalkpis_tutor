@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { withTransaction, type Pool } from '../db.js';
 import { AppError, notFound } from '../errors.js';
-import { PLANS, isPlanId } from '../billing/plans.js';
+import { isPlanId, limitsOf } from '../billing/plans.js';
 import { applyPurchase, SUB_COLUMNS, type SubRow } from '../billing/service.js';
 import { PAID_NOW_SQL } from './billing.js';
 import { queuePlanActive } from '../messaging/centreMessages.js';
@@ -312,10 +312,9 @@ export async function setPlan(
   }
   const from = rows[0].status === 'active' && rows[0].expires_at > now ? rows[0].expires_at : now;
   const expires = new Date(from.getTime() + b.days * DAY);
-  // a trial has no limits; a plan gets its own (an admin's custom limits are set with setSubscription)
-  const limits = isPlanId(b.plan)
-    ? { students: PLANS[b.plan].studentLimit, batches: PLANS[b.plan].batchLimit }
-    : { students: null, batches: null };
+  // a trial gets the trial's limits, a plan its own (an admin's custom limits are set with setSubscription)
+  const l = limitsOf(b.plan);
+  const limits = { students: l.studentLimit, batches: l.batchLimit };
   await pool.query(
     `UPDATE subscriptions SET plan = ?, cycle = NULL, status = 'active', expires_at = ?, student_limit = ?, batch_limit = ?
       WHERE institute_id = ?`,

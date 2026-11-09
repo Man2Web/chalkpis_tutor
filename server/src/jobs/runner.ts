@@ -4,6 +4,7 @@ import { resyncEndingStoreSubscriptions, type StoreClient } from '../billing/sto
 import { reconcileWebSubscriptions } from '../billing/webSubscriptions.js';
 import type { Pool } from '../db.js';
 import { generateDues } from '../fees/service.js';
+import { removeOrphanImages } from '../files/cleanup.js';
 import { expireDueSubscriptions } from '../billing/service.js';
 import { currentPeriod, istHour, todayYmd } from '../lib/ist.js';
 import { queuePlanReminders } from '../messaging/centreMessages.js';
@@ -88,7 +89,24 @@ export const makeJobs = (
    * (decision 166), which links to the dashboard at `dashboardUrl`
    */
   waWarn?: { mailer: Mailer | null; emails: string[]; dashboardUrl?: string },
+  /** Where pictures are stored (FILES_DIR): once a week, pictures nothing points to are deleted. */
+  filesDir?: string,
 ): Job[] => [
+  ...(filesDir
+    ? [
+        {
+          name: 'files-cleanup',
+          from: 3,
+          until: 23,
+          every: 'day',
+          // weekly: Sundays (Indian time)
+          run: (pool: Pool, now: Date) =>
+            new Date(now.getTime() + 5.5 * 3_600_000).getUTCDay() === 0
+              ? removeOrphanImages(pool, filesDir, now)
+              : Promise.resolve(0),
+        } satisfies Job,
+      ]
+    : []),
   ...(waWarn?.mailer && waWarn.emails.length
     ? [
         {

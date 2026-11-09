@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
-import { runDueJobs } from '../src/jobs/runner.js';
+import { makeJobs, runDueJobs } from '../src/jobs/runner.js';
 import { istHour } from '../src/lib/ist.js';
 import { startHarness, type Harness, type Tenant } from './helpers.js';
 import { testConfig } from './db.js';
@@ -178,6 +178,41 @@ describe('scheduler', () => {
       )[0].map((r) => r.dedupe_key),
     ).toEqual(['new', 'queued-old']);
   });
+
+  it('once a week, pictures nothing uses (and half-written temp files) older than a day are deleted', async () => {
+    const s = await mk(A, '/students', student());
+    const up = await h.app.inject({
+      method: 'PUT',
+      url: `/students/${s}/photo`,
+      headers: { authorization: `Bearer ${A.token}`, 'content-type': 'image/png' },
+      payload: PNG,
+    });
+    expect(up.statusCode).toBe(200);
+    const dir = path.join(h.filesDir, 'photos');
+    const [used] = await fs.readdir(dir);
+    const hex = (c: string) => c.repeat(32);
+    const files = {
+      orphan: `${hex('a')}.png`,
+      tmp: `.${hex('b')}.jpg.tmp`,
+      fresh: `${hex('c')}.webp`,
+      other: 'notes.txt',
+    };
+    for (const f of Object.values(files)) await fs.writeFile(path.join(dir, f), 'x');
+    const old = at('2026-10-01T00:00:00Z');
+    for (const f of [used!, files.orphan, files.tmp, files.other])
+      await fs.utimes(path.join(dir, f), old, old);
+    const recent = at('2026-10-10T20:00:00Z');
+    await fs.utimes(path.join(dir, files.fresh), recent, recent);
+    const jobs = makeJobs(undefined, undefined, undefined, undefined, h.filesDir).filter(
+      (j) => j.name === 'files-cleanup',
+    );
+    await runDueJobs(h.db.pool, at('2026-10-09T22:30:00Z'), log, jobs); // Saturday 4 am IST: not today
+    expect(await fs.readdir(dir)).toHaveLength(5);
+    await runDueJobs(h.db.pool, at('2026-10-10T22:30:00Z'), log, jobs); // Sunday 4 am IST
+    expect((await fs.readdir(dir)).sort()).toEqual([used!, files.fresh, files.other].sort());
+    // the student's photo still loads
+    expect((await A.call('GET', `/students/${s}/photo`)).status).toBe(200);
+  });
 });
 
 describe('deleting an account', () => {
@@ -254,6 +289,45 @@ describe('deleting an account', () => {
     expect(r.body).toEqual({ ok: true, deletedInstitute: false });
     expect(await count('users', `id = '${staff.userId}'`)).toBe(0);
     expect(await count('institutes', `id = '${A.instituteId}'`)).toBe(1);
+  });
+
+  it('one free trial per number: signing up again after deleting the account starts with the plan ended', async () => {
+    const signUp = async (phone: string) => {
+      const userId = (await import('node:crypto')).randomUUID();
+      await h.db.pool.query('INSERT INTO users (id, phone) VALUES (?, ?)', [userId, phone]);
+      const t = h.login(userId, '');
+      const r = await t.call('POST', '/institutes', {
+        tutorName: 'Asha',
+        instituteName: 'Again',
+        language: 'en',
+      });
+      expect(r.status).toBe(201);
+      return { ...t, trialUsed: r.body.trialUsed as boolean };
+    };
+    const welcomes = () => count('centre_messages', "type = 'centre_welcome'");
+    // A was set up before numbers were noted: deleting the account notes it
+    expect((await del(A)).body.deletedInstitute).toBe(true);
+    const before = await welcomes();
+    const again = await signUp('+919876543210');
+    expect(again.trialUsed).toBe(true);
+    expect((await again.call('GET', '/subscription')).body).toMatchObject({
+      plan: 'trial',
+      active: false,
+    });
+    expect((await again.call('POST', '/students', student())).status).toBe(402);
+    expect(await welcomes()).toBe(before); // no "your free trial" welcome
+    // a new number gets its trial, and is noted then: after deleting, no second one
+    const fresh = await signUp('+919000022222');
+    expect(fresh.trialUsed).toBe(false);
+    expect((await fresh.call('GET', '/subscription')).body).toMatchObject({ active: true });
+    expect((await fresh.call('DELETE', '/account', { confirm: true })).status).toBe(200);
+    expect((await signUp('+919000022222')).trialUsed).toBe(true);
+    // only a keyed hash is kept, never the number
+    const [kept] = (await h.db.pool.query('SELECT phone_hash FROM used_trials')) as unknown as [
+      { phone_hash: string }[],
+    ];
+    expect(kept).toHaveLength(2);
+    for (const k of kept) expect(k.phone_hash).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('works while the plan is expired and needs a login', async () => {

@@ -57,6 +57,16 @@ export const LEGACY: Record<PlanId, { pricePaise: number; months: number }> = {
 
 export const isPlanId = (v: unknown): v is PlanId =>
   typeof v === 'string' && Object.prototype.hasOwnProperty.call(PLANS, v);
+
+/**
+ * The free trial's limits (decided 9 Nov 2026, after the security audit): up to 100 students, enough to try every
+ * feature with real classes, so one trial cannot fill the shared disk or load the daily jobs; batches are not limited.
+ */
+export const TRIAL_LIMITS = { studentLimit: 100, batchLimit: null } as const;
+
+/** The student and batch limits that come with a plan id ('trial' included); null = unlimited. */
+export const limitsOf = (plan: string): { studentLimit: number | null; batchLimit: number | null } =>
+  isPlanId(plan) ? PLANS[plan] : plan === 'trial' ? TRIAL_LIMITS : { studentLimit: null, batchLimit: null };
 export const isCycle = (v: unknown): v is Cycle => v === 'month' || v === 'year';
 
 /** The price of one cycle of a plan; no cycle means a legacy pack. */
