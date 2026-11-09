@@ -147,8 +147,12 @@ describe('requesting a login code', () => {
     expect(await ask('9123456799')).toMatchObject({ ok: false, error: 'too_many' });
     // another address is not affected; IPv6 counts per /64
     expect((await ask('9123456799', '198.51.100.4')).ok).toBe(true);
-    for (let i = 0; i < 10; i++) expect((await ask(`91234568${10 + i}`, `2001:db8:1:2::${i + 1}`)).ok).toBe(true);
-    expect(await ask('9123456898', '2001:db8:1:2::ff')).toMatchObject({ ok: false, error: 'too_many' });
+    for (let i = 0; i < 10; i++)
+      expect((await ask(`91234568${10 + i}`, `2001:db8:1:2::${i + 1}`)).ok).toBe(true);
+    expect(await ask('9123456898', '2001:db8:1:2::ff')).toMatchObject({
+      ok: false,
+      error: 'too_many',
+    });
     // a number with an account still gets its code from the busy address
     await login();
     advance(61_000);
@@ -373,6 +377,22 @@ describe('sessions', () => {
     const retry = await post('/auth/refresh', { refreshToken: s.refreshToken });
     expect(retry.statusCode).toBe(200);
     expect(retry.json().refreshToken).not.toBe(fresh.refreshToken);
+    expect((await post('/auth/refresh', { refreshToken: fresh.refreshToken })).statusCode).toBe(
+      200,
+    );
+  });
+
+  it('inside the retry window an old token gets one extra pair, not any number of them', async () => {
+    const s = await login();
+    advance(minute);
+    const fresh = (await post('/auth/refresh', { refreshToken: s.refreshToken })).json() as {
+      refreshToken: string;
+    };
+    advance(1000);
+    expect((await post('/auth/refresh', { refreshToken: s.refreshToken })).statusCode).toBe(200);
+    advance(1000);
+    expect((await post('/auth/refresh', { refreshToken: s.refreshToken })).statusCode).toBe(401);
+    // refusing the third use does not log the person out
     expect((await post('/auth/refresh', { refreshToken: fresh.refreshToken })).statusCode).toBe(
       200,
     );

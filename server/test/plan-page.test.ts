@@ -43,11 +43,16 @@ describe('billing page (/plan)', () => {
     gateway.created = [];
   });
 
+  /** A form posted from our own page: browsers send its Origin (the pages' Referrer-Policy is same-origin). */
   const form = (url: string, body: Record<string, string>, headers: Record<string, string> = {}) =>
     h.app.inject({
       method: 'POST',
       url,
-      headers: { 'content-type': 'application/x-www-form-urlencoded', ...headers },
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        origin: 'https://tutor.chalkpis.com',
+        ...headers,
+      },
       payload: new URLSearchParams(body).toString(),
     });
   const get = (url: string, cookie?: string) =>
@@ -82,7 +87,10 @@ describe('billing page (/plan)', () => {
     expect(ok.statusCode).toBe(303);
     expect(ok.headers.location).toBe('/plan');
     const cookie = String(ok.headers['set-cookie']).split(';')[0]!;
-    expect(readPlanSession(SECRET, cookie, h.clock.now.getTime())).toBe(t.userId);
+    expect(readPlanSession(SECRET, cookie, h.clock.now.getTime())).toEqual({
+      userId: t.userId,
+      epoch: 0,
+    });
 
     const page = await get('/plan', cookie);
     expect(page.body).toContain('Sunrise &lt;Dance&gt;');
@@ -148,7 +156,11 @@ describe('billing page (/plan)', () => {
     expect(noPin.body).toContain('Enter your 6-digit PIN code.');
     expect(noPin.body).toContain('value="Vellore"');
     expect(noPin.body).toContain('<option selected>Tamil Nadu</option>');
-    const other = await form('/plan/setup', { ...base, ...DETAILS, heardFrom: 'other' }, { cookie });
+    const other = await form(
+      '/plan/setup',
+      { ...base, ...DETAILS, heardFrom: 'other' },
+      { cookie },
+    );
     expect(other.body).toContain('Tell us where you heard about Chalkpis.');
 
     const done = await form('/plan/setup', { ...base, ...DETAILS }, { cookie });
@@ -294,23 +306,44 @@ describe('billing page (/plan)', () => {
   it('a form from another site cannot ask for a code or sign a browser in (login CSRF)', async () => {
     await h.tenant('+919800000001');
     // its own address, so these requests do not use up the per-address limits the other tests share
-    const post = (url: string, body: Record<string, string>, headers: Record<string, string> = {}) =>
+    const post = (
+      url: string,
+      body: Record<string, string>,
+      headers: Record<string, string> = {},
+    ) =>
       h.app.inject({
         method: 'POST',
         url,
         remoteAddress: '203.0.113.50',
-        headers: { 'content-type': 'application/x-www-form-urlencoded', ...headers },
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          origin: 'https://tutor.chalkpis.com',
+          ...headers,
+        },
         payload: new URLSearchParams(body).toString(),
       });
     const crossSite: Record<string, string>[] = [
       { origin: 'https://evil.example' },
       { 'sec-fetch-site': 'cross-site' },
+      { 'sec-fetch-site': 'same-site', origin: 'https://www.chalkpis.com' },
+      // no Origin at all, or "null", and nothing saying it came from our page (hardening, 9 Nov 2026)
+      { origin: '' },
+      { origin: 'null' },
     ];
     for (const headers of crossSite) {
       const code = await post('/plan/code', { phone: '9800000001' }, headers);
       expect([code.statusCode, code.headers.location]).toEqual([303, '/plan']);
     }
-    expect((await post('/plan/code', { phone: '9800000001' })).statusCode).toBe(200);
+    // a browser that sends "null" but says the form came from this site is fine
+    expect(
+      (
+        await post(
+          '/plan/code',
+          { phone: '9800000001' },
+          { origin: 'null', 'sec-fetch-site': 'same-origin' },
+        )
+      ).statusCode,
+    ).toBe(200);
     const v = await post(
       '/plan/verify',
       { phone: '9800000001', code: lastCode() },
@@ -370,12 +403,27 @@ describe('billing page (/plan)', () => {
     expect(denied.statusCode).toBe(404);
   });
 
-  it('signing out clears the cookie', async () => {
+  it('signing out clears the cookie, and a copy of it stops working too', async () => {
     await h.tenant('+919800000001');
     const cookie = await signIn('9800000001');
+    expect((await get('/plan', cookie)).body).not.toContain('action="/plan/code"');
+    // a sign-out from another site does nothing
+    const forged = await form('/plan/logout', {}, { cookie, origin: 'https://evil.example' });
+    expect(forged.headers['set-cookie']).toBeUndefined();
+    expect((await get('/plan', cookie)).body).not.toContain('action="/plan/code"');
+
     const r = await form('/plan/logout', {}, { cookie });
     expect(r.statusCode).toBe(303);
     expect(String(r.headers['set-cookie'])).toMatch(/^cp_plan=; Path=\/plan; Max-Age=0/);
+    // the same cookie, kept somewhere else, is signed out as well
+    expect((await get('/plan', cookie)).body).toContain('action="/plan/code"');
+    // signing in again works, with a new cookie
+    const again = await signIn('9800000001');
+    expect((await get('/plan', again)).body).not.toContain('action="/plan/code"');
+  });
+
+  it('pages tell browsers to send our own Origin but no referrer to other sites', async () => {
+    expect((await get('/plan')).headers['referrer-policy']).toBe('same-origin');
   });
 });
 

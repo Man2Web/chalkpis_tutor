@@ -3,7 +3,13 @@ import { clientPlatform } from '../activity.js';
 import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import { authenticate } from '../auth/guard.js';
-import { confirmPhoneOwnership, requestOtp, verifyOtp } from '../auth/otp.js';
+import {
+  confirmPhoneOwnership,
+  OTP_REQUEST,
+  OTP_VERIFY,
+  requestOtp,
+  verifyOtp,
+} from '../auth/otp.js';
 import { endSession, refreshSession, startSession } from '../auth/sessions.js';
 import { detailsRequired } from '../institutes/details.js';
 import { noteAppSignIn } from '../institutes/service.js';
@@ -108,7 +114,7 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
 
   app.post(
     '/auth/otp/request',
-    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
+    { config: { rateLimit: { max: 10, timeWindow: '10 minutes', groupId: OTP_REQUEST } } },
     async (req, reply) => {
       const body = phoneBody.safeParse(req.body);
       if (!body.success) return reply.code(400).send({ error: 'bad_request' });
@@ -132,7 +138,7 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
 
   app.post(
     '/auth/otp/verify',
-    { config: { rateLimit: { max: 20, timeWindow: '10 minutes' } } },
+    { config: { rateLimit: { max: 20, timeWindow: '10 minutes', groupId: OTP_VERIFY } } },
     async (req, reply) => {
       const body = verifyBody.safeParse(req.body);
       if (!body.success) return reply.code(400).send({ error: 'bad_request' });
@@ -192,7 +198,7 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
     '/me/phone/request',
     {
       preHandler: authenticate(deps),
-      config: { rateLimit: { max: 10, timeWindow: '10 minutes' } },
+      config: { rateLimit: { max: 10, timeWindow: '10 minutes', groupId: OTP_REQUEST } },
     },
     async (req, reply) => {
       if (req.auth!.phone) return reply.code(409).send({ error: 'phone_already_set' });
@@ -219,7 +225,7 @@ export function authRoutes(app: FastifyInstance, deps: Deps) {
     '/me/phone/verify',
     {
       preHandler: authenticate(deps),
-      config: { rateLimit: { max: 20, timeWindow: '10 minutes' } },
+      config: { rateLimit: { max: 20, timeWindow: '10 minutes', groupId: OTP_VERIFY } },
     },
     async (req, reply) => {
       const me = req.auth!;

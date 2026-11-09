@@ -221,7 +221,9 @@ export function adminRoutes(app: FastifyInstance, deps: Deps) {
     await readyAdmins();
     const r = await adminLogin(authDeps, body(req).email, body(req).password, meta(req));
     if (r.ok) return { challenge: r.challenge, ...(r.devCode ? { devCode: r.devCode } : {}) };
-    return reply.code(r.error === 'unavailable' ? 503 : 401).send({ error: r.error });
+    return reply
+      .code(r.error === 'unavailable' ? 503 : r.error === 'too_many_codes' ? 429 : 401)
+      .send({ error: r.error });
   });
   app.post('/admin/auth/verify', authLimit(20), async (req, reply) => {
     const b = body(req);

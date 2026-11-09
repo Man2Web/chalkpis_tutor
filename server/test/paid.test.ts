@@ -79,6 +79,38 @@ describe('"I\'ve paid" from the parent', () => {
     ).toBe(404);
   });
 
+  it("a new parent number or the student leaving ends the old links; the new number's link works", async () => {
+    const s = await mkStudent(A);
+    const parentLink = (await A.call('POST', `/students/${s}/parent-link`, {})).body
+      .token as string;
+    const parentView = () =>
+      h.app.inject({ method: 'POST', url: '/api/parent', payload: { token: parentLink } });
+    expect((await h.app.inject({ method: 'GET', url: link(s) })).statusCode).toBe(200);
+    expect((await parentView()).statusCode).toBe(200);
+
+    // saving the same number again changes nothing
+    expect((await A.call('PATCH', `/students/${s}`, { parentPhone: '98765 43210' })).status).toBe(
+      200,
+    );
+    expect((await h.app.inject({ method: 'GET', url: link(s) })).statusCode).toBe(200);
+
+    expect((await A.call('PATCH', `/students/${s}`, { parentPhone: '9876500009' })).status).toBe(
+      200,
+    );
+    expect((await h.app.inject({ method: 'GET', url: link(s) })).statusCode).toBe(404);
+    expect((await parentView()).statusCode).toBe(404);
+    const v1 = `/f/${signId(SECRET, 'paid', s, 1)}`;
+    expect((await h.app.inject({ method: 'GET', url: v1 })).statusCode).toBe(200);
+
+    // deactivated and restored: the link from before does not come back
+    await A.call('POST', `/students/${s}/deactivate`, {});
+    await A.call('POST', `/students/${s}/reactivate`, {});
+    expect((await h.app.inject({ method: 'GET', url: v1 })).statusCode).toBe(404);
+    expect(
+      (await h.app.inject({ method: 'GET', url: `/f/${signId(SECRET, 'paid', s, 2)}` })).statusCode,
+    ).toBe(200);
+  });
+
   it('confirming records the payment, sends one receipt and closes the report', async () => {
     await A.call('PUT', '/settings/notifications', {
       enabled: true,

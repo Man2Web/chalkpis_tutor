@@ -124,6 +124,8 @@ interface Target {
   name: string;
   parent_name: string;
   parent_phone: string;
+  /** signs the parent's "I've paid" link (raised when the parent's number changes) */
+  link_version: number;
 }
 
 /** Active students whose parents have updates switched on, among `ids` (any others are silently left out). */
@@ -136,7 +138,7 @@ async function eligibleStudents(
   // in chunks: one centre's long list must never become a single statement too big for the database
   for (let i = 0; i < ids.length; i += 1000) {
     const [rows] = (await db.query(
-      "SELECT id, name, parent_name, parent_phone FROM students WHERE institute_id = ? AND status = 'active' AND notify_parent = 1 AND id IN (?)",
+      "SELECT id, name, parent_name, parent_phone, link_version FROM students WHERE institute_id = ? AND status = 'active' AND notify_parent = 1 AND id IN (?)",
       [instituteId, ids.slice(i, i + 1000)],
     )) as unknown as [Target[]];
     for (const r of rows) out.set(r.id, r);
@@ -458,7 +460,14 @@ export async function enqueueFeeReminders(
         dueDate: ymdText(w.due.due_date, s.language),
         since: ymdText(w.due.due_date, s.language),
         ...(paidLinks
-          ? { paidLink: paidUrl(paidLinks.baseUrl, paidLinks.secret, w.due.student_id) }
+          ? {
+              paidLink: paidUrl(
+                paidLinks.baseUrl,
+                paidLinks.secret,
+                w.due.student_id,
+                Number(st.link_version),
+              ),
+            }
           : {}),
       },
     });
@@ -494,7 +503,9 @@ export async function enqueueAllFeeReminders(
   }
   if (failed.length)
     throw Object.assign(
-      new Error(`fee reminders failed for ${failed.length} centre(s): ${failed.slice(0, 5).join(', ')}`),
+      new Error(
+        `fee reminders failed for ${failed.length} centre(s): ${failed.slice(0, 5).join(', ')}`,
+      ),
       { cause: firstError },
     );
   return total;

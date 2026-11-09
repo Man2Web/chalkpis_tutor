@@ -63,6 +63,18 @@ describe('tokens', () => {
     const sig = createHmac('sha512', secret).update(`${hs512}.${body}`).digest('base64url');
     expect(verifyToken(`${hs512}.${body}.${sig}`, secret, now)).toBeNull();
   });
+  it('accepts only the one canonical spelling of the signature', () => {
+    const t = signToken('user-1', secret, 900, now);
+    const [h, p, s] = t.split('.') as [string, string, string];
+    const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    // the last character carries 2 spare bits: flipping them decodes to the same bytes, but is another string
+    const spare = `${s.slice(0, -1)}${B64[B64.indexOf(s.slice(-1)) ^ 1]}`;
+    expect(Buffer.from(spare, 'base64url').equals(Buffer.from(s, 'base64url'))).toBe(true);
+    for (const sig of [spare, `${s}=`, `${s.slice(0, 10)}*${s.slice(10)}`, s.replace(/-/g, '+')])
+      if (sig !== s) expect(verifyToken(`${h}.${p}.${sig}`, secret, now)).toBeNull();
+    expect(verifyToken(`${h}.${p}=.${s}`, secret, now)).toBeNull();
+    expect(verifyToken(t, secret, now)).not.toBeNull();
+  });
   it('rejects junk without throwing', () => {
     for (const v of [undefined, null, 5, '', 'a.b', 'a.b.c.d', 'x'.repeat(5000), '..'])
       expect(verifyToken(v, secret, now)).toBeNull();

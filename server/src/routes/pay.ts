@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { AppDeps } from '../app.js';
-import { requestOtp, verifyOtp } from '../auth/otp.js';
+import { OTP_REQUEST, OTP_VERIFY, requestOtp, verifyOtp } from '../auth/otp.js';
 import { parsePayToken } from '../billing/payLink.js';
 import {
   clearPlanSessionCookie,
@@ -353,13 +353,18 @@ const PAY_FAILED =
  */
 export function payRoutes(app: FastifyInstance, deps: Deps) {
   const now = () => (deps.clock ?? (() => new Date()))();
-  const secure = (deps.config.PUBLIC_BASE_URL ?? '').startsWith('https://');
+  // the billing cookie is always Secure in production, whatever PUBLIC_BASE_URL says
+  const secure =
+    deps.config.NODE_ENV === 'production' ||
+    (deps.config.PUBLIC_BASE_URL ?? '').startsWith('https://');
   const gateway = deps.billing?.name;
   const send = (reply: FastifyReply, code: number, html: string) =>
     reply
       .code(code)
       .header('Content-Security-Policy', PAY_CSP)
-      .header('Referrer-Policy', 'no-referrer')
+      // same-origin, not no-referrer: other sites still get no referrer (pay links stay private), and our own forms
+      // then carry their real Origin header, which sameOrigin() requires (with no-referrer browsers send "null")
+      .header('Referrer-Policy', 'same-origin')
       .header('X-Robots-Tag', 'noindex, nofollow')
       .header('Cache-Control', 'no-store')
       .type('text/html; charset=utf-8')
@@ -524,7 +529,8 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         activeCount(deps.pool, 'batches', c.id),
       ]);
       const selling = !!deps.billing && !storeRenews(c);
-      const active = c.status === 'active' && !!c.expires_at && c.expires_at.getTime() > now().getTime();
+      const active =
+        c.status === 'active' && !!c.expires_at && c.expires_at.getTime() > now().getTime();
       const pick = bestFit(students, batches, { plan: c.plan, active });
       return page(
         `Plans for ${c.name}`,
@@ -573,13 +579,25 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
       clock: deps.clock,
     };
     const signedIn = async (req: FastifyRequest): Promise<string | null> => {
-      const userId = readPlanSession(deps.config.JWT_SECRET, req.headers.cookie, now().getTime());
-      if (!userId) return null;
-      const [u] = (await deps.pool.query('SELECT blocked_at FROM users WHERE id = ?', [
-        userId,
-      ])) as unknown as [{ blocked_at: Date | null }[]];
-      return u[0] && !u[0].blocked_at ? userId : null;
+      const s = readPlanSession(deps.config.JWT_SECRET, req.headers.cookie, now().getTime());
+      if (!s) return null;
+      const [u] = (await deps.pool.query(
+        'SELECT blocked_at, plan_session_epoch FROM users WHERE id = ?',
+        [s.userId],
+      )) as unknown as [{ blocked_at: Date | null; plan_session_epoch: number }[]];
+      // a cookie from before the last "Sign out" no longer counts (hardening, 9 Nov 2026)
+      return u[0] && !u[0].blocked_at && Number(u[0].plan_session_epoch) === s.epoch
+        ? s.userId
+        : null;
     };
+    const sessionEpoch = async (userId: string) =>
+      Number(
+        (
+          (await deps.pool.query('SELECT plan_session_epoch FROM users WHERE id = ?', [
+            userId,
+          ])) as unknown as [{ plan_session_epoch: number }[]]
+        )[0][0]?.plan_session_epoch ?? 0,
+      );
     const ownedCentres = async (userId: string) =>
       (
         (await deps.pool.query(`${CENTRE_SQL} WHERE i.owner_user_id = ? ORDER BY i.created_at`, [
@@ -589,13 +607,15 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
     /**
      * A cross-site form must not act for a signed-in owner (the cookie is SameSite=Lax as well), and must not sign a
      * browser in either: without this on /plan/code and /plan/verify, another site could post its own number and code
-     * and leave the visitor signed in to the other site's account (login CSRF). Browsers that send neither header
-     * (old ones) still work.
+     * and leave the visitor signed in to the other site's account (login CSRF). Since 9 Nov 2026 a form with no Origin
+     * (or "null") is refused too, unless the browser says it came from this site (Sec-Fetch-Site: same-origin); our
+     * pages' Referrer-Policy makes browsers send the real Origin.
      */
     const sameOrigin = (req: FastifyRequest) => {
-      if (req.headers['sec-fetch-site'] === 'cross-site') return false;
+      const site = req.headers['sec-fetch-site'];
+      if (site === 'cross-site' || site === 'same-site') return false;
       const origin = req.headers.origin;
-      if (!origin || origin === 'null') return true;
+      if (!origin || origin === 'null') return site === 'same-origin';
       const base = deps.config.PUBLIC_BASE_URL;
       return !base || new URL(base).origin === origin;
     };
@@ -656,7 +676,8 @@ export function payRoutes(app: FastifyInstance, deps: Deps) {
         autoRenewFor(deps.pool, c.id),
       ]);
       const selling = !!deps.billing && !storeRenews(c);
-      const active = c.status === 'active' && !!c.expires_at && c.expires_at.getTime() > now().getTime();
+      const active =
+        c.status === 'active' && !!c.expires_at && c.expires_at.getTime() > now().getTime();
       const pick = bestFit(students, batches, { plan: c.plan, active });
       const meter = (label: string, used: number, max: number | null) =>
         `<div class="meter"><span>${label}</span><strong>${max === null ? `${used} (unlimited)` : `${used} / ${max}`}</strong></div>`;
@@ -689,8 +710,8 @@ ${
     : ''
 }
 <h2 class="section">${auto?.via === 'website' ? 'Change plan' : 'Choose a plan'}</h2>${deps.billing ? '' : PAYMENTS_OFF}${
-  selling && auto?.via !== 'website' ? fitLine(c.name, students, batches, pick) : ''
-}${plansHtml(selling ? '/plan/pay' : null, { centre: c.id }, c, now(), { subscribe: canSubscribe, auto, recommend: pick })}
+          selling && auto?.via !== 'website' ? fitLine(c.name, students, batches, pick) : ''
+        }${plansHtml(selling ? '/plan/pay' : null, { centre: c.id }, c, now(), { subscribe: canSubscribe, auto, recommend: pick })}
 ${selling ? METHODS : ''}${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}${FAQ}
 <h2 class="section">Payments</h2>${rows}`,
         { gateway, nav: signOutNav },
@@ -758,11 +779,13 @@ ${selling ? METHODS : ''}${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}${FAQ}
 
     scope.post(
       '/plan/code',
-      { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
+      // one shared count with the app's /auth/otp/request: two doors must not double the allowance
+      { config: { rateLimit: { max: 10, timeWindow: '10 minutes', groupId: OTP_REQUEST } } },
       async (req, reply) => {
         const f = formBody(req.body);
         const flow = flowOf(f);
-        if (!sameOrigin(req)) return reply.redirect(flow.next === 'start' ? '/start' : '/plan', 303);
+        if (!sameOrigin(req))
+          return reply.redirect(flow.next === 'start' ? '/start' : '/plan', 303);
         const raw = f.get('phone') ?? '';
         const phone = normalizeIndianPhone(raw);
         if (!phone)
@@ -792,12 +815,13 @@ ${selling ? METHODS : ''}${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}${FAQ}
 
     scope.post(
       '/plan/verify',
-      { config: { rateLimit: { max: 20, timeWindow: '10 minutes' } } },
+      { config: { rateLimit: { max: 20, timeWindow: '10 minutes', groupId: OTP_VERIFY } } },
       async (req, reply) => {
         const f = formBody(req.body);
         const flow = flowOf(f);
         const phone = normalizeIndianPhone(f.get('phone') ?? '');
-        if (!phone || !sameOrigin(req)) return reply.redirect(flow.next === 'start' ? '/start' : '/plan', 303);
+        if (!phone || !sameOrigin(req))
+          return reply.redirect(flow.next === 'start' ? '/start' : '/plan', 303);
         // a new number gets its account here, as in the app
         const r = await verifyOtp(otpDeps, phone, (f.get('code') ?? '').trim(), req.ip);
         if (!r.ok)
@@ -815,7 +839,13 @@ ${selling ? METHODS : ''}${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}${FAQ}
         return reply
           .header(
             'Set-Cookie',
-            planSessionCookie(deps.config.JWT_SECRET, r.userId, now().getTime(), secure),
+            planSessionCookie(
+              deps.config.JWT_SECRET,
+              r.userId,
+              await sessionEpoch(r.userId),
+              now().getTime(),
+              secure,
+            ),
           )
           .redirect(to, 303);
       },
@@ -991,8 +1021,19 @@ ${selling ? METHODS : ''}${canSubscribe ? AUTO_RENEW_NOTE : ONCE_NOTE}${FAQ}
       },
     );
 
-    scope.post('/plan/logout', async (req, reply) =>
-      reply.header('Set-Cookie', clearPlanSessionCookie(secure)).redirect('/plan', 303),
-    );
+    /**
+     * Sign out: from our own page only, and it ends every billing-page sign-in of this person, not just this browser's
+     * cookie (a copied cookie stops working too).
+     */
+    scope.post('/plan/logout', async (req, reply) => {
+      if (!sameOrigin(req)) return reply.redirect('/plan', 303);
+      const userId = await signedIn(req);
+      if (userId)
+        await deps.pool.query(
+          'UPDATE users SET plan_session_epoch = plan_session_epoch + 1 WHERE id = ?',
+          [userId],
+        );
+      return reply.header('Set-Cookie', clearPlanSessionCookie(secure)).redirect('/plan', 303);
+    });
   });
 }

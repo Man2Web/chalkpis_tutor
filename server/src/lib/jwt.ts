@@ -42,14 +42,13 @@ export function verifyToken(
   if (parts.length !== 3) return null;
   const [h, p, s] = parts as [string, string, string];
   if (h !== HEADER) return null; // exactly our header: rejects alg none, RS256 confusion, anything else
+  // Strict: exactly the 43 base64url characters of a 32-byte HMAC, in their one canonical spelling. Node's decoder
+  // would otherwise skip stray characters and ignore spare bits, so many strings would pass for one signature.
+  if (!/^[A-Za-z0-9_-]{43}$/.test(s) || !/^[A-Za-z0-9_-]+$/.test(p)) return null;
   const expected = sign(`${h}.${p}`, secret);
-  let given: Buffer;
-  try {
-    given = Buffer.from(s, 'base64url');
-  } catch {
-    return null;
-  }
-  if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
+  const given = Buffer.from(s, 'base64url');
+  if (given.length !== expected.length || given.toString('base64url') !== s) return null;
+  if (!timingSafeEqual(given, expected)) return null;
   try {
     const c = JSON.parse(Buffer.from(p, 'base64url').toString('utf8')) as Partial<Claims>;
     if (

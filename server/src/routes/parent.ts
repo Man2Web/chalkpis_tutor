@@ -49,29 +49,34 @@ export function parentRoutes(app: FastifyInstance, deps: Deps) {
   const sid = (req: { params: unknown }) => idParam((req.params as { id: string }).id);
 
   // ---- the tutor's side ----
-  app.post('/students/:id/parent-link', write, async (req, reply) => {
-    const { days, sendWhatsApp } = parse(linkBody, req.body ?? {});
-    const l = await createParentLink(
-      pool,
-      { instituteId: inst(req), studentId: sid(req), createdBy: req.auth!.userId, days },
-      now(),
-    );
-    const url = `${config.PUBLIC_BASE_URL ?? ''}/p/${l.token}`;
-    let sent = false;
-    if (sendWhatsApp) {
-      try {
-        await sendParentLinkNow(pool, inst(req), sid(req), url, now());
-      } catch (e) {
-        // not sent (sent a moment ago, plan ended...): this new link reached no one, so it must not stay valid
-        await dropParentLink(pool, l.token);
-        throw e;
+  // a retried request gets the stored answer without the link itself: the raw token is never kept in idempotency_keys
+  app.post(
+    '/students/:id/parent-link',
+    { ...write, config: { idempotencyRedact: ['token', 'url'] } },
+    async (req, reply) => {
+      const { days, sendWhatsApp } = parse(linkBody, req.body ?? {});
+      const l = await createParentLink(
+        pool,
+        { instituteId: inst(req), studentId: sid(req), createdBy: req.auth!.userId, days },
+        now(),
+      );
+      const url = `${config.PUBLIC_BASE_URL ?? ''}/p/${l.token}`;
+      let sent = false;
+      if (sendWhatsApp) {
+        try {
+          await sendParentLinkNow(pool, inst(req), sid(req), url, now());
+        } catch (e) {
+          // not sent (sent a moment ago, plan ended...): this new link reached no one, so it must not stay valid
+          await dropParentLink(pool, l.token);
+          throw e;
+        }
+        sent = true;
       }
-      sent = true;
-    }
-    return reply
-      .code(201)
-      .send({ token: l.token, url, expiresAt: l.expiresAt.toISOString(), sent });
-  });
+      return reply
+        .code(201)
+        .send({ token: l.token, url, expiresAt: l.expiresAt.toISOString(), sent });
+    },
+  );
   app.delete('/students/:id/parent-link', write, async (req) => ({
     revoked: await revokeParentLinks(pool, inst(req), sid(req)),
   }));

@@ -19,7 +19,16 @@ import { ROLE_LABEL } from './team.js';
  * The code lasts 10 minutes, allows 5 tries, works once and only for the request and the person who asked. Every
  * deletion is in the audit log, and the super admin gets an email once it is done.
  */
-export const DELETE_LIMITS = { codeMinutes: 10, codeAttempts: 5, maxTargets: 50 } as const;
+/**
+ * requestsPerDay (hardening, 9 Nov 2026): each new request brings a fresh code with 5 tries, so without a cap one admin
+ * could keep asking and guessing; 10 requests in 24 hours is far more than any real day of clean-up needs.
+ */
+export const DELETE_LIMITS = {
+  codeMinutes: 10,
+  codeAttempts: 5,
+  maxTargets: 50,
+  requestsPerDay: 10,
+} as const;
 
 export const deletionTargets = z.object({
   kind: z.enum(['centre', 'person']),
@@ -262,6 +271,12 @@ export async function requestDeletion(
   const preview = await previewDeletion(d.pool, input, now);
   const blocked = preview.items.find((i) => i.blocker);
   if (blocked) throw new AppError(409, 'cannot_delete', { message: blocked.blocker });
+  const [[asked]] = (await d.pool.query(
+    'SELECT COUNT(*) AS n FROM admin_deletions WHERE requested_by = ? AND created_at > ?',
+    [who.adminId, new Date(now.getTime() - 86_400_000)],
+  )) as unknown as [[{ n: number }]];
+  if (Number(asked?.n ?? 0) >= DELETE_LIMITS.requestsPerDay)
+    throw new AppError(429, 'too_many_deletion_requests', { limit: DELETE_LIMITS.requestsPerDay });
   const id = newId();
   const code = newOtp();
   // The stored summary is short; the email lists every target with its warnings, because the code it carries

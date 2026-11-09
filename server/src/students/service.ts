@@ -218,6 +218,15 @@ export async function updateStudent(
   const conn = await pool.getConnection();
   try {
     await inTransaction(conn, async (c) => {
+      if (patch.parentPhone !== undefined) {
+        const [[old]] = (await c.query(
+          'SELECT parent_phone FROM students WHERE id = ? AND institute_id = ? FOR UPDATE',
+          [id, instituteId],
+        )) as unknown as [[{ parent_phone: string } | undefined]];
+        // a new number for the parent: links the old number was sent stop working
+        if (old && old.parent_phone !== patch.parentPhone)
+          await cancelFamilyLinks(c, instituteId, id);
+      }
       const map: Record<string, unknown> = {
         name: patch.name,
         phone: patch.phone,
@@ -277,11 +286,28 @@ export async function setStudentStatus(
       if (!rows[0]) throw notFound();
       if (rows[0].status === status) return;
       if (status === 'active') await checkLimit(c, 'student', instituteId, plan);
+      // a student who leaves: the parent's links end now, and do not come back if the student is restored later
+      else await cancelFamilyLinks(c, instituteId, id);
       await c.query('UPDATE students SET status = ? WHERE id = ? AND institute_id = ?', [
         status,
         id,
         instituteId,
       ]);
     }),
+  );
+}
+
+/**
+ * Ends every link a parent was sent for this student (hardening, 9 Nov 2026): the parent page links are revoked, and
+ * raising link_version changes the signature of the "I've paid" (/f) link, so earlier ones stop working.
+ */
+async function cancelFamilyLinks(c: PoolConnection, instituteId: string, id: string) {
+  await c.query(
+    'UPDATE students SET link_version = link_version + 1 WHERE id = ? AND institute_id = ?',
+    [id, instituteId],
+  );
+  await c.query(
+    'UPDATE parent_links SET revoked = 1 WHERE institute_id = ? AND student_id = ? AND revoked = 0',
+    [instituteId, id],
   );
 }

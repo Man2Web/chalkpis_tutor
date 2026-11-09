@@ -203,15 +203,23 @@ export async function updateMember(
   return { email: r.email, role: input.role ?? r.role, before: r.role };
 }
 
-/** Removes a member: no access from the next click on, every session ended. The row stays for the audit log. */
+/**
+ * Removes a member: no access from the next click on, every session ended, every emailed code cancelled. Their password
+ * is wiped too (hardening, 9 Nov 2026): if they are added back later they set a new one through "Forgot password", and
+ * an old password someone else may know does not come back with them. The row stays for the audit log.
+ */
 export async function removeMember(pool: Pool, superEmails: string[], id: string, now: Date) {
   const r = await member(pool, superEmails, id);
-  await pool.query('UPDATE admin_accounts SET removed_at = COALESCE(removed_at, ?) WHERE id = ?', [
-    now,
-    id,
-  ]);
+  await pool.query(
+    'UPDATE admin_accounts SET removed_at = COALESCE(removed_at, ?), password_hash = NULL, password_set_at = NULL WHERE id = ?',
+    [now, id],
+  );
   await pool.query(
     'UPDATE admin_sessions SET revoked_at = ? WHERE admin_id = ? AND revoked_at IS NULL',
+    [now, id],
+  );
+  await pool.query(
+    'UPDATE admin_codes SET consumed_at = ? WHERE admin_id = ? AND consumed_at IS NULL',
     [now, id],
   );
   return { email: r.email };

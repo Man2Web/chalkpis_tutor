@@ -24,11 +24,12 @@ interface StudentRow {
   name: string;
   parent_phone: string;
   status: string;
+  link_version: number;
 }
 
 async function student(pool: Pool, instituteId: string, id: string): Promise<StudentRow> {
   const [rows] = (await pool.query(
-    'SELECT id, name, parent_phone, status FROM students WHERE institute_id = ? AND id = ?',
+    'SELECT id, name, parent_phone, status, link_version FROM students WHERE institute_id = ? AND id = ?',
     [instituteId, id],
   )) as unknown as [StudentRow[]];
   const s = rows[0];
@@ -123,7 +124,7 @@ export async function sendFeeReminderNow(
     since: first,
     link: inst.payment_link,
     ...(cfg.paidLinks && cfg.publicBaseUrl
-      ? { paidLink: paidUrl(cfg.publicBaseUrl, cfg.secret, studentId) }
+      ? { paidLink: paidUrl(cfg.publicBaseUrl, cfg.secret, studentId, Number(s.link_version)) }
       : {}),
   };
   if (inst.payment_link) {

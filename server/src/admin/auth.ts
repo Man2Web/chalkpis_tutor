@@ -4,6 +4,7 @@ import type { Config } from '../config.js';
 import type { Pool } from '../db.js';
 import type { Mail, Mailer } from '../auth/mailer.js';
 import { hashOtp, newId, newOtp, sha256 } from '../lib/ids.js';
+import { addressKey } from '../lib/ip.js';
 import { withNamedLock } from '../lib/lock.js';
 import { roleOf, type AdminRole } from './team.js';
 
@@ -30,14 +31,31 @@ export const ADMIN_LIMITS = {
   idleMinutes: 30,
   resetPerHour: 5,
   resetCooldownSeconds: 60,
+  /** sign-in code emails per account per hour, from any number of addresses (hardening, 9 Nov 2026) */
+  loginCodesPerHour: 10,
 } as const;
 
 export interface AdminAuthDeps {
   pool: Pool;
   mailer: Mailer | null;
-  config: Pick<Config, 'JWT_SECRET' | 'OTP_PEPPER' | 'ADMIN_EMAILS' | 'NODE_ENV' | 'OTP_DEV_ECHO'>;
+  config: Pick<
+    Config,
+    | 'JWT_SECRET'
+    | 'OTP_PEPPER'
+    | 'ADMIN_EMAILS'
+    | 'NODE_ENV'
+    | 'OTP_DEV_ECHO'
+    | 'ADMIN_PASSWORD_PEPPER'
+  >;
   clock?: () => Date;
 }
+
+/**
+ * The pepper for admin passwords: ADMIN_PASSWORD_PEPPER when set (hardening, 9 Nov 2026), so the secret that signs
+ * every token and link is not also the one guarding admin passwords. Passwords saved before it was set were peppered
+ * with JWT_SECRET; they still work and are saved again with the new pepper at their next sign-in.
+ */
+const passwordPepper = (d: AdminAuthDeps) => d.config.ADMIN_PASSWORD_PEPPER ?? d.config.JWT_SECRET;
 export interface RequestMeta {
   ip: string;
   userAgent: string;
@@ -76,6 +94,22 @@ export async function verifyPassword(secret: string, stored: string, password: s
     },
   );
   return key.length === expected.length && timingSafeEqual(key, expected);
+}
+
+/**
+ * Checks a password with the current pepper and, when ADMIN_PASSWORD_PEPPER is set, with the old one (JWT_SECRET)
+ * for a password saved before; one that matched the old pepper is saved again with the new one.
+ */
+async function checkPassword(d: AdminAuthDeps, adminId: string, stored: string, password: string) {
+  if (await verifyPassword(passwordPepper(d), stored, password)) return true;
+  if (!d.config.ADMIN_PASSWORD_PEPPER || d.config.ADMIN_PASSWORD_PEPPER === d.config.JWT_SECRET)
+    return false;
+  if (!(await verifyPassword(d.config.JWT_SECRET, stored, password))) return false;
+  await d.pool.query(
+    'UPDATE admin_accounts SET password_hash = ? WHERE id = ? AND password_hash = ?',
+    [await hashPassword(d.config.ADMIN_PASSWORD_PEPPER, password), adminId, stored],
+  );
+  return true;
 }
 
 // Spent on a wrong email too, so the time taken does not tell an admin email from any other.
@@ -228,7 +262,7 @@ async function useCode(
 
 export type LoginResult =
   | { ok: true; challenge: string; devCode?: string }
-  | { ok: false; error: 'invalid_credentials' | 'unavailable' };
+  | { ok: false; error: 'invalid_credentials' | 'unavailable' | 'too_many_codes' };
 
 /** Step 1: email and password. Success emails a code and returns the challenge the code is bound to. */
 export async function adminLogin(
@@ -250,6 +284,8 @@ export async function adminLogin(
   const t = now(d);
   // Wrong passwords lock that address out of this account, not the account itself: someone who knows the admin email
   // cannot keep the admin locked out from their own network. The password is still followed by an emailed code.
+  // An IPv6 address counts by its /64 network, so moving inside one connection does not reset the count.
+  const where = addressKey(meta.ip);
   const fails = async (minutes: number, actions: string[], ip?: string) => {
     const [[r]] = (await d.pool.query(
       `SELECT COUNT(*) AS n FROM admin_audit WHERE admin_user_id = ? AND action IN (?) AND created_at > ?${
@@ -265,25 +301,25 @@ export async function adminLogin(
     return Number(r?.n ?? 0);
   };
   const failedHere = a?.password_hash
-    ? await fails(ADMIN_LIMITS.lockMinutes, ['admin-login-failed', 'admin-locked'], meta.ip ?? '')
+    ? await fails(ADMIN_LIMITS.lockMinutes, ['admin-login-failed', 'admin-locked'], where)
     : 0;
   if (!a || !a.password_hash || failedHere >= ADMIN_LIMITS.lockAfter) {
-    await verifyPassword(d.config.JWT_SECRET, await dummy(d.config.JWT_SECRET), password);
+    await verifyPassword(passwordPepper(d), await dummy(passwordPepper(d)), password);
     if (a)
       await audit(
         d,
         a.id,
         a.email,
         'admin-login-refused',
-        a.password_hash ? `locked ${meta.ip ?? ''}` : 'no password set',
+        a.password_hash ? `locked ${where}` : 'no password set',
       );
     return bad;
   }
-  if (!(await verifyPassword(d.config.JWT_SECRET, a.password_hash, password))) {
+  if (!(await checkPassword(d, a.id, a.password_hash, password))) {
     const lock = failedHere + 1 >= ADMIN_LIMITS.lockAfter;
     // one warning email an hour at most, however many addresses try
     const warned = lock ? await fails(60, ['admin-locked']) : 0;
-    await audit(d, a.id, a.email, lock ? 'admin-locked' : 'admin-login-failed', meta.ip ?? '');
+    await audit(d, a.id, a.email, lock ? 'admin-locked' : 'admin-login-failed', where);
     if (lock && !warned)
       await d.mailer.send(
         mail(a.email, 'Wrong passwords for your Chalkpis admin account', [
@@ -292,6 +328,15 @@ export async function adminLogin(
         ]),
       );
     return bad;
+  }
+  // the right password from many addresses must not become a way to fill the admin's inbox with codes
+  const [[sentLately]] = (await d.pool.query(
+    "SELECT COUNT(*) AS n FROM admin_codes WHERE admin_id = ? AND purpose = 'login' AND created_at > ?",
+    [a.id, new Date(t.getTime() - 3_600_000)],
+  )) as unknown as [[{ n: number }]];
+  if (Number(sentLately?.n ?? 0) >= ADMIN_LIMITS.loginCodesPerHour) {
+    await audit(d, a.id, a.email, 'admin-login-refused', `code limit ${where}`);
+    return { ok: false, error: 'too_many_codes' };
   }
   const challenge = randomBytes(32).toString('base64url');
   const code = await newCode(d, a.id, 'login', sha256(challenge));
@@ -456,10 +501,15 @@ export async function adminReset(
   const t = now(d);
   await d.pool.query(
     'UPDATE admin_accounts SET password_hash = ?, password_set_at = ?, failed_attempts = 0, locked_until = NULL WHERE id = ?',
-    [await hashPassword(d.config.JWT_SECRET, password), t, a.id],
+    [await hashPassword(passwordPepper(d), password), t, a.id],
   );
   await d.pool.query(
     'UPDATE admin_sessions SET revoked_at = ? WHERE admin_id = ? AND revoked_at IS NULL',
+    [t, a.id],
+  );
+  // a sign-in code emailed before the reset (perhaps to someone who knew the old password) stops working too
+  await d.pool.query(
+    'UPDATE admin_codes SET consumed_at = ? WHERE admin_id = ? AND consumed_at IS NULL',
     [t, a.id],
   );
   await audit(d, a.id, a.email, 'admin-password-reset');

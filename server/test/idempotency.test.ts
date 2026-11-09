@@ -77,6 +77,33 @@ describe('idempotency of mutating endpoints', () => {
       (await A.call('POST', '/students', student, { 'idempotency-key': 'short' })).status,
     ).toBe(400);
   });
+  it('a key is tied to the exact record too, and a blocked person gets no stored answer', async () => {
+    const { dueId } = await dueFor();
+    const other = await A.call('POST', '/students', { ...student, name: 'Bala K' });
+    const pay = (id: string) =>
+      A.call('POST', `/fees/dues/${id}/payments`, { amount: 100, mode: 'cash' }, key('x1'));
+    expect((await pay(dueId)).status).toBe(201);
+    // the same route and key for another student is refused, not answered with the first student's result
+    const first = await A.call('POST', '/students', { ...student, name: 'Chitra' });
+    expect(
+      (await A.call('POST', `/students/${first.body.id}/deactivate`, {}, key('x2'))).status,
+    ).toBe(200);
+    expect(
+      (await A.call('POST', `/students/${other.body.id}/deactivate`, {}, key('x2'))).status,
+    ).toBe(422);
+    expect((await A.call('GET', `/students/${other.body.id}`)).body.status).toBe('active');
+    // a fixed amount with the same key (a retry after a lost answer) replays the first result: no second payment
+    const again = await A.call(
+      'POST',
+      `/fees/dues/${dueId}/payments`,
+      { amount: 150, mode: 'cash' },
+      key('x1'),
+    );
+    expect(again.status).toBe(201);
+    expect(await count(h, 'SELECT COUNT(*) n FROM payments WHERE due_id = ?', [dueId])).toBe(1);
+    await h.db.pool.query('UPDATE users SET blocked_at = NOW() WHERE id = ?', [A.userId]);
+    expect((await pay(dueId)).status).toBe(403);
+  });
   it('a refused request (bad input) is replayed as refused; a failure that may pass later is not stored', async () => {
     const bad = await twice(() => A.call('POST', '/students', { name: '' }, key('s6')));
     expect(bad.map((x) => x.status)).toEqual([400, 400]);
@@ -310,6 +337,23 @@ describe('idempotency of mutating endpoints', () => {
       await count(h, 'SELECT COUNT(*) n FROM parent_links WHERE student_id = ? AND revoked = 0', [
         s.body.id,
       ]),
+    ).toBe(1);
+  });
+
+  it('a retried parent-link (same key) makes one link and never stores the link itself', async () => {
+    const s = await A.call('POST', '/students', student);
+    const r = await twice(() =>
+      A.call('POST', `/students/${s.body.id}/parent-link`, { sendWhatsApp: false }, key('pl1')),
+    );
+    expect(r.map((x) => x.status)).toEqual([201, 201]);
+    expect(r[0]!.body.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(r[1]!.body).toEqual({ expiresAt: r[0]!.body.expiresAt, sent: false }); // the replay has no link
+    const [[row]] = (await h.db.pool.query('SELECT body FROM idempotency_keys WHERE user_id = ?', [
+      A.userId,
+    ])) as unknown as [[{ body: string }]];
+    expect(row.body).not.toContain(r[0]!.body.token);
+    expect(
+      await count(h, 'SELECT COUNT(*) n FROM parent_links WHERE student_id = ?', [s.body.id]),
     ).toBe(1);
   });
 });

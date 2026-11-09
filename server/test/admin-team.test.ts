@@ -175,6 +175,23 @@ describe('roles: super admin, admin, customer support', () => {
     expect(
       (await post('/admin/auth/login', { email: 'new.person@chalkpis.test', password })).statusCode,
     ).toBe(401);
+    // added back later: the old password does not come back with them; they set a new one
+    expect(
+      (
+        await owner.call('POST', '/admin/api/team', {
+          email: 'new.person@chalkpis.test',
+          role: 'support',
+        })
+      ).status,
+    ).toBe(201);
+    expect(
+      (await post('/admin/auth/login', { email: 'new.person@chalkpis.test', password })).statusCode,
+    ).toBe(401);
+    expect(
+      (await owner.call('GET', '/admin/api/team')).body.team.find(
+        (m: { email: string }) => m.email === 'new.person@chalkpis.test',
+      ).status,
+    ).toBe('invited');
     // and it is all in the audit log
     const actions = (await owner.call('GET', '/admin/api/audit')).body.audit.map(
       (a: { action: string }) => a.action,

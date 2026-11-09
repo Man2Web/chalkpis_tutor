@@ -10,22 +10,43 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
  */
 type Purpose = 'pay' | 'paid';
 
-const mac = (secret: string, purpose: Purpose, id: string) =>
-  createHmac('sha256', secret).update(`${purpose}:${id}`).digest('base64url').slice(0, 16);
+/**
+ * `version` lets one record's links be cancelled without touching anyone else's (hardening, 9 Nov 2026): it is part of
+ * the signature, so raising it (students.link_version) makes every earlier link for that record stop working. Version 0
+ * signs exactly as before, so links already sent keep working until a record's version is first raised.
+ */
+const mac = (secret: string, purpose: Purpose, id: string, version = 0) =>
+  createHmac('sha256', secret)
+    .update(version ? `${purpose}:${id}:v${version}` : `${purpose}:${id}`)
+    .digest('base64url')
+    .slice(0, 16);
 
-export function signId(secret: string, purpose: Purpose, id: string): string {
-  return `${Buffer.from(id.replace(/-/g, ''), 'hex').toString('base64url')}${mac(secret, purpose, id)}`;
+export function signId(secret: string, purpose: Purpose, id: string, version = 0): string {
+  return `${Buffer.from(id.replace(/-/g, ''), 'hex').toString('base64url')}${mac(secret, purpose, id, version)}`;
 }
 
-/** The UUID a token stands for, or null when it is malformed or not signed by us for this purpose. */
-export function readId(secret: string, purpose: Purpose, token: string): string | null {
+/** The UUID a token claims to stand for, or null when it is malformed (not yet checked against a signature). */
+export function idOf(token: string): string | null {
   if (!/^[A-Za-z0-9_-]{38}$/.test(token)) return null;
-  const hex = Buffer.from(token.slice(0, 22), 'base64url').toString('hex');
-  if (!/^[0-9a-f]{32}$/.test(hex)) return null;
-  const id = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-  const a = Buffer.from(mac(secret, purpose, id));
+  const head = token.slice(0, 22);
+  const bytes = Buffer.from(head, 'base64url');
+  // one canonical spelling only: the 22nd character's spare bits must be zero
+  if (bytes.length !== 16 || bytes.toString('base64url') !== head) return null;
+  const hex = bytes.toString('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/** Whether `token` is our signature for this record, purpose and version. */
+export function checkId(secret: string, purpose: Purpose, token: string, id: string, version = 0) {
+  const a = Buffer.from(mac(secret, purpose, id, version));
   const b = Buffer.from(token.slice(22));
-  return a.length === b.length && timingSafeEqual(a, b) ? id : null;
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** The UUID a token stands for, or null when it is malformed or not signed by us for this purpose (version 0). */
+export function readId(secret: string, purpose: Purpose, token: string): string | null {
+  const id = idOf(token);
+  return id && checkId(secret, purpose, token, id) ? id : null;
 }
 
 export const payToken = (secret: string, instituteId: string) => signId(secret, 'pay', instituteId);
@@ -49,6 +70,10 @@ export function offersPayLink(i: {
   return !i.store?.willRenew && !i.webAutoRenew;
 }
 
-/** The page where a parent says they have paid a student's fees. */
-export const paidUrl = (baseUrl: string | undefined, secret: string, studentId: string) =>
-  `${(baseUrl ?? '').replace(/\/$/, '')}/f/${signId(secret, 'paid', studentId)}`;
+/** The page where a parent says they have paid a student's fees. `version`: the student's link_version. */
+export const paidUrl = (
+  baseUrl: string | undefined,
+  secret: string,
+  studentId: string,
+  version = 0,
+) => `${(baseUrl ?? '').replace(/\/$/, '')}/f/${signId(secret, 'paid', studentId, version)}`;

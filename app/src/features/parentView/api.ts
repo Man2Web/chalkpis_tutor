@@ -1,4 +1,4 @@
-import { api, type ApiOptions } from '../../api/client';
+import { api, ApiError, type ApiOptions } from '../../api/client';
 
 export interface CreatedLink {
   url: string;
@@ -17,13 +17,17 @@ export async function createParentLink(
   sendWhatsApp = true,
   opts?: ApiOptions,
 ): Promise<CreatedLink & { sent: boolean }> {
-  const r = await api<{ url: string; expiresAt: string; sent?: boolean }>(
+  const r = await api<{ url?: string; expiresAt: string; sent?: boolean }>(
     'POST',
     `/students/${studentId}/parent-link`,
     { days, sendWhatsApp },
     opts,
   );
-  return { url: r.url, expiresAt: r.expiresAt, sent: !!r.sent };
+  // A retry the server answered from its record of the first try carries no link (the server never keeps it). If the
+  // link was sent by WhatsApp that is fine; to share it ourselves we need it, so this counts as a definite failure and
+  // the next tap (a new key) makes a fresh link.
+  if (!r.url && !r.sent) throw new ApiError(409, 'link_not_kept');
+  return { url: r.url ?? '', expiresAt: r.expiresAt, sent: !!r.sent };
 }
 
 export async function revokeParentLinks(studentId: string): Promise<number> {

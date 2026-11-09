@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import type { Config } from '../config.js';
 import { inTransaction, type Pool, type PoolConnection } from '../db.js';
 import { hashOtp, newId, newOtp } from '../lib/ids.js';
+import { addressKey } from '../lib/ip.js';
 import { withNamedLock } from '../lib/lock.js';
 import { normalizeIndianPhone } from '../lib/phone.js';
 import { meterLoginCode } from '../messaging/meter.js';
@@ -54,10 +55,18 @@ const sameCode = (a: string, b: string) =>
 const KNOWN_USER = `(u.last_login_at IS NOT NULL OR NOT EXISTS (
   SELECT 1 FROM memberships m WHERE m.user_id = u.id AND m.role = 'staff'))`;
 
+/**
+ * Rate-limit groups shared by every route that sends or checks a login code (the app, adding a number, the /plan
+ * billing page), so each address gets one allowance in all, not one per door (hardening, 9 Nov 2026).
+ */
+export const OTP_REQUEST = 'otp-request';
+export const OTP_VERIFY = 'otp-verify';
+
 /** New-number codes one address may ask for per hour (IPv6 counted per /64, the usual size of one customer's block). */
 const NEW_NUMBERS_PER_IP_HOUR = 10;
 const newNumberSlots = new Map<string, number[]>();
-const ipKey = (ip: string) => (ip.includes(':') ? ip.split(':').slice(0, 4).join(':') : ip);
+// a real /64 even for shortened forms (2001:db8::1 and 2001:db8:0:0:ffff::2 are one network)
+const ipKey = (ip: string) => addressKey(ip);
 function takeNewNumberSlot(ip: string, now: Date) {
   const key = ipKey(ip);
   const since = now.getTime() - 3_600_000;
@@ -92,11 +101,7 @@ export const resetNewNumberSlots = () => {
 };
 
 /** Wrong codes this number got in the last 24 hours (all its codes; rows live a day past expiry, see the cleanup job). */
-async function failedToday(
-  db: Pool | PoolConnection,
-  phone: string,
-  now: Date,
-): Promise<number> {
+async function failedToday(db: Pool | PoolConnection, phone: string, now: Date): Promise<number> {
   const [[r]] = (await db.query(
     'SELECT COALESCE(SUM(attempts), 0) AS n FROM otp_codes WHERE phone = ? AND created_at > ?',
     [phone, new Date(now.getTime() - 86_400_000)],
@@ -148,11 +153,13 @@ export async function requestOtp(
     // owner added who has never signed in is not "known" yet: otherwise adding numbers as helpers would lift them out
     // of the cap. And one address may ask for only a few new numbers an hour, so it cannot use up the cap for
     // everyone else on its own.
-    const [known] = (await conn.query(`SELECT 1 FROM users u WHERE u.phone = ? AND ${KNOWN_USER} LIMIT 1`, [
-      phone,
-    ])) as unknown as [unknown[]];
+    const [known] = (await conn.query(
+      `SELECT 1 FROM users u WHERE u.phone = ? AND ${KNOWN_USER} LIMIT 1`,
+      [phone],
+    )) as unknown as [unknown[]];
     if (!known.length) {
-      if (ip && !takeNewNumberSlot(ip, now)) return { ok: false, error: 'too_many', retryAfter: 600 } as const;
+      if (ip && !takeNewNumberSlot(ip, now))
+        return { ok: false, error: 'too_many', retryAfter: 600 } as const;
       const [[all]] = (await conn.query(
         `SELECT COUNT(*) AS n FROM otp_codes o WHERE o.created_at > ?
            AND NOT EXISTS (SELECT 1 FROM users u WHERE u.phone = o.phone AND ${KNOWN_USER})`,
@@ -251,7 +258,8 @@ async function checkOtp(
           return { ok: false } as const;
         }
       } else {
-        if ((await failedToday(c, phone, now)) >= OTP.maxFailedPerDay) return { ok: false } as const;
+        if ((await failedToday(c, phone, now)) >= OTP.maxFailedPerDay)
+          return { ok: false } as const;
         const [rows] = (await c.query(
           'SELECT id, code_hash, attempts FROM otp_codes WHERE phone = ? AND consumed_at IS NULL AND expires_at > ? ORDER BY created_at DESC LIMIT 1 FOR UPDATE',
           [phone, iso(now)],

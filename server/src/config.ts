@@ -28,6 +28,11 @@ const schema = z.object({
   JWT_SECRET: z.string().min(32, 'at least 32 characters'),
   /** Secret mixed into stored login-code hashes. 32+ random characters. */
   OTP_PEPPER: z.string().min(32, 'at least 32 characters'),
+  /**
+   * Secret mixed into admin dashboard password hashes. 32+ random characters, never the same as JWT_SECRET. Optional:
+   * unset, JWT_SECRET is used as before; once set, each admin's password moves over at their next sign-in.
+   */
+  ADMIN_PASSWORD_PEPPER: z.string().min(32, 'at least 32 characters').optional(),
   ACCESS_TTL_MINUTES: z.coerce.number().int().min(1).max(60).default(15),
   REFRESH_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(60),
   /** Development only: also return the login code in the response so it can be tried without WhatsApp. Ignored in production. */
@@ -156,12 +161,17 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     );
   }
   if (cfg.NODE_ENV === 'production') {
-    for (const k of ['JWT_SECRET', 'OTP_PEPPER'] as const) {
-      if (/^(.)\1+$/.test(cfg[k]) || /change|secret|example|password/i.test(cfg[k]))
+    for (const k of ['JWT_SECRET', 'OTP_PEPPER', 'ADMIN_PASSWORD_PEPPER'] as const) {
+      const v = cfg[k];
+      if (v !== undefined && (/^(.)\1+$/.test(v) || /change|secret|example|password/i.test(v)))
         throw new Error(
           `Invalid configuration:\n  ${k}: looks like a placeholder; use long random text`,
         );
     }
   }
+  if (cfg.ADMIN_PASSWORD_PEPPER !== undefined && cfg.ADMIN_PASSWORD_PEPPER === cfg.JWT_SECRET)
+    throw new Error(
+      'Invalid configuration:\n  ADMIN_PASSWORD_PEPPER: must differ from JWT_SECRET (that is the point of it)',
+    );
   return cfg;
 }

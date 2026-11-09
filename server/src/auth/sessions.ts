@@ -93,7 +93,15 @@ export async function refreshSession(
         await endLogin();
         return null;
       }
-      return issue(deps, c, t.user_id, t.family_id, now); // a retry after a lost answer
+      // a retry after a lost answer gets one more pair, once (hardening, 9 Nov 2026): a copied token can no longer be
+      // turned into any number of logins inside the window. A third use is refused without ending the login, since
+      // the person's own app already holds one of the two pairs.
+      const [r] = (await c.query(
+        'UPDATE refresh_tokens SET grace_used = 1 WHERE id = ? AND grace_used = 0',
+        [t.id],
+      )) as unknown as [{ affectedRows: number }];
+      if (!r.affectedRows) return null;
+      return issue(deps, c, t.user_id, t.family_id, now);
     }
     await c.query('UPDATE refresh_tokens SET rotated_at = ? WHERE id = ?', [now, t.id]);
     return issue(deps, c, t.user_id, t.family_id, now);

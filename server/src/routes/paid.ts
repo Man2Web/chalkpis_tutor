@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { AppDeps } from '../app.js';
 import { authenticate, requireInstitute, requireOwner } from '../auth/guard.js';
-import { readId } from '../billing/payLink.js';
+import { checkId, idOf } from '../billing/payLink.js';
 import { withTransaction } from '../db.js';
 import { notFound } from '../errors.js';
 import { payReported } from '../fees/service.js';
@@ -62,15 +62,24 @@ export function paidRoutes(app: FastifyInstance, deps: Deps) {
       .send(html);
 
   const load = async (token: string) => {
-    const id = readId(config.JWT_SECRET, 'paid', token);
+    const id = idOf(token);
     if (!id) return null;
     const [rows] = (await pool.query(
-      `SELECT s.id, s.institute_id, s.name, i.name AS centre, ${OWE_SQL} AS owe
+      `SELECT s.id, s.institute_id, s.name, s.link_version, i.name AS centre, ${OWE_SQL} AS owe
          FROM students s JOIN institutes i ON i.id = s.institute_id WHERE s.id = ? AND s.status = 'active'`,
       [id],
-    )) as unknown as [Student[]];
-    const s = rows[0];
-    if (!s) return null;
+    )) as unknown as [(Student & { link_version: number })[]];
+    const row = rows[0];
+    // signed for this student's current link version: a link from before the parent's number changed no longer works
+    if (!row || !checkId(config.JWT_SECRET, 'paid', token, id, Number(row.link_version)))
+      return null;
+    const s: Student = {
+      id: row.id,
+      institute_id: row.institute_id,
+      name: row.name,
+      centre: row.centre,
+      owe: row.owe,
+    };
     const [open] = (await pool.query(
       "SELECT id, amount, created_at FROM payment_reports WHERE student_id = ? AND status = 'pending'",
       [s.id],

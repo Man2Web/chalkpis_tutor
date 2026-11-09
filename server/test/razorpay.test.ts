@@ -1,6 +1,13 @@
 import { createHmac } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { offersPayLink, parsePayToken, payToken } from '../src/billing/payLink.js';
+import {
+  checkId,
+  idOf,
+  offersPayLink,
+  parsePayToken,
+  payToken,
+  signId,
+} from '../src/billing/payLink.js';
 import { PLANS } from '../src/billing/plans.js';
 import {
   RazorpayProvider,
@@ -107,6 +114,24 @@ describe('pay page tokens', () => {
     expect(parsePayToken('s2', t)).toBeNull();
     expect(parsePayToken('s1', `${t.slice(0, -1)}${t.endsWith('A') ? 'B' : 'A'}`)).toBeNull();
     expect(parsePayToken('s1', 'short')).toBeNull();
+  });
+  it('accepts only the canonical spelling of the id part', () => {
+    const t = payToken('s1', id);
+    const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    // the 22nd character has 4 spare bits: another character with the same top 2 bits decodes to the same id
+    const alt = `${t.slice(0, 21)}${B64[B64.indexOf(t[21]!) ^ 1]}${t.slice(22)}`;
+    expect(
+      Buffer.from(alt.slice(0, 22), 'base64url').equals(Buffer.from(t.slice(0, 22), 'base64url')),
+    ).toBe(true);
+    expect(parsePayToken('s1', alt)).toBeNull();
+  });
+  it('a raised version makes earlier links stop working, and version 0 signs as before', () => {
+    expect(signId('s1', 'paid', id, 0)).toBe(signId('s1', 'paid', id));
+    const v1 = signId('s1', 'paid', id, 1);
+    expect(v1).not.toBe(signId('s1', 'paid', id));
+    expect(idOf(v1)).toBe(id);
+    expect(checkId('s1', 'paid', v1, id, 1)).toBe(true);
+    expect(checkId('s1', 'paid', signId('s1', 'paid', id), id, 1)).toBe(false);
   });
 });
 
@@ -359,7 +384,11 @@ describe('Razorpay plan purchases', () => {
     await h.db.pool.query(
       `INSERT INTO web_subscriptions (id, institute_id, plan_id, cycle, amount, rp_plan_id, status, start_at)
        VALUES ('sub_157', ?, 'standard', 'year', ?, 'plan_std_year', 'authenticated', ?)`,
-      [auto.instituteId, PLANS.standard.prices.year, new Date(h.clock.now.getTime() + 14 * 86_400_000)],
+      [
+        auto.instituteId,
+        PLANS.standard.prices.year,
+        new Date(h.clock.now.getTime() + 14 * 86_400_000),
+      ],
     );
     const d = (await admin.call('GET', `/admin/api/institutes/${auto.instituteId}`)).body;
     expect(d.institute).toMatchObject({
@@ -368,7 +397,9 @@ describe('Razorpay plan purchases', () => {
     });
     expect(d.payUrl).toBeNull();
     // the owner stops it before it ever charges: the link is back
-    await h.db.pool.query("UPDATE web_subscriptions SET cancel_at_cycle_end = 1 WHERE id = 'sub_157'");
+    await h.db.pool.query(
+      "UPDATE web_subscriptions SET cancel_at_cycle_end = 1 WHERE id = 'sub_157'",
+    );
     expect(await payUrlOf(auto)).toBe(`https://tutor.chalkpis.com${payPage(auto)}`);
   });
 });
@@ -383,9 +414,13 @@ describe('offersPayLink', () => {
   });
   it('not while a paid plan runs, or while it renews through the store or the website', () => {
     expect(offersPayLink({ ...base, plan: 'starter' })).toBe(false);
-    expect(offersPayLink({ ...base, plan: 'pro', planActive: false, store: { willRenew: true } })).toBe(false);
+    expect(
+      offersPayLink({ ...base, plan: 'pro', planActive: false, store: { willRenew: true } }),
+    ).toBe(false);
     expect(offersPayLink({ ...base, webAutoRenew: { status: 'authenticated' } })).toBe(false);
     // a store subscription the owner cancelled, once it has run out
-    expect(offersPayLink({ ...base, plan: 'pro', planActive: false, store: { willRenew: false } })).toBe(true);
+    expect(
+      offersPayLink({ ...base, plan: 'pro', planActive: false, store: { willRenew: false } }),
+    ).toBe(true);
   });
 });
