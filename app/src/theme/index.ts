@@ -17,6 +17,7 @@ export const colors = {
   shell: '#F7F7F7', // the grey panel around a card's header and body
   shellRaised: '#F1F1F1',
   fill: 'rgba(0,0,0,0.06)', // search fields, segmented track, skeletons
+  ink: '#111111', // the logo letters on light backgrounds (brand kit)
   text: '#262626',
   textMuted: '#686868',
   textFaint: '#A3A3A3',
@@ -130,13 +131,12 @@ export const type = {
     color: colors.text,
     marginBottom: 6,
   },
+  /** Small group heading, in normal case: no all-capitals words anywhere (brand rule). */
   sectionHeader: {
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 18,
     ...font('600'),
-    letterSpacing: 0.6,
     color: colors.textMuted,
-    textTransform: 'uppercase' as const,
   },
 };
 

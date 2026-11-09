@@ -106,12 +106,12 @@ export function BrandReveal({ onDone }: { onDone: () => void }) {
         <Text
           style={{
             color: 'rgba(255,255,255,0.88)',
-            fontSize: 13,
-            letterSpacing: 2.6,
+            fontSize: 14,
+            letterSpacing: 0.3,
             ...font('600'),
           }}
         >
-          MANAGE • TEACH • GROW
+          Manage • Teach • Grow
         </Text>
       </Animated.View>
     </View>

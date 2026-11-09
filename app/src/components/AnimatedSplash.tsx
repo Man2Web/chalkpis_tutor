@@ -15,8 +15,8 @@ interface Props {
 }
 
 /**
- * The one launch screen, on phones and in the browser alike: brand blue with the white logo and "MANAGE • TEACH •
- * GROW" (see BrandReveal), held until the app is ready, then faded away.
+ * The one launch screen, on phones and in the browser alike: brand blue with the white logo and "Manage • Teach •
+ * Grow" (see BrandReveal), held until the app is ready, then faded away.
  */
 export default function AnimatedSplash({ appReady, children }: Props) {
   const [revealed, setRevealed] = useState(false);

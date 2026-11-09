@@ -99,7 +99,7 @@ function Sidebar({ active, staff }: { active: SectionItem['key']; staff: boolean
       <Pressable
         onPress={() => openKey(staff ? 'attendance' : 'home')}
         accessibilityRole="link"
-        accessibilityLabel="Chalkpis"
+        accessibilityLabel="ChalkPis Tutor"
         style={{ height: 64, justifyContent: 'center', paddingHorizontal: 22 }}
       >
         <Logo height={24} />

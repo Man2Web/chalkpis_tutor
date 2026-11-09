@@ -26,7 +26,7 @@ export function Section({
     <View className="mb-6">
       {title ? (
         <Text
-          className="mb-2 ml-1 text-xs font-medium uppercase tracking-wide text-muted-foreground"
+          className="mb-2 ml-1 text-sm font-medium text-muted-foreground"
           accessibilityRole="header"
         >
           {title}

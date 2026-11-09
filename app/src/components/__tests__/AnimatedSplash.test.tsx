@@ -10,7 +10,7 @@ jest.mock('expo-splash-screen', () => ({
   hideAsync: jest.fn(() => Promise.resolve(true)),
 }));
 
-const tagline = 'MANAGE • TEACH • GROW';
+const tagline = 'Manage • Teach • Grow';
 
 afterEach(() => jest.restoreAllMocks());
 
