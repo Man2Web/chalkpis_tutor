@@ -58,10 +58,26 @@ describe('billing page (/plan)', () => {
   const get = (url: string, cookie?: string) =>
     h.app.inject({ method: 'GET', url, headers: cookie ? { cookie } : {} });
   const lastCode = () => h.provider.sent[h.provider.sent.length - 1]!.vars[0]!;
-  /** Signs in through the real code flow and returns the session cookie. */
+  /**
+   * Signs in through the real code flow and returns the session cookie. Each sign-in comes from its own address, so
+   * the tests together do not use up the per-address code limit (10 in 10 minutes) that a real visitor has.
+   */
+  let signIns = 0;
   const signIn = async (phone: string) => {
-    expect((await form('/plan/code', { phone })).statusCode).toBe(200);
-    const r = await form('/plan/verify', { phone, code: lastCode() });
+    const from = { remoteAddress: `198.18.0.${(signIns += 1)}` };
+    const post = (url: string, body: Record<string, string>) =>
+      h.app.inject({
+        method: 'POST',
+        url,
+        ...from,
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          origin: 'https://tutor.chalkpis.com',
+        },
+        payload: new URLSearchParams(body).toString(),
+      });
+    expect((await post('/plan/code', { phone })).statusCode).toBe(200);
+    const r = await post('/plan/verify', { phone, code: lastCode() });
     expect(r.statusCode).toBe(303);
     const cookie = String(r.headers['set-cookie']).split(';')[0]!;
     expect(String(r.headers['set-cookie'])).toMatch(/HttpOnly; SameSite=Lax; Secure/);
