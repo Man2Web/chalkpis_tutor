@@ -2,5 +2,8 @@ node_modules
 dist
 .localdb
 .env
+.env.*
+*.pem
+*.key
 test
 *.md

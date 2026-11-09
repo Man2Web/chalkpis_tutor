@@ -1,18 +1,21 @@
 import { Platform } from 'react-native';
 import { tokens } from './tokens';
 
+/** The only server a release build (store build, phone update or the browser app) ever talks to. */
+export const PRODUCTION_API = 'https://tutor.chalkpis.com';
+
 /**
- * The server. Production sets EXPO_PUBLIC_API_URL. A release bundle made without it still talks to production: on
- * 5 Nov 2026 such a phone update sent every 1.1.0 app to the laptop's address ("No connection"). Only a development
- * build falls back to the laptop: 10.0.2.2 on the Android emulator, localhost elsewhere.
+ * The server. A release bundle always talks to production, whatever EXPO_PUBLIC_API_URL says (hardening, 9 Nov 2026):
+ * a wrong or tampered build setting cannot send people's sign-ins and data anywhere else. On 5 Nov 2026 a phone update
+ * built without the setting sent every 1.1.0 app to the laptop's address ("No connection"); that cannot happen either.
+ * Only a development build follows EXPO_PUBLIC_API_URL, or falls back to the laptop: 10.0.2.2 on the Android emulator,
+ * localhost elsewhere.
  */
 export const API_URL = (
-  process.env.EXPO_PUBLIC_API_URL ??
-  (!__DEV__
-    ? 'https://tutor.chalkpis.com'
-    : Platform.OS === 'android'
-      ? 'http://10.0.2.2:8787'
-      : 'http://127.0.0.1:8787')
+  !__DEV__
+    ? PRODUCTION_API
+    : (process.env.EXPO_PUBLIC_API_URL ??
+      (Platform.OS === 'android' ? 'http://10.0.2.2:8787' : 'http://127.0.0.1:8787'))
 ).replace(/\/$/, '');
 
 /** A failed call. `code` is the server's short reason (e.g. plan_expired, plan_limit, exceeds_balance); status 0 = no network. */

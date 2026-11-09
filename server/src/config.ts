@@ -163,7 +163,12 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   if (cfg.NODE_ENV === 'production') {
     for (const k of ['JWT_SECRET', 'OTP_PEPPER', 'ADMIN_PASSWORD_PEPPER'] as const) {
       const v = cfg[k];
-      if (v !== undefined && (/^(.)\1+$/.test(v) || /change|secret|example|password/i.test(v)))
+      // also the values from .env.example ("local-only-...-please-replace-with-48-random-chars")
+      if (
+        v !== undefined &&
+        (/^(.)\1+$/.test(v) ||
+          /change|secret|example|password|replace|local-only|placeholder/i.test(v))
+      )
         throw new Error(
           `Invalid configuration:\n  ${k}: looks like a placeholder; use long random text`,
         );

@@ -15,6 +15,16 @@ GoogleService-Info.plist
 *.jks
 *.keystore
 credentials.json
+# private keys and service accounts never belong in the repo (hardening, 9 Nov 2026): store signing keys, Apple .p8
+# keys, update-signing keys, Google service-account JSON
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+*service-account*.json
+*serviceAccount*.json
+keys/
 firebase-debug.log
 firestore-debug.log
 ui-debug.log

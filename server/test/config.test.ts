@@ -103,6 +103,26 @@ describe('loadConfig', () => {
     ).toThrow(/placeholder/);
     expect(() => loadConfig({ ...base, NODE_ENV: 'production' })).not.toThrow();
   });
+  it('refuses the example values from .env.example, and an admin pepper equal to JWT_SECRET', () => {
+    for (const k of ['JWT_SECRET', 'OTP_PEPPER', 'ADMIN_PASSWORD_PEPPER'])
+      expect(() =>
+        loadConfig({
+          ...base,
+          NODE_ENV: 'production',
+          [k]: 'local-only-otp-pepper-please-replace-with-48-random-chars',
+        }),
+      ).toThrow(new RegExp(`${k}: looks like a placeholder`));
+    expect(() => loadConfig({ ...base, ADMIN_PASSWORD_PEPPER: base.JWT_SECRET })).toThrow(
+      /ADMIN_PASSWORD_PEPPER/,
+    );
+    expect(
+      loadConfig({
+        ...base,
+        NODE_ENV: 'production',
+        ADMIN_PASSWORD_PEPPER: 'Zt3kQ9xW1mBv7cLp5nRy8dHf2gJs4aEu',
+      }).ADMIN_PASSWORD_PEPPER,
+    ).toBe('Zt3kQ9xW1mBv7cLp5nRy8dHf2gJs4aEu');
+  });
   it('WhatsApp settings are optional, but validated when given', () => {
     expect(loadConfig(base)).toMatchObject({ WA_API_METHOD: 'POST', OTP_DEV_ECHO: false });
     expect(() => loadConfig({ ...base, WA_API_URL: 'not a url' })).toThrow(/WA_API_URL/);

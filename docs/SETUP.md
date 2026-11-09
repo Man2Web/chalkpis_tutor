@@ -146,10 +146,10 @@ Already prepared in the repository: `app/eas.json` (three build profiles, each p
 
 Steps that need your Expo account (free, https://expo.dev):
 
-1. In a terminal: `cd app && npx eas-cli@latest login` (type your Expo email and password there; nobody else sees them).
-2. `npx eas-cli@latest init` creates the project on your account and writes its id into `app.json` (replacing `REPLACE_WITH_EAS_PROJECT_ID`). Commit that change.
-3. **A test build you can install on any Android phone:** `npx eas-cli@latest build --platform android --profile preview` (about 15 to 25 minutes; you get a download link to an `.apk`).
-4. **The Play Store build:** `npx eas-cli@latest build --platform android --profile production` makes an `.aab`. EAS creates and stores the signing key for you; back it up with `npx eas-cli@latest credentials`.
+1. In a terminal: `cd app && npx eas-cli@27.5.0 login` (type your Expo email and password there; nobody else sees them).
+2. `npx eas-cli@27.5.0 init` creates the project on your account and writes its id into `app.json` (replacing `REPLACE_WITH_EAS_PROJECT_ID`). Commit that change.
+3. **A test build you can install on any Android phone:** `npx eas-cli@27.5.0 build --platform android --profile preview` (about 15 to 25 minutes; you get a download link to an `.apk`).
+4. **The Play Store build:** `npx eas-cli@27.5.0 build --platform android --profile production` makes an `.aab`. EAS creates and stores the signing key for you; back it up with `npx eas-cli@27.5.0 credentials`.
 5. Play Console (https://play.google.com/console, one-time US$25 fee): create the app, fill in the store listing, add a **privacy policy address** (set `EXPO_PUBLIC_PRIVACY_POLICY_URL` in the profile's `env` in `eas.json` once you have one) and the data-safety form, then upload the `.aab` to an **internal testing** track first. The in-app delete-account flow (Settings) that Google requires is built.
 
 Changing the server address later: edit `EXPO_PUBLIC_API_URL` in `app/eas.json` and build again.
@@ -164,9 +164,9 @@ Small changes to screens, texts, colours and app logic (anything in JavaScript) 
 build, no Play Store review. The app checks for an update each time it opens and uses it on the **next** start.
 
 **One time:** the app must contain `expo-updates`, so make **one** new build after this change
-(`npx eas-cli@latest build --profile preview --platform android`, or `production` for the Play Store) and install it.
+(`npx eas-cli@27.5.0 build --profile preview --platform android`, or `production` for the Play Store) and install it.
 
-**Each update** (from the `app` folder, after `npx eas-cli@latest login`):
+**Each update** (from the `app` folder, after `npx eas-cli@27.5.0 login`):
 
 ```bash
 npm run update:preview -- "Fix fee reminder text"
@@ -179,7 +179,7 @@ against `https://tutor.chalkpis.com`, never the laptop address in `app/.env`.
 **What still needs a new build:** anything native: adding or upgrading a library with native code (camera, keyboard,
 haptics...), changing `app.json` (name, icon, permissions, splash) or upgrading Expo. The app uses the
 `fingerprint` runtime version, so an update made after such a change is simply not offered to older builds; make a
-new build instead. To undo a bad update: `npx eas-cli@latest update:republish` the previous one, or publish a fix.
+new build instead. To undo a bad update: `npx eas-cli@27.5.0 update:republish` the previous one, or publish a fix.
 
 ## 6b. The app in the browser (tutor.chalkpis.com/app)
 

@@ -80,8 +80,8 @@
     "test": "jest",
     "format": "prettier --write .",
     "web": "expo start --web",
-    "update:preview": "EXPO_PUBLIC_API_URL=https://tutor.chalkpis.com npx eas-cli@latest update --channel preview --environment preview --message",
-    "update:production": "EXPO_PUBLIC_API_URL=https://tutor.chalkpis.com npx eas-cli@latest update --channel production --environment production --message"
+    "update:preview": "EXPO_PUBLIC_API_URL=https://tutor.chalkpis.com npx eas-cli@27.5.0 update --channel preview --environment preview --message",
+    "update:production": "EXPO_PUBLIC_API_URL=https://tutor.chalkpis.com npx eas-cli@27.5.0 update --channel production --environment production --message"
   },
   "private": true
 }
