@@ -417,7 +417,8 @@ describe('billing page (/plan)', () => {
     expect(String(r.headers['set-cookie'])).toMatch(/^cp_plan=; Path=\/plan; Max-Age=0/);
     // the same cookie, kept somewhere else, is signed out as well
     expect((await get('/plan', cookie)).body).toContain('action="/plan/code"');
-    // signing in again works, with a new cookie
+    // signing in again works, with a new cookie (after the one-minute wait between codes for a number)
+    h.clock.now = new Date(h.clock.now.getTime() + 61_000);
     const again = await signIn('9800000001');
     expect((await get('/plan', again)).body).not.toContain('action="/plan/code"');
   });
