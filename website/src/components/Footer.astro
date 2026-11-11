@@ -6,6 +6,7 @@ import {
 } from '../config';
 
 import { CLASSES, classUrl } from '../data/classes';
+import { GUIDES } from '../data/guides';
 
 const cols = [
   { title: 'Product', links: [
@@ -16,6 +17,10 @@ const cols = [
     { label: 'Questions', href: '/pricing#faq' },
   ] },
   { title: 'Classes', links: CLASSES.map((c) => ({ label: c.short, href: classUrl(c) })) },
+  { title: 'Free guides', links: [
+    ...GUIDES.map((g) => ({ label: g.short, href: `/guides/${g.slug}` })),
+    { label: 'All guides', href: '/guides' },
+  ] },
 ];
 ---
 <footer class="foot">
@@ -56,9 +61,9 @@ const cols = [
 
 <style>
   /* brand on the left, then the link columns, spread across the full width */
-  .foot-top { padding-top: 64px; padding-bottom: 56px; display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)); gap: 48px; }
+  .foot-top { padding-top: 64px; padding-bottom: 56px; display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr)); gap: 40px; }
   @media (max-width: 1000px) {
-    .foot-top { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px 32px; }
+    .foot-top { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px 28px; }
     .foot-brand { grid-column: 1 / -1; }
   }
   .foot-tag { margin-top: 14px; color: var(--blue-ink); }

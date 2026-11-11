@@ -1,0 +1,285 @@
+---
+/**
+ * Fee reminder messages for WhatsApp: copy-paste templates (English, Hindi, Tamil) and a message maker that runs in the
+ * browser. Nothing typed into the maker leaves the page (no analytics values, no server); "Send on WhatsApp" only opens
+ * wa.me with the text. The ChalkPis wording itself is in docs/WHATSAPP-TEMPLATES.md (cp_fee_due_soon, cp_fee_overdue).
+ */
+import Guide from '../../layouts/Guide.astro';
+
+type Lang = 'en' | 'hi' | 'ta';
+interface Tpl { id: string; name: string; when: string; text: Record<string, string> }
+
+// {student} {amount} {month} {due} {upi} {centre}
+const TEMPLATES: Tpl[] = [
+  {
+    id: 'before', name: 'Gentle reminder before the due date', when: '2 to 3 days before the due date',
+    text: {
+      en: 'Hello, a gentle reminder that the {month} fee for {student} is {amount}, due on {due}. You can pay by UPI to {upi}. If you have already paid, please ignore this message. Thank you, {centre}',
+      hi: 'नमस्ते, {student} की {month} की फीस {amount} है, जो {due} तक जमा करनी है। आप UPI से {upi} पर भुगतान कर सकते हैं। अगर आप पहले ही भुगतान कर चुके हैं, तो कृपया इस संदेश को नज़रअंदाज़ करें। धन्यवाद, {centre}',
+      ta: 'வணக்கம், {student} அவர்களின் {month} மாதக் கட்டணம் {amount}, {due} க்குள் செலுத்த வேண்டும். UPI மூலம் {upi} க்கு செலுத்தலாம். ஏற்கனவே செலுத்தியிருந்தால் இந்தச் செய்தியைப் புறக்கணிக்கவும். நன்றி, {centre}',
+    },
+  },
+  {
+    id: 'today', name: 'Fee due today', when: 'On the due date, in the morning',
+    text: {
+      en: 'Hello, the {month} fee for {student} ({amount}) is due today. Please pay by UPI to {upi} and send us the payment screenshot here. Thank you, {centre}',
+    },
+  },
+  {
+    id: 'overdue', name: 'Fee overdue (first reminder)', when: '2 to 3 days after the due date',
+    text: {
+      en: 'Hello, the {month} fee for {student} of {amount} is still pending. Kindly pay at the earliest by UPI to {upi}. If you have already paid, please let us know so we can update our records. Thank you, {centre}',
+      hi: 'नमस्ते, {student} की {month} की फीस {amount} अभी बाकी है। कृपया जल्द से जल्द UPI से {upi} पर भुगतान करें। अगर आप भुगतान कर चुके हैं, तो कृपया हमें बता दें ताकि हम अपना रिकॉर्ड ठीक कर सकें। धन्यवाद, {centre}',
+      ta: 'வணக்கம், {student} அவர்களின் {month} மாதக் கட்டணம் {amount} இன்னும் நிலுவையில் உள்ளது. தயவுசெய்து விரைவில் UPI மூலம் {upi} க்கு செலுத்தவும். ஏற்கனவே செலுத்தியிருந்தால் எங்களுக்குத் தெரியப்படுத்தவும். நன்றி, {centre}',
+    },
+  },
+  {
+    id: 'firm', name: 'Fee overdue (firm reminder)', when: 'About a week after the first overdue reminder',
+    text: {
+      en: 'Hello, this is a reminder that {student}’s fee of {amount} for {month} has been pending since {due}. Please clear it this week. If there is any difficulty, please call us and we will work it out together. Regards, {centre}',
+    },
+  },
+  {
+    id: 'balance', name: 'Balance after a part payment', when: 'Right after a part payment',
+    text: {
+      en: 'Hello, thank you for paying part of {student}’s {month} fee. A balance of {amount} is still due. You can pay it by UPI to {upi}. Thank you, {centre}',
+    },
+  },
+  {
+    id: 'instalment', name: 'Yearly fee instalment due', when: 'A week before each instalment',
+    text: {
+      en: 'Hello, the next instalment of {student}’s yearly fee, {amount}, is due on {due}. Please pay by UPI to {upi}. Thank you, {centre}',
+    },
+  },
+  {
+    id: 'receipt', name: 'Payment received (receipt)', when: 'As soon as the money comes in',
+    text: {
+      en: 'Hello, we have received {amount} towards {student}’s fee for {month}. Thank you! Please keep this message as your receipt. Regards, {centre}',
+      hi: 'नमस्ते, {student} की {month} की फीस के लिए {amount} प्राप्त हुए। धन्यवाद! कृपया इस संदेश को रसीद के रूप में रखें। - {centre}',
+      ta: 'வணக்கம், {student} அவர்களின் {month} மாதக் கட்டணமாக {amount} பெற்றுக்கொண்டோம். நன்றி! இந்தச் செய்தியை ரசீதாக வைத்துக்கொள்ளவும். - {centre}',
+    },
+  },
+  {
+    id: 'change', name: 'New fee from next month', when: 'At least a month before the change',
+    text: {
+      en: 'Hello, from {month} the monthly fee for {student}’s batch will be {amount}. Thank you for your continued support, and please contact us if you have any questions. Regards, {centre}',
+    },
+  },
+];
+
+const LANGS: { id: Lang; name: string }[] = [
+  { id: 'en', name: 'English' },
+  { id: 'hi', name: 'Hindi' },
+  { id: 'ta', name: 'Tamil' },
+];
+
+// What the templates show on the page, in brackets (the message maker fills in the real values).
+const BLANK: Record<string, string> = {
+  student: '[Student name]', amount: '₹[amount]', month: '[month]', due: '[due date]', upi: '[your UPI ID]', centre: '[Your centre name]',
+};
+const fill = (t: string) => t.replace(/\{(\w+)\}/g, (_, k) => BLANK[k] ?? k);
+
+const SCHEDULE = [
+  ['2 to 3 days before', 'Gentle reminder with the amount, due date and your UPI ID', 'Most parents pay here, before it becomes “late”'],
+  ['On the due date', '“Due today” in the morning', 'Catches the ones who meant to pay'],
+  ['2 to 3 days after', 'First overdue reminder, still polite', 'Ask them to tell you if they already paid'],
+  ['Every 7 days after that', 'A firm reminder', 'Same words each time; never in a group'],
+  ['After 3 to 4 weeks', 'A phone call or a word at pick-up', 'Offer parts or a new date if money is tight'],
+];
+
+const FAQS = [
+  { q: 'How do I politely ask parents for tuition fees?', a: 'Keep it short, factual and the same for everyone: say hello, name the student, the month and the amount, give the due date and your UPI ID, and sign with your centre’s name. Add “If you have already paid, please ignore this message.” Send it to each parent privately, never in a group.' },
+  { q: 'What should a fee reminder message include?', a: 'The student’s name, the month or term, the amount, the due date, how to pay (your UPI ID or QR code) and your centre’s name. For an overdue fee, ask the parent to tell you if they have already paid, so you can check.' },
+  { q: 'When should I send a fee reminder?', a: 'Two or three days before the due date works best, because most parents pay as soon as they are reminded. Then once on the due date, once two or three days after it, and weekly after that. Call the parent if a fee is three to four weeks late.' },
+  { q: 'How do I send fee reminders to many parents at once on WhatsApp?', a: 'A WhatsApp broadcast list only reaches parents who have saved your number, and sending many identical messages from a personal number can get it restricted. An app like ChalkPis Tutor sends each parent their own reminder automatically, with their child’s name, amount and your UPI QR, from a WhatsApp Business number and signed with your centre’s name.' },
+  { q: 'Can I add my UPI QR code to the reminder?', a: 'By hand, attach a screenshot of your UPI QR after the message, or type your UPI ID so parents can copy it. ChalkPis Tutor puts your own UPI QR in every reminder for you, and the money goes straight to your account.' },
+  { q: 'Should I charge a late fee?', a: 'Only if it is written in the fee policy parents agreed to when they joined. A small fixed late fee after a clear grace period (for example ₹50 after the 15th) works better than a large one, and it gives your firm reminder something concrete to point to.' },
+];
+---
+<Guide slug="fee-reminder-message" faqs={FAQS}>
+  <Fragment slot="answer">
+    <p>A good fee reminder is short, polite and makes paying one tap. It names the student, the month and the amount, gives the due date and your UPI ID, and is signed with your centre’s name. Send the first one 2 to 3 days <em>before</em> the due date, one on the day, and a polite overdue reminder 2 to 3 days after.</p>
+  </Fragment>
+
+  <h2 id="maker">Make your fee reminder</h2>
+  <p>Fill in your details and pick a message. It updates as you type. Copy it, or open WhatsApp with it ready to send. Nothing you type leaves this page.</p>
+
+  <div class="maker panel" id="maker-box">
+    <div class="maker-fields">
+      <label class="fld"><span>Message</span>
+        <select id="m-type">{TEMPLATES.map((t) => <option value={t.id}>{t.name}</option>)}</select>
+      </label>
+      <label class="fld"><span>Language</span>
+        <select id="m-lang">{LANGS.map((l) => <option value={l.id}>{l.name}</option>)}</select>
+      </label>
+      <label class="fld"><span>Student name</span><input id="m-student" autocomplete="off" placeholder="Riya" /></label>
+      <label class="fld"><span>Amount (₹)</span><input id="m-amount" inputmode="numeric" autocomplete="off" placeholder="1500" /></label>
+      <label class="fld"><span>Month</span><input id="m-month" autocomplete="off" placeholder="November" /></label>
+      <label class="fld"><span>Due date</span><input id="m-due" autocomplete="off" placeholder="10 November" /></label>
+      <label class="fld"><span>Your UPI ID</span><input id="m-upi" autocomplete="off" placeholder="yourname@okaxis" /></label>
+      <label class="fld"><span>Your centre name</span><input id="m-centre" autocomplete="off" placeholder="Sharma Tuitions" /></label>
+      <label class="fld fld-wide"><span>Parent’s WhatsApp number (optional)</span><input id="m-phone" inputmode="tel" autocomplete="off" placeholder="98765 43210" /></label>
+    </div>
+    <div class="maker-out">
+      <p class="small" id="m-lang-note" hidden>This message is in English only for now.</p>
+      <div class="chat-box"><p class="bubble-out" id="m-text" aria-live="polite"></p></div>
+      <div class="maker-btns">
+        <button type="button" class="btn btn-dark" id="m-copy">Copy message</button>
+        <a class="btn btn-wa" id="m-send" href="https://wa.me/" target="_blank" rel="noopener">Send on WhatsApp</a>
+      </div>
+      <p class="small maker-nudge" id="m-nudge" hidden>Copied. Sending this to every parent, every month? <a href="/fee-collection">ChalkPis Tutor sends it for you</a>, with your UPI QR, for each student.</p>
+    </div>
+  </div>
+
+  <h2 id="english">8 fee reminder templates in English</h2>
+  <p>Replace the words in [brackets] with your own. Each template says when to send it.</p>
+  {TEMPLATES.map((t) => (
+    <div class="tpl">
+      <h3>{t.name}</h3>
+      <p class="small tpl-when">Send: {t.when.charAt(0).toLowerCase() + t.when.slice(1)}</p>
+      <div class="tpl-body"><p class="tpl-text">{fill(t.text.en)}</p><button type="button" class="btn btn-xs btn-soft tpl-copy">Copy</button></div>
+    </div>
+  ))}
+
+  <h2 id="hindi">Fee reminder message in Hindi</h2>
+  {TEMPLATES.filter((t) => t.text.hi).map((t) => (
+    <div class="tpl">
+      <h3>{t.name} (Hindi)</h3>
+      <div class="tpl-body"><p class="tpl-text" lang="hi">{fill(t.text.hi)}</p><button type="button" class="btn btn-xs btn-soft tpl-copy">Copy</button></div>
+    </div>
+  ))}
+
+  <h2 id="tamil">Fee reminder message in Tamil</h2>
+  {TEMPLATES.filter((t) => t.text.ta).map((t) => (
+    <div class="tpl">
+      <h3>{t.name} (Tamil)</h3>
+      <div class="tpl-body"><p class="tpl-text" lang="ta">{fill(t.text.ta)}</p><button type="button" class="btn btn-xs btn-soft tpl-copy">Copy</button></div>
+    </div>
+  ))}
+
+  <h2 id="when">When to send each reminder</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">When</th><th scope="col">What to send</th><th scope="col">Why</th></tr></thead>
+      <tbody>{SCHEDULE.map(([w, what, why]) => <tr><th scope="row">{w}</th><td>{what}</td><td>{why}</td></tr>)}</tbody>
+    </table>
+  </div>
+
+  <h2 id="tips">What makes parents pay faster</h2>
+  <ul>
+    <li><strong>Remind before, not after.</strong> A reminder before the due date reads as help. The same words after it read as chasing.</li>
+    <li><strong>Make paying one tap.</strong> Put your UPI ID or QR code in every message. Every extra step (“please send to my GPay number”) loses a few parents until next week.</li>
+    <li><strong>Same words for everyone.</strong> A standard message is never personal, so nobody feels singled out, and you never have to think about what to write.</li>
+    <li><strong>Always send a receipt.</strong> Parents who get a receipt trust your records and stop arguing about “I paid last month”.</li>
+    <li><strong>Never in the group.</strong> Fee reminders go to each parent privately, never in the class WhatsApp group.</li>
+    <li><strong>Give people a way out.</strong> “If there is any difficulty, please call us” turns a silent parent into a conversation about parts or a new date.</li>
+  </ul>
+
+  <h2 id="automatic">Sending to 30 or more parents? Stop doing it by hand</h2>
+  <p>Typing each child’s name, amount and month into WhatsApp every month takes hours, and it is easy to remind someone who has already paid. WhatsApp broadcast lists only reach parents who saved your number, and sending lots of the same message from your personal number can get it restricted.</p>
+  <p><a href="/fee-collection">ChalkPis Tutor</a> does it for you: each parent gets their own reminder before the due date and while the fee is overdue, with your UPI QR, signed with your centre’s name. Parents tap “I’ve paid”, you confirm in one tap, and the receipt goes out by itself. The money goes straight to your UPI, with no commission.</p>
+
+  <script is:inline define:vars={{ TEMPLATES }}>
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var BLANK = { student: '[Student name]', amount: '₹[amount]', month: '[month]', due: '[due date]', upi: '[your UPI ID]', centre: '[Your centre name]' };
+      var fields = ['student', 'amount', 'month', 'due', 'upi', 'centre'];
+      function rupees(v) {
+        var n = parseInt(String(v).replace(/[^0-9]/g, ''), 10);
+        return isNaN(n) ? '' : '₹' + n.toLocaleString('en-IN');
+      }
+      function values() {
+        var v = {};
+        fields.forEach(function (f) {
+          var raw = $('m-' + f).value.trim();
+          v[f] = f === 'amount' ? (rupees(raw) || BLANK.amount) : (raw || BLANK[f]);
+        });
+        return v;
+      }
+      function current() {
+        var t = TEMPLATES.find(function (x) { return x.id === $('m-type').value; }) || TEMPLATES[0];
+        var lang = $('m-lang').value;
+        var has = !!t.text[lang];
+        $('m-lang-note').hidden = has;
+        var v = values();
+        return (t.text[has ? lang : 'en']).replace(/\{(\w+)\}/g, function (_, k) { return v[k] || k; });
+      }
+      function phone() {
+        var d = $('m-phone').value.replace(/[^0-9]/g, '');
+        if (d.length === 10) d = '91' + d;
+        return d.length >= 11 && d.length <= 13 ? d : '';
+      }
+      function render() {
+        var text = current();
+        $('m-text').textContent = text;
+        $('m-send').href = 'https://wa.me/' + phone() + '?text=' + encodeURIComponent(text);
+      }
+      function copy(text, btn, done) {
+        var ok = function () {
+          var was = btn.textContent;
+          btn.textContent = 'Copied';
+          setTimeout(function () { btn.textContent = was; }, 1600);
+          if (done) done();
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, function () {});
+        else {
+          var ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); ok(); } catch (e) {}
+          ta.remove();
+        }
+      }
+      ['m-type', 'm-lang'].concat(fields.map(function (f) { return 'm-' + f; }), ['m-phone']).forEach(function (id) {
+        $(id).addEventListener('input', render);
+        $(id).addEventListener('change', render);
+      });
+      $('m-copy').addEventListener('click', function () {
+        copy(current(), $('m-copy'), function () { $('m-nudge').hidden = false; });
+        if (window.cpTrack) window.cpTrack('reminder_maker_copy', { template: $('m-type').value, language: $('m-lang').value });
+      });
+      $('m-send').addEventListener('click', function () {
+        if (window.cpTrack) window.cpTrack('reminder_maker_send', { template: $('m-type').value, language: $('m-lang').value });
+      });
+      document.querySelectorAll('.tpl-copy').forEach(function (b) {
+        b.addEventListener('click', function () {
+          copy(b.parentNode.querySelector('.tpl-text').textContent, b);
+          if (window.cpTrack) window.cpTrack('reminder_template_copy', {});
+        });
+      });
+      render();
+    })();
+  </script>
+</Guide>
+
+
+
+<style>
+  .maker { margin-top: 24px; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+  .maker-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-content: start; }
+  .fld { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--ink); }
+  .fld-wide { grid-column: 1 / -1; }
+  .fld input, .fld select { height: 44px; padding: 0 12px; border: 1px solid #d6d6d6; border-radius: 10px; background: #fff; font: inherit; font-size: 15px; font-weight: 400; color: var(--ink); min-width: 0; }
+  .fld input:focus, .fld select:focus { outline: 2px solid var(--blue); outline-offset: 0; border-color: transparent; }
+  .maker-out { display: flex; flex-direction: column; gap: 14px; }
+  .chat-box { background: #ece5dd; border-radius: 16px; padding: 16px; min-height: 180px; }
+  .bubble-out { margin: 0 !important; background: #dcf8c6; border-radius: 10px 2px 10px 10px; padding: 10px 12px; font-size: 15px !important; line-height: 1.5 !important; white-space: pre-wrap; box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08); }
+  .maker-btns { display: flex; flex-wrap: wrap; gap: 10px; }
+  .maker-btns .btn { flex: 1 1 160px; }
+  .btn-wa { background: var(--wa-green); color: #fff !important; text-decoration: none; }
+  .btn-wa:hover { background: #17924a; }
+  .maker-nudge { margin: 0 !important; font-size: 14px !important; padding: 12px 14px; border-radius: 12px; background: var(--blue-50); }
+
+  .tpl { margin-top: 28px; }
+  .tpl h3 { margin-top: 0 !important; }
+  .tpl-when { margin-top: 4px !important; font-size: 14px !important; color: var(--muted) !important; }
+  .tpl-body { margin-top: 10px; display: flex; align-items: flex-start; gap: 12px; padding: 16px 18px; border-radius: 14px; background: var(--surface); }
+  .tpl-text { margin: 0 !important; flex: 1; font-size: 16px !important; line-height: 1.6 !important; }
+  .tpl-copy { flex: none; }
+
+  @media (max-width: 860px) { .maker { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 600px) {
+    .maker { padding: 16px; }
+    .maker-fields { grid-template-columns: minmax(0, 1fr); }
+    .tpl-body { flex-direction: column; }
+  }
+</style>

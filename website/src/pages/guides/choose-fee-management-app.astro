@@ -1,0 +1,82 @@
+---
+/**
+ * How to choose a fee management app: an honest comparison of the ways tutors keep fees, a checklist, and where
+ * ChalkPis Tutor fits and where it does not. No named competitors (their prices and features change; we can't keep
+ * them accurate). Every ChalkPis fact is from docs/DECISIONS.md, as on the other pages.
+ */
+import Guide from '../../layouts/Guide.astro';
+import { PLANS, rupees } from '../../data/plans';
+import { TRIAL_DAYS } from '../../config';
+
+const COMPARE: [string, string, string, string, string][] = [
+  ['Fee reminders', 'You remember and type each one', 'You check the sheet, then type each one', 'Copy-paste, one parent at a time', 'Sent automatically, before and after the due date'],
+  ['Who has paid this month', 'Count the ticks', 'A filter, if the sheet is up to date', 'Scroll through chats', 'On the Home screen, always up to date'],
+  ['Receipts', 'A receipt book, if any', 'Make one by hand', 'A “received, thanks” message', 'Numbered receipt on WhatsApp, by itself'],
+  ['Part payments and balances', 'Notes in the margin', 'Extra columns and formulas', 'Hard to keep track', 'Balance carried to the next reminder'],
+  ['Paying by UPI', 'Parents ask for your number', 'Parents ask for your number', 'You send your UPI ID each time', 'Your UPI QR in every reminder'],
+  ['Time each month (60 students)', 'Several hours', 'A few hours', 'Several hours', 'Minutes, to confirm payments'],
+  ['Cost', 'Free', 'Free', 'Free', `From ${rupees(PLANS[0].month)} a month`],
+];
+
+const CHECKLIST = [
+  ['Reminders on WhatsApp, in your centre’s name', 'Parents in India read WhatsApp, not email or SMS. Check the message is signed with your centre’s name and that messages are included in the price.'],
+  ['Money goes straight to you', 'Parents should pay your own UPI ID or account. Avoid apps that collect fees for you and pay out later, or take a percentage.'],
+  ['Your UPI QR in the reminder', 'The fewer steps between the reminder and paying, the faster the money comes in.'],
+  ['Receipts sent automatically', 'Numbered, with the balance due, sent when you record a payment, including cash.'],
+  ['Part payments, advances and yearly fees in parts', 'Real fees are messy. Check the app keeps the balance right when a parent pays half, pays ahead or pays a yearly fee in instalments.'],
+  ['Works on your phone first', 'You will use it at the class, not at a desk. A laptop version is a bonus for reports.'],
+  ['Parents install nothing', 'Every app you ask parents to install is a reason they will not use it.'],
+  ['Staff see only what they need', 'Helpers who take attendance should not see fees or parents’ phone numbers.'],
+  ['Your data can leave', 'Export to Excel or PDF any time, and delete your account if you leave.'],
+  ['A free trial without a card', 'Try it with your real batches before you pay anything.'],
+];
+
+const FAQS = [
+  { q: 'What is the best fee management app for tuition classes in India?', a: 'The best one is the one that does the boring work for you: automatic WhatsApp reminders with your UPI QR, receipts on WhatsApp, part payments, and a clear list of who has paid, with the money going straight to your account. ChalkPis Tutor is built for exactly that, for tuition classes, coaching institutes and activity academies, from ₹199 a month with a free trial and no card needed.' },
+  { q: 'Is there a free app to manage tuition fees?', a: `Google Sheets is free and works for a small class if you update it daily. Most fee apps that send WhatsApp messages charge a small fee, because each WhatsApp message costs the app money. ChalkPis Tutor is free for ${TRIAL_DAYS} days, then from ₹199 a month with all messages included.` },
+  { q: 'Can I manage tuition fees in Excel?', a: 'Yes, for up to about thirty students: one row per student, one column per month. The sheet does not remind parents, send receipts or notice UPI payments, so the time goes into those jobs. Once that takes more than an hour or two a month, an app pays for itself.' },
+  { q: 'Do fee apps take a commission on fees?', a: 'Some do, especially those that collect payments through their own gateway. ChalkPis Tutor does not: parents pay your own UPI ID or payment link, so the full amount reaches you.' },
+  { q: 'Is a fee management app the same as a school ERP?', a: 'No. A school ERP covers admissions, transport, hostel, exams and staff payroll for a whole school. A fee management app is for classes and academies that need fees, attendance and parent updates done quickly on a phone. For schools, the same team makes ChalkPis School ERP.' },
+];
+---
+<Guide slug="choose-fee-management-app" faqs={FAQS}>
+  <Fragment slot="answer">
+    <p>Up to about 20 students, a notebook or Google Sheet is fine. Beyond that, choose an app that:</p>
+    <ul>
+      <li>sends fee reminders on WhatsApp by itself, in your centre’s name, with your UPI QR;</li>
+      <li>lets parents pay you directly, with no commission;</li>
+      <li>sends a receipt for every payment and handles part payments;</li>
+      <li>works on your phone and needs nothing installed by parents;</li>
+      <li>has a free trial without a card.</li>
+    </ul>
+  </Fragment>
+
+  <h2 id="compare">Notebook vs Excel vs WhatsApp vs a fee app</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col"></th><th scope="col">Notebook</th><th scope="col">Excel or Google Sheets</th><th scope="col">WhatsApp by hand</th><th scope="col">A fee app like ChalkPis Tutor</th></tr></thead>
+      <tbody>{COMPARE.map(([row, ...cells]) => <tr><th scope="row">{row}</th>{cells.map((c) => <td>{c}</td>)}</tr>)}</tbody>
+    </table>
+  </div>
+  <p>The free options cost nothing to start, but they cost your time every month, and the jobs they leave to you (reminding, checking, receipts) are the ones that decide whether fees arrive on time.</p>
+
+  <h2 id="checklist">10 things to check before you choose</h2>
+  <ol>{CHECKLIST.map(([h, p]) => <li><strong>{h}.</strong> {p}</li>)}</ol>
+
+  <h2 id="chalkpis">Where ChalkPis Tutor fits</h2>
+  <p>ChalkPis Tutor is a fee collection and management app for tuition classes, coaching institutes and academies for dance, music, yoga, karate, abacus and sports. It sends WhatsApp fee reminders with your own UPI QR, lets parents tap “I’ve paid”, sends numbered receipts and keeps part payments, advances and yearly fees in parts right. Attendance with absent alerts, tests and report cards, homework and enquiries are in the same app, on Android, iPhone and the browser.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">Plan</th><th scope="col">Students</th><th scope="col">Batches</th><th scope="col">Monthly</th><th scope="col">Yearly</th></tr></thead>
+      <tbody>{PLANS.map((p) => <tr><th scope="row">{p.name}{p.popular ? ' (most popular)' : ''}</th><td>{p.students}</td><td>{p.batches}</td><td>{rupees(p.month)}</td><td>{rupees(p.year)}</td></tr>)}</tbody>
+    </table>
+  </div>
+  <p>Every feature and all WhatsApp messages are in every plan. Free for {TRIAL_DAYS} days, no card needed. <a href="/pricing">See pricing</a>.</p>
+
+  <h3>When ChalkPis Tutor is not the right fit</h3>
+  <ul>
+    <li><strong>You run a school</strong> with transport, hostel and payroll: use a school ERP such as <a href="https://chalkpis.com">ChalkPis School ERP</a>.</li>
+    <li><strong>You need an online payment gateway</strong> that collects fees for you: ChalkPis Tutor sends parents to your own UPI instead, and never handles fee money.</li>
+    <li><strong>You teach outside India</strong>: the app is built for Indian rupees, UPI and WhatsApp in India.</li>
+  </ul>
+</Guide>

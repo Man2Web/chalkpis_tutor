@@ -23,6 +23,13 @@ Run from this folder (`website/`). Node 22.12 or newer.
 - `src/components/`: `Logo` (the C mark + "tutor", drawn as paths), `Icon`, `Nav`, `Footer`.
 - `src/pages/`: `index` (home), `pricing`, `for/[slug]` (the 7 class pages, content in `src/data/classes.ts`), `cookies`,
   `welcome` (where web sign-ups land, `?os=android|ios`; not indexed), `404`.
+- `src/pages/guides/` and `src/data/guides.ts`: free guides written to be found on Google and quoted by AI assistants
+  (fee reminder templates with a message maker, collecting fees on time, choosing a fee app), on `src/layouts/Guide.astro`.
+- `src/data/schema.ts`: structured data (JSON-LD). `Base.astro` puts the company (`#org`) and the site on every page; pages add
+  the app with its prices, FAQs, breadcrumbs or an article.
+- `public/llms.txt`: plain-text facts for AI assistants (ChatGPT, Claude, Perplexity). Update it with prices, trial length or features.
+- `src/pages/sitemap.xml.ts`: `/sitemap.xml` points to the sitemap @astrojs/sitemap writes (`/sitemap-index.xml`).
+- `src/components/MobileCta.astro`: on phones, a "Start free trial" + WhatsApp bar fixed to the bottom after the first screen.
 - `scripts/`: `npm run images` remakes `public/og.png` (the link preview, from `scripts/og.html`) and the icons.
 
 ## Class pages and their Meta ads
@@ -56,7 +63,8 @@ The site carries those `utm_*` values on to sign-up (`/start`), so each new cent
 - **GA4** `G-FG0YJS71R6`: runs with cookies from the first visit (the cookie banner is a notice with "Got it", the user's choice on 6 Nov 2026). Cookieless only for a visitor who turns tracking off on /cookies. Ad storage stays denied.
 - **Meta Pixel** `1863203504670970`: loads on the first visit, unless the visitor turned tracking off on /cookies.
 - Events: `start_signup_click` / `StartSignUp`, `play_store_click` / `PlayStoreClick` (with `placement`), `app_store_click`
-  (GA only), and on `/welcome?os=…` once per visit `sign_up` / `CompleteRegistration`.
+  (GA only), `whatsapp_click` / `Contact`, the message maker's `reminder_maker_copy`, `reminder_maker_send` and
+  `reminder_template_copy` (GA only; never what was typed), and on `/welcome?os=…` once per visit `sign_up` / `CompleteRegistration`.
 - The visit's `utm_*` are added to every `/start` link (the server saves them with the new centre) and to Google Play
   links as the install `referrer`. `fbclid` and the GA client ID are not passed on: the server keeps `utm_*` only.
 

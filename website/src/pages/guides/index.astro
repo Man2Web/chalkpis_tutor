@@ -1,0 +1,53 @@
+---
+/** /guides: the free guides for tutors and academy owners. */
+import Base from '../../layouts/Base.astro';
+import Icon from '../../components/Icon.astro';
+import { GUIDES } from '../../data/guides';
+import { breadcrumbNode } from '../../data/schema';
+import { SITE_URL } from '../../config';
+
+const schema = {
+  '@graph': [
+    {
+      '@type': 'CollectionPage',
+      name: 'Free guides for tutors and academy owners',
+      url: `${SITE_URL}/guides`,
+      hasPart: GUIDES.map((g) => ({ '@type': 'Article', headline: g.h1, url: `${SITE_URL}/guides/${g.slug}` })),
+    },
+    breadcrumbNode([['Guides', '/guides']]),
+  ],
+};
+---
+<Base
+  title="Free guides on collecting fees for tutors and academies · ChalkPis Tutor"
+  description="Free, practical guides for tuition teachers and academy owners in India: WhatsApp fee reminder templates, how to collect fees on time, and how to choose a fee management app."
+  schema={schema}
+>
+  <section class="wrap top">
+    <div class="head">
+      <p class="eyebrow">Free guides</p>
+      <h1 class="h1" style="margin-top: 10px">Get paid on time, <span style="color: var(--blue)">one habit at a time</span></h1>
+      <p class="lead" style="margin-top: 20px">Practical guides for tuition teachers, coaches and academy owners. Free to read, copy and share.</p>
+    </div>
+    <div class="list">
+      {GUIDES.map((g) => (
+        <a class="card item" href={`/guides/${g.slug}`}>
+          <h2 class="h3">{g.short}</h2>
+          <p class="body" style="margin-top: 10px">{g.blurb}</p>
+          <span class="go">Read the guide<Icon name="arrow" size={16} /></span>
+        </a>
+      ))}
+    </div>
+  </section>
+  <div class="end"></div>
+</Base>
+
+<style>
+  .top { padding-top: 72px; }
+  .list { margin-top: 48px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .item { display: flex; flex-direction: column; text-decoration: none; color: inherit; transition: background-color 0.15s ease; }
+  .item:hover { background: var(--blue-50); }
+  .go { margin-top: auto; padding-top: 20px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--blue-ink); }
+  @media (max-width: 900px) { .list { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 600px) { .top { padding-top: 40px; } }
+</style>

@@ -1,0 +1,83 @@
+---
+/** How to collect tuition fees on time: a practical guide, answer first. */
+import Guide from '../../layouts/Guide.astro';
+
+const POLICY = `Fee policy – [Your centre name]
+1. Fees are paid in advance, by the [5th] of every month.
+2. Pay by UPI to [your UPI ID]. You will get a receipt on WhatsApp for every payment.
+3. After the [15th], a late fee of ₹[50] is added.
+4. The fee is the same in months with holidays or a few missed classes.
+5. Yearly fees can be paid in up to [4] parts on the dates given at admission.
+6. Fees once paid are not refunded, but can be moved to a sibling or the next month if you tell us in advance.
+7. If you have any difficulty paying, please talk to us. We will find a way.`;
+
+const STEPS = [
+  { h: 'Write a one-page fee policy', p: 'Most fee arguments come from things nobody wrote down: Is the fee lower in Diwali month? What if my child missed a week? Put the answers on one page, share it at admission and pin it in your WhatsApp group. A sample is below.' },
+  { h: 'Pick one due date for everyone', p: 'One date, such as the 5th or the 10th, is easier to remember than each child’s joining date. Choose one soon after most parents get their salary. Different dates for different students mean you are reminding someone every single day.' },
+  { h: 'Collect in advance, not at the end of the month', p: 'A fee paid at the start of the month is for classes still to come, so it gets paid. A fee asked for after the month feels like a bill for something already used, and gets pushed to “next week”.' },
+  { h: 'Offer a reason to pay for longer', p: 'A small discount for paying a term or a year at once (for example, a year for the price of ten months) brings cash in early and means fewer reminders all year. Let big yearly fees be paid in two to four parts with fixed dates.' },
+  { h: 'Make paying a single tap', p: 'Put your UPI ID or QR code in every reminder. Parents who have to ask “which number do I pay to?” pay later. UPI also leaves a record on both sides, so there is no “I gave cash to your helper” confusion.' },
+  { h: 'Remind before the due date, then on a fixed rhythm', p: 'Send a gentle reminder two or three days before the due date, one on the day, one two or three days after, then weekly. Most parents simply forget, and a reminder before the date reads as help, not chasing. Use the same words for everyone.' },
+  { h: 'Send a receipt for every payment', p: 'A numbered receipt on WhatsApp, with any balance still due, ends “I paid last month” disputes and makes parents trust your records. It also shows you run a professional centre, which matters when you raise fees.' },
+  { h: 'Keep one list of who has paid', p: 'At any moment you should be able to answer “who has not paid this month?” in ten seconds. A notebook works for 10 students, Excel for 30; beyond that, an app that updates the list when a payment comes in saves hours.' },
+  { h: 'Handle part payments and hard months privately', p: 'Accept part payments and note the balance; it keeps the child in class and the parent paying. If a family is struggling, agree a new date in a private call. Never mention fees in front of the child or in the class group.' },
+  { h: 'Talk, don’t text, when a fee is very late', p: 'After three or four weeks, messages stop working. Call, or speak to the parent at pick-up. Be kind and specific: the amount, the months, and what you can offer (parts, a new date). Follow the late fee in your policy, the same for everyone.' },
+];
+
+const MISTAKES = [
+  'Reminding only after the fee is late, so every reminder feels like chasing.',
+  'Writing a new message each time, so some parents get a sharper tone than others.',
+  'Posting “fees pending” lists in the class WhatsApp group.',
+  'Taking cash without a receipt, then arguing about it two months later.',
+  'Keeping fees in your head, a notebook and WhatsApp chats at the same time.',
+  'Lowering the fee for holiday months without a written rule, so every month becomes a negotiation.',
+];
+
+const FAQS = [
+  { q: 'How do I ask parents for fees without feeling awkward?', a: 'Make it routine, not personal: the same polite message to everyone, sent on the same days every month, ideally by an app in your centre’s name. When reminders are automatic and expected, nobody feels singled out, including you.' },
+  { q: 'What should I do if a parent does not pay the fee?', a: 'Send polite reminders on a fixed rhythm, then call after three or four weeks. Offer parts or a new date if money is tight, and apply the late fee in your written policy. If there is still no payment after that, it is reasonable to pause classes until the fee is cleared, as long as your policy says so.' },
+  { q: 'Should tuition fees be collected in advance?', a: 'Yes. Fees paid at the start of the month for the classes to come are paid more reliably than fees asked for after the month. Most tuition centres in India collect monthly fees in advance by a fixed date, often the 5th or 10th.' },
+  { q: 'Is it okay to charge a late fee for tuition?', a: 'Yes, if it is in the fee policy parents agreed to at admission. Keep it small and fixed (for example ₹50 after the 15th), with a clear grace period, and apply it the same way for everyone.' },
+  { q: 'What is the best way to collect tuition fees online?', a: 'UPI to your own account: free, instant, and both sides have a record. Put your UPI ID or QR in every reminder. An app like ChalkPis Tutor adds your QR to WhatsApp reminders automatically, lets parents tap “I’ve paid” and sends the receipt, with no commission on your fees.' },
+  { q: 'How do I keep track of which students have paid?', a: 'Keep one list, updated as soon as money comes in. A notebook or Excel works for a small class. With more students, a fee app shows paid, pending and overdue for the month at a glance, and updates when a parent pays.' },
+];
+---
+<Guide slug="collect-fees-on-time" faqs={FAQS}>
+  <Fragment slot="answer">
+    <ol>
+      <li>Write a one-page fee policy and share it at admission.</li>
+      <li>Use one due date for everyone, and collect in advance.</li>
+      <li>Put your UPI ID or QR code in every reminder.</li>
+      <li>Remind 2 to 3 days <em>before</em> the due date, then on a fixed rhythm.</li>
+      <li>Send a receipt for every payment, and keep one list of who has paid.</li>
+    </ol>
+    <p>Most late fees are forgetting, not refusing. Make paying easy and reminders automatic, and most parents pay on time.</p>
+  </Fragment>
+
+  <h2 id="steps">10 steps to collect fees on time</h2>
+  {STEPS.map((s, i) => (
+    <>
+      <h3 id={`step-${i + 1}`}>{i + 1}. {s.h}</h3>
+      <p>{s.p}</p>
+    </>
+  ))}
+
+  <h2 id="policy">A sample fee policy you can copy</h2>
+  <p>Change the parts in [brackets], then share it with every new family and pin it in your class group.</p>
+  <div class="note policy"><pre>{POLICY}</pre></div>
+
+  <h2 id="reminders">What to say in a fee reminder</h2>
+  <p>Name the student, the month and the amount, give the due date and your UPI ID, and sign with your centre’s name. For example:</p>
+  <div class="note"><p style="margin: 0">Hello, a gentle reminder that the November fee for Riya is ₹1,500, due on 10 November. You can pay by UPI to sharmatuitions@okaxis. If you have already paid, please ignore this message. Thank you, Sharma Tuitions</p></div>
+  <p>We have <a href="/guides/fee-reminder-message">8 free fee reminder templates in English, Hindi and Tamil</a>, and a maker that fills in your details for you.</p>
+
+  <h2 id="mistakes">Common mistakes that make fees late</h2>
+  <ul>{MISTAKES.map((m) => <li>{m}</li>)}</ul>
+
+  <h2 id="tools">Notebook, Excel or an app?</h2>
+  <p>A notebook is fine for ten students. Excel or Google Sheets works up to about thirty, if you update it every day. Past that, the work is not keeping the list but sending the reminders, checking UPI and writing receipts, which is exactly what a fee app automates. We compare the options in <a href="/guides/choose-fee-management-app">how to choose a fee management app</a>.</p>
+</Guide>
+
+<style>
+  .policy pre { margin: 0; white-space: pre-wrap; font: inherit; font-size: 15px; line-height: 1.7; color: var(--text); }
+</style>

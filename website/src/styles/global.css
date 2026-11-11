@@ -125,3 +125,10 @@ button { font: inherit; }
   .marquee-track { gap: 36px; animation-duration: 26s; }
   .qtrack { gap: 14px; animation-duration: 40s; }
 }
+
+/* the reassurance line under a "Start free trial" button */
+.cta-note { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; font-size: 14px; color: var(--muted); }
+.cta-note span { display: inline-flex; align-items: center; gap: 6px; }
+.cta-note span::before { content: ''; width: 16px; height: 16px; flex: none; border-radius: 50%; background: #e7f6ef url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.2 2.2 4.8-4.8' fill='none' stroke='%23047857' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 16px no-repeat; }
+.cta-note.center { justify-content: center; }
+.cta-note.on-dark { color: var(--chalk-soft); }

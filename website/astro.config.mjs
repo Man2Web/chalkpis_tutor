@@ -8,5 +8,11 @@ export default defineConfig({
   trailingSlash: 'never',
   build: { format: 'file' },
   // /welcome (where sign-ups land) and /get-app (where QR codes lead) are not for search engines
-  integrations: [sitemap({ filter: (page) => !/\/(welcome|get-app)$/.test(page) })],
+  // lastmod is the build date: the site is rebuilt only when its pages change.
+  integrations: [
+    sitemap({
+      filter: (page) => !/\/(welcome|get-app)$/.test(page),
+      lastmod: new Date(),
+    }),
+  ],
 });

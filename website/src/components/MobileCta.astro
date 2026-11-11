@@ -1,0 +1,51 @@
+---
+/**
+ * On phones, a bar fixed to the bottom of the screen with "Start free trial" and "Chat on WhatsApp", shown once the
+ * visitor has scrolled past the first screen (the hero has its own buttons). Most visitors come from Meta ads on a
+ * phone, and the sign-up button should never be more than a thumb away. Hidden while the cookie notice is open and
+ * when the closing CTA band is on screen, so there are never two sets of the same buttons.
+ */
+import Icon from './Icon.astro';
+import { START_URL, TRIAL_DAYS, WHATSAPP_URL } from '../config';
+---
+<div class="mcta" id="mobile-cta" aria-label="Start your free trial" hidden>
+  <a class="btn btn-dark mcta-start" href={START_URL}>Start {TRIAL_DAYS}-day free trial</a>
+  <a class="btn mcta-wa" href={WHATSAPP_URL} aria-label="Chat with us on WhatsApp"><Icon name="whatsapp" size={22} /></a>
+</div>
+
+<script is:inline>
+  (function () {
+    var bar = document.getElementById('mobile-cta');
+    if (!bar) return;
+    var band = document.querySelector('.cta-dark');
+    var bandOnScreen = false;
+    if (band && 'IntersectionObserver' in window) {
+      new IntersectionObserver(function (entries) { bandOnScreen = entries[0].isIntersecting; update(); }).observe(band);
+    }
+    function update() {
+      var consent = document.getElementById('consent');
+      var consentOpen = consent && !consent.hidden;
+      bar.hidden = !(window.scrollY > 560 && !bandOnScreen && !consentOpen);
+    }
+    window.addEventListener('scroll', update, { passive: true });
+    document.addEventListener('click', function () { setTimeout(update, 0); });
+    update();
+  })();
+</script>
+
+<style>
+  .mcta { display: none; }
+  @media (max-width: 760px) {
+    .mcta:not([hidden]) {
+      position: fixed; z-index: 40; left: 0; right: 0; bottom: 0;
+      display: flex; gap: 10px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 -1px 0 rgba(17, 17, 17, 0.06), 0 -8px 24px rgba(17, 17, 17, 0.08);
+    }
+    .mcta-start { flex: 1; }
+    .mcta-wa { width: 48px; padding: 0; flex: none; background: var(--wa-green); color: #fff; }
+    .mcta-wa:hover { background: #17924a; }
+    /* room under the footer, so the bar never covers its last line */
+    :global(.foot) { padding-bottom: 76px; }
+  }
+</style>

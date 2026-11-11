@@ -1,4 +1,8 @@
+# chalkpistutor.com: every page is open to search engines and AI assistants
+# (Googlebot, Bingbot, GPTBot, OAI-SearchBot, ChatGPT-User, ClaudeBot, PerplexityBot, Google-Extended and the rest).
+# /welcome and /get-app carry their own noindex tag, so they are not blocked here (a block would hide that tag).
 User-agent: *
 Allow: /
 
+Sitemap: https://chalkpistutor.com/sitemap.xml
 Sitemap: https://chalkpistutor.com/sitemap-index.xml

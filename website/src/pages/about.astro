@@ -3,16 +3,7 @@
 import Base from '../layouts/Base.astro';
 import { COMPANY, SCHOOL_ERP_URL, START_URL, SUPPORT_EMAIL, TRIAL_DAYS, PRIVACY_URL } from '../config';
 
-const schema = {
-  '@context': 'https://schema.org',
-  '@type': 'Organization',
-  name: COMPANY,
-  alternateName: 'Man2Web',
-  email: SUPPORT_EMAIL,
-  telephone: '+91 70104 73833',
-  url: 'https://chalkpistutor.com/',
-  areaServed: 'IN',
-};
+const schema = { '@type': 'AboutPage', url: 'https://chalkpistutor.com/about', about: { '@id': 'https://chalkpistutor.com/#org' } };
 ---
 <Base title="About · ChalkPis Tutor" description={`ChalkPis Tutor is built and run by ${COMPANY} (Man2Web) in India, the team that also makes ChalkPis School ERP.`} schema={schema}>
   <section class="wrap top">

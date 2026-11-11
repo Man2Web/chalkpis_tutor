@@ -1,0 +1,124 @@
+---
+/**
+ * A free guide page (/guides/…): written to answer one question tutors ask Google or an AI assistant, with the short
+ * answer first, then the detail. Adds Article, FAQ and breadcrumb structured data, a sign-up box at the end and links
+ * to the other guides.
+ */
+import Base from './Base.astro';
+import Icon from '../components/Icon.astro';
+import FaqColumns from '../components/FaqColumns.astro';
+import { START_URL, TRIAL_DAYS } from '../config';
+import { GUIDES } from '../data/guides';
+import { articleNode, breadcrumbNode, faqNode } from '../data/schema';
+
+interface Props {
+  /** The guide's entry in src/data/guides.ts. */
+  slug: string;
+  faqs: readonly { q: string; a: string }[];
+}
+const { slug, faqs } = Astro.props;
+const g = GUIDES.find((x) => x.slug === slug)!;
+const path = `/guides/${g.slug}`;
+const others = GUIDES.filter((x) => x.slug !== g.slug);
+const schema = {
+  '@graph': [
+    articleNode({ headline: g.h1, description: g.description, path, published: g.published, modified: g.modified }),
+    faqNode(faqs),
+    breadcrumbNode([['Guides', '/guides'], [g.short, path]]),
+  ],
+};
+const fmt = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+---
+<Base title={g.title} description={g.description} schema={schema}>
+  <article class="guide">
+    <header class="wrap g-head">
+      <nav aria-label="Breadcrumb" class="crumbs small"><a href="/">Home</a><span>/</span><a href="/guides">Guides</a></nav>
+      <h1 class="h1 g-h1">{g.h1}</h1>
+      <p class="lead g-lead">{g.lead}</p>
+      <p class="small g-meta">By the ChalkPis Tutor team · Updated <time datetime={g.modified ?? g.published}>{fmt(g.modified ?? g.published)}</time></p>
+      <div class="answer">
+        <p class="answer-h">The short answer</p>
+        <slot name="answer" />
+      </div>
+    </header>
+
+    <div class="wrap prose"><slot /></div>
+
+    <section class="wrap g-cta" aria-label="Try ChalkPis Tutor">
+      <div class="g-cta-in">
+        <div>
+          <h2 class="h3">Let the reminders send themselves</h2>
+          <p class="body" style="margin-top: 8px">ChalkPis Tutor sends fee reminders on WhatsApp with your UPI QR, sends the receipt when a parent pays, and shows who has paid at a glance.</p>
+          <p class="cta-note"><span>No card needed</span><span>Sign up with your WhatsApp number</span></p>
+        </div>
+        <a class="btn btn-dark" href={START_URL}>Start {TRIAL_DAYS}-day free trial<Icon name="arrow" size={18} /></a>
+      </div>
+    </section>
+
+    <section class="sec wrap">
+      <FaqColumns title="Questions tutors ask" items={faqs}>
+        <p class="body" style="margin-top: 16px">Still stuck? <a href="/contact">Ask us on WhatsApp</a>.</p>
+      </FaqColumns>
+    </section>
+
+    <section class="sec end wrap" aria-labelledby="more-h">
+      <h2 class="h3" id="more-h">More free guides</h2>
+      <div class="more">
+        {others.map((o) => (
+          <a class="card more-card" href={`/guides/${o.slug}`}>
+            <span class="h4">{o.short}</span>
+            <span class="small" style="margin-top: 6px">{o.blurb}</span>
+          </a>
+        ))}
+        <a class="card more-card" href="/fee-collection">
+          <span class="h4">How ChalkPis Tutor collects fees</span>
+          <span class="small" style="margin-top: 6px">Reminders, “I’ve paid”, receipts and part payments.</span>
+        </a>
+      </div>
+    </section>
+  </article>
+</Base>
+
+<style>
+  .g-head { max-width: 820px; padding-top: 56px; }
+  .crumbs { display: flex; gap: 8px; }
+  .crumbs a { color: var(--muted); text-decoration: none; }
+  .crumbs a:hover { color: var(--ink); text-decoration: underline; }
+  .g-h1 { margin-top: 16px; font-size: clamp(34px, 4.4vw, 54px); }
+  .g-lead { margin-top: 20px; }
+  .g-meta { margin-top: 14px; }
+  .answer { margin-top: 32px; padding: 24px 28px; border-radius: 20px; background: var(--blue-50); }
+  .answer-h { font-size: 13px; font-weight: 700; letter-spacing: 0.02em; color: var(--blue-ink); }
+  .answer :global(p), .answer :global(li) { font-size: 16px; line-height: 1.6; color: var(--text); }
+  .answer :global(p) { margin-top: 8px; }
+  .answer :global(ol), .answer :global(ul) { margin: 10px 0 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
+
+  .prose { max-width: 820px; padding-top: 24px; }
+  .prose :global(h2) { margin-top: 56px; font-family: var(--display); font-weight: 800; font-size: clamp(26px, 2.8vw, 34px); line-height: 1.15; letter-spacing: -0.025em; color: var(--ink); }
+  .prose :global(h3) { margin-top: 32px; font-size: 20px; font-weight: 700; line-height: 1.3; color: var(--ink); }
+  .prose :global(p) { margin-top: 14px; font-size: 17px; line-height: 1.7; color: var(--text); }
+  .prose :global(ul), .prose :global(ol) { margin-top: 14px; padding-left: 24px; display: flex; flex-direction: column; gap: 8px; font-size: 17px; line-height: 1.65; color: var(--text); }
+  .prose :global(a) { color: var(--blue-ink); font-weight: 500; }
+  .prose :global(strong) { color: var(--ink); }
+  .prose :global(.table-wrap) { margin-top: 20px; overflow-x: auto; border-radius: 16px; box-shadow: 0 0 0 1px var(--border); }
+  .prose :global(table) { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 620px; }
+  .prose :global(th), .prose :global(td) { padding: 12px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); line-height: 1.5; }
+  .prose :global(thead th) { background: var(--surface); font-weight: 600; color: var(--ink); }
+  .prose :global(tbody th) { font-weight: 600; color: var(--ink); }
+  .prose :global(tr:last-child td), .prose :global(tr:last-child th) { border-bottom: 0; }
+  .prose :global(.note) { margin-top: 20px; padding: 18px 20px; border-radius: 16px; background: var(--surface); font-size: 16px; }
+
+  .g-cta { max-width: 820px; margin-top: 64px; }
+  .g-cta-in { padding: 28px; border-radius: 24px; background: var(--surface); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; }
+  .g-cta-in > div { flex: 1 1 380px; }
+
+  .more { margin-top: 24px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .more-card { display: flex; flex-direction: column; padding: 24px; text-decoration: none; color: inherit; transition: background-color 0.15s ease; }
+  .more-card:hover { background: var(--blue-50); }
+  @media (max-width: 860px) { .more { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 600px) {
+    .g-head { padding-top: 32px; }
+    .answer { padding: 20px; }
+    .g-cta-in .btn { width: 100%; }
+  }
+</style>

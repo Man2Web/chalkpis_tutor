@@ -7,8 +7,9 @@ import WhyBand from '../components/WhyBand.astro';
 import QaRow from '../components/QaRow.astro';
 import FaqColumns from '../components/FaqColumns.astro';
 import CtaBand from '../components/CtaBand.astro';
-import { START_URL, SITE_URL, SITE_NAME, PLAY_STORE_URL, APP_STORE_URL, TRIAL_DAYS } from '../config';
+import { START_URL, TRIAL_DAYS } from '../config';
 import { PLANS } from '../data/plans';
+import { appNode, faqNode } from '../data/schema';
 
 const MORE = [
   { id: 'tests', icon: 'tests', title: 'Tests and report cards', desc: 'Marks for a whole batch on one screen, with ranks and grades.' },
@@ -68,23 +69,11 @@ const QUOTES = [
 const scrollQuotes = QUOTES.length >= 3;
 const quoteLoop = [...QUOTES.map((q) => ({ ...q, copy: false })), ...QUOTES.map((q) => ({ ...q, copy: true }))];
 
-const schema = {
-  '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  name: SITE_NAME,
-  url: SITE_URL,
-  applicationCategory: 'BusinessApplication',
-  applicationSubCategory: 'Fee collection and management',
-  operatingSystem: 'Android, iOS, Web',
-  description: 'Fee collection and management app for classes and academies in India: WhatsApp fee reminders with your own UPI QR, receipts, attendance and parent updates.',
-  installUrl: [PLAY_STORE_URL, APP_STORE_URL],
-  offers: PLANS.map((p) => ({ '@type': 'Offer', name: p.name, price: p.month, priceCurrency: 'INR' })),
-  publisher: { '@type': 'Organization', name: 'M2W Technologies Private Limited' },
-};
+const schema = { '@graph': [appNode(), faqNode(HOME_FAQS)] };
 ---
 <Base
-  title="ChalkPis Tutor: Fee collection and management app"
-  description="Fee collection app for classes and academies. Automatic WhatsApp reminders with your own UPI QR, instant receipts and attendance in one app. Free for 7 days."
+  title="ChalkPis Tutor: Fee management app for tuition classes and academies"
+  description="Fee collection app for tuition classes, coaching centres and academies in India. Automatic WhatsApp fee reminders with your own UPI QR, instant receipts and attendance in one app. Free for 7 days, no card needed."
   schema={schema}
 >
   <!-- hero -->
@@ -95,9 +84,10 @@ const schema = {
       <h1 class="h1 hero-h1">Collect every fee <span class="hl">on time</span></h1>
       <p class="lead hero-lead">ChalkPis Tutor sends fee reminders on WhatsApp with your UPI QR, issues receipts automatically and shows who has paid at a glance. Attendance and parent updates are in the same app.</p>
       <div class="hero-cta">
-        <a class="btn btn-dark" href={START_URL}>Start 7-day free trial<Icon name="arrow" size={18} /></a>
+        <a class="btn btn-dark" href={START_URL}>Start {TRIAL_DAYS}-day free trial<Icon name="arrow" size={18} /></a>
         <button type="button" class="btn btn-soft" data-demo>Book a demo</button>
       </div>
+      <p class="cta-note"><span>No card needed</span><span>Sign up with your WhatsApp number</span><span>Your fees go straight to you</span></p>
     </div>
     <div class="hero-shot">
       <img src="/app/home-dashboard.webp" width="480" height="640" fetchpriority="high" alt="The ChalkPis Tutor Home screen: fees collected this month, pending and overdue fees, and today's attendance" />
@@ -318,6 +308,7 @@ const schema = {
     <div class="wrap">
       <FaqColumns title="Frequently asked questions" items={HOME_FAQS}>
         <p class="body" style="margin-top: 14px">Questions about plans and billing are on the <a href="/pricing#faq">pricing page</a>.</p>
+        <p class="body" style="margin-top: 10px">Free: <a href="/guides/fee-reminder-message">fee reminder messages for WhatsApp</a> you can copy.</p>
       </FaqColumns>
     </div>
   </section>

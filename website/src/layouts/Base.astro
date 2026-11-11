@@ -12,10 +12,13 @@ import ScrollReveal from '../components/ScrollReveal.astro';
 import CookieBanner from '../components/CookieBanner.astro';
 import DemoDialog from '../components/DemoDialog.astro';
 import GetAppCard from '../components/GetAppCard.astro';
+import MobileCta from '../components/MobileCta.astro';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { SITE_NAME, SITE_URL } from '../config';
+import {
+  SITE_NAME, SITE_URL, COMPANY, SUPPORT_EMAIL, SUPPORT_WHATSAPP, PLAY_STORE_URL, APP_STORE_URL,
+} from '../config';
 
 interface Props {
   title: string;
@@ -34,6 +37,47 @@ const canonical = new URL(path, SITE_URL).href;
 // a new og.png gets a new URL by itself and is fetched fresh. One share image for every page (the user's choice).
 const ogHash = createHash('sha1').update(readFileSync(join(process.cwd(), 'public', 'og.png'))).digest('hex').slice(0, 10);
 const ogImage = new URL(`/og.png?v=${ogHash}`, SITE_URL).href;
+
+// One JSON-LD graph per page: who makes ChalkPis Tutor and the site itself on every page (so search engines and AI
+// answer engines tie every page to the same company), then the page's own nodes (FAQ, breadcrumbs, app...).
+const ORG_ID = `${SITE_URL}/#org`;
+const siteNodes = [
+  {
+    '@type': 'Organization',
+    '@id': ORG_ID,
+    name: COMPANY,
+    alternateName: ['Man2Web', SITE_NAME],
+    url: `${SITE_URL}/`,
+    logo: { '@type': 'ImageObject', url: `${SITE_URL}/apple-touch-icon.png`, width: 180, height: 180 },
+    email: SUPPORT_EMAIL,
+    contactPoint: {
+      '@type': 'ContactPoint',
+      contactType: 'customer support',
+      telephone: `+${SUPPORT_WHATSAPP}`,
+      email: SUPPORT_EMAIL,
+      areaServed: 'IN',
+      availableLanguage: ['English', 'Hindi', 'Tamil'],
+    },
+    areaServed: 'IN',
+    sameAs: [PLAY_STORE_URL, APP_STORE_URL],
+  },
+  {
+    '@type': 'WebSite',
+    '@id': `${SITE_URL}/#website`,
+    name: SITE_NAME,
+    url: `${SITE_URL}/`,
+    inLanguage: 'en-IN',
+    publisher: { '@id': ORG_ID },
+  },
+];
+const pageNodes = !schema ? [] : Array.isArray(schema['@graph']) ? (schema['@graph'] as unknown[]) : [schema];
+const graph = {
+  '@context': 'https://schema.org',
+  '@graph': [...(noindex ? [] : siteNodes), ...pageNodes.map((n) => {
+    const { '@context': _ctx, ...rest } = n as Record<string, unknown>;
+    return rest;
+  })],
+};
 ---
 <!doctype html>
 <html lang="en-IN">
@@ -63,7 +107,8 @@ const ogImage = new URL(`/og.png?v=${ogHash}`, SITE_URL).href;
     <meta property="og:image:alt" content="ChalkPis Tutor: collect every fee on time. The app's Home screen with fees collected and pending." />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content={ogImage} />
-    {schema && <script type="application/ld+json" set:html={JSON.stringify(schema)} />}
+    {graph['@graph'].length > 0 && <script type="application/ld+json" set:html={JSON.stringify(graph)} />}
+    <link rel="alternate" type="text/plain" href="/llms.txt" title="ChalkPis Tutor for AI assistants" />
     <Analytics />
   </head>
   <body>
@@ -73,6 +118,7 @@ const ogImage = new URL(`/og.png?v=${ogHash}`, SITE_URL).href;
     <Footer />
     <DemoDialog />
     {!noindex && <GetAppCard />}
+    {!noindex && <MobileCta />}
     <CookieBanner />
     <ScrollReveal />
   </body>

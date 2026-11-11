@@ -7,6 +7,7 @@
  * - window.cpTrack(gaEvent, params, metaEvent, metaStandard) sends one event to both.
  * - The visit's utm_* values are kept for the visit and added to "Start free trial" links (the server stores them with
  *   the new centre) and to Google Play links as the install referrer.
+ * - A tap on a "Chat on WhatsApp" link (wa.me) is `whatsapp_click` / Contact.
  * Never put names, phone numbers or emails in an event.
  */
 import { GA_ID, META_PIXEL_ID, START_URL } from '../config';
@@ -99,5 +100,6 @@ import { GA_ID, META_PIXEL_ID, START_URL } from '../config';
     if (a.href.indexOf(START_URL) === 0) window.cpTrack('start_signup_click', { placement: placement(a) }, 'StartSignUp');
     else if (a.href.indexOf(PLAY) === 0) window.cpTrack('play_store_click', { placement: placement(a) }, 'PlayStoreClick');
     else if (a.href.indexOf('https://apps.apple.com/') === 0) window.cpTrack('app_store_click', { placement: placement(a) });
+    else if (a.href.indexOf('https://wa.me/') === 0) window.cpTrack('whatsapp_click', { placement: placement(a) }, 'Contact', true);
   });
 </script>
